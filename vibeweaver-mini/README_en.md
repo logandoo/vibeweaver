@@ -14,7 +14,7 @@ The mechanism is brutally simple: **size decides trigger rate, trigger rate deci
 - **Decompose & research first** — break the request into sub-tasks, search for existing solutions before coding
 - **Understand the project first** — read config, scripts, README, git status before changing anything
 - **TDD, test-first** — RED→GREEN, watch it fail or it doesn't count; regression fixes must complete the revert-and-fail proof; code written before its test gets deleted and restarted
-- **Frontend 3-layer testing standard** — logic tests (extract pure functions) + component tests (render & interaction) + E2E screenshots (acceptance criteria written to `tests/acceptance.md` BEFORE coding, Playwright screenshots, graded by [mm-sensor](https://github.com/logandoo) when installed)
+- **Frontend 3-layer testing standard** — logic tests (extract pure functions) + component tests (render & interaction) + E2E screenshots (acceptance criteria written to `tests/acceptance.md` BEFORE coding, Playwright screenshots, graded by [mm-sensor](https://github.com/logandoo/mm-sensor) when installed)
 - **NO TEST, NO DONE** — no executed tests with on-disk evidence, no completion; multi-endpoint backend tasks additionally require one cross-endpoint workflow test with state-transition assertions
 - **Script-only lifecycle** — build/start/stop go through `script/`; raw `npm run build` / `uvicorn` forbidden
 - **Fix loop** — max 5 iterations per problem; same failure 3× in a row means change approach
@@ -101,7 +101,7 @@ or copy `SKILL.md` into your skills folder:
 - Global (Linux/macOS): `~/.config/opencode/skills/vibeweaver-mini/`
 - Project: `.opencode/skills/vibeweaver-mini/`
 
-Restart opencode. Optional companions: Playwright (screenshot capture), [mm-sensor](https://github.com/logandoo) (independent screenshot grading — more reliable when installed).
+Restart opencode. Optional companions: Playwright (screenshot capture), [mm-sensor](https://github.com/logandoo/mm-sensor) (independent screenshot grading — more reliable when installed).
 
 ## Which one to pick
 
@@ -113,7 +113,7 @@ Restart opencode. Optional companions: Playwright (screenshot capture), [mm-sens
 ## Related
 
 - [vibeweaver](https://github.com/logandoo/vibeweaver) — the full version: memory system, design docs, verification gate, all companion files
-- [mm-sensor](https://github.com/logandoo) — independent image/video/audio verifier
+- [mm-sensor](https://github.com/logandoo/mm-sensor) — independent image/video/audio verifier
 
 ## License
 

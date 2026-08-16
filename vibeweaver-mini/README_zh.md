@@ -101,7 +101,7 @@ git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver-
 - 全局（Linux/macOS）：`~/.config/opencode/skills/vibeweaver-mini/`
 - 项目级：`.opencode/skills/vibeweaver-mini/`
 
-重启 opencode 即可。可选配件：Playwright（截图采集）、[mm-sensor](https://github.com/logandoo)（截图独立评分，装了更靠谱）。
+重启 opencode 即可。可选配件：Playwright（截图采集）、[mm-sensor](https://github.com/logandoo/mm-sensor)（截图独立评分，装了更靠谱）。
 
 ## 怎么选
 
@@ -113,7 +113,7 @@ git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver-
 ## 相关
 
 - [vibeweaver](https://github.com/logandoo/vibeweaver) — 完整版：记忆系统、设计文档、验证把关、全部配套文件
-- [mm-sensor](https://github.com/logandoo) — 图片/视频/音频独立验证器
+- [mm-sensor](https://github.com/logandoo/mm-sensor) — 图片/视频/音频独立验证器
 
 ## 许可证
 

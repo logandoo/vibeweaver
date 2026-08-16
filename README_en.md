@@ -25,7 +25,7 @@ Vibeweaver is a contract, not a methodology. It takes the single worst habit of 
 - **NO TEST, NO DONE** — every code change must be followed by executed tests with on-disk evidence (log files, screenshots, operation video, page audio). "It builds" is not evidence.
 - **Test-first, always** — logic-bearing code is written RED→GREEN: write the failing test first, *watch it fail* (the output gets pasted into `tests/verification_log.md`), then write the minimal code to make it pass. A test that passes on the first run proves nothing — it might be testing the wrong thing entirely. Regression tests must complete the full revert-and-fail cycle before they count.
 - **API-doc-driven backend tests** — for backend-only changes, the loop is: update the API doc → audit doc↔code consistency exactly once → write test cases *from the doc, not from the implementation* → run the httpx test→fix→test loop until everything passes. Cross-endpoint changes additionally require real-HTTP workflow scenarios with on-disk traces (`tests/workflows/*.trace.log`); direct service-layer calls are not E2E and don't count.
-- **Self-starting verification loop** — the moment a change touches runtime behavior, the agent enters `Act → Capture → Verify → Fix → Log` on its own. The capture is graded by an independent verifier ([mm-sensor](https://github.com/logandoo) if installed — the maker/checker split means the model doesn't grade its own homework); video/audio are included when the verifier model supports them, and the mode is decided by a capability probe.
+- **Self-starting verification loop** — the moment a change touches runtime behavior, the agent enters `Act → Capture → Verify → Fix → Log` on its own. The capture is graded by an independent verifier ([mm-sensor](https://github.com/logandoo/mm-sensor) if installed — the maker/checker split means the model doesn't grade its own homework); video/audio are included when the verifier model supports them, and the mode is decided by a capability probe.
 - **Script-only lifecycle** — frontend builds and service start/stop/restart go through `script/` scripts. Raw `npm run build`, `vite`, `npm start`, `uvicorn` are forbidden. Stop scripts must use the `.pid`-file pattern — `pkill -f "uvicorn"` on a shared box kills your coworker's service.
 - **Research before code** — the first action on any task is decomposing the problem (stop and ask when anything is unclear — one question at a time, no guessing) and searching the web (exa MCP + Context7) for existing solutions, evaluating at least two approaches before writing anything. This step is mandatory unless there's no internet or the fix is a trivial typo/config change. The philosophy behind it: **there is nothing new under the sun**. Your problem has almost certainly been solved before; if a genuine search turns up no precedent, the thing is too novel to be our job.
 - **Project memory** — arguably the most important piece, because opencode has *no native memory system*: every session starts with a fresh brain. vibeweaver builds one from files and rules — an index + topic files, trust tiers (⛔ Forbidden / ❌ Failed / ✅ Verified / ⏳ Unverified), and a fix state machine. Full mechanism below.
@@ -65,7 +65,7 @@ In short: it's a poor man's persistent memory — filesystem plus rules doing th
 
 ## The mm-sensor hookup: partner, not rival
 
-In general, [mm-sensor](https://github.com/logandoo) and vibeweaver should be used together — the skill has built-in detection and invocation for it. Sure, if you really don't want it, no problem, though results take a small hit, since the two skills are designed as a pair. The division of labor:
+In general, [mm-sensor](https://github.com/logandoo/mm-sensor) and vibeweaver should be used together — the skill has built-in detection and invocation for it. Sure, if you really don't want it, no problem, though results take a small hit, since the two skills are designed as a pair. The division of labor:
 
 - **vibeweaver makes the evidence exist.** Its rules force the agent to actually run the app, drive it with Playwright, and leave screenshots / operation video / page audio on disk.
 - **mm-sensor grades it independently.** The maker/checker split: the model that wrote the code is forbidden from grading its own screenshots while mm-sensor is loaded. vibeweaver alone falls back to direct-read self-grading — weaker, and it demands extra cross-checks against DOM and logs.
@@ -184,7 +184,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-gate.js ~/.config/opencode/pl
 
 (Or just keep it simple and only use the skill without the gate — the gate is the enforcement layer, the skill is the instruction layer, and both work independently.)
 
-Optional — but Playwright and [mm-sensor](https://github.com/logandoo) are the two we'd actually insist on: they're a designed pair, and the verification loop gets meaningfully weaker without them (self-grading instead of independent grading). Also useful: ffmpeg (video transcode), exa MCP + Context7 (research). None are required for the skill to function; they upgrade how much of the evidence gets collected and how independently it gets checked.
+Optional — but Playwright and [mm-sensor](https://github.com/logandoo/mm-sensor) are the two we'd actually insist on: they're a designed pair, and the verification loop gets meaningfully weaker without them (self-grading instead of independent grading). Also useful: ffmpeg (video transcode), exa MCP + Context7 (research). None are required for the skill to function; they upgrade how much of the evidence gets collected and how independently it gets checked.
 
 ## Stack compatibility
 
@@ -237,9 +237,7 @@ Short version: both start the same way — decompose, then plan. The weight diff
 
 ## Related
 
-- [vibeweaver-mini](https://github.com/logandoo/vibeweaver/tree/main/vibeweaver-mini) — the always-on single-file entry point for quick tasks
-- [mm-sensor](https://github.com/logandoo) — independent media verifier (image / video / audio)
-- [vibeweaver-eval](https://github.com/logandoo/vibeweaver/tree/main/vibeweaver-eval) — the full benchmark harness, configs, and raw runs
+- [mm-sensor](https://github.com/logandoo/mm-sensor) — independent media verifier (image / video / audio)
 
 ## Attribution
 
