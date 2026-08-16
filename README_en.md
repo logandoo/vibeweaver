@@ -6,6 +6,18 @@ For now it's optimized for opencode only. Adapting it to DeepSeek Harness as a p
 
 As for Codex and Claude Code — never used them, no plans to, no idea. Anyone interested is welcome to fork.
 
+## Repo layout
+
+This repository contains three sub-projects:
+
+| Directory | What |
+|---|---|
+| `vibeweaver/` | The full skill — this README describes it |
+| `vibeweaver-mini/` | Trimmed single-file variant (~5KB) with a small gain on small LLMs whose instruction-following is mediocre — the kind of skill that people who don't need it don't need at all, and people who do can actually use |
+| `vibeweaver-eval/` | Benchmark harness: 16-task A/B configs, grading scripts, raw results, round reports |
+
+Which one to pick: **strong model** → full (plugin-injected); **weak-following model** → mini, always-on; **extremely weak (~3B active)** → mini, force-injected.
+
 ## What it actually does
 
 Vibeweaver is a contract, not a methodology. It takes the single worst habit of coding agents — saying "done" without proof — and makes it structurally impossible to get away with:

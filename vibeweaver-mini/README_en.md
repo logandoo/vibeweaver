@@ -1,6 +1,6 @@
 # vibeweaver-mini
 
-A trimmed-down [vibeweaver](https://github.com/logandoo/vibeweaver/tree/main/vibeweaver), single-file, ~5KB, that buys a small gain on small LLMs whose instruction-following is mediocre but whose coding ability is decent. The kind of skill that people who don't need it don't need at all — and people who do need it can actually use.
+A trimmed-down [vibeweaver](https://github.com/logandoo/vibeweaver), single-file, ~5KB, that buys a small gain on small LLMs whose instruction-following is mediocre but whose coding ability is decent. The kind of skill that people who don't need it don't need at all — and people who do need it can actually use.
 
 ## Why mini exists at all
 
@@ -107,12 +107,12 @@ Restart opencode. Optional companions: Playwright (screenshot capture), [mm-sens
 
 - **Extremely weak model (~3B active)** → mini, force-injected (available-mode loading collapses below a capability threshold; the full version's ~88KB floods the context)
 - **Weak-following model (small/mid-size)** → mini, always-on
-- **Strong model** → full [vibeweaver](https://github.com/logandoo/vibeweaver/tree/main/vibeweaver), plugin-injected (or mini always-on + full version expanded on demand)
+- **Strong model** → full [vibeweaver](https://github.com/logandoo/vibeweaver), plugin-injected (or mini always-on + full version expanded on demand)
 - Project memory, design docs, the physical gate, all companion files — those live in the full version only
 
 ## Related
 
-- [vibeweaver](https://github.com/logandoo/vibeweaver/tree/main/vibeweaver) — the full version: memory system, design docs, verification gate, all companion files
+- [vibeweaver](https://github.com/logandoo/vibeweaver) — the full version: memory system, design docs, verification gate, all companion files
 - [mm-sensor](https://github.com/logandoo) — independent image/video/audio verifier
 
 ## License

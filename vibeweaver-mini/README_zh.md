@@ -1,6 +1,6 @@
 # vibeweaver-mini
 
-[vibeweaver](https://github.com/logandoo/vibeweaver/tree/main/vibeweaver) 的删减版，单文件，约 5KB。在指令遵循能力一般、但编程能力还行的小规模 LLM 上有点增益效果。属于不需要的人完全不需要，有需要的人确实可以用的那种 skill。
+[vibeweaver](https://github.com/logandoo/vibeweaver) 的删减版，单文件，约 5KB。在指令遵循能力一般、但编程能力还行的小规模 LLM 上有点增益效果。属于不需要的人完全不需要，有需要的人确实可以用的那种 skill。
 
 ## 为什么要单独做一个 mini
 
@@ -107,12 +107,12 @@ git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver-
 
 - **极弱模型（~3B 激活）** → 用 mini，强制注入（仅挂载在能力阈值之下会彻底失效；完整版约 88KB 会淹没上下文）
 - **弱指令遵循模型（中小模型）** → 用 mini，常驻触发
-- **强模型** → 用 [vibeweaver](https://github.com/logandoo/vibeweaver/tree/main/vibeweaver) 完整版，配插件注入（或 mini 常驻 + 完整版按需展开）
+- **强模型** → 用 [vibeweaver](https://github.com/logandoo/vibeweaver) 完整版，配插件注入（或 mini 常驻 + 完整版按需展开）
 - 完整版自带的项目记忆、设计文档、硬拦截插件，mini 都没有——需要这些就上完整版
 
 ## 相关
 
-- [vibeweaver](https://github.com/logandoo/vibeweaver/tree/main/vibeweaver) — 完整版：记忆系统、设计文档、验证把关、全部配套文件
+- [vibeweaver](https://github.com/logandoo/vibeweaver) — 完整版：记忆系统、设计文档、验证把关、全部配套文件
 - [mm-sensor](https://github.com/logandoo) — 图片/视频/音频独立验证器
 
 ## 许可证
