@@ -1,0 +1,29 @@
+{
+  "task": "swebench_pytest_dev_pytest_9359",
+  "arm": "with_skill",
+  "instance_id": "pytest-dev__pytest-9359",
+  "f2p_pass": false,
+  "p2p_regressions": [],
+  "patch_applied": true,
+  "test_patch_applied": true,
+  "notes": [],
+  "f2p_details": [
+    {
+      "node": "testing/code/test_source.py::test_decorator",
+      "resolved": "testing/code/test_source.py::test_decorator",
+      "ok": false
+    }
+  ],
+  "f2p_output_tail": [
+    "=========================== short test summary info ============================",
+    "FAILED testing/code/test_source.py::test_decorator - AssertionError: assert '...",
+    "1 failed in 0.03s"
+  ],
+  "p2p_guard": [
+    "testing/code/test_source.py::test_getstartingblock_singleline",
+    "testing/code/test_source.py::TestAccesses::test_getline",
+    "testing/code/test_source.py::test_source_of_class_at_eof_without_newline",
+    "testing/code/test_source.py::TestTry::test_body"
+  ],
+  "p2p_pass": false
+}

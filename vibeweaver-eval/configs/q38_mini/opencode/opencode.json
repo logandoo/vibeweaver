@@ -1,0 +1,43 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "local/qwen3.8-27b",
+  "small_model": "local/qwen3.8-27b",
+  "autoupdate": false,
+  "share": "disabled",
+  "skills": {
+    "paths": [
+      "$EVAL_ROOT/configs/q38_mini/opencode/skills"
+    ]
+  },
+  "provider": {
+    "local": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Local OpenAI-compatible",
+      "options": {
+        "baseURL": "http://localhost:28000/v1"
+      },
+      "models": {
+        "qwen3.8_27b": {
+          "name": "Qwen3.8 27B",
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          },
+          "compatibility": {
+            "reasoningField": "reasoning_content"
+          },
+          "options": {
+            "temperature": 0.6,
+            "topP": 0.95,
+            "body": {
+              "top_k": 20,
+              "chat_template_kwargs": {
+                "enable_thinking": true
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

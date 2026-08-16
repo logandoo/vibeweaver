@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_two_bucket",
+  "passed": false,
+  "tests_passed": 7,
+  "tests_total": 9,
+  "output": "F......F.                                                                [100%]\n=================================== FAILURES ===================================\n________ TwoBucketTest.test_goal_larger_than_both_buckets_is_impossible ________\n\nself = <two_bucket_test.TwoBucketTest testMethod=test_goal_larger_than_both_buckets_is_impossible>\n\n    def test_goal_larger_than_both_buckets_is_impossible(self):\n        with self.assertRaisesWithMessage(ValueError):\n>           measure(5, 7, 8, \"one\")\nE           AssertionError: ValueError not raised\n\ntwo_bucket_test.py:52: AssertionError\n______________ TwoBucketTest.test_not_possible_to_reach_the_goal _______________\n\nself = <two_bucket_test.TwoBucketTest testMethod=test_not_possible_to_reach_the_goal>\n\n    def test_not_possible_to_reach_the_goal(self):\n        with self.assertRaisesWithMessage(ValueError):\n>           measure(6, 15, 5, \"one\")\nE           AssertionError: ValueError not raised\n\ntwo_bucket_test.py:45: AssertionError\n2 failed, 7 passed in 0.02s\n"
+}

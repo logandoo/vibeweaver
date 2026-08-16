@@ -1,0 +1,13 @@
+{
+  "task": "swebench_pytest_dev_pytest_9359",
+  "arm": "a3b_baseline",
+  "instance_id": "pytest-dev__pytest-9359",
+  "f2p_pass": false,
+  "p2p_regressions": [],
+  "patch_applied": false,
+  "test_patch_applied": false,
+  "notes": [
+    "no diff produced"
+  ],
+  "f2p_details": []
+}

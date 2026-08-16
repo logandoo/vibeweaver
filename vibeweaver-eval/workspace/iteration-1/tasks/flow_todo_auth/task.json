@@ -1,0 +1,9 @@
+{
+  "benchmark": "flow",
+  "task_id": "flow_todo_auth",
+  "port": 8971,
+  "health_path": "/docs",
+  "hidden_workflow": "workflow_test.py",
+  "start_attempts": ["main:app", "app:app"],
+  "timeout_seconds": 600
+}

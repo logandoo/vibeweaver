@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_robot_name",
+  "exercise": "robot-name",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "robot_name_test.py"
+  ],
+  "solution_files": [
+    "robot_name.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_simple_linked_list",
+  "passed": false,
+  "tests_passed": 18,
+  "tests_total": 20,
+  "output": "....F.....F.........                                                     [100%]\n=================================== FAILURES ===================================\n______________ SimpleLinkedListTest.test_error_on_empty_list_head ______________\n\nself = <simple_linked_list_test.SimpleLinkedListTest testMethod=test_error_on_empty_list_head>\n\n    def test_error_on_empty_list_head(self):\n        sut = LinkedList()\n        with self.assertRaises(EmptyListException) as err:\n>           sut.head()\nE           AssertionError: EmptyListException not raised\n\nsimple_linked_list_test.py:24: AssertionError\n________ SimpleLinkedListTest.test_pop_from_singleton_list_removes_head ________\n\nself = <simple_linked_list_test.SimpleLinkedListTest testMethod=test_pop_from_singleton_list_removes_head>\n\n    def test_pop_from_singleton_list_removes_head(self):\n        sut = LinkedList([1])\n        self.assertEqual(sut.pop(), 1)\n        with self.assertRaises(EmptyListException) as err:\n>           sut.head()\nE           AssertionError: EmptyListException not raised\n\nsimple_linked_list_test.py:57: AssertionError\n2 failed, 18 passed in 0.03s\n"
+}

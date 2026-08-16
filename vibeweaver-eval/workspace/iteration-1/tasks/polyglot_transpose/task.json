@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_transpose",
+  "exercise": "transpose",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "transpose_test.py"
+  ],
+  "solution_files": [
+    "transpose.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

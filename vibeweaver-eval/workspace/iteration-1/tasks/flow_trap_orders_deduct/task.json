@@ -1,0 +1,13 @@
+{
+  "benchmark": "flow",
+  "task_id": "flow_trap_orders_deduct",
+  "port": 8974,
+  "health_path": "/docs",
+  "hidden_workflow": "workflow_test.py",
+  "start_attempts": [
+    "main:app",
+    "app:app"
+  ],
+  "skeleton_dir": "skeleton",
+  "timeout_seconds": 600
+}

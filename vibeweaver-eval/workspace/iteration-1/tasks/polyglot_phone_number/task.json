@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_phone_number",
+  "exercise": "phone-number",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "phone_number_test.py"
+  ],
+  "solution_files": [
+    "phone_number.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

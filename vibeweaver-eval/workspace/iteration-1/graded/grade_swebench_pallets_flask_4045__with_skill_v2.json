@@ -1,0 +1,34 @@
+{
+  "task": "swebench_pallets_flask_4045",
+  "arm": "with_skill_v2",
+  "instance_id": "pallets__flask-4045",
+  "f2p_pass": false,
+  "p2p_regressions": [],
+  "patch_applied": true,
+  "test_patch_applied": true,
+  "notes": [],
+  "f2p_details": [
+    {
+      "node": "tests/test_blueprints.py::test_dotted_name_not_allowed",
+      "resolved": "tests/test_blueprints.py::test_dotted_name_not_allowed",
+      "ok": false
+    },
+    {
+      "node": "tests/test_blueprints.py::test_route_decorator_custom_endpoint_with_dots",
+      "resolved": "tests/test_blueprints.py::test_route_decorator_custom_endpoint_with_dots",
+      "ok": false
+    }
+  ],
+  "f2p_output_tail": [
+    "=========================== short test summary info ============================",
+    "FAILED tests/test_blueprints.py::test_route_decorator_custom_endpoint_with_dots",
+    "1 failed, 1 passed in 0.06s"
+  ],
+  "p2p_guard": [
+    "tests/test_basic.py::test_werkzeug_passthrough_errors[True-False-False-False]",
+    "tests/test_basic.py::test_werkzeug_passthrough_errors[None-False-True-True]",
+    "tests/test_basic.py::test_werkzeug_passthrough_errors[False-False-True-True]",
+    "tests/test_blueprints.py::test_template_filter"
+  ],
+  "p2p_pass": false
+}

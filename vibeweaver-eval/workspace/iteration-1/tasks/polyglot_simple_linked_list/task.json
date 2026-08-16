@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_simple_linked_list",
+  "exercise": "simple-linked-list",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "simple_linked_list_test.py"
+  ],
+  "solution_files": [
+    "simple_linked_list.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

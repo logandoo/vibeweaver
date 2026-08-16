@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_bowling",
+  "exercise": "bowling",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "bowling_test.py"
+  ],
+  "solution_files": [
+    "bowling.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

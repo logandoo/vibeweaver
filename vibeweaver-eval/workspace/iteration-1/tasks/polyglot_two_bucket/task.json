@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_two_bucket",
+  "exercise": "two-bucket",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "two_bucket_test.py"
+  ],
+  "solution_files": [
+    "two_bucket.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

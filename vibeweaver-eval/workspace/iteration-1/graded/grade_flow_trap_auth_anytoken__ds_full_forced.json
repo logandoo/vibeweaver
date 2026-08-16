@@ -1,0 +1,9 @@
+{
+  "task": "flow_trap_auth_anytoken",
+  "arm": "ds_full_forced",
+  "passed": true,
+  "service_started": true,
+  "notes": [],
+  "start_method": "uvicorn main:app",
+  "output": ".                                                                        [100%]\n1 passed in 0.07s\n"
+}

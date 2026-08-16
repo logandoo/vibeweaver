@@ -1,0 +1,33 @@
+{
+  "task": "swebench_pytest_dev_pytest_6116",
+  "arm": "with_skill_mini_v1b",
+  "instance_id": "pytest-dev__pytest-6116",
+  "f2p_pass": true,
+  "p2p_regressions": [],
+  "patch_applied": true,
+  "test_patch_applied": true,
+  "notes": [],
+  "f2p_details": [
+    {
+      "node": "testing/test_collection.py::TestCustomConftests::test_pytest_fs_collect_hooks_are_seen",
+      "resolved": "testing/test_collection.py::TestCustomConftests::test_pytest_fs_collect_hooks_are_seen",
+      "ok": true
+    },
+    {
+      "node": "testing/test_collection.py::TestCustomConftests::test_pytest_collect_file_from_sister_dir",
+      "resolved": "testing/test_collection.py::TestCustomConftests::test_pytest_collect_file_from_sister_dir",
+      "ok": true
+    }
+  ],
+  "f2p_output_tail": [
+    "..                                                                       [100%]",
+    "2 passed in 0.16s"
+  ],
+  "p2p_guard": [
+    "testing/test_collection.py::TestSession::test_find_byid_without_instance_parents",
+    "testing/test_collection.py::TestCollectFS::test__in_venv[activate.csh]",
+    "testing/test_collection.py::test_exit_on_collection_error",
+    "testing/test_collection.py::TestCollectFS::test_ignored_virtualenvs[activate]"
+  ],
+  "p2p_pass": true
+}

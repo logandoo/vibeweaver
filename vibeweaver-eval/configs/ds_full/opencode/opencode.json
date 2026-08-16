@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "deepseek/deepseek-v4-flash",
+  "small_model": "deepseek/deepseek-v4-flash",
+  "autoupdate": false,
+  "share": "disabled",
+  "provider": {
+    "deepseek": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "DeepSeek",
+      "options": {
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": ""
+      },
+      "models": {
+        "deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash",
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          },
+          "compatibility": {
+            "reasoningField": "reasoning_content"
+          }
+        }
+      }
+    }
+  },
+  "skills": {
+    "paths": [
+      "$EVAL_ROOT/configs/ds_full/opencode/skills"
+    ]
+  }
+}

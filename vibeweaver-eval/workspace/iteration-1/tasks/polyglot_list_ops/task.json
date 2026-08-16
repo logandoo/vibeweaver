@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_list_ops",
+  "exercise": "list-ops",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "list_ops_test.py"
+  ],
+  "solution_files": [
+    "list_ops.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_list_ops",
+  "passed": false,
+  "tests_passed": 22,
+  "tests_total": 24,
+  "output": "............F..F........                                                 [100%]\n=================================== FAILURES ===================================\n_ ListOpsTest.test_foldr_direction_dependent_function_applied_to_non_empty_list _\n\nself = <list_ops_test.ListOpsTest testMethod=test_foldr_direction_dependent_function_applied_to_non_empty_list>\n\n    def test_foldr_direction_dependent_function_applied_to_non_empty_list(self):\n>       self.assertEqual(foldr(lambda acc, el: el / acc, [1, 2, 3, 4], 24), 9)\nE       AssertionError: 1.0 != 9\n\nlist_ops_test.py:78: AssertionError\n___________________ ListOpsTest.test_foldr_foldr_add_string ____________________\n\nself = <list_ops_test.ListOpsTest testMethod=test_foldr_foldr_add_string>\n\n    def test_foldr_foldr_add_string(self):\n>       self.assertEqual(\n            foldr(\n                lambda acc, el: el + acc, [\"e\", \"x\", \"e\", \"r\", \"c\", \"i\", \"s\", \"m\"], \"!\"\n            ),\n            \"exercism!\",\n        )\nE       AssertionError: '!msicrexe' != 'exercism!'\nE       - !msicrexe\nE       + exercism!\n\nlist_ops_test.py:94: AssertionError\n2 failed, 22 passed in 0.03s\n"
+}

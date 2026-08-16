@@ -1,0 +1,9 @@
+{
+  "task": "flow_trap_orders_deduct",
+  "arm": "q38_v2",
+  "passed": true,
+  "service_started": true,
+  "notes": [],
+  "start_method": "uvicorn main:app",
+  "output": ".                                                                        [100%]\n1 passed in 0.09s\n"
+}

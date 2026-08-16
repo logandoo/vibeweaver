@@ -1,0 +1,29 @@
+{
+  "task": "swebench_sympy_sympy_21627",
+  "arm": "with_skill_mini_v2",
+  "instance_id": "sympy__sympy-21627",
+  "f2p_pass": true,
+  "p2p_regressions": [],
+  "patch_applied": true,
+  "test_patch_applied": true,
+  "notes": [],
+  "f2p_details": [
+    {
+      "node": "test_Abs",
+      "resolved": "sympy/printing/tests/test_str.py::test_Abs",
+      "ok": true
+    }
+  ],
+  "f2p_output_tail": [
+    "",
+    "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+    "1 passed, 3 warnings in 0.29s"
+  ],
+  "p2p_guard": [
+    "test_adjoint",
+    "test_Abs_rewrite",
+    "test_conjugate_transpose",
+    "test_issue_11413"
+  ],
+  "p2p_pass": true
+}

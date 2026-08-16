@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_variable_length_quantity",
+  "passed": false,
+  "tests_passed": 25,
+  "tests_total": 26,
+  "output": ".......F..................                                               [100%]\n=================================== FAILURES ===================================\n_ VariableLengthQuantityTest.test_incomplete_sequence_causes_error_even_if_value_is_zero _\n\nself = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_incomplete_sequence_causes_error_even_if_value_is_zero>\n\n    def test_incomplete_sequence_causes_error_even_if_value_is_zero(self):\n        with self.assertRaises(ValueError) as err:\n>           decode([0x80])\nE           AssertionError: ValueError not raised\n\nvariable_length_quantity_test.py:112: AssertionError\n1 failed, 25 passed in 0.03s\n"
+}

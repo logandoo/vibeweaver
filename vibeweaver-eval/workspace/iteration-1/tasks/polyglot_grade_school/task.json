@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_grade_school",
+  "exercise": "grade-school",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "grade_school_test.py"
+  ],
+  "solution_files": [
+    "grade_school.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

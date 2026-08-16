@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_pig_latin",
+  "exercise": "pig-latin",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "pig_latin_test.py"
+  ],
+  "solution_files": [
+    "pig_latin.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

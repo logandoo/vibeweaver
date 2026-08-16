@@ -1,0 +1,13 @@
+{
+  "task": "swebench_psf_requests_3362",
+  "arm": "a3b_full_forced",
+  "instance_id": "psf__requests-3362",
+  "f2p_pass": false,
+  "p2p_regressions": [],
+  "patch_applied": false,
+  "test_patch_applied": false,
+  "notes": [
+    "no diff produced"
+  ],
+  "f2p_details": []
+}

@@ -1,0 +1,28 @@
+{
+  "task": "swebench_pallets_flask_4992",
+  "arm": "ds_mini_v2",
+  "instance_id": "pallets__flask-4992",
+  "f2p_pass": true,
+  "p2p_regressions": [],
+  "patch_applied": true,
+  "test_patch_applied": true,
+  "notes": [],
+  "f2p_details": [
+    {
+      "node": "tests/test_config.py::test_config_from_file_toml",
+      "resolved": "tests/test_config.py::test_config_from_file_toml",
+      "ok": true
+    }
+  ],
+  "f2p_output_tail": [
+    "s                                                                        [100%]",
+    "1 skipped in 0.02s"
+  ],
+  "p2p_guard": [
+    "tests/test_config.py::test_config_missing",
+    "tests/test_config.py::test_from_prefixed_env_custom_prefix",
+    "tests/test_config.py::test_custom_config_class",
+    "tests/test_config.py::test_from_pyfile_weird_encoding[latin-1]"
+  ],
+  "p2p_pass": true
+}

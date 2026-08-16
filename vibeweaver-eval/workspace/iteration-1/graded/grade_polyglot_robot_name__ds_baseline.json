@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_robot_name",
+  "passed": false,
+  "tests_passed": 3,
+  "tests_total": 4,
+  "output": "...F                                                                     [100%]\n=================================== FAILURES ===================================\n________________________ RobotNameTest.test_reset_name _________________________\n\nself = <robot_name_test.RobotNameTest testMethod=test_reset_name>\n\n    def test_reset_name(self):\n        # Set a seed\n        seed = \"Totally random.\"\n    \n        # Initialize RNG using the seed\n        random.seed(seed)\n    \n        # Call the generator\n        robot = Robot()\n        name = robot.name\n    \n        # Reinitialize RNG using seed\n        random.seed(seed)\n    \n        # Call the generator again\n        robot.reset()\n        name2 = robot.name\n>       self.assertNotEqual(name, name2)\nE       AssertionError: 'FV374' == 'FV374'\n\nrobot_name_test.py:46: AssertionError\n1 failed, 3 passed in 0.02s\n"
+}

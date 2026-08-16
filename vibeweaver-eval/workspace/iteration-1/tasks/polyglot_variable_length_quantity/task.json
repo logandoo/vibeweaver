@@ -1,0 +1,18 @@
+{
+  "benchmark": "polyglot",
+  "task_id": "polyglot_variable_length_quantity",
+  "exercise": "variable-length-quantity",
+  "prompt_file": "prompt.md",
+  "hidden_tests": [
+    "variable_length_quantity_test.py"
+  ],
+  "solution_files": [
+    "variable_length_quantity.py"
+  ],
+  "test_command": [
+    "python3",
+    "-m",
+    "pytest",
+    "-q"
+  ]
+}

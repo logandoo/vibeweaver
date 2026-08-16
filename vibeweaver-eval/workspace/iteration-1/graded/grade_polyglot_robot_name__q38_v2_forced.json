@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_robot_name",
+  "passed": true,
+  "tests_passed": 4,
+  "tests_total": 4,
+  "output": "....                                                                     [100%]\n4 passed in 0.02s\n"
+}
