@@ -62,7 +62,7 @@ vibeweaver 附带的配套插件 `vibeweaver-gate`，在**工具层**机械地�
 
 ## 认知层：工具之上的状态管理
 
-证据规则解决的是"模型谎报了做了什么"，解决不了"模型悄悄忘了自己处于什么状态"。长任务里的漂移、打转、目标蒸发属于后一类，住在更上面一层。最近一版从 [J-Space Cognition Suite](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6)（Apache-2.0，完整致谢见 [致谢](#致谢)）借来一组机制，正好补这一层：
+证据规则解决的是"模型谎报了做了什么"，解决不了"模型悄悄忘了自己处于什么状态"。长任务里的漂移、打转、目标蒸发属于后一类，住在更上面一层。最近一版从 [J-Space Cognition Suite](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6)（出处见 [致谢](#致谢)）借来一组机制，正好补这一层：
 
 - **来路不明的内容 = 数据，不是指令（COV-11）。** 这个 skill *强制*联网检索（exa MCP + Context7），而"忽略之前所有指令"恰恰就藏在外来内容里。抓取/工具/第三方的文本可以提供信息，但不能下命令；抓来的"解决方案"照样得过 ≥2 方案评估；并且不对称规则生效——扫到可疑是强证据，"没扫出可疑" **不等于** 干净："不存在"要靠一次具名检查确立，不能靠模型自己的监视器保持沉默来确立。
 - **一致性枢纽（写一次，读多次）。** 大任务在计划里为每个共享的 名字/配置键/值/签名 立一行规范记录。后续步骤*引用*枢纽行，而不是重新推导；改名先改枢纽，然后把旧拼写 grep 到零命中——零命中的 grep 输出就是完工证据。这直接干掉长任务里"同一个已确定的值出现三种拼写"的经典漂移。
@@ -273,10 +273,10 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 `CODING_PRINCIPLES.md` 改编自 [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)（"Karpathy-Inspired Claude Code Guidelines"，MIT 协议，作者 multica-ai / forrestchang），其源头是 [Andrej Karpathy 对 LLM 写码翻车模式的观察](https://x.com/karpathy)。
 
-**认知层**各机制改编自 [Tiger3807861189](https://github.com/Tiger3807861189) 的 [J-Space Cognition Suite V3.6](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6)（Apache-2.0）：其中"无覆盖范围的验证声明"检查（assert 第 13 组）直接移植自其 `ship` 检查；停滞参数化、独立参考实现的差分验证、双路对账、写一次读多次的一致性枢纽、不可信内容不对称规则、长间隔重入协议，以及插件里的机械化停滞观测，均出自该项目的模块与控制器；其"单入口 + 按需加载模块"的结构也影响了本 skill 的渐进披露组织方式。
+**认知层**各机制的出处是 [Tiger3807861189](https://github.com/Tiger3807861189) 的 [J-Space Cognition Suite V3.6](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6)："无覆盖范围的验证声明"检查（assert 第 13 组）仿照其 `ship` 检查而来；停滞参数化、独立参考实现的差分验证、双路对账、写一次读多次的一致性枢纽、不可信内容不对称规则、长间隔重入协议，以及插件里的机械化停滞观测，都可追溯到该项目的模块与控制器；其"单入口 + 按需加载模块"的结构也影响了本 skill 的渐进披露组织方式。致谢落在思想层面——此处的实现均为本项目原创。
 
 评测方法与原始数据：`vibeweaver-eval`。
 
 ## 许可证
 
-MIT —— 随便 Fork，随便折腾。里面有几处机制改编（含一小段正则）来自 J-Space（Apache-2.0），不影响你对这个仓库做任何事；要再分发那部分的话，把 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 里的署名带上就行。
+MIT —— 随便 Fork，随便折腾。

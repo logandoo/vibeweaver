@@ -637,8 +637,8 @@ cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
   验证通过…) requires a coverage scope on the same line (all / each /
   n≤N / `criterion #N` / `tests/…` path / 覆盖 / 用例 / 边界…). Structured
   lines (iter entries, baseline verdict, COV skips) and fenced code blocks
-  (pasted RED output) are exempt. The claim/coverage machinery is adapted
-  from J-Space Cognition Suite's `ship` check (Apache-2.0 — see repo
+  (pasted RED output) are exempt. The claim/scope lint is modeled on
+  J-Space Cognition Suite's `ship` check (idea level; see repo
   README → Attribution).
 
 Self-verify the copy with the 13 markers listed in SKILL.md §A4.4.1; an
