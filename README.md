@@ -278,4 +278,4 @@ Benchmark methodology and raw data: `vibeweaver-eval`.
 
 ## License
 
-MIT — go nuts, fork it, break it, tell us what broke. Apache-2.0 is not copyleft: the J-Space mechanisms were freely adaptable into this project; only the ported code portions stay governed by upstream Apache-2.0 terms — attribution and scope live in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+MIT — go nuts, fork it, break it, tell us what broke. A few mechanisms (and one small regex) were adapted from J-Space under Apache-2.0 — that changes nothing about what you can do with this repo; if you redistribute those parts, just keep the attribution in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

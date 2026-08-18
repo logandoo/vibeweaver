@@ -279,4 +279,4 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 ## 许可证
 
-MIT —— 随便 Fork，随便折腾。Apache-2.0 不是 copyleft：J-Space 的机制可自由改编并入本项目；只有被移植的代码部分仍受上游 Apache-2.0 条款约束——署名与范围见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。
+MIT —— 随便 Fork，随便折腾。里面有几处机制改编（含一小段正则）来自 J-Space（Apache-2.0），不影响你对这个仓库做任何事；要再分发那部分的话，把 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 里的署名带上就行。
