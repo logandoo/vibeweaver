@@ -18,6 +18,17 @@ This repository contains three sub-projects:
 
 Which one to pick: **strong model** → full (plugin-injected); **weak-following model** → mini, always-on; **extremely weak (~3B active)** → mini, force-injected.
 
+## The workflow is a graph, not a checklist
+
+One structural point before anything else: vibeweaver is not a list of practices for the model to *remember* — it is a **process graph / state machine encoded in natural language at the skill layer**. The state lives on disk; the transitions are gated.
+
+- **Nodes = stages with mandatory artifacts.** ZERO (decompose + research) → project-mode detection → design gates → implementation → verification loop → independent review dispatch → completion table. A stage is not "done" because the model said so — it is done when its required outputs actually exist on disk.
+- **Edges = explicit conditions, not model mood.** New project forks to one workflow, modify-existing to another; the verifier capability probe branches the capture and grading set into four modality modes; backend-only changes swap the browser loop for the doc-driven API test loop.
+- **Cycles are bounded by construction.** Every loop shares one termination contract — `cap=5` iterations per sub-problem, `stall=3×` — and the stop condition is written down by the user *first*, so the graph is guaranteed to have an exit.
+- **Traversal is soft, gating is hard.** The model walks the graph by interpreting prose — that part stays soft. But each guard condition is machine-checkable: literal tokens in the final answer, on-disk evidence byte-checked by `tests/assert_artifacts.py`, and (with the plugin) a tool-level hook that blocks the agent's own writes while any gate is red.
+
+That is what makes it a state machine instead of a sobriety pact: the current stage is always verifiable from the files, and no transition may be declared without its evidence. The stop hook below is the same idea one layer down — the graph's final guard, executed by opencode itself instead of the model.
+
 ## What it actually does
 
 Vibeweaver is a contract, not a methodology. It takes the single worst habit of coding agents — saying "done" without proof — and makes it structurally impossible to get away with:
