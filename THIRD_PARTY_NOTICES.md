@@ -8,24 +8,34 @@ in this repository.
 
 - Source: <https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6>
 - Author: Tiger3807861189 (<https://space.bilibili.com/3494375382321675>)
-- License: Apache License 2.0 — <https://www.apache.org/licenses/LICENSE-2.0>
+- License: Apache License 2.0 — full text at [`licenses/Apache-2.0.txt`](licenses/Apache-2.0.txt)
 
-Adapted materials in this repository:
+What we took, sorted by how much we took:
 
-1. **`vibeweaver/scripts/assert_artifacts.py`, group 13 (claim-without-coverage lint).**
-   The claim/coverage detection machinery (CLAIM/COVERAGE regex approach,
-   markdown-structure exemption, fenced-block handling) is ported and adapted from
-   `j-space/scripts/jspace.py` (`ship` mode). Modifications by the vibeweaver authors:
-   scoped to `tests/verification_log.md`, iter/baseline structured-line exemptions,
-   Python standard library only, different message wording. A prominent modification
-   notice is carried in the file's header comment.
+### Verbatim code (license obligations attach)
 
-2. **Protocol mechanisms** adapted (re-expressed, not copied) into `SKILL.md` and
-   `TESTING_PROTOCOLS.md`: untrusted-content asymmetry rule (COV-11 / §2 Step 0.4),
-   stall parameterization, differential testing against an independent reference,
-   dual-path reconciliation, the write-once consistency hub (C3), post-gap re-entry
-   (§3.3), and the mechanized stall observation in `vibeweaver/vibeweaver-gate.js`.
+- **`vibeweaver/scripts/assert_artifacts.py`, group 13 — the `CLAIM` regex**
+  (the English + Chinese claim-word list) is copied unchanged from
+  `j-space/scripts/jspace.py` (`ship` mode). The file carries a prominent
+  notice in its header comment.
 
-Ideas and protocols are restated here; where code was ported, the upstream
-Apache-2.0 terms govern that portion. If you redistribute the adapted portions,
-carry this notice (or an equivalent attribution) with them.
+### Modified code (derivative portions, license obligations attach)
+
+- **The `COVERAGE` regex and the `claim_without_coverage` detection logic** in the
+  same file are derived from the same source with modifications: scoped to
+  `tests/verification_log.md`, added iter/baseline structured-line exemptions,
+  Python standard library only, reworded messages.
+
+### Ideas and protocols (not copyrightable; attribution is courtesy)
+
+Re-expressed in our own words in `SKILL.md` and `TESTING_PROTOCOLS.md`:
+the untrusted-content asymmetry rule (COV-11 / §2 Step 0.4), stall
+parameterization, differential testing against an independent reference,
+dual-path reconciliation, the write-once consistency hub (C3), post-gap
+re-entry (§3.3), and the mechanized stall observation in
+`vibeweaver/vibeweaver-gate.js`. The single-entry + on-demand-module layout
+discipline was also informed by that project's architecture.
+
+For the code portions above, the upstream Apache-2.0 terms apply: keep the
+notices, ship the license text, and state modifications. If you redistribute
+those portions, carry this file (or equivalent attribution) with them.

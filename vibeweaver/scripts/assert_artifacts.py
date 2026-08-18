@@ -2,11 +2,13 @@
 Canonical copy: vibeweaver skill `scripts/assert_artifacts.py`.
 Mirrors SKILL.md §A4.4.1 minimum-check table (all 13 groups).
 
-Portions (group 13 claim/coverage machinery) adapted from J-Space Cognition
-Suite V3.6 (`j-space/scripts/jspace.py`, ship mode) — Copyright Tiger3807861189,
-Apache License 2.0. Modifications by the vibeweaver authors: scoped to
-tests/verification_log.md, structured-line exemptions, stdlib-only, reworded
-messages. See repo root THIRD_PARTY_NOTICES.md."""
+Portions of this file are used pursuant to the Apache License 2.0,
+Copyright Tiger3807861189 (https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6):
+group 13's CLAIM regex (the en/zh claim-word list) is verbatim from
+`j-space/scripts/jspace.py` (`ship` mode); its COVERAGE regex and detection
+logic are modified derivatives (scoped to tests/verification_log.md,
+structured-line exemptions, stdlib-only, reworded messages).
+License text: repo `licenses/Apache-2.0.txt`; inventory: `THIRD_PARTY_NOTICES.md`."""
 import argparse, os, pathlib, re, subprocess, sys
 
 FAILS = []
