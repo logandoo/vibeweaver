@@ -544,6 +544,18 @@ Save as `docs/PLAN.md` (see [SKILL.md C3](SKILL.md#c3-large-task-implementation-
 <Project-wide requirements — version floors, naming rules, config keys, exact values copied
 verbatim from the design docs. Every task implicitly includes this section.>
 
+## Consistency Hub (broadcast — write once, read many)
+
+| Entity | Canonical spelling / value / type | Source of truth |
+|---|---|---|
+| <e.g. `SESSION_TTL`> | `<1800 s>` | `<DATABASE_DESIGN.html §sessions>` |
+| <e.g. `SessionStore.get`> | `<get(token: str) -> Session \| None>` | `<Task 1>` |
+
+<One row per shared name / config key / value / signature / style anchor reused by
+≥2 tasks or ≥2 files. A rename or redefinition changes the hub row FIRST, then the old
+spelling is grepped to zero hits across the tree (that grep output is completion evidence).
+Re-reading the hub at every task boundary is what keeps a long deliverable consistent.>
+
 ### Task 1: <Component Name>
 
 **Files:**
@@ -599,137 +611,35 @@ git commit -m "feat: add <specific behavior>"
 > Byte-checks the artifacts behind every `[Verification Gate]` / `[Memory Gate]`
 > claim. Run from the project root BEFORE emitting the `[Verification Gate]`
 > line: `python3 tests/assert_artifacts.py` → exit 0 = claims backed by files;
-> exit 1 = false claims listed, fix the artifacts, re-run.
+> exit 1 = false claims listed — fix the artifacts, re-run.
 > Flags: `--existing` (Modify-Existing task → skip new-project §A5 design-doc
 > + git checks) · `--backend-only` (no UI → skip `PAGE_DESIGN.html` and
 > `script/linux/project_build.sh`).
-> The 10 assertion groups mirror SKILL.md §A4.4.1's minimum-check table — the
-> agent MUST implement every group, not a subset.
-> ⚠ COPY VERBATIM — SKILL.md §A4.4.1 mandates copying this block unchanged
-> into `tests/assert_artifacts.py` via the Read tool. Self-written variants
-> omit checks; the block below is complete by construction.
+> The 13 assertion groups mirror SKILL.md §A4.4.1's minimum-check table.
 
-Save as `tests/assert_artifacts.py`:
+**The canonical script is `scripts/assert_artifacts.py` in this skill's
+directory** — copy it, do NOT retype it (self-written variants omit check
+groups; observed in real runs):
 
-```python
-"""G-DED artifact assertions — byte-level check of verification claims.
-Mirrors SKILL.md §A4.4.1 minimum-check table (all 10 groups)."""
-import argparse, pathlib, re, subprocess, sys
-
-FAILS = []
-PASSES = 0
-
-def check(ok: bool, msg: str):
-    global PASSES
-    PASSES += 1
-    if not ok:
-        FAILS.append(msg)
-
-def read(p: pathlib.Path) -> str:
-    try:
-        return p.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return ""
-
-def main():
-    global PASSES
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--existing", action="store_true", help="Modify-Existing task: skip new-project §A5 design-doc + git checks")
-    ap.add_argument("--backend-only", action="store_true", help="no UI: skip PAGE_DESIGN.html and project_build.sh checks")
-    args = ap.parse_args()
-
-    root = pathlib.Path(__file__).resolve().parent.parent
-    tests = root / "tests"
-    vl = read(tests / "verification_log.md")
-    acc = read(tests / "acceptance.md")
-
-    # 1) verification_log — exists, has >=1 standard iteration entry (COV-1)
-    check(vl and len(vl.strip()) > 0, "tests/verification_log.md missing or empty (COV-1)")
-    check(bool(re.search(r"^- iter \d+ (PASS|FAIL):", vl, re.M)),
-          "verification_log.md has no `- iter N PASS/FAIL:` entries (A4.1 Step 4)")
-
-    # 2) acceptance.md — exists, first line cap/stall stop-condition (COV-7)
-    check(bool(re.search(r"^>\s*cap=5\s+stall=3", acc, re.M)),
-          "tests/acceptance.md missing first line `> cap=5  stall=3×` (COV-7)")
-
-    # 3) screenshots cited in the log files must exist >0 bytes (A4.4)
-    for png in re.findall(r"tests/(\S+\.png)", vl + "\n" + acc):
-        p = tests / png
-        check(p.exists() and p.stat().st_size > 0,
-              f"screenshot claimed but missing/empty: tests/{png} (A4.4)")
-
-    # 4) memory — MEMORY.md + >=1 topic file + index pointers (A7.9/A7.10)
-    mem = root / "memory"
-    idx_text = read(mem / "MEMORY.md")
-    check(bool(idx_text), "memory/MEMORY.md missing (A7.10)")
-    if idx_text:
-        topics = sorted(mem.glob("*.md"))
-        check(len(topics) >= 2, "memory/: MEMORY.md + >=1 topic file required (A7.9)")
-        check(bool(re.search(r"\]\([^)]+\.md\)", idx_text)),
-              "memory/MEMORY.md index has no topic-file pointers (A7.9)")
-        check(any(p.name != "MEMORY.md" for p in topics),
-              "memory/: at least one topic file besides MEMORY.md (A7.9)")
-
-    # 5) scripts — start/stop/restart (+ project_build unless --backend-only) (A2/COV-2)
-    for s in ["start.sh", "stop.sh", "restart.sh"]:
-        sp = root / "script" / "linux" / s
-        check(sp.exists() and (sp.stat().st_mode & 0o111),
-              f"script/linux/{s} missing or not executable (A2/COV-2)")
-    if not args.backend_only:
-        bp = root / "script" / "linux" / "project_build.sh"
-        check(bp.exists(), "script/linux/project_build.sh missing (A2; use --backend-only if no UI)")
-
-    # 6) git — new projects: repo exists with >=2 commits (C1 step 1/15, A9)
-    if not args.existing:
-        try:
-            r = subprocess.run(["git", "-C", str(root), "log", "--oneline"],
-                               capture_output=True, text=True, timeout=20)
-            rc, out = r.returncode, r.stdout
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            rc, out = -1, ""
-        n_commits = len([l for l in out.splitlines() if l.strip()]) if rc == 0 else 0
-        check(rc == 0 and n_commits >= 2,
-              f"new-project git repo needs >=2 commits (init + final); found {n_commits} (C1 step 1/15)")
-
-    # 7) §A5 design docs — new projects (skipped with --existing) (A5 / C1 step 2)
-    if not args.existing:
-        for doc in ["FLOW_DESIGN.html", "DATABASE_DESIGN.html", "BACKEND_DESIGN.html"]:
-            check((root / doc).exists(), f"new-project design doc missing: {doc} (A5 / C1 step 2)")
-        if not args.backend_only:
-            check((root / "PAGE_DESIGN.html").exists(),
-                  "new-project design doc missing: PAGE_DESIGN.html (A5; use --backend-only if no UI)")
-
-    # 8) README + requirements — new projects (skipped with --existing) (C1 step 15)
-    if not args.existing:
-        check(any((root / n).exists() for n in ["README.md", "README.html"]),
-              "new-project README.md/README.html missing (C1 step 15)")
-        check(any((root / n).exists() for n in ["requirements.txt", "package.json"]),
-              "new-project requirements.txt/package.json missing (C1 step 15)")
-
-    # 9) COV-9 — Modify-Existing tasks: baseline verdict recorded on disk (COV-9)
-    if args.existing:
-        check(bool(re.search(r"Baseline verified GREEN|COV-9 skipped", vl, re.M)),
-              "tests/verification_log.md missing `- Baseline verified GREEN` or `- COV-9 skipped —` entry (COV-9)")
-
-    # 10) A4.7b — workflow traces cited in the log must exist >0 bytes (A4.7b)
-    for wf in re.findall(r"tests/workflows/(\S+?\.trace\.log)", vl):
-        p = tests / "workflows" / wf
-        check(p.exists() and p.stat().st_size > 0,
-              f"workflow trace claimed but missing/empty: tests/workflows/{wf} (A4.7b)")
-
-    # 11) A4.1 — video/audio evidence cited in the log must exist >0 bytes (A4.1 Step 2/3)
-    for m in re.findall(r"tests/(\S+\.(?:webm|wav|mp4|mp3))", vl):
-        p = tests / m
-        check(p.exists() and p.stat().st_size > 0,
-              f"media evidence claimed but missing/empty: tests/{m} (A4.1)")
-
-    if FAILS:
-        print("ASSERT FAILURES (%d):" % len(FAILS))
-        for f in FAILS:
-            print("  - " + f)
-        sys.exit(1)
-    print(f"assert_artifacts.py: all {PASSES} checks pass (exit 0)")
-
-if __name__ == "__main__":
-    main()
+```bash
+cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
 ```
+
+- **Groups 1-11** — evidence/structure byte checks: iteration entries,
+  acceptance cap-stall line, cited media exist >0 bytes, memory index,
+  script executability, git commit count, design docs, README/deps,
+  baseline verdict (COV-9), workflow traces, video/audio evidence.
+- **Group 12 — FAIL diagnosis clause** — every `- iter N FAIL:` log line
+  carries `diagnosis:` (A4.1 Step 4: a retry without its diagnosis is the
+  same attempt again).
+- **Group 13 — claim without coverage** — a claim word (verified /
+  confirmed / validated / tested / proven, plus 已验证 / 已确认 / 已测试 /
+  验证通过…) requires a coverage scope on the same line (all / each /
+  n≤N / `criterion #N` / `tests/…` path / 覆盖 / 用例 / 边界…). Structured
+  lines (iter entries, baseline verdict, COV skips) and fenced code blocks
+  (pasted RED output) are exempt. The claim/coverage machinery is adapted
+  from J-Space Cognition Suite's `ship` check (Apache-2.0 — see repo
+  README → Attribution).
+
+Self-verify the copy with the 13 markers listed in SKILL.md §A4.4.1; an
+incomplete variant is re-copied, never patched by hand.

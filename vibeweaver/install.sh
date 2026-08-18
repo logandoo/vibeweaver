@@ -22,7 +22,13 @@ FILES=(
     "APPENDIX.md"
     "MEMORY_TEMPLATES.md"
     "MEMORY_RULES.md"
+    "TESTING_PROTOCOLS.md"
 )
+
+if [[ ! -f "${SCRIPT_DIR}/scripts/assert_artifacts.py" ]]; then
+    echo "[ERROR] scripts/assert_artifacts.py not found at: ${SCRIPT_DIR}/scripts/"
+    exit 1
+fi
 
 # Check source files exist
 for file in "${FILES[@]}"; do
@@ -41,7 +47,12 @@ for file in "${FILES[@]}"; do
     echo "[OK] Installed: ${file}"
 done
 
+# Copy the canonical artifact-assertion script (copied into projects per SKILL.md A4.4.1)
+mkdir -p "${SKILLS_DIR}/scripts"
+cp "${SCRIPT_DIR}/scripts/assert_artifacts.py" "${SKILLS_DIR}/scripts/assert_artifacts.py"
+echo "[OK] Installed: scripts/assert_artifacts.py"
+
 echo ""
 echo "[OK] vibeweaver skill installed to: ${SKILLS_DIR}/"
-echo "     Files installed: ${#FILES[@]}"
+echo "     Files installed: $(( ${#FILES[@]} + 1 ))"
 echo "     Restart OpenCode to activate."

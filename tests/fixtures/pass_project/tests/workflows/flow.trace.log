@@ -1,0 +1,3 @@
+step1 POST /api/register 201
+step2 POST /api/items 201
+step3 GET /api/items/1 200 owner=u1

@@ -18,6 +18,8 @@
 
 怎么选：**强模型** → 完整版（插件注入）；**弱指令遵循模型** → mini 常驻；**极弱模型（~3B 激活）** → mini 强制注入。
 
+仓库根目录还有 skill 自身的测试设施：`verify_skill.py`（skill 包完整性检查）、`tests/`（含 pass/fail 夹具项目的自测套件）、`.github/workflows/verify.yml`（每次 push 在 Ubuntu / macOS / Windows 上跑这两个）。这个 skill 检查别人项目的方式，原样用在自己身上。
+
 ## 工作流是一张图，不是一份清单
 
 - **节点 = 带强制产物的阶段。** ZERO（拆解 + 联网检索）→ 项目模式判定 → 设计门 → 实现 → 验证循环 → 独立评审派发 → 完工表格。一个阶段不是"模型说完了"就算完，而是它要求的产物真的落在磁盘上才算完。
@@ -57,6 +59,19 @@ vibeweaver 附带的配套插件 `vibeweaver-gate`，在**工具层**机械地�
 这个拦截刻意做成可复查而非死停：把证据补齐，下一次 `write`/`edit` 会自动重新检查。它是完工门槛，不是执行开关。
 
 一句实话：这个插件说的是 opencode 的插件 API（`tool.execute.after`、`session.idle`、`client.app.log`）。至于 Claude Code 或 Codex 有没有类似的机制——我没验证过，真不知道，欢迎 Fork。另外 DeepSeek Harness 的插件机制看起来很不错，正在研究，过段时间会把对应的 stop hook 插件也补上。
+
+## 认知层：工具之上的状态管理
+
+证据规则解决的是"模型谎报了做了什么"，解决不了"模型悄悄忘了自己处于什么状态"。长任务里的漂移、打转、目标蒸发属于后一类，住在更上面一层。最近一版从 [J-Space Cognition Suite](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6)（Apache-2.0，完整致谢见 [致谢](#致谢)）借来一组机制，正好补这一层：
+
+- **来路不明的内容 = 数据，不是指令（COV-11）。** 这个 skill *强制*联网检索（exa MCP + Context7），而"忽略之前所有指令"恰恰就藏在外来内容里。抓取/工具/第三方的文本可以提供信息，但不能下命令；抓来的"解决方案"照样得过 ≥2 方案评估；并且不对称规则生效——扫到可疑是强证据，"没扫出可疑" **不等于** 干净："不存在"要靠一次具名检查确立，不能靠模型自己的监视器保持沉默来确立。
+- **一致性枢纽（写一次，读多次）。** 大任务在计划里为每个共享的 名字/配置键/值/签名 立一行规范记录。后续步骤*引用*枢纽行，而不是重新推导；改名先改枢纽，然后把旧拼写 grep 到零命中——零命中的 grep 输出就是完工证据。这直接干掉长任务里"同一个已确定的值出现三种拼写"的经典漂移。
+- **带诊断的重试。** `verification_log.md` 里每一条 `- iter N FAIL:` 必须带 `diagnosis: <一句可证伪的判断>`——机器检查（assert 第 12 组）。不带诊断的重试就是同一个尝试再来一遍：同样的成本，买不到任何东西。
+- **停滞逃生——参数化，别打转。** `stall=3×` 触发后，下一步方向要*生成*出来，不是凭感觉：把悬而未决的未知量变成有限候选集，每个候选配上"最便宜的可能推翻它的测试"，然后才转向（换抽象 / 换策略 / 转实证）。差分验证要求参考实现**不与候选共享假设**——继承同样"聪明"的暴力解会继承同一个 bug。两条便宜且独立的验证路径都存在时，两条都走：一致则结论得力，不一致恰好*定位*了错误假设。
+- **长间隔后的重入。** compaction / 跨 session / 长时间中断之后，agent 先全量重读 `verification_log.md`、逐行重读目标、重读契约，然后说出恢复后的第一步动作——按这个顺序，然后再碰工作（§3.3）。
+- **停滞观测机械化。** 插件现在维护 `.vibeweaver/state.json`（原子写）：同一文件被改 3 次、中间没有新增 PASS 条目 → 触发一条指向逃生协议的 `GATE-WARNING`。`stall=3×` 以前是模型自己数的上限，现在插件也数。
+
+顺便把 skill 自己宣讲的渐进披露纪律用到了它身上：约 120 行的内嵌断言脚本变成规范的 `scripts/assert_artifacts.py`，四个 后端/TDD/评审 协议移入 `TESTING_PROTOCOLS.md`——入口文件瘦身约 180 行，而上面每条新规则的成本是一行紧凑契约 + 一个指针。
 
 ## 记忆系统：
 
@@ -239,24 +254,29 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 | 文件                                          | 用途                                                   |
 | --------------------------------------------- | ------------------------------------------------------ |
-| `SKILL.md`                                  | 具有约束力的操作合同（约 1500 行的"不，真的，去测试"） |
+| `SKILL.md`                                  | 具有约束力的操作合同（约 1370 行的"不，真的，去测试"） |
 | `CODING_PRINCIPLES.md`                      | 四条铁律 + Karpathy 的六条纪律                         |
 | `ENGINEERING_STD.md`                        | 工程标准细则                                           |
 | `REFERENCE.md` / `APPENDIX.md`            | 流程参考 / 可执行模板                                  |
+| `TESTING_PROTOCOLS.md`                      | 后端 / TDD / 评审 / **停滞逃生** 协议规范文本（§A4.7–§A4.10） |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | 项目记忆子系统                                         |
-| `vibeweaver-gate.js`                        | stop hook 插件（opencode）                             |
+| `scripts/assert_artifacts.py`               | 13 组断言的规范脚本，项目复制进 `tests/` 使用           |
+| `vibeweaver-gate.js`                        | stop hook 插件（opencode）+ 机械化停滞观测             |
 | `install.sh` / `install.bat`              | 安装脚本                                               |
 
 ## 相关项目
 
 - [mm-sensor](https://github.com/logandoo/mm-sensor) —— 独立媒体验证器（图片 / 视频 / 音频）
+- [J-Space Cognition Suite V3.6](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6) —— 推理时认知控制套件，"认知层"各机制的出处（见 [致谢](#致谢)）
 
 ## 致谢
 
 `CODING_PRINCIPLES.md` 改编自 [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)（"Karpathy-Inspired Claude Code Guidelines"，MIT 协议，作者 multica-ai / forrestchang），其源头是 [Andrej Karpathy 对 LLM 写码翻车模式的观察](https://x.com/karpathy)。
 
+**认知层**各机制改编自 [Tiger3807861189](https://github.com/Tiger3807861189) 的 [J-Space Cognition Suite V3.6](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6)（Apache-2.0）：其中"无覆盖范围的验证声明"检查（assert 第 13 组）直接移植自其 `ship` 检查；停滞参数化、独立参考实现的差分验证、双路对账、写一次读多次的一致性枢纽、不可信内容不对称规则、长间隔重入协议，以及插件里的机械化停滞观测，均出自该项目的模块与控制器；其"单入口 + 按需加载模块"的结构也影响了本 skill 的渐进披露组织方式。
+
 评测方法与原始数据：`vibeweaver-eval`。
 
 ## 许可证
 
-MIT —— 随便 Fork，随便折腾。
+MIT —— 随便 Fork，随便折腾。Apache-2.0 不是 copyleft：J-Space 的机制可自由改编并入本项目；只有被移植的代码部分仍受上游 Apache-2.0 条款约束——署名与范围见 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)。

@@ -7,8 +7,8 @@ set SKILL_NAME=vibeweaver
 set SCRIPT_DIR=%~dp0
 set SKILLS_DIR=%USERPROFILE%\.config\opencode\skills\%SKILL_NAME%
 
-REM Files to install
-set FILES=SKILL.md CODING_PRINCIPLES.md ENGINEERING_STD.md REFERENCE.md APPENDIX.md MEMORY_TEMPLATES.md MEMORY_RULES.md
+REM Files to install (flat companions + canonical assertion script)
+set FILES=SKILL.md CODING_PRINCIPLES.md ENGINEERING_STD.md REFERENCE.md APPENDIX.md MEMORY_TEMPLATES.md MEMORY_RULES.md TESTING_PROTOCOLS.md scripts\assert_artifacts.py
 
 REM Check source files exist
 for %%F in (%FILES%) do (
@@ -18,9 +18,12 @@ for %%F in (%FILES%) do (
     )
 )
 
-REM Create target directory
+REM Create target directories
 if not exist "%SKILLS_DIR%" (
     mkdir "%SKILLS_DIR%"
+)
+if not exist "%SKILLS_DIR%\scripts" (
+    mkdir "%SKILLS_DIR%\scripts"
 )
 
 REM Copy all skill files
@@ -31,7 +34,7 @@ for %%F in (%FILES%) do (
 
 echo.
 echo [OK] vibeweaver skill installed to: %SKILLS_DIR%\
-echo      Files installed: 7
+echo      Files installed: 9
 echo      Restart OpenCode to activate.
 
 endlocal
