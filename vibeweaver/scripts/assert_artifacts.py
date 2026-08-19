@@ -1,6 +1,6 @@
 """G-DED artifact assertions — byte-level check of verification claims.
 Canonical copy: vibeweaver skill `scripts/assert_artifacts.py`.
-Mirrors SKILL.md §A4.4.1 minimum-check table (all 13 groups).
+Mirrors COMPLETION_GATE.md §A4.4.1 minimum-check table (all 13 groups).
 Group 12 enforces the A4.1 diagnosis clause; group 13 is a
 claim-without-scope lint (approach modeled on J-Space Cognition Suite's
 `ship` check at idea level; implementation here is original —

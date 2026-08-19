@@ -1,18 +1,274 @@
-# TESTING_PROTOCOLS.md — Canonical Test / TDD / Review / Stall-Escape Protocols
+# TESTING_PROTOCOLS.md — Canonical Loop / Debug / Test / TDD / Review / Stall-Escape Protocols
 
-> Companion file for [SKILL.md](SKILL.md). Holds the **canonical text** of §A4.7 (COV-6),
-> §A4.7b, §A4.8, and §A4.9 (COV-8), plus §A4.10 (stall escape). SKILL.md keeps only the
-> binding stubs; when executing those loops, THIS file is the authoritative rulebook.
-> If in conflict with §1 covenants in SKILL.md, the covenants prevail.
-> Section numbers are preserved so cross-references (`A4.8`, `A4.9`, …) keep resolving.
+> Companion rulebook for [SKILL.md](SKILL.md). **Read IN FULL (Read Contract R1
+> in SKILL.md) on any task that touches code, BEFORE the first code action** —
+> it holds the full protocol text behind the SKILL.md binding stubs: §A4.1
+> (capture-driven verification loop), §A4.6 (systematic debugging), and the
+> canonical text of §A4.7 (COV-6), §A4.7b, §A4.8, §A4.9 (COV-8), plus
+> §A4.10 (stall escape). If in conflict with §1 covenants in SKILL.md, the
+> covenants prevail. Section numbers are preserved so cross-references
+> (`A4.1`, `A4.6`, `A4.8`, …) keep resolving.
 
 ## Contents
 
-- [§A4.7 Backend-Only Task: API Doc-Driven Test Loop](#a47-backend-only-task-api-doc-driven-test-loop--non-negotiable) (COV-6 canonical)
-- [§A4.7b Workflow Scenario Tests](#a47b-workflow-scenario-tests-task-level-backend-verification) (task-level backend verification)
-- [§A4.8 TDD for Logic-Bearing Code](#a48-tdd-for-logic-bearing-code--non-negotiable)
-- [§A4.9 Independent Code Review (Major Changes)](#a49-independent-code-review-major-changes) (COV-8 canonical)
-- [§A4.10 Stall Escape: Parameterize, Differential-Test, Dual-Path](#a410-stall-escape-parameterize--differential-test--dual-path) (companion to COV-7)
+- **§A4.1 Capture-Driven Verification Loop** — full protocol: verifier probe,
+  acceptance gate, capture + grading call tables, runtime degradation,
+  decision rules, convergence
+- **§A4.6 Systematic Debugging — Four Phases** + escalation
+- **§A4.7 Backend-Only Task: API Doc-Driven Test Loop** (COV-6 canonical)
+- **§A4.7b Workflow Scenario Tests** (task-level backend verification)
+- **§A4.8 TDD for Logic-Bearing Code**
+- **§A4.9 Independent Code Review (Major Changes)** (COV-8 canonical)
+- **§A4.10 Stall Escape: Parameterize, Differential-Test, Dual-Path**
+  (companion to COV-7)
+
+---
+
+## A4.1 Capture-Driven Verification Loop (UI/runtime-visible changes)
+
+A **convergent** loop: verifiable stop condition · independent verifier
+(maker/checker split) · iteration cap · stall detection. REQUIRED for every
+frontend/UI/runtime-affecting change — no exceptions.
+
+**Step 0 — Detect + announce the media verifier (AT TASK START, before any code, in ZERO):**
+Pro-actively check `available_skills` for `mm-sensor` (opencode injects
+this list; it is authoritative — not a filesystem guess).
+
+- **`mm-sensor` IS in available_skills** → MANDATORY independent verifier.
+  - Derive `SKILL_DIR` from the `<location>` in available_skills.
+  - Run the capability probe (cheap, no tokens):
+    `python3 {SKILL_DIR}/vision.py --probe` and parse the JSON:
+    `media_capabilities` (absent/empty = all three) and `error` (non-null =
+    config broken → fix the config, then re-probe).
+  - Announce the verifier WITH its modality mode (COV-5):
+    `Verifier: mm-sensor [video+audio]` · `Verifier: mm-sensor [video]` ·
+    `Verifier: mm-sensor [image]` — the mode decides the capture set in
+    Step 2 and the grading set in Step 3. The mode is fixed for the task
+    from this probe (one probe per task; the probe is the single source of
+    truth, not a filesystem/config guess).
+  - Invoke with `--detail high` for EVERY captured media file (video /
+    audio / screenshots alike):
+    `python3 {SKILL_DIR}/vision.py --detail high /path/to/file.webm`.
+  - NEVER use the model's own vision or the Read tool on media while
+    mm-sensor is loaded — that is self-grading and a violation. There is
+    no fallback to self-grading: on call errors, fix the config (missing API
+    key etc.) and retry; only after repeated failure escalate to the user.
+- **`mm-sensor` NOT in available_skills** → Fall back to **loop engineering
+  alone**: announce `Verifier: direct read (mm-sensor not installed)`
+  and read screenshots via the Read tool. This is a weaker, self-grading
+  verifier — be extra strict and cross-check with DOM/log inspection.
+
+**Step 1 — Acceptance Criteria Gate (BEFORE acting — USER-OWNED STOP CONDITION):**
+The stop condition is owned by the **user**, not invented by the agent.
+Decompose the request into explicit, individually-checkable pass/fail
+criteria. ONE criterion = ONE pass/fail sentence a verifier can answer yes/no.
+
+1. Write criteria to `tests/acceptance.md` — first line verbatim `> cap=5  stall=3×`,
+   then one numbered line per criterion. Example:
+   ```markdown
+   > cap=5  stall=3×
+
+   # Acceptance Criteria — Login Page
+   1. Username input field exists and is empty on load
+   2. Password input field exists and is empty on load
+   3. "Sign In" button is visible and enabled
+   4. No error/warning banner is shown on initial load
+   5. Page title is "Login"
+   6. Layout has no horizontal scroll at mobile breakpoint (375px)
+   ```
+2. Gate on clarity:
+   - **Vague/ambiguous** (criteria not derived confidently) → STOP and ask the
+     user before any code. Do not guess.
+   - **Explicit** → list derived criteria and proceed.
+3. **Immutability:** once confirmed these criteria are the **immutable convergence
+   contract** for the loop. The agent MUST NOT add, drop, or relax a criterion
+   mid-loop without asking the user.
+
+**Step 2 — Act + Capture (modality-aware):** Playwright performs the
+operation; capture evidence per the verifier mode announced in Step 0.
+Save to `tests/` with descriptive names. Template: [APPENDIX.md §A1](APPENDIX.md).
+
+Capture set per mode (mm-sensor loaded):
+
+| Verifier mode | Captured evidence (per flow) |
+|---------------|------------------------------|
+| `mm-sensor [video+audio]` | `tests/<flow>.mp4` (Playwright `record_video` → ffmpeg transcode from webm) + `tests/<flow>_audio.wav` (in-page Web Audio capture, injected via `add_init_script`) + `tests/<flow>_final.png` (terminal-state screenshot) |
+| `mm-sensor [video]` | `tests/<flow>.mp4` + `tests/<flow>_final.png` (audio capture skipped) |
+| `mm-sensor [image]` | `tests/<flow>.png` screenshots (before / during / after) — the original loop, nothing added |
+| `direct read` (no mm-sensor) | screenshots only, read via Read tool |
+
+Capture rules:
+- **Video**: `context.record_video` (webm, e.g. 1280×720, ~fps 25-30); one
+  video per user flow, recording the WHOLE Act sequence (clicks, fills,
+  navigations, animations). Transcode webm → mp4 (ffmpeg) for grading —
+  Playwright emits VP8/webm and several gateways (e.g. MiMo) accept mp4
+  only; keep the raw webm too. No ffmpeg / transcode failure → grade the
+  webm directly (mm-sensor degrades to frame-sampling; usable but lossy).
+  Save the final file to a stable name (`tests/<flow>.mp4`) — see
+  APPENDIX §A1.
+- **Audio**: inject the Web Audio capture script BEFORE page load
+  (`add_init_script`), dump via `page.evaluate` at flow end, assemble a WAV
+  in Python (`wave` module) — captures Web Audio API + `<audio>`/`<video>`
+  element output. Requires Chromium flag
+  `--autoplay-policy=no-user-gesture-required`. If the page produced no
+  audio (empty buffer / no AudioContext), write no wav and note
+  `audio: none produced` in the log — do NOT grade silence as a failure
+  unless an acceptance criterion requires sound.
+- **Screenshots**: terminal-state `tests/<flow>_final.png` for EVERY mode
+  (acceptance.md cites it; assert_artifacts.py checks cited pngs exist).
+  For `[image]` mode also before/during shots.
+
+**Step 3 — Observe (modality-aware):**
+Grade evidence per mode — the grading set is decided by the Step 0 probe,
+NOT by guessing:
+
+| Verifier mode | Grading calls (all `--detail high`) |
+|---------------|--------------------------------------|
+| `mm-sensor [video+audio]` | `vision.py tests/<flow>.mp4 tests/<flow>_audio.wav` (one call, mixed media), plus `vision.py tests/<flow>_final.png` |
+| `mm-sensor [video]` | `vision.py tests/<flow>.mp4` + `vision.py tests/<flow>_final.png` |
+| `mm-sensor [image]` | `vision.py tests/<flow>.png` per screenshot (original loop) |
+| `direct read` | Read tool on screenshots |
+
+Runtime degradation (mm-sensor's own fallbacks still apply):
+- Video graded but API returns `model_no_capability` / modality error →
+  mm-sensor auto-falls back to frame-sampling (output marked
+  `fallback: video→image`); treat the result as image-grade evidence and
+  re-grade the terminal screenshot at `--detail high`.
+- Audio graded but mm-sensor returns the `skipped` marker
+  (`data-skipped="model_no_audio_capability"` in HTML / `skipped` field in
+  JSON — audio has no fallback, mm-sensor reports it as a skip-with-
+  suggestion, NOT an error) → drop audio from grading for this task,
+  record `audio: skipped (model_no_audio_capability)` in
+  verification_log.md, continue with video/screenshots. Audio is only
+  ever an ADDED signal — its absence never fails a criterion by itself.
+
+Parse the structured description; check EVERY detail against
+`tests/acceptance.md`. The verifier answers ONE specific question: *"Does
+this captured evidence satisfy EVERY criterion in `tests/acceptance.md`?
+List each criterion number with pass/fail and evidence."*
+
+**Step 4 — Decide + Log convergence:**
+Append EVERY iteration to `tests/verification_log.md` (create if absent):
+```markdown
+## Task: <name> | <ISO date>
+- iter 1 FAIL: criterion #2 (password field missing) | diagnosis: onMount sets disabled while form pristine | changed: src/Login.tsx
+- iter 2 FAIL: criterion #3 (button disabled)        | diagnosis: disabled state not reset after validation runs  | changed: src/Login.tsx
+- iter 3 PASS: all criteria (evidence: tests/shot.png, 6/6)
+```
+**Diagnosis clause is MANDATORY on every FAIL line** — `| diagnosis: <one
+falsifiable clause>` (the §A4.6 Phase 3 hypothesis compressed to one line,
+stating what you believe broke and why). A retry that does not carry its
+diagnosis is the same attempt again — same cost, buys nothing. Machine-
+checked: `assert_artifacts.py` group 12. PASS lines state evidence + scope
+(`6/6`, screenshot/log path), because a claim without stated coverage is not
+a result (group 13).
+
+Decision rules:
+- **ALL criteria PASS** → loop exits. Record screenshot filename + verdict.
+- **Any FAIL** → diagnose the specific defect from the verifier's output
+  (cite the criterion #). Modify the code. Go to Step 2 (re-screenshot +
+  re-verify).
+- **Stall** (same criterion fails ≥3 consecutive iterations) → STOP retrying
+  that direction. Declare it in the log (`- stall: <signals> — stopping pure
+  iteration`). Record the failed approach in `memory/` as ❌, consult ⛔
+  Forbidden entries, then generate the next direction by **§A4.10
+  PARAMETRIZE** (finite candidate set + the cheapest test that could refute
+  each — this file, §A4.10) before choosing: a
+  "retry, again but slightly different" is the same spin, not a direction.
+  OR **fresh-brain retry** (a fresh subagent/session carrying ONLY
+  `tests/acceptance.md` + `tests/verification_log.md` + the relevant ⛔/❌
+  memory entries — the memory does the knowledge transfer, that's what it is
+  for) OR **escalate to the user** (see §A4.6 — 3+ failed fixes may signal
+  an architectural problem).
+- **Iteration cap = 5 max per sub-problem** → STOP. Record failure in
+  `memory/`, report to user with the last screenshot + verifier output. Do
+  not loop forever.
+
+★ **Covenant Recall Check:** before emitting the next iteration, re-read §1
+OPERATING COVENANT — confirm all covenants still hold for THIS iteration,
+then proceed.
+
+**Step 5 — Convergence summary + Persist state:**
+Before the A4.4 completion table, output ONE convergence summary line per task:
+```
+[Convergence] <task>: <N> iters to converge | <passed>/<total> criteria pass | <stalls> stalls | <cap-hits> cap-hits
+```
+Example: `[Convergence] Login page: 3 iters | 6/6 pass | 0 stalls | 0 cap-hits`
+
+Then persist state — every iteration is recorded in the fix-tracking memory
+topic file so future sessions don't re-derive the same dead ends (A7.14 in
+[MEMORY_RULES.md](MEMORY_RULES.md)). If convergence metrics reveal a baseline
+(e.g. "this project's UI tasks average 2.3 iters"), record it as a `project`
+memory entry for future A/B comparison.
+
+The loop is only "done" when the **verifier** confirms every criterion passes —
+not when the model that wrote the code says so. Mock data, console logs, "it
+should work" assumptions are NOT valid substitutes.
+
+---
+
+## A4.6 Systematic Debugging — Four Phases ★
+
+**No fixes without root-cause investigation first.** For ANY bug-fix task,
+your narration MUST include a `## Root Cause Investigation (A4.6)` heading
+BEFORE the implementation step — even when the user has already named the
+cause — confirming root cause + reproduction + recent-changes + multi-layer
+boundary diagnostics. Complete each phase before the next.
+
+**Phase 1 — Root Cause Investigation (BEFORE any fix):**
+- Read the **full** error message and stack trace — line numbers, paths,
+  codes. Don't skip warnings.
+- Reproduce the failure **consistently** before modifying code. If not
+  reproducible → gather more data, don't guess.
+- Check recent changes — `git diff`, recent commits, new deps, config/env
+  changes.
+- **Multi-component systems** (CI → build → service → database): add diagnostic
+  logging at each component boundary, run once, let evidence show which layer
+  breaks. Then investigate that layer.
+- **Error deep in the stack:** trace the bad value backward — where does it
+  originate, who called with it — until the source is found. Fix at the
+  source, not at the symptom.
+
+**Phase 2 — Pattern Analysis:**
+- Find similar **working** code in the same codebase. Compare broken vs
+  working and list **every** difference, however small — never assume "that
+  can't matter".
+- If following a reference implementation, read it **completely**.
+
+**Phase 3 — Hypothesis & Minimal Testing:**
+- Form ONE explicit hypothesis: "I think X is the root cause because Y".
+  Write it down — it is the `diagnosis:` clause that A4.1 Step 4 requires
+  on every FAIL log line.
+- **Dual-path reconcile:** if two cheap, independent verification routes
+  exist (e.g. read the state through the API AND directly from the DB),
+  take BOTH before declaring the root cause — agreement earns the
+  conclusion; disagreement LOCATES the faulty assumption
+  (§A4.10 DUAL-PATH RECONCILE).
+- Test with the **smallest possible change** — one variable at a time.
+- If it doesn't work: **revert**, form a NEW hypothesis. Never stack a second
+  fix on top of a failed one.
+- If you don't understand something, say so and research — don't pretend.
+
+**Phase 4 — Implementation:**
+- Create a **failing reproduction test first** (per §A4.8) — proves the fix
+  and prevents regression.
+- Fix the root cause, not the symptom. ONE change — no "while I'm here"
+  improvements.
+- Verify: reproduction test passes AND no other tests break.
+- Do not mask errors with broad `try/except`, retry loops, or silent
+  fallbacks until the root cause is understood.
+
+**Escalation — 3+ failed fixes = question the architecture:**
+After **3 failed fixes on the same problem** (or each fix reveals a NEW
+problem in a different place, or every fix demands "massive refactoring"),
+STOP — this signals an **architectural** problem, not a wrong hypothesis. Do
+NOT attempt fix #4 in the same direction. Record the failed methods in
+memory (❌/⛔ per [MEMORY_RULES.md §A7.7](MEMORY_RULES.md)), then escalate to
+the user: is the pattern fundamentally sound, or should the architecture
+change? This complements A4.1's stall rule (3× same criterion): stall stops
+the loop; this rule escalates the **direction**. The next direction is
+generated by §A4.10 PARAMETRIZE (finite candidate set + cheapest refuting
+test) — not by trying harder in the same frame.
 
 ---
 

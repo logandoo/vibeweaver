@@ -11,7 +11,7 @@
 Captures the page operation flow as **video** (Playwright `record_video`),
 **in-page audio** (Web Audio capture script injected via `add_init_script`),
 plus a **terminal screenshot**. Which evidence gets captured AND graded is
-decided by the mm-sensor probe mode (SKILL.md §A4.1 Step 0): `[video+audio]`
+decided by the mm-sensor probe mode (TESTING_PROTOCOLS.md §A4.1 Step 0): `[video+audio]`
 → all three · `[video]` → video + screenshot · `[image]` → screenshot only
 (original loop).
 
@@ -51,7 +51,7 @@ logging.basicConfig(
 MM_SENSOR_DIR = ""
 
 def probe_modes() -> dict:
-    """Probe mm-sensor model media capabilities (SKILL.md A4.1 Step 0)."""
+    """Probe mm-sensor model media capabilities (TESTING_PROTOCOLS.md A4.1 Step 0)."""
     if not MM_SENSOR_DIR:
         return {"video": False, "audio": False, "image": True}
     r = subprocess.run(
@@ -217,7 +217,7 @@ if __name__ == "__main__":
         sys.exit(1)
 ```
 
-**Grading (per probe mode — SKILL.md §A4.1 Step 3, all `--detail high`):**
+**Grading (per probe mode — TESTING_PROTOCOLS.md §A4.1 Step 3, all `--detail high`):**
 
 ```bash
 # [video+audio] — one mixed-media call (grading mp4) + terminal screenshot
@@ -530,7 +530,7 @@ echo "[RESTART] Done."
 
 ## §A7. Large-Task Implementation Plan Template
 
-Save as `docs/PLAN.md` (see [SKILL.md C3](SKILL.md#c3-large-task-implementation-plan-conditional)). Write it assuming the executor has zero project context; every step carries actual content, never placeholders.
+Save as `docs/PLAN.md` (see [REFERENCE.md → Part C: C3](REFERENCE.md)). Write it assuming the executor has zero project context; every step carries actual content, never placeholders.
 
 ````markdown
 # <Feature Name> Implementation Plan
@@ -607,7 +607,7 @@ git commit -m "feat: add <specific behavior>"
 
 ## §A8. G-DED Artifact Assertion Script — `tests/assert_artifacts.py`
 
-> Universal. Required by [SKILL.md §A4.4.1](SKILL.md#a441-g-ded-executable-artifact-assertions--non-negotiable).
+> Universal. Required by [COMPLETION_GATE.md §A4.4.1](COMPLETION_GATE.md).
 > Byte-checks the artifacts behind every `[Verification Gate]` / `[Memory Gate]`
 > claim. Run from the project root BEFORE emitting the `[Verification Gate]`
 > line: `python3 tests/assert_artifacts.py` → exit 0 = claims backed by files;
@@ -615,7 +615,7 @@ git commit -m "feat: add <specific behavior>"
 > Flags: `--existing` (Modify-Existing task → skip new-project §A5 design-doc
 > + git checks) · `--backend-only` (no UI → skip `PAGE_DESIGN.html` and
 > `script/linux/project_build.sh`).
-> The 13 assertion groups mirror SKILL.md §A4.4.1's minimum-check table.
+> The 13 assertion groups mirror COMPLETION_GATE.md §A4.4.1's minimum-check table.
 
 **The canonical script is `scripts/assert_artifacts.py` in this skill's
 directory** — copy it, do NOT retype it (self-written variants omit check
@@ -641,5 +641,5 @@ cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
   J-Space Cognition Suite's `ship` check (idea level; see repo
   README → Attribution).
 
-Self-verify the copy with the 13 markers listed in SKILL.md §A4.4.1; an
+Self-verify the copy with the 13 markers listed in COMPLETION_GATE.md §A4.4.1; an
 incomplete variant is re-copied, never patched by hand.

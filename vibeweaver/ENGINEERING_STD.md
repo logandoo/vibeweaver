@@ -80,3 +80,60 @@ When the project uses other tech stacks (e.g., Vue, MySQL, MongoDB, Go backend):
 - Follow the project's actual tech stack — do not forcibly migrate
 - Adapt script templates to the project's actual build tools
 - Adapt the `[database]` section in `config.toml` to the actual database type
+
+---
+
+## §A6. Dependency Management
+
+Every new dependency is permanent code you do not control.
+- Before adding any package, ask: can the standard library solve it?
+- If you add a dependency, document **why** in the commit message and (where
+  relevant) in a brief code comment or design note.
+- Do not silently add transitive dependencies or convenience wrappers.
+- Prefer well-maintained, widely-used libraries with active community support.
+
+## §A7. Communication
+
+Describe what you did and why — do not just drop code.
+- Be precise about uncertainty: "I am not certain this endpoint supports
+  streaming" is acceptable; "this should work" is not.
+- Surface assumptions and tradeoffs explicitly.
+- If the user corrects you, record it as a feedback memory and adjust.
+
+**Receiving feedback / review comments — verify before implementing:**
+- **READ** the complete feedback without reacting → **UNDERSTAND**
+  (restate in your own words) → **VERIFY** against the codebase → then act.
+- **Unclear items: clarify ALL of them BEFORE implementing anything.** Partial
+  understanding = wrong implementation; items may be related.
+- **No performative agreement.** Never respond with "You're absolutely
+  right!" / "Great point!" / "Thanks for catching that!" — state the fix or
+  just fix it. Actions show you heard; gratitude expressions are forbidden
+  filler.
+- **Push back with technical reasoning** when the suggestion is wrong for this
+  codebase: breaks existing functionality, violates YAGNI (unused feature —
+  grep for actual callers first), ignores existing constraints, or conflicts
+  with user's prior decisions. Technical correctness over social comfort. If
+  architectural, involve the user.
+- **Implement multi-item feedback one at a time, testing each** — blocking
+  issues first, then simple fixes, then complex ones. Never batch-implement
+  untested.
+- If you pushed back and were wrong: state the correction factually ("I
+  checked X — it does Y. Fixing.") and move on. No long apologies.
+
+## §A8. Common Failure Modes — Stop and Reassess
+
+Watch for these predictable mistakes. If you notice yourself doing any of
+them, STOP and reassess before continuing.
+
+| Pattern | Warning sign | Correct response |
+|---------|--------------|------------------|
+| **Kitchen Sink**       | Changing far more files than the task requires            | Roll back unrelated changes; touch only what the request demands |
+| **Wrong Abstraction** | Copy-pasting similar code repeatedly; speculative abstraction for single-use code | Keep it concrete; abstract only after the third repetition |
+| **Optimistic Path**    | Only handling the happy path; ignoring bad input, network failure, missing data | Add explicit error handling and test the failure cases |
+| **Runaway Refactor**   | One change cascades into touching many unrelated files   | Pause, restore baseline, make the smallest surgical change that works |
+
+## §A9. Git Version Control
+
+- Every major change gets a descriptive commit
+- Commit before starting work (baseline) and after each significant milestone
+- Never commit secrets, `.venv/`, `node_modules/`, or build artifacts

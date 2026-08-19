@@ -1,6 +1,21 @@
-> This file is the detailed reference for [SKILL.md](SKILL.md). Load when context permits; core rules are in SKILL.md.
+> This file is the detailed reference for [SKILL.md](SKILL.md). **Read IN FULL at the
+> Read Contract triggers of SKILL.md (R2/R3/R4 → Part C: C1/C2/C3 · R5 → §A5.1)** — it
+> holds the full workflow step text behind the SKILL.md Part C binding skeletons, plus
+> the §A5.1 design-gate mechanics. The legacy M0-M8 / Step 0-11 flows below are kept for
+> history; **Part C below supersedes them** — execute from Part C.
 
 # Vibeweaver — Detailed Reference
+
+## Contents
+
+- **Project Mode Decision Tree**
+- **Modify Existing Project Workflow (legacy M0-M8 — superseded by Part C: C2)**
+- **New Project Workflow (legacy Step 0-11 — superseded by Part C: C1)**
+- **Quick Reference Checklists** (Universal / New Project / Modify Existing)
+- **Anti-Patterns**
+- **§A5.1 Design Approval Gate — full mechanics**
+- **Part B — Stack-Specific Patterns (B1 default stack · B2 adapting)**
+- **Part C — Workflows (C1 new project · C2 modify existing · C3 large-task plan) — full authoritative step text**
 
 ---
 
@@ -29,7 +44,7 @@ Before making ANY changes, read:
 git status
 git add -A && git commit -m "backup: before changes"
 ```
-Then run the existing tests/build once. **Per change-wave** (the previous task's baseline in the same session does NOT count — every change-wave gets its own run), then record the verdict as the first log entry: `- Baseline verified GREEN` (or `- COV-9 skipped — reason: …`) — assert_artifacts.py group 9 machine-checks this FILE. Baseline green → proceed. Baseline already failing → report the pre-existing failures to the user and ask whether to proceed; record them in `tests/verification_log.md` so they aren't mistaken for regressions later. See [SKILL.md C2 Step 5](SKILL.md#step-5-git--commit-before-and-after--verify-clean-baseline).
+Then run the existing tests/build once. **Per change-wave** (the previous task's baseline in the same session does NOT count — every change-wave gets its own run), then record the verdict as the first log entry: `- Baseline verified GREEN` (or `- COV-9 skipped — reason: …`) — assert_artifacts.py group 9 machine-checks this FILE. Baseline green → proceed. Baseline already failing → report the pre-existing failures to the user and ask whether to proceed; record them in `tests/verification_log.md` so they aren't mistaken for regressions later. See Part C below → C2 Step 5.
 
 ### Step M2: Determine Design Document Needs
 
@@ -310,3 +325,256 @@ Write session memories to the `memory/` directory (see [MEMORY_RULES.md §A7.9 (
 | 22 | Retry a failing iteration with no diagnosis | FAIL log lines carry `diagnosis: <one falsifiable clause>` (A4.1 Step 4; a diagnosis-less retry is the same attempt) |
 | 23 | Re-derive a value already settled somewhere else | The Consistency Hub is the single canonical record (C3); change it once, grep the old spelling to zero hits |
 | 24 | Guess the next direction after a stall | §A4.10 parameterize: finite candidate set + cheapest refuting test, then shift abstraction/strategy/empirics |
+
+---
+
+## §A5.1 Design Approval Gate (full mechanics)
+
+Companion to SKILL.md §A5.1 / COV-10. **Scope discipline — read first:** this gate
+fires ONLY when the A5 table (SKILL.md §A5) requires design docs (or in C1 new
+projects). Bugfixes, minor tweaks, config changes, and all other Modify-Existing
+work keep the DEFAULT autonomous flow — no approval pause. Do not let this gate
+expand beyond that scope.
+
+**Gate A — approach confirmation (BEFORE writing design docs):**
+- ZERO (Step 0.2) already requires evaluating ≥2 approaches. In gated scope,
+  **present them to the user**: recommended option + rationale + tradeoffs,
+  rejected alternative + why. The user picks or confirms.
+- If requirements are ambiguous, clarify **one question at a time** (prefer
+  multiple-choice) — never batch-interrogate, never guess (extends §A1.5).
+- If the request was explicit and one approach is clearly correct, state the
+  choice briefly and proceed unless the user objects.
+
+**Gate B — design confirmation (BEFORE implementation):**
+1. Design docs complete → feasibility assessment passed (C1 Step 3) → run the
+   **spec self-review** (fix inline, no re-review loop):
+   - *Placeholder scan* — any "TBD"/"TODO"/vague requirement? Fix it.
+   - *Internal consistency* — do the docs contradict each other? Does FLOW
+     match PAGE and DATABASE?
+   - *Scope check* — focused enough for one implementation pass, or must it be
+     decomposed?
+   - *Ambiguity check* — could any requirement be read two ways? Pick one, make
+     it explicit.
+2. Present a **concise design summary ONCE** (batched — architecture, key data
+   flow, what will be built) and ask for confirmation. Do NOT do
+   section-by-section approval — one question, one answer.
+3. **Delegation is valid:** if the user says "you decide" / raises no
+   objection, proceed autonomously and record the delegation in memory. This
+   gate is a confirmation point, not a blocker — never nag, never re-ask.
+
+---
+
+## Part B — Stack-Specific Patterns (Apply Only When Stack Matches)
+
+**Important:** Part B applies ONLY when the project's actual tech stack matches.
+For an existing project using Vue instead of React, MySQL instead of
+PostgreSQL — apply Part A principles and adapt to existing tools; never force
+Part B stack choices onto an existing project. Detailed standards:
+[ENGINEERING_STD.md](ENGINEERING_STD.md) (New Project Tech Stack Standards).
+
+### B1. Default New Project Stack: FastAPI + React + Vite + PostgreSQL
+- **Backend:** Python + FastAPI · OAuth2 auth on all endpoints · frontend
+  mounted at `/static` · History routing fallback → [APPENDIX.md §A3](APPENDIX.md).
+- **Frontend:** React + Vite · responsive (desktop / tablet / mobile).
+- **Directory Structure** and **Script Templates** → [APPENDIX.md §A5](APPENDIX.md),
+  [APPENDIX.md §A6](APPENDIX.md).
+
+### B2. Adapting to Other Stacks
+When the project uses a different stack (Vue / MySQL / MongoDB / Go backend…):
+- Apply ALL Part A core principles — universal.
+- Adapt script templates to the project's build tooling.
+- Adapt `[database]` config section to the actual database type.
+- Always create and use `script/` directory scripts — universal rule.
+- Do NOT change the project's tech stack. Match what's there.
+
+---
+
+## Part C — Workflows (full authoritative step text)
+
+SKILL.md Part C holds the binding skeletons + trigger discipline (including the
+COV-9 per-change-wave rule and the R2/R3/R4 read mandate). Execute the steps
+below — they are the full authoritative text.
+
+### C1. New Project Workflow
+```
+0.   §2 ZERO: decompose + web research (find best solutions BEFORE designing)
+0.5  A5.1 Design Gate A — present ≥2 researched approaches + recommendation (A5.1)
+1.   git init + initial commit
+2.   **MUST create design documents per §A5 — no skipping:** FLOW_DESIGN.html ·
+     PAGE_DESIGN.html (UI-bearing project only — backend-only project explicitly
+     skips PAGE with reason) · DATABASE_DESIGN.html (touches data only) ·
+     BACKEND_DESIGN.html (touches API only)
+3.   Design review & feasibility assessment (loop until pass)
+4.   BACKEND_DESIGN.html
+4.5  A5.1 Design Gate B — spec self-review, then ONE batched user confirmation
+5.   config.toml (before implementation — code reads from it)
+6.   Backend implementation
+7.   Frontend implementation
+8.   Scripts: project_build.sh / start.sh / stop.sh / restart.sh (linux + windows)
+9.   Build: bash script/linux/project_build.sh
+10.  Start: bash script/linux/start.sh
+11.  Test: A4.1 Step 1 — acceptance criteria gate → write tests/acceptance.md
+     (first line `> cap=5  stall=3×`); Playwright capture (video + audio +
+     screenshots per the §A4.1 Step 0 probe mode) of ALL operations + API
+     tests via §A4.7 backend loop; media graded per §A4.1 Step 3
+12.  Act → Capture → Verify (mm-sensor) → Fix → Log loop until ALL criteria
+     pass or cap=5/stall=3× stops you (COV-7); convergence summary + ★ 8-column
+     completion table (A4.4) — no exceptions
+13.  Acceptance checklist
+14.  ★ Write session memories: create memory/MEMORY.md + topic files + index
+     ([MEMORY_RULES.md §A7.9](MEMORY_RULES.md)); record design decisions, user
+     preferences, unverified modifications. Pass Final Memory Gate (A7.10).
+15.  README.html + requirements.txt + package.json + final commit
+```
+
+### C2. Modifying Existing Project ★
+
+#### Step -1: §2 ZERO FIRST
+**Execute §2 ZERO Decompose & Research BEFORE surveying any local files.**
+Search exa MCP + Context7. Only after ZERO is complete, proceed to Step 0.
+
+#### Step 0: Survey Before Acting
+Read these files BEFORE making any changes (in order):
+1. **memory/MEMORY.md** (index) per §3.2 (load top 3-5 relevant topic files;
+   check ⛔ Forbidden · ❌ Failed · ✅ Verified · ⏳ Unverified · user feedback ·
+   project context · verify references against current code).
+2. **config.toml** (or equivalent) — actual hosts/ports/credentials.
+3. **README.html** — project purpose and setup.
+4. **script/** directory — existing build/start/stop scripts.
+5. **Project directory tree** — tech stack and structure.
+
+#### Step 1: Use Existing Scripts (COV-2)
+Build → `bash script/linux/project_build.sh` · Start/Stop →
+`bash script/linux/start.sh` / `stop.sh`. If scripts don't exist but are
+needed, create them per §A2, then use them.
+
+#### Step 2: Respect Existing Configuration
+Never change config.toml hosts/ports/credentials unless the task explicitly
+requires it. Example values in this skill (`8i9o0p-[=]`) are **examples
+only**. Read from config, never hardcode in source.
+
+#### Step 3: Match Existing Code Style
+Indentation, naming, import conventions of the project. Don't change the
+tech stack (e.g. don't introduce React into a Vue project). Don't refactor
+unrelated code (see [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) Rule 3).
+
+#### Step 4: Design Documents — Scoped
+Only create FLOW/PAGE/DATABASE/BACKEND_DESIGN.html for significant new
+features (§A5 table). Skip design docs for bugfixes / minor changes. When docs
+ARE created, the §A5.1 Design Approval Gate applies (Gate A approach, Gate B
+design). Everything else stays fully autonomous.
+
+#### Step 5: Git — Commit Before and After + Verify Clean Baseline
+```bash
+git add -A && git commit -m "backup: before changes"   # baseline
+# ... make changes ...
+git add -A && git commit -m "feat: description of change"
+```
+**After the baseline commit, verify the baseline is GREEN before changing
+anything.** Run the project's existing tests / build once (via `script/` where
+applicable). A dirty baseline makes every later failure unattributable: you
+won't know whether you broke it or it was already broken.
+- **Every change-wave gets its own baseline** — a follow-up fix minutes after
+  the previous task may NOT reuse that baseline (COV-9); the three lines and
+  the log entry are per-change-wave, not per-session.
+- Record the verdict as the first entry under the task heading in
+  `tests/verification_log.md`: `- Baseline verified GREEN` (or
+  `- COV-9 skipped — reason: …`) — assert_artifacts.py group 9 machine-checks
+  this file, not the narration.
+- Baseline green → proceed.
+- Baseline has pre-existing failures → report to the user ("baseline already
+  has N failures: …") and ask whether to proceed or fix first. Record
+  pre-existing failures in `tests/verification_log.md` so they are not later
+  mistaken for regressions you caused.
+
+#### Step 6: Test Your Changes ★
+- Write tests covering your modifications.
+- Build + start via scripts (COV-2), then test.
+- Acceptance criteria gate: write `tests/acceptance.md` (first line
+  `> cap=5  stall=3×`; confirm with user if vague — A4.1 Step 1).
+- **Backend-only change** → §A4.7: pick httpx/requests (installed first, else
+  requests), update API doc, audit doc↔code consistency once, write test
+  cases from the doc, then loop test → fix → test until all pass. **If the
+  change has cross-endpoint behavior** → A4.7b workflow scenarios with REAL
+  HTTP traces (`tests/workflows/*.trace.log`); service-level direct calls
+  are not E2E (report `E2E depth` in the gate line).
+- **UI / runtime-visible change** → Playwright capture of ALL operations +
+  results — operation video + in-page audio + terminal screenshot per the
+  §A4.1 Step 0 probe mode; grade via **mm-sensor** (`vision.py --detail high`)
+  if available, else direct read (§A4.1 Step 0).
+- Act → Capture → Verify → Fix → Log to `tests/verification_log.md` →
+  Repeat until ALL acceptance criteria pass or cap=5/stall=3× stops you.
+- ★ Convergence summary line + 8-column completion table (§A4.4) — final
+  deliverable, no exceptions.
+
+**Major change** (≥3 files / new feature / API-surface change) → dispatch the
+A4.9 reviewer before the completion table (COV-8). Else state
+`A4.9 not triggered — reason: <…>` in the [Verification Gate] line.
+
+#### Step 7: Acceptance Checklist
+List what was changed and confirm each change meets the requirement. Include
+verification evidence (screenshot, log excerpt).
+
+#### Step 8: Log to Project Memory (memory/)
+At session end, before the completion table, you MUST (operational rules in
+[MEMORY_RULES.md §A7.9](MEMORY_RULES.md)):
+1. Review the conversation for new information worth persisting.
+2. Write / update `.md` topic files in `memory/` (frontmatter + body per
+   MEMORY_TEMPLATES.md).
+3. Update `memory/MEMORY.md` index (≤200 lines / 25KB).
+4. Fix tracking: write `memory/fix_<topic>.md` as ⏳ Unverified (never directly
+   ✅ Verified). Mark ⏳ if tests passed, ❌ if tests failed.
+5. Escalate to ⛔ if ≥3 failures preceded this fix.
+6. Record feedback memories if user corrected / confirmed approach.
+7. Record project memories for goals / deadlines / team context.
+8. Check consolidation need (>15 topic files or index >150 lines / 20KB — see
+   [MEMORY_RULES.md §A7.13](MEMORY_RULES.md)).
+9. Pass Final Memory Gate (A7.10) and output the `[Memory Gate] Passed: …` line
+   immediately before the completion table.
+
+### C3. Large-Task Implementation Plan (Conditional)
+**Trigger:** work touching ≥3 files, or multi-step inter-dependencies (new
+feature / cross-module change). **Skip for:** single-file fixes and trivial
+changes — decompose mentally and proceed.
+
+Write the plan BEFORE implementing (`docs/PLAN.md` or appended to design docs),
+assuming the executor has zero project context. Per task block:
+- **Files:** Create / Modify (exact paths) / Test (exact path).
+- **Interfaces:** *Consumes* — earlier-task outputs (exact signatures);
+  *Produces* — what later tasks rely on (exact names, parameter/return types).
+  This block is how multi-step work avoids interface drift.
+- **Steps:** one action each (2-5 min), each with its verification command.
+  Logic-bearing steps are test-first per §A4.8.
+
+**Consistency Hub (broadcast — write once, read many):** before Step 1, add a
+`## Consistency Hub` table to the plan — one row for every shared entity:
+names, config keys, port/URL values, type shapes, interface signatures,
+style anchors that ≥2 tasks or ≥2 files will reuse. Columns:
+`entity | canonical spelling/value/type | source of truth (design doc/file:line)`.
+Rules:
+1. **Write once, reference always** — later steps cite the hub row; they do
+   not re-derive it. Re-deriving a settled value is not diligence — it is how
+   long tasks drift (`maxIdleMs` in one file, `max_idle_ms` in three others).
+2. **One edit reaches everything** — a rename/redefinition changes the hub
+   row first, then a grep of the old spelling across the tree; **zero hits is
+   the verification**, and its output goes in the completion table's
+   evidence column.
+3. **Re-read the hub at every seam** (task boundary / file boundary) — the
+   hub is the shared source for the whole deliverable, so one change must
+   reach everything written before AND after it.
+
+**No placeholders — these are plan FAILURES:** "TBD" / "implement later" ·
+"add appropriate error handling" / "handle edge cases" · "write tests for the
+above" without actual test code · "similar to Task N" (repeat the content —
+steps may be read out of order) · references to types/functions defined nowhere
+in the plan.
+
+**Plan self-review (fix inline, no loop):**
+1. **Coverage** — every requirement maps to a task.
+2. **Placeholder scan** — see above.
+3. **Type consistency** — names/signatures used in later tasks match earlier
+   definitions exactly (`clearLayers()` in Task 3 but `clearFullLayers()` in
+   Task 7 is a bug).
+
+Template: [APPENDIX.md §A7](APPENDIX.md). The plan's verification commands
+feed the §A4.1 / §A4.7 / §A4.8 loops.

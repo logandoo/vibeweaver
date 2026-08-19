@@ -32,11 +32,15 @@ MARKERS = [
 PAYLOAD_FILES = [
     "SKILL.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md", "REFERENCE.md",
     "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
-    "scripts/assert_artifacts.py", "vibeweaver-gate.js", "install.sh", "install.bat",
+    "COMPLETION_GATE.md", "vibeweaver-audit.js",
+    "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
+    "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
+    "vibeweaver-gate.js", "install.sh", "install.bat",
 ]
 INSTALLED_DOCS = [
     "SKILL.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md", "REFERENCE.md",
     "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
+    "COMPLETION_GATE.md",
 ]
 SOFT_BUDGET = 1400
 HARD_BUDGET = 1600
@@ -162,6 +166,12 @@ def main():
             r = subprocess.run([node, "--check", str(tmp)], capture_output=True, text=True)
             if r.returncode != 0:
                 fail("vibeweaver-gate.js syntax check failed:\n" + (r.stderr or r.stdout)[:400])
+            for extra in ("vibeweaver-audit.js", "scripts/vibeweaver-audit-core.js"):
+                tmp2 = pathlib.Path(td) / ("extra_" + pathlib.Path(extra).name + ".mjs")
+                tmp2.write_text((PAYLOAD / extra).read_text(encoding="utf-8"), encoding="utf-8")
+                r2 = subprocess.run([node, "--check", str(tmp2)], capture_output=True, text=True)
+                if r2.returncode != 0:
+                    fail("%s syntax check failed:\n" % extra + (r2.stderr or r2.stdout)[:400])
     else:
         warn("node not found — plugin syntax check skipped (CI covers it)")
 

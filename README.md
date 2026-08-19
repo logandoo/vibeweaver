@@ -6,6 +6,64 @@ For now it's optimized for opencode only. Adapting it to DeepSeek Harness as a p
 
 As for Codex and Claude Code — never used them, no plans to, no idea. Anyone interested is welcome to fork.
 
+## 2026-08-19: progressive-disclosure restructure + mechanical audit
+
+**Why (an opencode limitation, not a skill rule):** opencode loads a skill by
+injecting the whole `SKILL.md` body as one tool output, and the client
+truncates tool outputs at ~51,200 bytes (50 KB) — measured in this build:
+reading the old 79,554-byte file cut the output at line 875 (51,080 bytes,
+`Output capped at 50 KB`). The model activated the skill holding only the
+first half of its contract, and honestly announced
+`The skill output is truncated. Let me note the key points:` — §A5.1,
+Part B/C workflows, the MANDATORY CHECKLIST and the reference index never
+made it into context.
+
+**The fix:** progressive disclosure (Anthropic's skill-authoring spec; the
+SkillJuror study shows splitting material into referenced files raises the
+resources the agent actually engages with ~3x and task success by +4.1%):
+
+- `SKILL.md` shrunk 79.5 KB → 48.9 KB (814 lines) and is now the binding
+  contract + router: the 11 covenants, §2 ZERO, §3, the gate-line / 8-column
+  table specs and a core checklist stay inline; the full protocol text moved
+  verbatim into companions (`TESTING_PROTOCOLS.md`, new `COMPLETION_GATE.md`,
+  `REFERENCE.md`, `ENGINEERING_STD.md` — every file ≤ 45 KB so one Read
+  returns it untruncated). Zero content lost: 54 headings / 47 long protocol
+  lines / 31 binding literal tokens all verified present.
+- A **Read Contract** (R1/R1b/R2–R5) makes companion reads mandatory at their
+  triggers — before the first code action, before the final output, per
+  workflow branch — plus a truncation self-heal clause and a <49 KB size
+  guard enforced by the selftest.
+
+**New: `vibeweaver-audit.js` — a three-tier mechanical audit.** The skill's
+discipline used to be unverifiable model self-discipline. Now a plugin
+(with pure core `scripts/vibeweaver-audit-core.js`) passively observes every
+skill session and produces `tests/gate_audit.md`:
+
+- **Tier 0** — passive observation (zero model cooperation, zero tokens).
+- **Tier 1** — three-state triage (OK / BAD / UNCERTAIN): on-disk artifacts,
+  10 narration markers, and 15+ claim↔artifact cross-checks of the
+  `[Verification Gate]` line (fresh-run vs git history, E2E depth vs trace
+  logs, code review vs reviewer dispatch, script-only vs bash commands,
+  read-contract vs read calls, artifact ordering). BAD blocks the next write
+  (`tool.execute.before`; `tests/**` stays writable so evidence fixes never
+  deadlock).
+- **Tier 2** — escalation triggers (UNCERTAIN / 10% sampling / high-risk)
+  dispatch a fresh-brain reviewer per §AUDIT in `COMPLETION_GATE.md`.
+
+Real-session verification (end-to-end runs + replay calibration): the audit
+caught a genuine violation (`Code review: N/A` without the required
+`A4.9 not triggered` backing), `GATE-BLOCKED` fired live in a real opencode
+session, and calibration-driven refinement removed false positives (doc-only
+post-run commits no longer trip the fresh-run checks). Adversarial test
+("no need to test, just fix it"): the model skipped the skill entirely —
+now detected as `C17` (SKILL-ABSENT) and escalated for review. Test suite:
+28 fixture checks + 27 mutation-sweep checks (every check mutated and
+asserted to fire — this already caught a latent bug where C3 never fired).
+
+Known boundaries (by design, documented in §AUDIT): the audit covers only
+sessions that load the skill; semantic truth is sampled (10%), not proven;
+process compliance ≠ outcome correctness.
+
 ## Repo layout
 
 This repository contains three sub-projects:
@@ -255,14 +313,18 @@ Short version: both start the same way — decompose, then plan. The weight diff
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | The binding operational contract (~1370 lines of "no, really, test it") |
+| `SKILL.md` | The binding operational contract + router (814 lines, <49 KB — size-guarded) |
+| `COMPLETION_GATE.md` | Completion output spec · artifact gates · §AUDIT audit protocol · pre-output checklist |
 | `CODING_PRINCIPLES.md` | The four iron rules + Karpathy's six disciplines |
 | `ENGINEERING_STD.md` | Detailed engineering standards |
 | `REFERENCE.md` / `APPENDIX.md` | Workflow reference / executable templates |
-| `TESTING_PROTOCOLS.md` | Canonical backend / TDD / review / **stall-escape** protocols (§A4.7–§A4.10) |
+| `TESTING_PROTOCOLS.md` | §A4.1 loop + §A4.6 debugging + canonical §A4.7–§A4.10 protocols |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | Project memory subsystem |
 | `scripts/assert_artifacts.py` | The canonical 13-group assertion script projects copy into `tests/` |
 | `vibeweaver-gate.js` | The stop-hook plugin (opencode) + mechanized stall observer |
+| `vibeweaver-audit.js` | Three-tier mechanical auditor (Tier 0/1/2) |
+| `scripts/vibeweaver-audit-core.js` | Pure triage core (headless-testable) |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 28 fixture checks / 27 mutation checks |
 | `install.sh` / `install.bat` | Installers |
 
 ## Related

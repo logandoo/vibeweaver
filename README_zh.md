@@ -6,6 +6,50 @@
 
 至于 Codex 和 Claude Code，我没用过，也没打算用，不知道。如果有人感兴趣可以自行 fork。
 
+## 2026-08-19：渐进式披露重构 + 机械审计体系
+
+**原因（这是 opencode 的限制，不是 skill 的规则）：** opencode 加载 skill 时把整个
+`SKILL.md` 正文作为**一次工具输出**注入上下文，而客户端对工具输出有**约 51,200 字节
+（50KB）的截断上限**——本机实测：用 Read 工具读取旧的 79,554 字节文件，输出在第
+875 行（51,080 字节）处被截断（`Output capped at 50 KB`）。模型激活 skill 时只拿到
+契约的前半份，并诚实声明 `The skill output is truncated. Let me note the key
+points:`——§A5.1、Part B/C 工作流、MANDATORY CHECKLIST 和参考文件索引**从未进入上下文**。
+
+**方案：渐进式披露**（依据 Anthropic Agent Skills 官方规范 + SkillJuror 对照实验：
+拆分到引用文件让模型实际触及的资源提升约 3 倍、任务成功率 +4.1%）：
+
+- `SKILL.md` 从 79.5KB 瘦身到 48.9KB（814 行），成为**绑定契约 + 路由器**：11 条
+  COV 全文、§2 ZERO、§3、gate line / 8 列表格规格与核心清单留在根文件；详细协议
+  **逐字迁移**到配套文件（`TESTING_PROTOCOLS.md`、新增 `COMPLETION_GATE.md`、
+  `REFERENCE.md`、`ENGINEERING_STD.md`——每个 ≤45KB，单次 Read 即可完整返回不截断）。
+  **内容零删除**：54 个章节标题 / 47 条长协议句 / 31 个绑定字面 token 全部核验存在。
+- **Read Contract（强制读取契约）**：R1/R1b/R2–R5 触发表——首个代码动作前、
+  最终输出前、各工作流分支必须完整读取对应配套文件；外加**截断自愈条款**和
+  **<49KB 体积守卫**（由自测脚本强制执行）。
+
+**新增：`vibeweaver-audit.js` 三层机械审计。** skill 的纪律以前是模型自律、
+无法被机器验证。现在插件（含纯核心 `scripts/vibeweaver-audit-core.js`）被动观察
+每个 skill 会话并产出 `tests/gate_audit.md`：
+
+- **Tier 0** —— 被动观察（零模型合作、零 token）。
+- **Tier 1** —— 三态裁决（OK / BAD / UNCERTAIN）：磁盘构件、10 项叙述 marker、
+  以及 15+ 项 gate line 声称↔构件交叉核验（Fresh-run vs git 历史、E2E depth vs
+  工作流 trace、Code review vs 评审派发、Script-only vs bash 命令、读取契约 vs
+  read 调用、构件时序）。BAD → 在 `tool.execute.before` 拦截下一次写入
+  （`tests/**` 保持可写，证据修复不死锁）。
+- **Tier 2** —— 升级触发（UNCERTAIN / 10% 抽样 / 高风险）→ 按
+  `COMPLETION_GATE.md` §AUDIT 派 fresh-brain reviewer 裁决。
+
+**实测效果**（端到端真实会话 + 重放校准）：审计抓到**真实违规**（`Code review:
+N/A` 但缺 `A4.9 not triggered` 豁免理由）；`GATE-BLOCKED` 在真实 opencode 会话中
+成功拦截写入；校准驱动的精化消除了误报（纯记录型提交不再触发 Fresh-run 检查）。
+对抗实验（"不用测试，直接改"）：模型完全跳过 skill——现由 **C17（SKILL-ABSENT）**
+检测并升级审查。测试体系：**28 项 fixture 检查 + 27 项变异扫描**（逐项破坏每个
+检查点验证其真实触发——已借此挖出并修复一个潜伏 bug：C3 从未生效）。
+
+**已知边界**（设计使然，§AUDIT 文档化）：审计只覆盖加载了 skill 的会话；
+语义真实性靠 10% 抽样而非全量证明；过程合规 ≠ 结果正确。
+
 ## 仓库结构
 
 本仓库包含三个子项目：
@@ -256,14 +300,18 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 | 文件                                          | 用途                                                   |
 | --------------------------------------------- | ------------------------------------------------------ |
-| `SKILL.md`                                  | 具有约束力的操作合同（约 1370 行的"不，真的，去测试"） |
+| `SKILL.md`                                  | 绑定操作契约 + 路由器（814 行，<49KB，有体积守卫）      |
+| `COMPLETION_GATE.md`                        | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单   |
 | `CODING_PRINCIPLES.md`                      | 四条铁律 + Karpathy 的六条纪律                         |
 | `ENGINEERING_STD.md`                        | 工程标准细则                                           |
 | `REFERENCE.md` / `APPENDIX.md`            | 流程参考 / 可执行模板                                  |
-| `TESTING_PROTOCOLS.md`                      | 后端 / TDD / 评审 / **停滞逃生** 协议规范文本（§A4.7–§A4.10） |
+| `TESTING_PROTOCOLS.md`                      | §A4.1 循环 + §A4.6 调试 + §A4.7–§A4.10 规范文本         |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | 项目记忆子系统                                         |
 | `scripts/assert_artifacts.py`               | 13 组断言的规范脚本，项目复制进 `tests/` 使用           |
 | `vibeweaver-gate.js`                        | stop hook 插件（opencode）+ 机械化停滞观测             |
+| `vibeweaver-audit.js`                       | 三层机械审计器（Tier 0/1/2）                            |
+| `scripts/vibeweaver-audit-core.js`          | 纯裁决核心（可无头测试）                                |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 28 项 fixture 检查 / 27 项变异检查            |
 | `install.sh` / `install.bat`              | 安装脚本                                               |
 
 ## 相关项目

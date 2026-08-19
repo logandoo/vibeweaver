@@ -16,6 +16,7 @@ fi
 # Files to install
 FILES=(
     "SKILL.md"
+    "COMPLETION_GATE.md"
     "CODING_PRINCIPLES.md"
     "ENGINEERING_STD.md"
     "REFERENCE.md"
@@ -47,12 +48,25 @@ for file in "${FILES[@]}"; do
     echo "[OK] Installed: ${file}"
 done
 
-# Copy the canonical artifact-assertion script (copied into projects per SKILL.md A4.4.1)
+# Copy skill scripts (canonical assert script + audit core module)
 mkdir -p "${SKILLS_DIR}/scripts"
 cp "${SCRIPT_DIR}/scripts/assert_artifacts.py" "${SKILLS_DIR}/scripts/assert_artifacts.py"
 echo "[OK] Installed: scripts/assert_artifacts.py"
+cp "${SCRIPT_DIR}/scripts/vibeweaver-audit-core.js" "${SKILLS_DIR}/scripts/vibeweaver-audit-core.js"
+echo "[OK] Installed: scripts/vibeweaver-audit-core.js"
+
+# Install the plugin pair (physical gate + Tier-0/1/2 auditor) into opencode's plugin dir
+PLUGINS_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/opencode/plugins"
+mkdir -p "${PLUGINS_DIR}"
+for plugin in "vibeweaver-gate.js" "vibeweaver-audit.js"; do
+    if [[ -f "${SCRIPT_DIR}/${plugin}" ]]; then
+        cp "${SCRIPT_DIR}/${plugin}" "${PLUGINS_DIR}/${plugin}"
+        echo "[OK] Installed plugin: ${plugin}"
+    fi
+done
 
 echo ""
 echo "[OK] vibeweaver skill installed to: ${SKILLS_DIR}/"
 echo "     Files installed: $(( ${#FILES[@]} + 1 ))"
+echo "     Plugins installed to: ${PLUGINS_DIR}/"
 echo "     Restart OpenCode to activate."
