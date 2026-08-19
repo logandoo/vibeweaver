@@ -103,6 +103,13 @@ git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver-
 
 重启 opencode 即可。可选配件：Playwright（截图采集）、[mm-sensor](https://github.com/logandoo/mm-sensor)（截图独立评分，装了更靠谱）。
 
+可选——机械底线：`vibeweaver-gate` 插件会在证据缺失时拦住写入、同一文件改 3 次无新 PASS 时发出停滞警告。它不随 mini 打包，但对 mini 项目开箱即用（mini 的落盘格式与它的检查对齐）。对弱模型来说，这种程序性强制比任何指令都管用：
+
+```bash
+curl -o ~/.config/opencode/plugins/vibeweaver-gate.js \
+  https://raw.githubusercontent.com/logandoo/vibeweaver/main/vibeweaver/vibeweaver-gate.js
+```
+
 ## 怎么选
 
 - **极弱模型（~3B 激活）** → 用 mini，强制注入（仅挂载在能力阈值之下会彻底失效；完整版约 88KB 会淹没上下文）

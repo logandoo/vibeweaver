@@ -58,6 +58,8 @@ vibeweaver 附带的配套插件 `vibeweaver-gate`，在**工具层**机械地�
 
 这个拦截刻意做成可复查而非死停：把证据补齐，下一次 `write`/`edit` 会自动重新检查。它是完工门槛，不是执行开关。
 
+而且这个插件不挑 skill：只要项目里有 `tests/verification_log.md` 它就生效，所以 **vibeweaver-mini** 同样被覆盖——mini 的落盘格式刻意对齐了它的证据底线。只用 mini 又想要这条硬底线的用户，装这一个插件就够了（见 [安装](#安装)）。
+
 一句实话：这个插件说的是 opencode 的插件 API（`tool.execute.after`、`session.idle`、`client.app.log`）。至于 Claude Code 或 Codex 有没有类似的机制——我没验证过，真不知道，欢迎 Fork。另外 DeepSeek Harness 的插件机制看起来很不错，正在研究，过段时间会把对应的 stop hook 插件也补上。
 
 ## 认知层：工具之上的状态管理

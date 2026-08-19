@@ -60,6 +60,8 @@ The companion plugin `vibeweaver-gate` enforces the evidence rules **mechanicall
 
 The gate is deliberately re-checkable, not a dead stop: fix the artifacts, and the next `write`/`edit` re-runs the check automatically.
 
+It is also skill-agnostic: the gate fires on any project that has `tests/verification_log.md`, so it covers **vibeweaver-mini** too — mini's artifact formats are deliberately aligned with its evidence floor. If you only run mini and want the hard floor, installing this one plugin is the whole job (see Installation).
+
 One honest caveat: this plugin speaks opencode's plugin API (`tool.execute.after`, `session.idle`, `client.app.log`). Whether Claude Code or Codex have an equivalent mechanism — I haven't verified it, so honestly no idea. Forks welcome. DeepSeek Harness's plugin mechanism looks quite nice; I'm researching it and will add a matching stop-hook plugin when I get to it.
 
 ## The cognitive overlay: state management beyond the tools

@@ -103,6 +103,13 @@ or copy `SKILL.md` into your skills folder:
 
 Restart opencode. Optional companions: Playwright (screenshot capture), [mm-sensor](https://github.com/logandoo/mm-sensor) (independent screenshot grading — more reliable when installed).
 
+Optional — the mechanical floor: the `vibeweaver-gate` plugin blocks writes while evidence is missing and warns when the same file is edited 3× with no new PASS. It is not bundled with mini, but it covers mini projects out of the box (mini's artifact formats are aligned with its checks). For weak models this enforcement is worth more than any instruction:
+
+```bash
+curl -o ~/.config/opencode/plugins/vibeweaver-gate.js \
+  https://raw.githubusercontent.com/logandoo/vibeweaver/main/vibeweaver/vibeweaver-gate.js
+```
+
 ## Which one to pick
 
 - **Extremely weak model (~3B active)** → mini, force-injected (available-mode loading collapses below a capability threshold; the full version's ~88KB floods the context)
