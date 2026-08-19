@@ -28,7 +28,7 @@ The mechanism is brutally simple: **size decides trigger rate, trigger rate deci
 | **Design-doc system** | FLOW / PAGE / DATABASE / BACKEND_DESIGN.html plus the Design Gate A/B approval gates |
 | **New-project scaffolding** | The full C1 workflow, `config.toml` templates, Part B default stack (FastAPI + React + Vite + PostgreSQL) |
 | **Completion table & audit lines** | The 8-column completion table, `[Verification Gate]` line, `[Convergence]` line, Covenant Recall, the formalized COV-1~10 covenant set |
-| **Executable assertions & physical gate** | `assert_artifacts.py` byte-checking, the `vibeweaver-gate` plugin (stop hook) |
+| **Executable assertions** | The 13-group `assert_artifacts.py` byte-checking script. The `vibeweaver-gate` plugin is NOT excluded — if installed, its inline evidence floor and stall observer cover mini projects too (mini's artifact formats are deliberately gate-compatible) |
 | **Independent code review** | A4.9 subagent review dispatch (COV-8) |
 | **API-doc-driven loop** | A4.7's "update API doc → audit doc↔code → write cases from the doc", reduced to "call the API and verify + one workflow test" |
 | **Systematic debugging phases** | A4.6 root-cause investigation workflow, reduced to one line (read the full error → diagnose root cause → change one thing) |

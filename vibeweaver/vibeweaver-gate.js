@@ -178,7 +178,7 @@ function blockMessage(root, result) {
     lines.push("No structure warnings.")
   }
   if (result.inline) {
-    lines.push("tests/assert_artifacts.py is missing — create it from the canonical block in vibeweaver SKILL.md (A4.4.1).")
+    lines.push("tests/assert_artifacts.py is missing — either copy it from the vibeweaver skill's scripts/assert_artifacts.py, or satisfy the inline evidence floor: >=1 `- iter N PASS/FAIL:` entry in tests/verification_log.md, tests/acceptance.md first line `> cap=5  stall=3x`, and every cited screenshot/media file present and non-empty.")
   } else if (result.attempts) {
     lines.push("assert_artifacts.py flag attempts: " + result.attempts.join(" "))
   }

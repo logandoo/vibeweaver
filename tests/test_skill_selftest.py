@@ -138,8 +138,8 @@ for (let i = 1; i <= 3; i++) {
 
 
 class TestGatePlugin(unittest.TestCase):
-    @unittest.skipUnless(shutil.which("node"), "node not available")
-    def test_stall_observer_fires_on_third_same_file_edit(self):
+    def _stage_gate(self):
+        """A minimal mini-format project: cap line + iter entries, no assert script."""
         tmp = pathlib.Path(tempfile.mkdtemp(prefix="vibeweaver-gate-"))
         self.addCleanup(shutil.rmtree, tmp, True)
         (tmp / "tests").mkdir()
@@ -151,6 +151,11 @@ class TestGatePlugin(unittest.TestCase):
             "> cap=5  stall=3×\n\n1. x works\n", encoding="utf-8")
         shutil.copy(str(PAYLOAD / "vibeweaver-gate.js"), str(tmp / "gate.mjs"))
         (tmp / "driver.mjs").write_text(DRIVER, encoding="utf-8")
+        return tmp
+
+    @unittest.skipUnless(shutil.which("node"), "node not available")
+    def test_stall_observer_fires_on_third_same_file_edit(self):
+        tmp = self._stage_gate()
         r = run(["node", str(tmp / "driver.mjs"), str(tmp)], cwd=str(tmp))
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lines = [l for l in r.stdout.splitlines() if l.startswith("R")]
@@ -164,6 +169,28 @@ class TestGatePlugin(unittest.TestCase):
         ops = json.loads(state.read_text(encoding="utf-8"))["ops"]
         self.assertEqual(len(ops), 3)
         self.assertTrue(all(o["p"] == 0 for o in ops))
+
+    @unittest.skipUnless(shutil.which("node"), "node not available")
+    def test_mini_format_project_passes_gate(self):
+        """A mini-style project (cap line + iter entries, no assert script) is
+        NOT gate-blocked — mini artifact formats are gate-compatible."""
+        tmp = self._stage_gate()
+        r = run(["node", str(tmp / "driver.mjs"), str(tmp)], cwd=str(tmp))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for line in r.stdout.splitlines():
+            if line.startswith("R"):
+                self.assertIn("THROW=N", line, r.stdout)
+
+    @unittest.skipUnless(shutil.which("node"), "node not available")
+    def test_missing_iter_entries_blocks(self):
+        """The evidence floor fires: a log with no `- iter N PASS/FAIL:` entry blocks writes."""
+        tmp = self._stage_gate()
+        (tmp / "tests" / "verification_log.md").write_text(
+            "## Task: x | 2026-08-19\n- tried some stuff\n", encoding="utf-8")
+        r = run(["node", str(tmp / "driver.mjs"), str(tmp)], cwd=str(tmp))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        lines = [l for l in r.stdout.splitlines() if l.startswith("R")]
+        self.assertTrue(lines and all("THROW=Y" in l for l in lines), r.stdout)
 
 
 class TestPackageCoherence(unittest.TestCase):

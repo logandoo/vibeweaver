@@ -54,7 +54,7 @@ UI work needs THREE layers — do not skip any:
 **Layer 2 — Component tests:** render components with the project's test runner (Vitest/Jest + Testing Library) and assert user interaction updates the DOM. Specifiable behaviors are test-first; visual layout is verified in Layer 3.
 
 **Layer 3 — E2E + screenshots (the running app must be SEEN):**
-1. **BEFORE coding**, write pass/fail acceptance criteria to `tests/acceptance.md` — one numbered line per criterion, each a yes/no question a verifier can answer (e.g. "4. Completed todos are greyed out"). Vague request → confirm the criteria with the user first.
+1. **BEFORE coding**, write pass/fail acceptance criteria to `tests/acceptance.md` — first line `> cap=5  stall=3×` (the stop condition), then one numbered line per criterion, each a yes/no question a verifier can answer (e.g. "4. Completed todos are greyed out"). Vague request → confirm the criteria with the user first.
 2. Implement, then launch via `script/` (§5) and drive the running app with Playwright (Python): screenshot every key state (initial, after add, after toggle, after filter, error states) to `tests/*.png`.
 3. **Verify every screenshot against the criteria.** If `mm-sensor` is in `available_skills`, announce `Verifier: mm-sensor` at task start and grade every screenshot via `python3 {SKILL_DIR}/vision.py --detail high <png>` — never self-read screenshots while it is installed. If it is NOT installed, announce `Verifier: direct read` and inspect the image directly.
 4. Any criterion failing → fix the code → re-screenshot → re-verify. Log each iteration to `tests/verification_log.md`.
@@ -78,6 +78,7 @@ UI work needs THREE layers — do not skip any:
 
 ## 7. Finish & report
 
-- `tests/acceptance.md` (your pass/fail criteria) and `tests/verification_log.md` (each iteration: result + diagnosis on failure + what changed) must exist.
+- `tests/acceptance.md` (first line `> cap=5  stall=3×`, then the pass/fail criteria) and `tests/verification_log.md` (one line per iteration: `- iter N PASS/FAIL: <criterion> | diagnosis: <why it failed> | changed: <file>`; PASS lines name the evidence) must exist.
+- If the `vibeweaver-gate` plugin is installed, it enforces this floor mechanically: GATE-BLOCKED means evidence is missing (produce it — the next write re-checks automatically; never disable the gate to get past it), and a stall warning fires when the same file is edited 3× with no new PASS — apply §6.
 - Commit with a descriptive message.
 - Report: what you changed, how you verified it (with evidence — test log excerpts / screenshot filenames), and the final test results.

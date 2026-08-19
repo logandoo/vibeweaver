@@ -28,7 +28,7 @@
 | **设计文档体系** | FLOW / PAGE / DATABASE / BACKEND_DESIGN.html，以及 Design Gate A/B 审批环节 |
 | **新项目脚手架流程** | C1 全流程、`config.toml` 模板、Part B 默认技术栈（FastAPI + React + Vite + PostgreSQL） |
 | **完工表格与审计行** | 8 列完成表、`[Verification Gate]` 行、`[Convergence]` 行、Covenant Recall、10 条 covenant 的正式化（COV-1~10） |
-| **可执行断言与硬拦截插件** | `assert_artifacts.py` 字节级核对脚本、`vibeweaver-gate` 插件（stop hook） |
+| **可执行断言** | 13 组 `assert_artifacts.py` 字节级核对脚本。`vibeweaver-gate` 插件**不在**裁剪之列——装了就会覆盖 mini 项目（mini 的落盘格式刻意与插件的证据底线对齐），inline 检查和停滞观测照常生效 |
 | **独立代码评审** | A4.9 子 agent 评审派发（COV-8） |
 | **API 文档驱动循环** | A4.7 的"更新 API 文档→doc↔code 审计→从文档写用例"，只保留"调 API 验证 + 一条 workflow 测试" |
 | **系统化调试四阶段** | A4.6 根因调查流程，只留了一句极简版（读完整报错 → 诊断根因 → 一次只改一处） |
