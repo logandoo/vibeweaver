@@ -6,6 +6,15 @@ For now it's optimized for opencode only. Adapting it to DeepSeek Harness as a p
 
 As for Codex and Claude Code — never used them, no plans to, no idea. Anyone interested is welcome to fork.
 
+## 2026-08-21: session-scoped RED latch + audit delivery wave
+
+The 08-19 auditor had a structural wart: a truncated session could leave `BLOCKING=yes` latched red for the whole project, released only at session end — and the test-dir exemption matched only top-level `tests/`, so nested `dev/tests/` golden files deadlocked too. Two live projects hit exactly this this week. This wave fixes the latch and delivers the payload to every copy:
+
+- **Session-scoped latch.** The latch is now `{ sessionID, ts, bad }`. The latching session stays blocked (the self-correction teeth are unchanged); the first write/idle from a *different* session auto-releases the stale latch; a TTL backstop (default 24h, configurable **only** in the global `~/.config/opencode/vibeweaver/audit.json` — project-local copies are deliberately ignored, so the audited agent can never weaken its own auditor) catches a parked same-session latch. Legacy boolean state from pre-scoping versions self-heals on first contact, and every release is journaled to `.vibeweaver/audit-state.json` and surfaced in the audit report — a cleared latch is always traceable.
+- **Nested test-dir exemption.** Any `test`/`tests` path segment under the project root stays writable while RED, so evidence fixes can never be deadlocked.
+- **Selftest grew 28 → 36 checks** (cross-session release, nested tests, TTL backstop, release journaling, legacy self-heal); the 27-case mutation sweep is unchanged. An independent review of this wave caught (and the suite now pins) a journal-labeling defect T20 exposed on first run: legacy latches were journaled as `stale-session` instead of `legacy-state`.
+- **Delivery.** The 17-file payload is now byte-identical across all four copies (system install / dev tree / open-source snapshot / this repo), `install.sh`/`install.bat` ship both plugins, and `verify_skill.py` syntax-checks all five payload JS files.
+
 ## 2026-08-19: progressive-disclosure restructure + mechanical audit
 
 **Why (an opencode limitation, not a skill rule):** opencode loads a skill by
@@ -120,6 +129,8 @@ The gate is deliberately re-checkable, not a dead stop: fix the artifacts, and t
 
 It is also skill-agnostic: the gate fires on any project that has `tests/verification_log.md`, so it covers **vibeweaver-mini** too — mini's artifact formats are deliberately aligned with its evidence floor. If you only run mini and want the hard floor, installing this one plugin is the whole job (see Installation).
 
+The gate has a companion: `vibeweaver-audit` is a mechanical Tier-0/1/2 auditor of completion claims. At session idle it re-runs the project's `tests/assert_artifacts.py` (the same 13-group script the gate runs), grades the final output against its own claim checks, and re-checks the on-disk evidence; a BAD grade latches a **session-scoped** RED state that blocks the agent's writes until the evidence is actually fixed. Because the latch is session-scoped, a truncated session can never brick a project again: it self-releases on session change, on TTL expiry, or via legacy-state migration — and every release is journaled and surfaced in the audit report (see the 2026-08-21 section above).
+
 One honest caveat: this plugin speaks opencode's plugin API (`tool.execute.after`, `session.idle`, `client.app.log`). Whether Claude Code or Codex have an equivalent mechanism — I haven't verified it, so honestly no idea. Forks welcome. DeepSeek Harness's plugin mechanism looks quite nice; I'm researching it and will add a matching stop-hook plugin when I get to it.
 
 ## The cognitive overlay: state management beyond the tools
@@ -133,7 +144,7 @@ The evidence rules solve "the model lied about what it did". They don't solve "t
 - **Re-entry after gaps.** After a compaction / session boundary / long idle, the agent re-reads `verification_log.md` in full, re-reads the goal line by line, re-reads the covenants, and names the first action back — in that order, before touching the work (§3.3).
 - **Mechanized stall observation.** The plugin now keeps `.vibeweaver/state.json` (atomic writes): the same file edited 3× with no new PASS entry in between triggers a `GATE-WARNING` stall note pointing at the escape protocol. `stall=3×` used to be a bound the model counted for itself; now the plugin counts too.
 
-And while touching this, I applied to the skill the progressive-disclosure discipline it preaches: the ~120-line embedded assertion script became the canonical `scripts/assert_artifacts.py`, and the four backend / TDD / review protocols moved to `TESTING_PROTOCOLS.md` — the entry file got ~180 lines lighter, and every new rule above cost one compact covenant line plus a pointer.
+And while touching this, I applied to the skill the progressive-disclosure discipline it preaches: the ~120-line embedded assertion script became the canonical `scripts/assert_artifacts.py`, and the four backend / TDD / review protocols moved to `TESTING_PROTOCOLS.md` — the entry file got ~180 lines lighter then, and later splits took it down to today's ~814 lines, with every new rule above costing one compact covenant line plus a pointer.
 
 ## The memory system: opencode forgets, the files don't
 
@@ -262,10 +273,11 @@ git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver 
 install.bat     # Windows
 ```
 
-Restart opencode. The skill auto-triggers when you ask to build, modify, debug, or deploy anything. To also get the stop hook:
+Restart opencode. The skill auto-triggers when you ask to build, modify, debug, or deploy anything. To also get the enforcement plugins (stop hook + completion auditor — `install.sh`/`install.bat` already do both):
 
 ```bash
 cp ~/.config/opencode/skills/vibeweaver/vibeweaver-gate.js ~/.config/opencode/plugins/
+cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/plugins/
 ```
 
 (Or just keep it simple and only use the skill without the gate — the gate is the enforcement layer, the skill is the instruction layer, and both work independently.)
@@ -322,10 +334,10 @@ Short version: both start the same way — decompose, then plan. The weight diff
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | Project memory subsystem |
 | `scripts/assert_artifacts.py` | The canonical 13-group assertion script projects copy into `tests/` |
 | `vibeweaver-gate.js` | The stop-hook plugin (opencode) + mechanized stall observer |
-| `vibeweaver-audit.js` | Three-tier mechanical auditor (Tier 0/1/2) |
+| `vibeweaver-audit.js` | Three-tier mechanical auditor (Tier 0/1/2) — session-scoped RED latch, journaled auto-release, stale-latch healing |
 | `scripts/vibeweaver-audit-core.js` | Pure triage core (headless-testable) |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 28 fixture checks / 27 mutation checks |
-| `install.sh` / `install.bat` | Installers |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 36 fixture checks / 27 mutation checks — including the latch-release regressions |
+| `install.sh` / `install.bat` | Installers (skill files + both plugins) |
 
 ## Related
 

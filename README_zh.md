@@ -6,6 +6,15 @@
 
 至于 Codex 和 Claude Code，我没用过，也没打算用，不知道。如果有人感兴趣可以自行 fork。
 
+## 2026-08-21：会话级 RED 锁存 + 审计交付波次
+
+08-19 的审计器有个结构性隐患：会话被截断后，`BLOCKING=yes` 会针对整个项目落下 RED 锁存，只有到会话结束才释放——而且测试目录豁免只匹配顶层 `tests/`，嵌套的 `dev/tests/` golden 文件也会被锁死。本周就有两个真实项目撞上了这个死锁。这一波修复锁存，并把 payload 交付到所有副本：
+
+- **会话级锁存。** 锁存值变为 `{ sessionID, ts, bad }`。落锁的会话自己继续写 → 照旧被拦（自纠闭环不变）；*另一个*会话的首个写入/idle → 自动释放陈旧锁存；TTL 兜底（默认 24h，**只能**在全局 `~/.config/opencode/vibeweaver/audit.json` 里配——项目本地副本被刻意忽略，被审计的 agent 永远不能给自己的审计器松绑）兜住同一会话遗留的活锁。旧格式的布尔锁存在首次接触时自愈；每次释放都记进 `.vibeweaver/audit-state.json` 并出现在审计报告里——锁被打开过永远可追溯。
+- **嵌套测试目录豁免。** 项目根下任意 `test`/`tests` 路径段在 RED 期间保持可写，证据修复永不被死锁卡住。
+- **自测从 28 项长到 36 项**（跨会话释放、嵌套 tests、TTL 兜底、释放留痕、legacy 自愈）；27 项变异扫描不变。本波次的一次独立评审抓出（如今由套件钉死）一个 T20 首跑就暴露的留痕缺陷：legacy 锁存曾被记成 `stale-session` 而非 `legacy-state`。
+- **交付。** 17 文件 payload 在全部四份副本（系统安装 / dev 树 / open-source 快照 / 本仓库）字节一致；`install.sh`/`install.bat` 同时安装两个插件；`verify_skill.py` 对全部五个 payload JS 文件做语法检查。
+
 ## 2026-08-19：渐进式披露重构 + 机械审计体系
 
 **原因（这是 opencode 的限制，不是 skill 的规则）：** opencode 加载 skill 时把整个
@@ -104,6 +113,8 @@ vibeweaver 附带的配套插件 `vibeweaver-gate`，在**工具层**机械地�
 
 而且这个插件不挑 skill：只要项目里有 `tests/verification_log.md` 它就生效，所以 **vibeweaver-mini** 同样被覆盖——mini 的落盘格式刻意对齐了它的证据底线。只用 mini 又想要这条硬底线的用户，装这一个插件就够了（见 [安装](#安装)）。
 
+这个插件有个搭档：`vibeweaver-audit` 是完工声明的机械审计器（Tier-0/1/2）。会话空闲时它重跑项目的 `tests/assert_artifacts.py`（和 stop hook 用的是同一份 13 组断言脚本），再用自己的声明检查组给最终输出打分、复核磁盘证据；打出 BAD 就落下一个**会话级**的 RED 锁存，拦住 agent 的写入，直到证据真的补齐。正因为锁存是会话级的，一个被截断的会话永远不会把项目锁死：换会话、TTL 到期、旧格式状态迁移，三条路都会自动释放——而且每次释放都会记进 `.vibeweaver/audit-state.json` 并出现在审计报告里（机制详见上面的 2026-08-21 一节）。
+
 一句实话：这个插件说的是 opencode 的插件 API（`tool.execute.after`、`session.idle`、`client.app.log`）。至于 Claude Code 或 Codex 有没有类似的机制——我没验证过，真不知道，欢迎 Fork。另外 DeepSeek Harness 的插件机制看起来很不错，正在研究，过段时间会把对应的 stop hook 插件也补上。
 
 ## 认知层：工具之上的状态管理
@@ -117,7 +128,7 @@ vibeweaver 附带的配套插件 `vibeweaver-gate`，在**工具层**机械地�
 - **长间隔后的重入。** compaction / 跨 session / 长时间中断之后，agent 先全量重读 `verification_log.md`、逐行重读目标、重读契约，然后说出恢复后的第一步动作——按这个顺序，然后再碰工作（§3.3）。
 - **停滞观测机械化。** 插件现在维护 `.vibeweaver/state.json`（原子写）：同一文件被改 3 次、中间没有新增 PASS 条目 → 触发一条指向逃生协议的 `GATE-WARNING`。`stall=3×` 以前是模型自己数的上限，现在插件也数。
 
-顺便把 skill 自己宣讲的渐进披露纪律用到了它身上：约 120 行的内嵌断言脚本变成规范的 `scripts/assert_artifacts.py`，四个 后端/TDD/评审 协议移入 `TESTING_PROTOCOLS.md`——入口文件瘦身约 180 行，而上面每条新规则的成本是一行紧凑契约 + 一个指针。
+顺便把 skill 自己宣讲的渐进披露纪律用到了它身上：约 120 行的内嵌断言脚本变成规范的 `scripts/assert_artifacts.py`，四个 后端/TDD/评审 协议移入 `TESTING_PROTOCOLS.md`——那次入口文件瘦身约 180 行，后续几轮拆分把入口进一步做到今天的约 814 行；上面每条新规则的成本是一行紧凑契约 + 一个指针。
 
 ## 记忆系统：
 
@@ -246,10 +257,11 @@ git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver 
 install.bat     # Windows
 ```
 
-重启 opencode。当你要求构建、修改、调试或部署任何东西时，skill 会自动触发。想连 stop hook 一起要：
+重启 opencode。当你要求构建、修改、调试或部署任何东西时，skill 会自动触发。想连执行层插件一起要（stop hook + 完工审计器——`install.sh`/`install.bat` 本来就会装全）：
 
 ```bash
 cp ~/.config/opencode/skills/vibeweaver/vibeweaver-gate.js ~/.config/opencode/plugins/
+cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/plugins/
 ```
 
 （嫌麻烦只装 skill 不装拦截插件也行——插件是执行层，skill 是指令层，两者独立工作。）
@@ -309,10 +321,10 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | 项目记忆子系统                                         |
 | `scripts/assert_artifacts.py`               | 13 组断言的规范脚本，项目复制进 `tests/` 使用           |
 | `vibeweaver-gate.js`                        | stop hook 插件（opencode）+ 机械化停滞观测             |
-| `vibeweaver-audit.js`                       | 三层机械审计器（Tier 0/1/2）                            |
+| `vibeweaver-audit.js`                       | 三层机械审计器（Tier 0/1/2）——会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈 |
 | `scripts/vibeweaver-audit-core.js`          | 纯裁决核心（可无头测试）                                |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 28 项 fixture 检查 / 27 项变异检查            |
-| `install.sh` / `install.bat`              | 安装脚本                                               |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 36 项 fixture 检查 / 27 项变异检查——含锁存释放回归        |
+| `install.sh` / `install.bat`              | 安装脚本（skill 文件 + 两个插件）                          |
 
 ## 相关项目
 

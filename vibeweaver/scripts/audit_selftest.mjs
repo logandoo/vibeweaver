@@ -1,6 +1,7 @@
 // vibeweaver-audit self-test + calibration harness.
 // Usage: node scripts/audit_selftest.mjs [--calib /tmp/vibeweaver-audit-calib]
-// Runs 5 fixture triage tests against the pure core of vibeweaver-audit.js,
+// Runs the fixture triage suite (T1-T20) against the pure core of
+// vibeweaver-audit.js,
 // then (optionally) replays real session transcripts from a directory of
 // {sessionID}.json files exported from the opencode event table.
 // Exit 0 only when every fixture expectation holds; calibration is
@@ -504,6 +505,117 @@ const baseTools = () => [
     stillBlocked = true
   }
   rec("T15 fix + rerun -> unblocked", !stillBlocked, stillBlocked ? "still blocked" : "writes allowed again")
+}
+
+// =====================================================================
+// T16-T19 — RED latch is SESSION-SCOPED (deadlock regression, 2026-08-21)
+// A truncated/aborted session must not hold the next task hostage.
+// =====================================================================
+
+async function latchRed(plugin, sessionId, root) {
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  await emit("message.part.updated", { sessionID: sessionId, part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  await emit("message.part.updated", { sessionID: sessionId, part: { id: "t1", type: "text", text: "Verifier: mm-sensor [image]\n[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
+  await emit("session.idle", { sessionID: sessionId })
+}
+
+// Returns true when the write passed, or the error message when blocked —
+// callers asserting a block must check for GATE-BLOCKED, so an unexpected
+// error (test bug) can never masquerade as a pass.
+async function tryWrite(plugin, root, relPath, sessionId) {
+  try {
+    await plugin["tool.execute.before"]({ tool: "write", sessionID: sessionId, args: { filePath: path.join(root, relPath) } })
+    return true
+  } catch (e) {
+    return e.message
+  }
+}
+
+// ---- T16: a DIFFERENT session's write auto-releases an inherited RED ----
+{
+  const root = newFixture("t16-takeover")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  await latchRed(plugin, "ses_t16_a", root)
+  const aResult = await tryWrite(plugin, root, "src/a.ts", "ses_t16_a")
+  const aBlocked = typeof aResult === "string" && /GATE-BLOCKED/.test(aResult)
+  rec("T16 latching session stays blocked (in-session teeth)", aBlocked, aBlocked ? "A blocked" : "A NOT blocked — teeth lost: " + aResult)
+  const bAllowed = (await tryWrite(plugin, root, "src/b.ts", "ses_t16_b")) === true
+  rec("T16 different session write auto-releases latch", bAllowed, bAllowed ? "takeover unblocked" : "deadlock — B still blocked")
+}
+
+// ---- T17: nested test dir (dev/tests/) stays writable while self-RED ----
+{
+  const root = newFixture("t17-nested-tests")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  mkdirSync(path.join(root, "dev/tests"), { recursive: true })
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  await latchRed(plugin, "ses_t17", root)
+  const codeResult = await tryWrite(plugin, root, "src/code.ts", "ses_t17")
+  const codeBlocked = typeof codeResult === "string" && /GATE-BLOCKED/.test(codeResult)
+  rec("T17 code write blocked while self-RED", codeBlocked, codeBlocked ? "blocked" : "NOT blocked: " + codeResult)
+  const goldenOk = (await tryWrite(plugin, root, "dev/tests/golden.json", "ses_t17")) === true
+  rec("T17 nested dev/tests/ golden file stays writable while RED", goldenOk, goldenOk ? "evidence fix path open" : "deadlocked nested test dir")
+}
+
+// ---- T18: TTL backstop releases a stale latch of the SAME session ----
+{
+  const root = newFixture("t18-ttl")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  await latchRed(plugin, "ses_t18", root)
+  // Age the latched state past the 24h TTL to mimic a parked session.
+  const sp = path.join(root, ".vibeweaver", "audit-state.json")
+  const st = JSON.parse(readFileSync(sp, "utf8"))
+  st.roots[root].red = { sessionID: "ses_t18", ts: Date.now() - 48 * 3600 * 1000, bad: st.roots[root].red.bad }
+  writeFileSync(sp, JSON.stringify(st))
+  // Fresh plugin instance reparses the aged state from disk.
+  const plugin2 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const ttlReleased = (await tryWrite(plugin2, root, "src/ttl.ts", "ses_t18")) === true
+  rec("T18 TTL-expired latch auto-releases without human action", ttlReleased, ttlReleased ? "48h-old latch cleared" : "stale latch persisted")
+}
+
+// ---- T19: every release is recorded (state) and surfaced (report) ----
+{
+  const root = newFixture("t19-trail")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  // A latches RED.
+  await emit("message.part.updated", { sessionID: "ses_t19_a", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  await emit("message.part.updated", { sessionID: "ses_t19_a", part: { id: "t1", type: "text", text: "Verifier: mm-sensor [image]\n[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1" } })
+  await emit("session.idle", { sessionID: "ses_t19_a" })
+  // B loads the skill; B's write releases A's latch; B then reports.
+  await emit("message.part.updated", { sessionID: "ses_t19_b", part: { id: "k2", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  const bAllowed = (await tryWrite(plugin, root, "src/b.ts", "ses_t19_b")) === true
+  await emit("message.part.updated", { sessionID: "ses_t19_b", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: direct read | Loop executed: no | Iterations: 0" } })
+  await emit("session.idle", { sessionID: "ses_t19_b" })
+  const sp = path.join(root, ".vibeweaver", "audit-state.json")
+  const st = JSON.parse(readFileSync(sp, "utf8"))
+  const rel = st.roots[root] && st.roots[root].redReleases
+  rec("T19 release recorded in state (redReleases)", bAllowed && Array.isArray(rel) && rel.length >= 1, `releases=${rel ? rel.length : 0}`)
+  const report = existsSync(path.join(root, "tests", "gate_audit.md")) ? readFileSyncSafe(path.join(root, "tests", "gate_audit.md")) : ""
+  rec("T19 release trail surfaced in report footer", /## Stale RED releases/.test(report), /## Stale RED releases/.test(report) ? "footer present" : "footer missing")
+}
+
+// ---- T20: legacy boolean RED state (pre session-scoping form) self-heals ----
+{
+  const root = newFixture("t20-legacy")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  // Seed the exact legacy shape pre-fix sessions persisted: bare boolean red.
+  write(root, ".vibeweaver/audit-state.json", JSON.stringify({ roots: { [root]: { red: true } }, sessions: {} }))
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const healed = (await tryWrite(plugin, root, "src/legacy.ts", "ses_t20_a")) === true
+  const sp = path.join(root, ".vibeweaver", "audit-state.json")
+  const st = JSON.parse(readFileSync(sp, "utf8"))
+  const rel = st.roots[root] && st.roots[root].redReleases
+  rec(
+    "T20 legacy boolean red:true self-heals on first session write (journal: legacy-state)",
+    healed && st.roots[root].red == null && Array.isArray(rel) && rel.length >= 1 && rel[0].reason === "legacy-state",
+    healed
+      ? `red=${JSON.stringify(st.roots[root].red)} reason=${rel && rel[0] ? rel[0].reason : "?"}`
+      : "legacy latch deadlocked the next session (takeover path broken)"
+  )
 }
 
 // =====================================================================

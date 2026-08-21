@@ -265,20 +265,36 @@ calls). Full architecture notes: this file's preface in the skill.
   files · verifier announcement (when loop executed) · COV-9 baseline entry
   · HARD-GATE-1/2 values.
 
-**Report:** written to `tests/gate_audit.md` at session idle (refreshed on
-every write/edit while a session is open). `session.idle` fires after EVERY
-assistant turn, so the FULL final audit runs only when the session text
-contains the completion markers (`[Verification Gate]` or the 8-column table
-header); in-progress turns get the warn-only mid audit and never set
-BLOCKING (multi-turn tasks must not deadlock). First line is the verdict:
+**Report:** written to `tests/gate_audit.md` at session idle (refreshed at
+every session idle, which fires after EVERY assistant turn). The FULL final
+audit runs only when the session text contains the completion markers
+(`[Verification Gate]` or the 8-column table header); in-progress turns get
+the warn-only mid audit and never set BLOCKING (multi-turn tasks must not
+deadlock). First line is the verdict:
 ```
 AUDIT: BAD=n UNCERTAIN=n escalate=true|false reasons=[BAD,UNCERTAIN,HIGH-RISK,SAMPLING] BLOCKING=yes|no
 ```
-- `BLOCKING=yes` → the next write/edit throws GATE-BLOCKED until the report
-  is GREEN (fix the BAD artifacts/claims — never argue intent). `tests/**`
-  stays writable while RED (evidence fixes must not deadlock); blocking
-  applies to both the `message.part.updated` and `tool.execute.after`
-  channels.
+- `BLOCKING=yes` latches RED at the project root (persisted per project root in
+  `.vibeweaver/audit-state.json`, with the latching session's ID embedded in the
+  latch value) and the next
+  non-test `write`/`edit` throws GATE-BLOCKED (`tool.execute.before`).
+  **The latch is scoped to the session that earned it:**
+  - The latching session stays blocked while it continues — self-correct:
+    repair each `[BAD]` item (fix the evidence, append `- audit-fix: …` /
+    `- audit-ruling: …` entries to `tests/verification_log.md`) and re-emit
+    a corrected `[Verification Gate]` line in your reply. The audit
+    re-runs at every session idle and re-checks on every write; when the
+    report is GREEN the latch clears. No human action is needed.
+  - A latch must NEVER outlive its session and hold the next task hostage:
+    it auto-releases on the first write/idle of a DIFFERENT session
+    (session takeover), or after the TTL (`redTtlHours` in `audit.json`,
+    default 24h), or immediately for legacy (pre session-scoping) state.
+    Every release is recorded — `redReleases` in the state file (bounded
+    to 5), the opencode app log, and a `## Stale RED releases` section of
+    the report — never silently dropped.
+  - Any `test`/`tests` directory in the project (top-level `tests/`,
+    `dev/tests/`, `src/test/`, …) stays writable while RED, so the
+    evidence-fix path can never deadlock.
 - `escalate=true` → the Tier-2 contract below applies.
 
 **Tier-2 escalation contract (escalate=true — YOUR obligation, NOT optional):**
@@ -320,7 +336,11 @@ and orderings — never intent. `na`/`no` claims are accepted at face value;
 A4.9 trigger classification rests on the model's self-assessment; process
 compliance is not outcome correctness. Those are the reviewer's (and the
 user's) judgments — the audit's job is to make the machine-checkable layer
-honest.</parameter>
+honest. A truncated/aborted session's buffered text may be incomplete
+(head/tail caps), so its final audit can latch RED on partial evidence —
+that is the latch being conservative, and it is bounded precisely because
+of this: it dies with its session (takeover release) or its TTL, is fully
+recorded, and can never block a different session's task.</parameter>
 
 ---
 

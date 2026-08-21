@@ -10,7 +10,18 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 //   {type, properties:{sessionID, part}}). No model cooperation needed.
 // Tier 1 (mechanical, OK/BAD/UNCERTAIN): artifact checks, narration
 //   markers, and claim<->artifact cross-checks of the [Verification Gate]
-//   line (pure logic in scripts/vibeweaver-audit-core.js).
+//   line (pure logic in scripts/vibeweaver-audit-core.js). A BAD final audit
+//   latches RED at the project root and blocks the latching session's next
+//   non-test write until it self-corrects (fix evidence + corrected gate
+//   line, re-checked at every session idle).
+//   The latch is SESSION-SCOPED: a truncated/aborted session must not be
+//   able to hold the next task hostage, so the latch auto-releases on the
+//   first write/idle of a DIFFERENT session, or after redTtlHours (default
+//   24, audit.json), or immediately for legacy boolean state. Every release
+//   is recorded in state (bounded) + app log + a "## Stale RED releases"
+//   section of tests/gate_audit.md — never silently dropped.
+//   Any test/tests directory in the project (tests/, dev/tests/, src/test/…)
+//   stays writable while RED so the evidence-fix path never deadlocks.
 // Tier 2 (escalation): UNCERTAIN / sampling / high-risk -> escalate=true in
 //   tests/gate_audit.md; skill protocol then requires a fresh-brain review.
 //
@@ -29,6 +40,8 @@ const TEXT_CAP_TAIL = 150_000
 const TOOL_CAP = 400
 const IN_CAP = 400
 const OUT_CAP = 300
+const RED_TTL_HOURS_DEFAULT = 24
+const RELEASES_CAP = 5
 
 // ---------- helpers (never throw) ----------
 
@@ -57,6 +70,37 @@ function findProjectRoot(startDirs) {
     }
   }
   return null
+}
+
+// A path is exempt from RED blocking when it lies inside the project root
+// and any segment of its project-relative path is a test directory —
+// covers tests/, dev/tests/, src/test/, … (the evidence-fix path must
+// never deadlock, per §A4.4.2 "tests/** stays writable").
+function isTestDirPath(root, filePath) {
+  if (typeof filePath !== "string" || !filePath) return false
+  const rel = filePath.startsWith(root + path.sep)
+    ? filePath.slice(root.length + path.sep.length)
+    : null
+  if (rel == null) return false
+  return rel.split(/[\\/]/).some((seg) => {
+    const s = seg.toLowerCase()
+    return s === "test" || s === "tests"
+  })
+}
+
+// Normalize the stored red latch to { sessionID, ts, bad } | null.
+// Legacy boolean `true` (pre session-scoping) → unknown latcher, born stale:
+// it releases on the first observed session write/idle or via TTL.
+function readLatch(rootEntry) {
+  const r = rootEntry && rootEntry.red
+  if (!r) return null
+  if (typeof r === "object")
+    return {
+      sessionID: typeof r.sessionID === "string" ? r.sessionID : null,
+      ts: typeof r.ts === "number" ? r.ts : 0,
+      bad: Number.isFinite(r.bad) ? r.bad : null,
+    }
+  return { sessionID: null, ts: 0, bad: null }
 }
 
 // Core module resolution: env override → installed skill dir (sibling of the
@@ -139,6 +183,59 @@ let state = { sessions: {}, roots: {} }
     return {}
   }
 
+  // Release a stale RED latch. Rules (latch = { sessionID, ts, bad }):
+  //   1. legacy boolean state (ts===0, never session-scoped at birth) →
+  //      legacy-state release on first contact, labeled for its true origin
+  //      (also reachable for object latches that lost their ts);
+  //   2. a known DIFFERENT session touches the project → stale-session
+  //      release (a latch must never outlive the session that earned it);
+  //   3. TTL expiry (redTtlHours, default 24; audit.json) as a backstop when
+  //      the same session keeps holding a live latch.
+  // Never releases a fresh latch of the CURRENT session (in-session teeth).
+  // Returns the release record or null. Never throws.
+  const releaseStale = (root, currentSessionID, via) => {
+    try {
+      const entry = state.roots[root]
+      const latch = readLatch(entry)
+      if (!entry || !latch) return null
+      const cfg = readConfig()
+      const ttlHours = Number.isFinite(cfg.redTtlHours) ? cfg.redTtlHours : RED_TTL_HOURS_DEFAULT
+      const age = Date.now() - latch.ts
+      const cur = typeof currentSessionID === "string" && currentSessionID ? currentSessionID : null
+      // ts===0 identifies a latch that was never session-scoped at birth
+      // (legacy boolean form) — label it as such, not as a fleet of unknowns.
+      const reason = latch.ts === 0
+        ? "legacy-state"
+        : cur && latch.sessionID !== cur
+          ? "stale-session"
+          : age > ttlHours * 3_600_000
+            ? "ttl-expiry"
+            : null
+      if (!reason) return null
+      const rec = { ts: Date.now(), from: latch.sessionID || "unknown", bad: latch.bad, reason, via, by: cur || via }
+      entry.red = null
+      if (!Array.isArray(entry.redReleases)) entry.redReleases = []
+      entry.redReleases.push(rec)
+      if (entry.redReleases.length > RELEASES_CAP) entry.redReleases = entry.redReleases.slice(-RELEASES_CAP)
+      flush()
+      try {
+        client.app.log({
+          body: {
+            service: "vibeweaver-audit",
+            level: "info",
+            message: `Stale RED latch released (${reason}) — latched by ${rec.from} (BAD=${rec.bad == null ? "?" : rec.bad}), via ${via}`,
+            extra: { root, release: rec },
+          },
+        })
+      } catch {
+        /* logging must never crash the plugin */
+      }
+      return rec
+    } catch {
+      return null
+    }
+  }
+
   const makePackets = (audit, sess) => {
     const packets = []
     for (const c of audit.checks) {
@@ -178,7 +275,13 @@ let state = { sessions: {}, roots: {} }
     })
     if (audit.skipped) return null
     const packets = makePackets(audit, sess)
-    const report = buildReport(audit, sessionID, packets)
+    if (!state.roots[root]) state.roots[root] = {}
+    const releases = Array.isArray(state.roots[root].redReleases) ? state.roots[root].redReleases : []
+    const footer = releases.map(
+      (r) =>
+        `- ${new Date(r.ts).toISOString()} released: latched RED (BAD=${r.bad == null ? "?" : r.bad}, session ${r.from}) → cleared via ${r.reason} (via ${r.via}, by ${r.by})`
+    )
+    const report = buildReport(audit, sessionID, packets, footer)
     try {
       if (!existsSync(path.join(root, "tests"))) mkdirSync(path.join(root, "tests"), { recursive: true })
       writeFileSync(path.join(root, "tests", AUDIT_FILE), report)
@@ -186,7 +289,10 @@ let state = { sessions: {}, roots: {} }
       /* report best-effort */
     }
     if (!state.roots[root]) state.roots[root] = {}
-    if (phase === "final") state.roots[root].red = audit.red
+    if (phase === "final")
+      state.roots[root].red = audit.red
+        ? { sessionID, ts: Date.now(), bad: audit.bad }
+        : null
     state.roots[root].lastSession = sessionID
     flush()
     return { audit, report }
@@ -227,17 +333,28 @@ let state = { sessions: {}, roots: {} }
   }
 
   return {
-    // Block BEFORE the write lands: red is per-project, so no sessionID needed.
-    // tests/** stays writable so evidence fixes never deadlock.
-    "tool.execute.before": async (input) => {
+    // Block BEFORE the write lands. The RED latch is scoped to the session
+    // that earned it: a different session (or TTL/legacy staleness) releases
+    // it right here, so a truncated or dead session can never hold the next
+    // task hostage. Any test/tests directory stays writable so evidence
+    // fixes never deadlock.
+    "tool.execute.before": async (input, output) => {
       if (!input || (input.tool !== "write" && input.tool !== "edit")) return
       if (process.env.VIBEWEAVER_AUDIT === "off") return
-      const filePath = input.args && typeof input.args.filePath === "string" ? input.args.filePath : null
+      const args = (input && input.args) || (output && output.args) || {}
+      const filePath = typeof args.filePath === "string" ? args.filePath : null
+      const cur = typeof input.sessionID === "string" && input.sessionID ? input.sessionID : null
       const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
-      if (!root || !state.roots[root] || !state.roots[root].red) return
-      if (filePath && filePath.startsWith(path.join(root, "tests") + path.sep)) return
+      if (!root || !state.roots[root]) return
+      releaseStale(root, cur, "write")
+      const latch = readLatch(state.roots[root])
+      if (!latch) return
+      if (filePath && isTestDirPath(root, filePath)) return
+      const selfLatched = cur === latch.sessionID
       throw new Error(
-        "GATE-BLOCKED (vibeweaver-audit): mechanical audit is RED for this project — read tests/gate_audit.md. To clear: fix the BAD claims (tests/ stays writable — append `- audit-fix: ...` entries to tests/verification_log.md and, for narration claims, emit a corrected [Verification Gate] line in your reply), then the audit re-runs at session end and unblocks writes. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
+        selfLatched
+          ? "GATE-BLOCKED (vibeweaver-audit): YOUR session's mechanical audit is RED — read tests/gate_audit.md. To unblock: fix each [BAD] item (any test directory — tests/, dev/tests/, … — stays writable: repair the missing evidence and append `- audit-fix: …` entries to tests/verification_log.md), then re-emit a corrected [Verification Gate] line in your reply. The audit re-runs at every session idle and re-checks on every write; no human action is needed. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
+          : "GATE-BLOCKED (vibeweaver-audit): a mechanical RED latch for this project is still pending — read tests/gate_audit.md. Latches are scoped to the session that earned them and auto-release on a different session's first write/idle or after the red TTL (default 24h) — continuing your turn (any idle) will clear a stale latch automatically. Any test directory (tests/, dev/tests/, …) is writable right now. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
       )
     },
     event: async ({ event }) => {
@@ -248,6 +365,12 @@ let state = { sessions: {}, roots: {} }
         observePart(sessionID, props.part)
       } else if (event.type === "session.idle" && sessionID) {
         if (process.env.VIBEWEAVER_AUDIT === "off") return
+        // A stale latch (other session / TTL / legacy) must not survive this
+        // session's turn — release BEFORE the audit so the takeover write
+        // path is open immediately. A fresh latch of THIS session survives
+        // (releaseStale refuses it) and its own final audit decides.
+        const idleRoot = findProjectRoot([directory])
+        if (idleRoot) releaseStale(idleRoot, sessionID, "idle")
         flush()
         const sess = state.sessions[sessionID]
         // mid-task idle (no completion marker yet) -> warn-only audit, no red.

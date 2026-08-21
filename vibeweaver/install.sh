@@ -67,6 +67,6 @@ done
 
 echo ""
 echo "[OK] vibeweaver skill installed to: ${SKILLS_DIR}/"
-echo "     Files installed: $(( ${#FILES[@]} + 1 ))"
+echo "     Files installed: $(( ${#FILES[@]} + 2 ))"
 echo "     Plugins installed to: ${PLUGINS_DIR}/"
 echo "     Restart OpenCode to activate."

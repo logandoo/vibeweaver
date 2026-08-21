@@ -14,7 +14,8 @@ Checks:
   6. scripts/assert_artifacts.py compiles + carries all 13 markers
   7. SKILL.md's own marker list matches the canonical script's 13
   8. install.sh / install.bat install the full file set
-  9. vibeweaver-gate.js syntax (node --check, when node is available)
+   9. payload JS syntax — both plugins + 3 helper scripts (node --check,
+      when node is available)
 """
 import pathlib, re, shutil, subprocess, sys, tempfile
 
@@ -30,17 +31,21 @@ MARKERS = [
     "claim without stated coverage",
 ]
 PAYLOAD_FILES = [
-    "SKILL.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md", "REFERENCE.md",
-    "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
-    "COMPLETION_GATE.md", "vibeweaver-audit.js",
+    "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
+    "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
+    "TESTING_PROTOCOLS.md",
     "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
     "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
-    "vibeweaver-gate.js", "install.sh", "install.bat",
+    "vibeweaver-gate.js", "vibeweaver-audit.js", "install.sh", "install.bat",
 ]
 INSTALLED_DOCS = [
-    "SKILL.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md", "REFERENCE.md",
-    "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
-    "COMPLETION_GATE.md",
+    "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
+    "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
+    "TESTING_PROTOCOLS.md",
+]
+JS_PAYLOAD = [
+    "vibeweaver-gate.js", "vibeweaver-audit.js", "scripts/vibeweaver-audit-core.js",
+    "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
 ]
 SOFT_BUDGET = 1400
 HARD_BUDGET = 1600
@@ -157,23 +162,20 @@ def main():
     if "scripts\\assert_artifacts.py" not in bat:
         fail("install.bat does not install scripts\\assert_artifacts.py")
 
-    # 9) plugin syntax (best effort — node optional locally, present in CI)
+    # 9) plugin + helper script syntax (best effort — node optional locally, present in CI)
     node = shutil.which("node")
     if node:
         with tempfile.TemporaryDirectory() as td:
-            tmp = pathlib.Path(td) / "gate.mjs"
-            tmp.write_text((PAYLOAD / "vibeweaver-gate.js").read_text(encoding="utf-8"), encoding="utf-8")
-            r = subprocess.run([node, "--check", str(tmp)], capture_output=True, text=True)
-            if r.returncode != 0:
-                fail("vibeweaver-gate.js syntax check failed:\n" + (r.stderr or r.stdout)[:400])
-            for extra in ("vibeweaver-audit.js", "scripts/vibeweaver-audit-core.js"):
-                tmp2 = pathlib.Path(td) / ("extra_" + pathlib.Path(extra).name + ".mjs")
-                tmp2.write_text((PAYLOAD / extra).read_text(encoding="utf-8"), encoding="utf-8")
-                r2 = subprocess.run([node, "--check", str(tmp2)], capture_output=True, text=True)
-                if r2.returncode != 0:
-                    fail("%s syntax check failed:\n" % extra + (r2.stderr or r2.stdout)[:400])
+            for i, rel in enumerate(JS_PAYLOAD):
+                src = PAYLOAD / rel
+                suffix = ".mjs" if rel.endswith(".mjs") else ".js"
+                tmp = pathlib.Path(td) / (("payload_%d" % i) + suffix)
+                tmp.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+                r = subprocess.run([node, "--check", str(tmp)], capture_output=True, text=True)
+                if r.returncode != 0:
+                    fail("payload syntax check failed for %s:\n" % rel + (r.stderr or r.stdout)[:400])
     else:
-        warn("node not found — plugin syntax check skipped (CI covers it)")
+        warn("node not found — payload syntax check skipped (CI covers it)")
 
     if WARNS:
         for w in WARNS:

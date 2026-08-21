@@ -399,7 +399,7 @@ export function auditProject(opts) {
 
 // ---------------- report ----------------
 
-export function buildReport(audit, sessionID, packets = []) {
+export function buildReport(audit, sessionID, packets = [], footerLines = []) {
   const lines = [
     `# Gate Audit — ${sessionID} | ${new Date().toISOString()}`,
     `AUDIT: BAD=${audit.bad} UNCERTAIN=${audit.uncertain} escalate=${audit.escalate}${audit.escalateReasons.length ? ` reasons=[${audit.escalateReasons.join(",")}]` : ""}${audit.red ? " BLOCKING=yes" : ""}`,
@@ -413,6 +413,10 @@ export function buildReport(audit, sessionID, packets = []) {
   if (packets.length) {
     lines.push("", "## Tier-2 review packets (fresh-brain reviewer inputs)", "")
     for (const p of packets) lines.push(`<packet id="${p.id}">`, p.body, "</packet>", "")
+  }
+  if (footerLines.length) {
+    lines.push("", "## Stale RED releases (auto-cleared latches — audit trail, never delete)", "")
+    for (const l of footerLines) lines.push(l)
   }
   return lines.join("\n") + "\n"
 }
