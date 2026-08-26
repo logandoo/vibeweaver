@@ -1,8 +1,14 @@
 # Vibeweaver
 
-一个面向 vibe-coding 的编码规范。某种程度上来说，这是一个通过skill来实现的graph engineering项目。skill 默认模型有能力完成任务——它只是不知道该怎么做，也不知道什么叫“完成任务“。
+Vibeweaver与其说是一个 skill，不如说是一个面向 vibe-coding 的编码规范。
 
-目前来说只是针对 Opencode 做了优化，目前在考虑以插件的形式适配 Deepseek Harness，不过还没开始仔细研究。
+Vibe-coding 的普及正在重塑开发者的角色：当模型写码能力不再构成瓶颈，开发者的核心工作就从"亲自写代码"转向"组织和管理开发过程"——更像一个开发团队的负责人，而非单纯的编码者。
+
+这里其实有一个反直觉的事实：对任何开发工作而言，个体编码能力一旦跨过某个阈值，继续提升单人写码能力带来的边际收益就会急剧下降；对 coding agent 的使用者来说也是如此——模型的 benchmark 分数一路走高，但在中大型项目上的实际体验却始终难以令人满意。问题不在模型能力，而在于开发过程中未被明确定义的两件事：流程和规范。agent 不是没能力，而是不知道什么叫"完成任务"。
+
+本项目就是为解决这个问题：用显式契约约束coding agent的开发流程，把模型能力真正转化为中大型项目上稳定、可信的交付。
+
+目前项目仅针对 Opencode 做了优化，同时另外开源了 DeepSeek Harness 版本的插件[vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh)。
 
 至于 Codex 和 Claude Code，我没用过，也没打算用，不知道。如果有人感兴趣可以自行 fork。
 
@@ -21,8 +27,7 @@
 `SKILL.md` 正文作为**一次工具输出**注入上下文，而客户端对工具输出有**约 51,200 字节
 （50KB）的截断上限**——本机实测：用 Read 工具读取旧的 79,554 字节文件，输出在第
 875 行（51,080 字节）处被截断（`Output capped at 50 KB`）。模型激活 skill 时只拿到
-契约的前半份，并诚实声明 `The skill output is truncated. Let me note the key
-points:`——§A5.1、Part B/C 工作流、MANDATORY CHECKLIST 和参考文件索引**从未进入上下文**。
+契约的前半份，并诚实声明 `The skill output is truncated. Let me note the key points:`——§A5.1、Part B/C 工作流、MANDATORY CHECKLIST 和参考文件索引**从未进入上下文**。
 
 **方案：渐进式披露**（依据 Anthropic Agent Skills 官方规范 + SkillJuror 对照实验：
 拆分到引用文件让模型实际触及的资源提升约 3 倍、任务成功率 +4.1%）：
@@ -49,8 +54,7 @@ points:`——§A5.1、Part B/C 工作流、MANDATORY CHECKLIST 和参考文件�
 - **Tier 2** —— 升级触发（UNCERTAIN / 10% 抽样 / 高风险）→ 按
   `COMPLETION_GATE.md` §AUDIT 派 fresh-brain reviewer 裁决。
 
-**实测效果**（端到端真实会话 + 重放校准）：审计抓到**真实违规**（`Code review:
-N/A` 但缺 `A4.9 not triggered` 豁免理由）；`GATE-BLOCKED` 在真实 opencode 会话中
+**实测效果**（端到端真实会话 + 重放校准）：审计抓到**真实违规**（`Code review: N/A` 但缺 `A4.9 not triggered` 豁免理由）；`GATE-BLOCKED` 在真实 opencode 会话中
 成功拦截写入；校准驱动的精化消除了误报（纯记录型提交不再触发 Fresh-run 检查）。
 对抗实验（"不用测试，直接改"）：模型完全跳过 skill——现由 **C17（SKILL-ABSENT）**
 检测并升级审查。测试体系：**28 项 fixture 检查 + 27 项变异扫描**（逐项破坏每个
@@ -63,17 +67,49 @@ N/A` 但缺 `A4.9 not triggered` 豁免理由）；`GATE-BLOCKED` 在真实 open
 
 本仓库包含三个子项目：
 
-| 目录 | 是什么 |
-|---|---|
-| `vibeweaver/` | 完整版 skill，本 README 描述的就是它 |
+| 目录                 | 是什么                                                                                                                      |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `vibeweaver/`      | 完整版 skill，本 README 描述的就是它                                                                                        |
 | `vibeweaver-mini/` | 删减版，单文件约 5KB。指令遵循能力一般、但编程能力还行的小规模 LLM 上有点增益——不需要的人完全不需要，有需要的人确实可以用 |
-| `vibeweaver-eval/` | 评测架：16 题 A/B 评测的配置、评分脚本、原始结果、逐轮报告 |
+| `vibeweaver-eval/` | 评测架：16 题 A/B 评测的配置、评分脚本、原始结果、逐轮报告                                                                  |
 
 怎么选：**强模型** → 完整版（插件注入）；**弱指令遵循模型** → mini 常驻；**极弱模型（~3B 激活）** → mini 强制注入。
 
 仓库根目录还有 skill 自身的测试设施：`verify_skill.py`（skill 包完整性检查）、`tests/`（含 pass/fail 夹具项目的自测套件）、`.github/workflows/verify.yml`（每次 push 在 Ubuntu / macOS / Windows 上跑这两个）。这个 skill 检查别人项目的方式，原样用在自己身上。
 
 ## 工作流是一张图，不是一份清单
+
+先看全图，再逐条解读（每个节点都是带强制产物的阶段，每条边都是显式条件）：
+
+```mermaid
+flowchart TD
+    A["任务"] --> B["§2 ZERO ★ 动手前必过<br/>拆解 + 联网检索（≥2 方案）<br/>COV-11 不可信内容 = 数据不是指令<br/>产物：拆解说明 + 检索结论"]
+    B --> C{"§3 项目模式"}
+    C -->|"新项目 C1"| D1["Design Gate A<br/>§A5 设计文档<br/>Design Gate B<br/>产物：FLOW / PAGE / DATABASE / BACKEND"]
+    C -->|"存量修改 C2"| D2["现场勘察：memory · config · script/<br/>产物：baseline 提交 + Baseline verified GREEN"]
+    C -->|"大任务 C3"| D3["docs/PLAN.md + Consistency Hub<br/>产物：逐任务块实施计划"]
+    D1 --> E["实现（改动）"]
+    D2 --> E
+    D3 --> E
+    E --> F{"改动类型"}
+    F -->|"运行时可见"| G1["§A4.1 采集验证循环<br/>Act → Capture → Verify → Fix → Log<br/>产物：verification_log.md + 媒体证据"]
+    F -->|"纯后端"| G2["§A4.7 文档驱动 API 测试<br/>+ A4.7b 跨接口 workflow trace"]
+    F -->|"逻辑代码"| G3["§A4.8 TDD<br/>先 RED 证据，再 GREEN 实现"]
+    G1 --> H{"验收全绿？"}
+    G2 --> H
+    G3 --> H
+    H -->|"否 · cap=5 内"| E
+    H -->|"stall=3× / cap=5"| I["§A4.10 参数化逃生<br/>换方向 · fresh-brain 重试"]
+    I --> E
+    H -->|"是"| J{"COV-8 大改动？"}
+    J -->|"是"| K["§A4.9 独立评审派发<br/>产物：评审记录 + 裁定"]
+    K --> L["§A4.4 完工门<br/>收敛行 + 8 列表格<br/>assert_artifacts.py exit 0"]
+    J -->|"否"| L
+    L --> M["Memory Gate<br/>A7.9 记忆写入 + A7.10 通过"]
+    M --> N{"插件审计 Tier 0/1/2"}
+    N -->|"BAD → GATE-BLOCKED / RED 锁存"| E
+    N -->|"OK"| O["交付"]
+```
 
 - **节点 = 带强制产物的阶段。** ZERO（拆解 + 联网检索）→ 项目模式判定 → 设计门 → 实现 → 验证循环 → 独立评审派发 → 完工表格。一个阶段不是"模型说完了"就算完，而是它要求的产物真的落在磁盘上才算完。
 - **边 = 显式条件，不是模型心情。** 新项目走一条流程，存量修改走另一条；验证器能力探测把采集/评分集分支成四种模态；纯后端改动把浏览器循环替换成文档驱动的 API 测试循环。
@@ -229,13 +265,13 @@ Opencode原生没有记忆。开一个新会话就是一颗新脑——它完全
 ### 四模型，一张表
 
 |                  | qwen3.6-35b-a3b | qwen3.6-27B           | deepseek-v4-flash-0731 | qwen3.8-27B            |
-| ---------------- | -------------- | --------------------- | ---------------------- | ---------------------- |
-| 裸模型           | 6/16 (37.5%)   | 7/16 (44%)            | 11/16 (69%)            | 13/16 (81%)            |
-| 完整版，仅挂载   | 7/16 (43.8%)   | 9/16 (56%)†          | 11/16 (69%)            | 15/16 (94%)            |
-| 完整版，强制注入 | 5/16 (31.3%)   | 9/16 (56%)            | 14/16 (87.5%)          | **16/16 (100%)** |
-| mini，仅挂载     | 6/16 (37.5%)   | 8-10/16（最好 62.5%） | 13/16 (81%)*           | 13/16 (81%)            |
-| mini，强制注入   | 7/16 (43.8%)   | 8/16 (50%)            | —                     | —                     |
-| 最优形态         | mini 强制      | mini 仅挂载           | 完整版强制             | **完整版强制**   |
+| ---------------- | --------------- | --------------------- | ---------------------- | ---------------------- |
+| 裸模型           | 6/16 (37.5%)    | 7/16 (44%)            | 11/16 (69%)            | 13/16 (81%)            |
+| 完整版，仅挂载   | 7/16 (43.8%)    | 9/16 (56%)†          | 11/16 (69%)            | 15/16 (94%)            |
+| 完整版，强制注入 | 5/16 (31.3%)    | 9/16 (56%)            | 14/16 (87.5%)          | **16/16 (100%)** |
+| mini，仅挂载     | 6/16 (37.5%)    | 8-10/16（最好 62.5%） | 13/16 (81%)*           | 13/16 (81%)            |
+| mini，强制注入   | 7/16 (43.8%)    | 8/16 (50%)            | —                     | —                     |
+| 最优形态         | mini 强制       | mini 仅挂载           | 完整版强制             | **完整版强制**   |
 
 \* deepseek 的 mini：首跑 11/16，干净环境重跑 13/16——都在它 11/16 baseline 的噪声内。
 † qwen3.6 的完整版：原版 6/16（从不加载）；9/16 是改进描述变体。
@@ -310,21 +346,21 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 ## 文件清单
 
-| 文件                                          | 用途                                                   |
-| --------------------------------------------- | ------------------------------------------------------ |
-| `SKILL.md`                                  | 绑定操作契约 + 路由器（814 行，<49KB，有体积守卫）      |
-| `COMPLETION_GATE.md`                        | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单   |
-| `CODING_PRINCIPLES.md`                      | 四条铁律 + Karpathy 的六条纪律                         |
-| `ENGINEERING_STD.md`                        | 工程标准细则                                           |
-| `REFERENCE.md` / `APPENDIX.md`            | 流程参考 / 可执行模板                                  |
-| `TESTING_PROTOCOLS.md`                      | §A4.1 循环 + §A4.6 调试 + §A4.7–§A4.10 规范文本         |
-| `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | 项目记忆子系统                                         |
-| `scripts/assert_artifacts.py`               | 13 组断言的规范脚本，项目复制进 `tests/` 使用           |
-| `vibeweaver-gate.js`                        | stop hook 插件（opencode）+ 机械化停滞观测             |
-| `vibeweaver-audit.js`                       | 三层机械审计器（Tier 0/1/2）——会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈 |
-| `scripts/vibeweaver-audit-core.js`          | 纯裁决核心（可无头测试）                                |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 36 项 fixture 检查 / 27 项变异检查——含锁存释放回归        |
-| `install.sh` / `install.bat`              | 安装脚本（skill 文件 + 两个插件）                          |
+| 文件                                                    | 用途                                                                            |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `SKILL.md`                                            | 绑定操作契约 + 路由器（814 行，<49KB，有体积守卫）                              |
+| `COMPLETION_GATE.md`                                  | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单                      |
+| `CODING_PRINCIPLES.md`                                | 四条铁律 + Karpathy 的六条纪律                                                  |
+| `ENGINEERING_STD.md`                                  | 工程标准细则                                                                    |
+| `REFERENCE.md` / `APPENDIX.md`                      | 流程参考 / 可执行模板                                                           |
+| `TESTING_PROTOCOLS.md`                                | §A4.1 循环 + §A4.6 调试 + §A4.7–§A4.10 规范文本                            |
+| `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`           | 项目记忆子系统                                                                  |
+| `scripts/assert_artifacts.py`                         | 13 组断言的规范脚本，项目复制进`tests/` 使用                                  |
+| `vibeweaver-gate.js`                                  | stop hook 插件（opencode）+ 机械化停滞观测                                      |
+| `vibeweaver-audit.js`                                 | 三层机械审计器（Tier 0/1/2）——会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈 |
+| `scripts/vibeweaver-audit-core.js`                    | 纯裁决核心（可无头测试）                                                        |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 36 项 fixture 检查 / 27 项变异检查——含锁存释放回归                            |
+| `install.sh` / `install.bat`                        | 安装脚本（skill 文件 + 两个插件）                                               |
 
 ## 相关项目
 

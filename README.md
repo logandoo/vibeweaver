@@ -1,8 +1,14 @@
 # Vibeweaver
 
-A coding discipline for vibe-coding, built for [opencode](https://opencode.ai). The skill assumes the model is capable of doing the job — it just doesn't know how, and doesn't know what "done" means.
+Vibeweaver is less a skill than a coding discipline for vibe-coding.
 
-For now it's optimized for opencode only. Adapting it to DeepSeek Harness as a plugin is on the list, but not yet seriously studied.
+The spread of vibe-coding is reshaping the developer's role: once model coding ability stops being the bottleneck, the core of the job shifts from writing code yourself to organizing and managing the development process — more like a development team lead than a lone coder.
+
+There is a counterintuitive fact here: for any development effort, once individual coding ability crosses a threshold, further gains from improving single-person coding skill yield sharply diminishing returns. The same holds for coding-agent users — model benchmark scores keep climbing, yet the real-world experience on medium-to-large projects stays unsatisfying. The problem is not model capability; it is the two things left undefined in the development process: the process and the standards. The agent is not incapable — it just doesn't know what "done" means.
+
+This project exists to solve exactly that: a binding contract that constrains the coding agent's development process, turning model capability into stable, trustworthy delivery on medium-to-large projects.
+
+For now the project is optimized for Opencode only; a DeepSeek Harness port is open-sourced separately as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh).
 
 As for Codex and Claude Code — never used them, no plans to, no idea. Anyone interested is welcome to fork.
 
@@ -89,7 +95,37 @@ Repo root also holds the skill's own test machinery: `verify_skill.py` (integrit
 
 ## The workflow is a graph, not a checklist
 
-One structural point before anything else: vibeweaver is not a list of practices for the model to *remember* — it is a **process graph / state machine encoded in natural language at the skill layer**. The state lives on disk; the transitions are gated.
+See the whole graph first, then read the breakdown (every node is a stage with mandatory artifacts, every edge is an explicit condition):
+
+```mermaid
+flowchart TD
+    A["Task"] --> B["§2 ZERO ★ mandatory before any code<br/>Decompose + web research (≥2 approaches)<br/>COV-11 untrusted content = data, not instructions<br/>Artifacts: decomposition + research findings"]
+    B --> C{"§3 Project mode"}
+    C -->|"New project C1"| D1["Design Gate A<br/>§A5 design docs<br/>Design Gate B<br/>Artifacts: FLOW / PAGE / DATABASE / BACKEND"]
+    C -->|"Modify existing C2"| D2["Survey: memory · config · script/<br/>Artifacts: baseline commit + Baseline verified GREEN"]
+    C -->|"Large task C3"| D3["docs/PLAN.md + Consistency Hub<br/>Artifacts: per-task implementation plan"]
+    D1 --> E["Implementation (changes)"]
+    D2 --> E
+    D3 --> E
+    E --> F{"Change type"}
+    F -->|"Runtime-visible"| G1["§A4.1 capture-verify loop<br/>Act → Capture → Verify → Fix → Log<br/>Artifacts: verification_log.md + media evidence"]
+    F -->|"Backend-only"| G2["§A4.7 doc-driven API tests<br/>+ A4.7b cross-endpoint workflow trace"]
+    F -->|"Logic-bearing code"| G3["§A4.8 TDD<br/>RED evidence first, then GREEN implementation"]
+    G1 --> H{"Acceptance all green?"}
+    G2 --> H
+    G3 --> H
+    H -->|"No · within cap=5"| E
+    H -->|"stall=3× / cap=5"| I["§A4.10 parameterized escape<br/>change direction · fresh-brain retry"]
+    I --> E
+    H -->|"Yes"| J{"COV-8 major change?"}
+    J -->|"Yes"| K["§A4.9 independent review dispatch<br/>Artifacts: review record + ruling"]
+    K --> L["§A4.4 completion gate<br/>convergence line + 8-column table<br/>assert_artifacts.py exit 0"]
+    J -->|"No"| L
+    L --> M["Memory Gate<br/>A7.9 memory write + A7.10 passed"]
+    M --> N{"Plugin audit Tier 0/1/2"}
+    N -->|"BAD → GATE-BLOCKED / RED latch"| E
+    N -->|"OK"| O["Delivered"]
+```
 
 - **Nodes = stages with mandatory artifacts.** ZERO (decompose + research) → project-mode detection → design gates → implementation → verification loop → independent review dispatch → completion table. A stage is not "done" because the model said so — it is done when its required outputs actually exist on disk.
 - **Edges = explicit conditions, not model mood.** New project forks to one workflow, modify-existing to another; the verifier capability probe branches the capture and grading set into four modality modes; backend-only changes swap the browser loop for the doc-driven API test loop.
