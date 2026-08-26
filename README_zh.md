@@ -83,7 +83,7 @@ Vibe-coding 的普及正在重塑开发者的角色：当模型写码能力不�
 
 ```mermaid
 flowchart TD
-    A["任务"] --> B["§2 ZERO ★ 动手前必过<br/>拆解 + 联网检索（≥2 方案）<br/>COV-11 不可信内容 = 数据不是指令<br/>产物：拆解说明 + 检索结论"]
+    A["任务"] --> B["§2 ZERO ★ 动手前必过<br/>拆解 + 联网检索（≥2 方案）<br/>COV-5 验证器探针：mm_probe 行为探测<br/>COV-11 不可信内容 = 数据不是指令<br/>产物：拆解说明 + 检索结论"]
     B --> C{"§3 项目模式"}
     C -->|"新项目 C1"| D1["Design Gate A<br/>§A5 设计文档<br/>Design Gate B<br/>产物：FLOW / PAGE / DATABASE / BACKEND"]
     C -->|"存量修改 C2"| D2["现场勘察：memory · config · script/<br/>产物：baseline 提交 + Baseline verified GREEN"]
@@ -127,7 +127,7 @@ Vibeweaver 是一份契约，不是一套方法论。它盯住编码 agent 最�
 - **NO TEST, NO DONE** —— 每次代码改动之后，必须真的跑过测试，并且留下磁盘上的证据（日志文件、截图、操作录屏、页面音频）。"能编译"不算证据。
 - **测试优先，没有例外** —— 有逻辑的代码一律 RED→GREEN：先写一个注定失败的测试，*亲眼看着它失败*（失败输出要贴进 `tests/verification_log.md`），再写让它通过的最小实现。第一次跑就过的测试说明不了任何问题——它测的可能是完全错误的东西。回归测试必须走完完整的"还原并失败"闭环才算数：写测试 → 有修复时跑（过）→ 还原修复 → 跑（必须挂）→ 恢复修复 → 跑（过）。
 - **API 文档驱动的后端测试** —— 纯后端改动走这个循环：更新 API 文档 → 文档与代码一致性核对（只核一次）→ **照着文档写测试用例，不照着实现写** → 用 httpx 跑"测试→修→再测"直到全绿。跨接口的改动还必须写真实 HTTP 的工作流场景，痕迹落盘（`tests/workflows/*.trace.log`）；直接调 service 层不算 E2E，不算数。
-- **自动启动的验证循环** —— 改动一碰到运行时行为，agent 会自动进入 `Act → Capture → Verify → Fix → Log`，不用等你问"那啥，你测了吗？"。截图的评审交给独立的验证器（装了 [mm-sensor](https://github.com/logandoo/mm-sensor) 就用它——写代码的不能给自己的作业打分）；验证器支持视频/音频就一起录，支持什么模式由能力检测决定，不靠猜。
+- **自动启动的验证循环** —— 改动一碰到运行时行为，agent 会自动进入 `Act → Capture → Verify → Fix → Log`，不用等你问"那啥，你测了吗？"。截图的评审交给任务开始时探针选定的验证器（三段树，见下文"和 mm-sensor 的联动"）：model-native 自读要按 §A4.1.1 协议，装了 [mm-sensor](https://github.com/logandoo/mm-sensor) 则由它独立打分——写代码的不能给自己的作业打分；验证器支持视频/音频就一起录，支持什么模式由能力检测决定，不靠猜。
 - **脚本化管理生命周期** —— 前端构建、服务启停一律走 `script/` 目录下的脚本。裸 `npm run build`、`vite`、`npm start`、`uvicorn` 全部禁止。停服务必须用 `.pid` 文件 + `kill $(cat .pid)`，在共享机器上 `pkill -f "uvicorn"` 会顺带杀掉同事的服务。
 - **循环有上限** —— 每个验证循环都被约束：单个子问题最多 `cap=5` 次迭代，`stall=3×`（同一标准连续失败三次就停下、换方向、把死路记进 memory）。不会陷入无限修复循环。
 
@@ -184,12 +184,13 @@ Opencode原生没有记忆。开一个新会话就是一颗新脑——它完全
 
 一般来说，我建议 vibeweaver 和[mm-sensor](https://github.com/logandoo/mm-sensor)一起用。skill 中也专门做了 mm-sensor 的检测和调用—当然，如果你真的不想用，也无所谓，不过效果会打点折扣，毕竟两个 skill 本来就是按一对设计的。分工如下：
 
+- **验证器三段树（COV-5，行为探测，不靠自宣称）。** 任务开始时 vibeweaver 先跑自多模态行为探针 `scripts/mm_probe.py`：生成一张带 token 和颜色的探针图（`tests/probe_vision.png`），模型用 Read 读它并报告看到的 token+颜色，再 `--check` 校验——**PASS** → 宣布 `Verifier: model-native [image]`，模型按 §A4.1.1 视觉验证协议自读截图（观察前置 · 逐标准引证 · DOM/日志交叉核验 · UNCERTAIN=FAIL）；**FAIL** 且装了 mm-sensor → 宣布 `Verifier: mm-sensor [video+audio|video|image]`，独立打分；两者都没有 → `Verifier: direct read`（以 DOM/日志核验为主）。
 - **vibeweaver 负责让证据存在。** 它的规则逼着 agent 真的把应用跑起来、用 Playwright 驱动、把截图/操作录屏/页面音频留在磁盘上。
-- **mm-sensor 负责独立打分。** 写代码的和打分的是两个角色：mm-sensor 在场时，写代码的模型被明令禁止给自己的截图打分（自评即违规，没有例外）。只装 vibeweaver 会退回"直接读图"的自评模式——弱一截，还得额外拿 DOM 和日志交叉核对。
+- **mm-sensor 负责独立打分。** 写代码的和打分的是两个角色：mm-sensor 是验证器时，写代码的模型被明令禁止给自己的截图打分（自评即违规，没有例外）。只装 vibeweaver 时，模型过不了自多模态探针就退回"直接读图"的自评模式——弱一截，还得额外拿 DOM 和日志交叉核对。
 - **能力检测决定采多少证据。** 任务开始时 vibeweaver 跑一次 `vision.py --probe`，问清楚 mm-sensor 背后的模型到底能感知什么。全模态模型拿到 [video+audio] 模式：Playwright 录下全流程视频、用 Web Audio 抓页面音频，外加一张终态截图。只认图的模型降级到 [video] 或 [image] 模式——跳过视频，或者回到纯截图循环。模式每任务固定一次，每份采集的文件都用 `vision.py --detail high` 评分。
 - **如果系统环境不充分，也会降级运行。** 没有 ffmpeg → 直接用原始 webm 帧采样评分。模型听不了音频 → mm-sensor 明确报告跳过，循环继续用视频加截图跑。音频永远只是加分项，本身不构成验收标准。
 
-一句话：vibeweaver 决定*该采什么、而且必须采*；mm-sensor 决定*证据到底说了什么*。
+一句话：vibeweaver 决定*该采什么、而且必须采*；验证器（model-native 或 mm-sensor）决定*证据到底说了什么*。
 
 ## 到底有没有用？
 
