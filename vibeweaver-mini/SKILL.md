@@ -56,7 +56,12 @@ UI work needs THREE layers — do not skip any:
 **Layer 3 — E2E + screenshots (the running app must be SEEN):**
 1. **BEFORE coding**, write pass/fail acceptance criteria to `tests/acceptance.md` — first line `> cap=5  stall=3×` (the stop condition), then one numbered line per criterion, each a yes/no question a verifier can answer (e.g. "4. Completed todos are greyed out"). Vague request → confirm the criteria with the user first.
 2. Implement, then launch via `script/` (§5) and drive the running app with Playwright (Python): screenshot every key state (initial, after add, after toggle, after filter, error states) to `tests/*.png`.
-3. **Verify every screenshot against the criteria.** If `mm-sensor` is in `available_skills`, announce `Verifier: mm-sensor` at task start and grade every screenshot via `python3 {SKILL_DIR}/vision.py --detail high <png>` — never self-read screenshots while it is installed. If it is NOT installed, announce `Verifier: direct read` and inspect the image directly.
+3. **Verify every screenshot against the criteria — PROBE the verifier FIRST, in this order:**
+   - **(a) Self-multimodality probe:** `python3 {VW_DIR}/scripts/mm_probe.py --generate` (VW_DIR = the vibeweaver skill dir from `available_skills`), Read `tests/probe_vision.png`, report the token + color you actually see, then `--check <token> <color>`.
+     - **PASS** → announce `Verifier: model-native [image]` and grade screenshots yourself under the read-before-judge protocol: FIRST describe what is on screen zone by zone (only what is visible), THEN give per-criterion verdicts each citing a quoted observation or DOM fact; cross-check state-dependent criteria (data, navigation, computed styles) via DOM queries/logs; if the screenshot cannot determine a criterion → `UNCERTAIN` = FAIL (never guess). A bare "page looks good" is NEVER a verdict.
+     - **FAIL** → step (b).
+   - **(b)** `mm-sensor` in `available_skills` → announce `Verifier: mm-sensor [image]` and grade every screenshot via `python3 {SKILL_DIR}/vision.py --detail high <png>` — no self-reads in this mode (self-grading = violation here).
+   - **(c)** Neither works → announce `Verifier: direct read`; verification leans on DOM/log inspection (screenshots alone prove nothing to a text-only model).
 4. Any criterion failing → fix the code → re-screenshot → re-verify. Log each iteration to `tests/verification_log.md`.
 
 "Tests passed but I never looked at the page" is NOT done for UI work.

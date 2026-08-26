@@ -46,10 +46,14 @@ claim → **ONLY THEN** make the claim. Skipping a step is lying, not verifying.
    A4.1 Step 0 mode — screenshots always, video/audio when the mode
    supports them — plus ≥1 entry in
    `tests/verification_log.md`)? If skipped → return to A4.1 Step 1 NOW.
-2. Is `mm-sensor` in `available_skills`? If YES → was EVERY captured media
-   file (video / audio / screenshots per mode) graded
-   through `vision.py --detail high`? If self-read → re-grade through
-   mm-sensor NOW.
+2. What verifier was announced at task start (COV-5)? If `model-native
+   [image]` → was EVERY screenshot graded via the §A4.1.1 Visual
+   Verification Protocol (observation-first · per-criterion verdicts with
+   quoted evidence · DOM/log cross-check for state-dependent criteria ·
+   UNCERTAIN=FAIL)? If `mm-sensor` → was EVERY captured media file
+   (video / audio / screenshots per mode) graded through
+   `vision.py --detail high`? If self-read while mm-sensor is the verifier
+   → re-grade via the announced verifier NOW.
 3. Was the verifier announced at task start? If not, state it now and confirm
    rule 2 holds.
 4. Were tests actually EXECUTED with artifacts on disk (log files /
@@ -93,7 +97,7 @@ Output this audit line immediately before the completion table (the two
 contain the strings `HARD-GATE-1: NO-TEST-NO-DONE` and
 `HARD-GATE-2: SCRIPT-ONLY`, each marked `pass` / `na`):
 ```
-[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | direct-read | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
+[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
 ```
 
 **E2E depth ladder (what each value means):** `real-HTTP` = the flow was
@@ -406,10 +410,14 @@ Before declaring any task complete, explicitly list and confirm:
       self-reviewed
 - [ ] (New project / new API surface only) BACKEND_DESIGN.html created
 - [ ] Tests written, executed, all passed
-- [ ] ★ **Verifier announced at task start with modality mode** — if
-      mm-sensor is listed: `vision.py --probe` ran and mode announced
-      (`mm-sensor [video+audio|video|image]`); else `direct read` fallback.
-      If never announced, verification was skipped; go back (COV-5)
+- [ ] ★ **Verifier probed + announced at task start with modality mode**
+      (COV-5) — in order: model-native self-probe
+      (`{VW_DIR}/scripts/mm_probe.py --generate` → Read probe PNG →
+      `--check`; PASS → `Verifier: model-native [image]`); FAIL + mm-sensor
+      listed → `vision.py --probe` ran and mode announced
+      (`mm-sensor [video+audio|video|image]`); neither → `Verifier: direct
+      read (no multimodal model, no mm-sensor)`. If never announced,
+      verification was skipped; go back (COV-5)
 - [ ] ★ Acceptance criteria written to `tests/acceptance.md` (first line
       literal `> cap=5  stall=3×`) and confirmed with user if request was vague
 - [ ] ★ **Playwright loop ENTERED AUTONOMOUSLY** (no user prompt waited for)
@@ -417,12 +425,14 @@ Before declaring any task complete, explicitly list and confirm:
       video + in-page audio + terminal screenshot (`[video+audio]`), video +
       screenshot (`[video]`), screenshots only (`[image]` / direct read)
       (COV-4)
-- [ ] ★ Every captured media file graded via **mm-sensor**
-      (`vision.py --detail high`) if listed in `available_skills` —
-      self-grading via Read tool is a VIOLATION while mm-sensor is loaded;
-      A4.1 Step 3 runtime degradation applied — audio `skipped`
-      (`model_no_audio_capability`) dropped, video falls back to
-      frame-sampling
+- [ ] ★ Every captured media file graded **per the announced verifier**:
+      `mm-sensor` → `vision.py --detail high` (Read-tool self-grading is a
+      VIOLATION while mm-sensor is the verifier; A4.1 Step 3 runtime
+      degradation applied — audio `skipped` dropped, video falls back to
+      frame-sampling); `model-native [image]` → §A4.1.1 protocol (verdict
+      sheet with quoted observation/DOM evidence, UNCERTAIN=FAIL, DOM
+      cross-check for state-dependent criteria); `direct read` → DOM/log
+      cross-checked (Step 0c)
 - [ ] ★ Captured evidence files actually exist on disk under `tests/`
       (per mode: `tests/*.webm`, `tests/*_audio.wav`, `tests/*.png`) and
       `tests/verification_log.md` has ≥1 iteration entry — if not, the loop

@@ -11,9 +11,13 @@
 
 ## Contents
 
-- **§A4.1 Capture-Driven Verification Loop** — full protocol: verifier probe,
-  acceptance gate, capture + grading call tables, runtime degradation,
-  decision rules, convergence
+- **§A4.1 Capture-Driven Verification Loop** — full protocol: verifier probe
+  (model-native self-probe → mm-sensor → direct read), acceptance gate,
+  capture + grading call tables, runtime degradation, decision rules,
+  convergence
+- **§A4.1.1 Visual Verification Protocol** — mandatory grading chain for the
+  model-native verifier (observation-first · per-criterion verdicts · DOM
+  cross-check · UNCERTAIN=FAIL)
 - **§A4.6 Systematic Debugging — Four Phases** + escalation
 - **§A4.7 Backend-Only Task: API Doc-Driven Test Loop** (COV-6 canonical)
 - **§A4.7b Workflow Scenario Tests** (task-level backend verification)
@@ -31,32 +35,157 @@ A **convergent** loop: verifiable stop condition · independent verifier
 frontend/UI/runtime-affecting change — no exceptions.
 
 **Step 0 — Detect + announce the media verifier (AT TASK START, before any code, in ZERO):**
-Pro-actively check `available_skills` for `mm-sensor` (opencode injects
-this list; it is authoritative — not a filesystem guess).
+Three verifier modes exist — `model-native [image]` (the current model is
+image-perceptive, PROBED not assumed), `mm-sensor [video+audio|video|image]`
+(external media verifier), `direct read` (neither available). Probe IN THIS
+ORDER; the announced mode is fixed for the task (one probe per task; the
+probe is the single source of truth, not a filesystem/config guess).
 
-- **`mm-sensor` IS in available_skills** → MANDATORY independent verifier.
-  - Derive `SKILL_DIR` from the `<location>` in available_skills.
-  - Run the capability probe (cheap, no tokens):
-    `python3 {SKILL_DIR}/vision.py --probe` and parse the JSON:
-    `media_capabilities` (absent/empty = all three) and `error` (non-null =
-    config broken → fix the config, then re-probe).
-  - Announce the verifier WITH its modality mode (COV-5):
-    `Verifier: mm-sensor [video+audio]` · `Verifier: mm-sensor [video]` ·
-    `Verifier: mm-sensor [image]` — the mode decides the capture set in
-    Step 2 and the grading set in Step 3. The mode is fixed for the task
-    from this probe (one probe per task; the probe is the single source of
-    truth, not a filesystem/config guess).
-  - Invoke with `--detail high` for EVERY captured media file (video /
-    audio / screenshots alike):
-    `python3 {SKILL_DIR}/vision.py --detail high /path/to/file.webm`.
-  - NEVER use the model's own vision or the Read tool on media while
-    mm-sensor is loaded — that is self-grading and a violation. There is
-    no fallback to self-grading: on call errors, fix the config (missing API
-    key etc.) and retry; only after repeated failure escalate to the user.
-- **`mm-sensor` NOT in available_skills** → Fall back to **loop engineering
-  alone**: announce `Verifier: direct read (mm-sensor not installed)`
-  and read screenshots via the Read tool. This is a weaker, self-grading
-  verifier — be extra strict and cross-check with DOM/log inspection.
+- **Step 0a — Self-multimodality probe (the model probes ITS OWN perception).
+  Behavioral, never declarative** — self-declaration ("I support images") is
+  NOT evidence; capability is established by reading generated pixels.
+  `VW_DIR` = this skill's installation directory.
+  ★ **Precedence:** this probe runs BEFORE any mm-sensor invocation. When it
+  PASSES, mm-sensor's blanket "never use your own vision / Read tool on
+  media" mandate does NOT apply to screenshot grading in this task — the
+  §A4.1.1 protocol governs instead (mm-sensor still grades video/audio
+  evidence per the hybrid rule below, and remains the verifier whenever the
+  probe fails). Do NOT let mm-sensor's description trigger before this
+  probe runs.
+  1. Run `python3 {VW_DIR}/scripts/mm_probe.py --generate` → writes
+     `tests/probe_vision.png` (random 6-char token + one of 5 palette
+     colors) and `tests/probe_vision.expected` (ground truth).
+  2. Read `tests/probe_vision.png` with the Read tool. **Media-Read is
+     ALLOWED for this probe artifact only** — it is a vibeweaver probe
+     artifact, not media being graded; the mm-sensor Read-ban applies to
+     grading captured media, not to the probe. Read the PNG BEFORE running
+     `--check` (the token is random per run — nothing to recall).
+  3. Report what you actually perceive: exact token + color name. If the
+     Read errors (`Cannot read image …`) or you genuinely cannot extract the
+     token/color, report that honestly — a failed probe is a valid result.
+  4. Validate: `python3 {VW_DIR}/scripts/mm_probe.py --check <token> <color>`.
+     - **exit 0 (PASS)** → the model IS image-perceptive → announce
+       `Verifier: model-native [image]`. Screenshots are graded via the
+       Read tool under **§A4.1.1 Visual Verification Protocol**
+       (observation-first · per-criterion verdicts · DOM/log cross-check ·
+       UNCERTAIN=FAIL). The §A4.1.1 chain is the countermeasure to
+       self-grading bias (the maker is the checker in this mode).
+     - **exit 1 (FAIL)** → the model is NOT image-perceptive → Step 0b.
+     - **exit 2 / error** → fix the probe invocation, re-run; on repeat
+       failure treat as FAIL (0b).
+  5. Record the result in `tests/verification_log.md`:
+     `- probe: model-native PASS (probe_vision.png)` or
+     `- probe: model-native FAIL → mm-sensor`.
+- **Step 0b — mm-sensor probe (only when 0a FAILED):** check `available_skills`
+  for `mm-sensor` (opencode injects this list; it is authoritative — not a
+  filesystem guess).
+  - **`mm-sensor` IS in available_skills** → MANDATORY independent verifier.
+    - Derive `SKILL_DIR` from the `<location>` in available_skills.
+    - Run the capability probe (cheap, no tokens):
+      `python3 {SKILL_DIR}/vision.py --probe` and parse the JSON:
+      `media_capabilities` (absent/empty = all three) and `error` (non-null =
+      config broken → fix the config, then re-probe).
+    - Announce the verifier WITH its modality mode (COV-5):
+      `Verifier: mm-sensor [video+audio]` · `Verifier: mm-sensor [video]` ·
+      `Verifier: mm-sensor [image]` — the mode decides the capture set in
+      Step 2 and the grading set in Step 3.
+    - Invoke with `--detail high` for EVERY captured media file (video /
+      audio / screenshots alike):
+      `python3 {SKILL_DIR}/vision.py --detail high /path/to/file.webm`.
+    - NEVER use the model's own vision or the Read tool on media while
+      mm-sensor is the verifier — that is self-grading and a violation.
+      There is no fallback to self-grading: on call errors, fix the config
+      (missing API key etc.) and retry; only after repeated failure escalate
+      to the user.
+  - **`mm-sensor` NOT in available_skills** → Step 0c.
+- **Step 0c — direct read fallback (0a FAILED and no mm-sensor):** announce
+  `Verifier: direct read (no multimodal model, no mm-sensor)`. **This is the
+  weakest verifier: the model cannot perceive pixels at all** — the
+  screenshot is NOT the evidence channel here. Verification must lean on
+  DOM queries (`querySelector` / `getComputedStyle` / `textContent` /
+  `boundingClientRect`), log inspection, and API responses; screenshots are
+  kept as artifacts for human/mm-sensor review later. Be extra strict and
+  cross-check everything.
+- **Hybrid (model-native + mm-sensor):** when the verifier is `model-native
+  [image]` but acceptance criteria require video/audio evidence and mm-sensor
+  is installed → grade THOSE files via mm-sensor (`vision.py --detail high`)
+  and record the hybrid in the log. Without mm-sensor → record
+  `video/audio: not gradeable` in the log and verify the underlying state
+  via DOM/API/log instead.
+
+---
+
+## A4.1.1 Visual Verification Protocol — model-native verifier ★
+
+`model-native [image]` means the SAME model that wrote the code grades the
+captures with its own vision — the maker/checker split is weakened by
+construction, and the chain below is the MANDATORY countermeasure. SOTA
+basis (2026): MJ1 grounded verification chain observations → claims →
+verification → evaluation (arXiv 2603.07990); WebDevJudge query-grounded
+rubric trees + code-as-critical-modality (arXiv 2510.18560); Vision2Web
+component-level rubrics (arXiv 2603.26648); IRA environment-state
+verification (arXiv 2607.25904); CUAAudit abstention/calibration
+(arXiv 2603.10577); MM-JudgeBias compositional bias (ACL 2026).
+
+**A bare judgment is NEVER valid.** "Meets criteria", "looks good", "layout
+is fine" — not verdicts. Every verdict is produced by this chain, IN ORDER:
+
+**1. OBSERVE-FIRST (never judge before describing).** From the screenshot,
+enumerate what IS on screen, zone by zone (header / nav / main / sidebar /
+footer / modals): every element with position, rendered text, colors, and
+state (visible / disabled / empty). Only what is actually visible — no
+inference, no "should be"; absence is recorded as absence ("no modal is
+open"). Observation extraction comes FIRST because visual attention is
+highest then and open-ended judgment later loses pixel detail (MJ1).
+
+**2. CLAIM EXTRACTION (rubric tree).** Decompose every acceptance criterion
+into atomic, individually-verifiable claims (WebDevJudge): criterion #2
+"password field exists and is empty" → claims "a text input is present in
+the form zone" · "it is of type password" · "it renders empty".
+
+**3. CLAIM↔OBSERVATION VERIFICATION.** Match each claim against the
+observations. A claim with no matching observation = FAIL for that
+criterion — not "close enough", not "probably". An observation that
+contradicts a claim = FAIL.
+
+**4. DOM/STATE CROSS-CHECK (MANDATORY for state-dependent criteria).**
+Pixels cannot prove state (IRA hidden-state tasks; WebDevJudge: code is the
+most critical modality). Every criterion whose truth depends on behavior —
+persisted data, navigation, async rendering, computed styles, hidden or
+overflowing elements, response codes — MUST additionally be checked via
+`page.evaluate` (querySelector / getComputedStyle / textContent /
+boundingClientRect), API response, or log inspection. The screenshot is
+necessary but never sufficient for state-dependent criteria. Record both
+evidence legs in the verdict.
+
+**5. ABSTAIN ON UNCERTAINTY (UNCERTAIN = FAIL).** If the screenshot or DOM
+cannot determine a criterion — clipped viewport, resolution, unreadable
+text, ambiguous state, animation mid-flight — the verdict is
+`UNCERTAIN: <what is missing>` and COUNTS AS FAIL for the loop (CUAAudit
+calibration; uijudge-bench abstention). Never guess. An UNCERTAIN verdict
+forces the loop to improve the evidence (re-capture, larger viewport, DOM
+probe) — a silent guess converts a bad screenshot into a false pass.
+
+**6. PER-CRITERION VERDICT SHEET (the only valid verdict form):**
+```
+criterion #N: PASS | FAIL | UNCERTAIN — evidence: <quoted observation or DOM fact>
+```
+A PASS without a quoted observation/DOM fact is invalid — same evidence
+discipline as mm-sensor grading. Loop exit requires every criterion PASS
+(no UNCERTAIN outstanding).
+
+**7. MAKER/CHECKER HONESTY RULE.** In model-native mode the grader built the
+page. Guardrails: (a) observation and verdict are separate passes — never
+interleave with "I remember writing X"; (b) when a criterion's verdict is
+load-bearing and mm-sensor is installed, run BOTH and reconcile
+(DUAL-PATH RECONCILE §A4.10) — disagreement locates the faulty judgment.
+
+**Video/audio in model-native mode:** screenshots are graded natively;
+video/audio evidence is graded via mm-sensor if installed (hybrid, recorded
+in the log), else recorded `video/audio: not gradeable` and the underlying
+state verified via DOM/API/log.
+
+---
 
 **Step 1 — Acceptance Criteria Gate (BEFORE acting — USER-OWNED STOP CONDITION):**
 The stop condition is owned by the **user**, not invented by the agent.
@@ -92,10 +221,11 @@ Capture set per mode (mm-sensor loaded):
 
 | Verifier mode | Captured evidence (per flow) |
 |---------------|------------------------------|
+| `model-native [image]` | `tests/<flow>.png` screenshots (before / during / after) — graded via Read tool under §A4.1.1 |
 | `mm-sensor [video+audio]` | `tests/<flow>.mp4` (Playwright `record_video` → ffmpeg transcode from webm) + `tests/<flow>_audio.wav` (in-page Web Audio capture, injected via `add_init_script`) + `tests/<flow>_final.png` (terminal-state screenshot) |
 | `mm-sensor [video]` | `tests/<flow>.mp4` + `tests/<flow>_final.png` (audio capture skipped) |
 | `mm-sensor [image]` | `tests/<flow>.png` screenshots (before / during / after) — the original loop, nothing added |
-| `direct read` (no mm-sensor) | screenshots only, read via Read tool |
+| `direct read` | screenshots only as artifacts — the EVIDENCE channel is DOM/log inspection (Step 0c) |
 
 Capture rules:
 - **Video**: `context.record_video` (webm, e.g. 1280×720, ~fps 25-30); one
@@ -124,12 +254,14 @@ NOT by guessing:
 
 | Verifier mode | Grading calls (all `--detail high`) |
 |---------------|--------------------------------------|
+| `model-native [image]` | Read tool per screenshot under §A4.1.1 (observation-first · per-criterion verdicts · DOM/log cross-check · UNCERTAIN=FAIL); video/audio via mm-sensor if installed (hybrid) |
 | `mm-sensor [video+audio]` | `vision.py tests/<flow>.mp4 tests/<flow>_audio.wav` (one call, mixed media), plus `vision.py tests/<flow>_final.png` |
 | `mm-sensor [video]` | `vision.py tests/<flow>.mp4` + `vision.py tests/<flow>_final.png` |
 | `mm-sensor [image]` | `vision.py tests/<flow>.png` per screenshot (original loop) |
-| `direct read` | Read tool on screenshots |
+| `direct read` | DOM/log inspection primary (Step 0c); screenshots Read only as artifacts |
 
-Runtime degradation (mm-sensor's own fallbacks still apply):
+Runtime degradation (mm-sensor modes only — model-native/direct read have
+no external-media fallback; §A4.1.1 rules 4-5 apply instead):
 - Video graded but API returns `model_no_capability` / modality error →
   mm-sensor auto-falls back to frame-sampling (output marked
   `fallback: video→image`); treat the result as image-grade evidence and
@@ -142,7 +274,8 @@ Runtime degradation (mm-sensor's own fallbacks still apply):
   verification_log.md, continue with video/screenshots. Audio is only
   ever an ADDED signal — its absence never fails a criterion by itself.
 
-Parse the structured description; check EVERY detail against
+Parse the structured description (mm-sensor) or produce the per-criterion
+verdict sheet (§A4.1.1 for model-native); check EVERY detail against
 `tests/acceptance.md`. The verifier answers ONE specific question: *"Does
 this captured evidence satisfy EVERY criterion in `tests/acceptance.md`?
 List each criterion number with pass/fail and evidence."*

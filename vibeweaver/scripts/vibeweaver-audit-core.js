@@ -338,7 +338,7 @@ export function auditProject(opts) {
   check(checks, "C11", "R2-R5 read (REFERENCE.md)", rRef ? "OK" : "UNCERTAIN", rRef ? "read observed" : "no read observed (branch may not need it)")
 
   if (loop === "yes") {
-    if (/Verifier:\s*mm-sensor|Verifier:\s*direct read/.test(text)) check(checks, "C12", "verifier announced (COV-5)", "OK", "announcement found")
+    if (/Verifier:\s*mm-sensor|Verifier:\s*model-native|Verifier:\s*direct read/.test(text)) check(checks, "C12", "verifier announced (COV-5)", "OK", "announcement found")
     else check(checks, "C12", "verifier announced (COV-5)", "BAD", "loop executed but no verifier announcement")
   } else check(checks, "C12", "verifier announced (COV-5)", "UNCERTAIN", "loop claim absent")
 

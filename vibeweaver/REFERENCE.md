@@ -417,7 +417,8 @@ below — they are the full authoritative text.
      (first line `> cap=5  stall=3×`); Playwright capture (video + audio +
      screenshots per the §A4.1 Step 0 probe mode) of ALL operations + API
      tests via §A4.7 backend loop; media graded per §A4.1 Step 3
-12.  Act → Capture → Verify (mm-sensor) → Fix → Log loop until ALL criteria
+12.  Act → Capture → Verify (verifier per §A4.1 Step 0: model-native /
+      mm-sensor / direct read) → Fix → Log loop until ALL criteria
      pass or cap=5/stall=3× stops you (COV-7); convergence summary + ★ 8-column
      completion table (A4.4) — no exceptions
 13.  Acceptance checklist
@@ -500,8 +501,9 @@ won't know whether you broke it or it was already broken.
   are not E2E (report `E2E depth` in the gate line).
 - **UI / runtime-visible change** → Playwright capture of ALL operations +
   results — operation video + in-page audio + terminal screenshot per the
-  §A4.1 Step 0 probe mode; grade via **mm-sensor** (`vision.py --detail high`)
-  if available, else direct read (§A4.1 Step 0).
+  §A4.1 Step 0 probe mode; grade per the announced verifier: **model-native**
+  (§A4.1.1 protocol) · **mm-sensor** (`vision.py --detail high`) · **direct
+  read** (DOM/log cross-check) (§A4.1 Step 0).
 - Act → Capture → Verify → Fix → Log to `tests/verification_log.md` →
   Repeat until ALL acceptance criteria pass or cap=5/stall=3× stops you.
 - ★ Convergence summary line + 8-column completion table (§A4.4) — final

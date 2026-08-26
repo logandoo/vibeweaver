@@ -8,7 +8,7 @@ set SCRIPT_DIR=%~dp0
 set SKILLS_DIR=%USERPROFILE%\.config\opencode\skills\%SKILL_NAME%
 
 REM Files to install (flat companions + canonical assertion script)
-set FILES=SKILL.md COMPLETION_GATE.md CODING_PRINCIPLES.md ENGINEERING_STD.md REFERENCE.md APPENDIX.md MEMORY_TEMPLATES.md MEMORY_RULES.md TESTING_PROTOCOLS.md scripts\assert_artifacts.py scripts\vibeweaver-audit-core.js
+set FILES=SKILL.md COMPLETION_GATE.md CODING_PRINCIPLES.md ENGINEERING_STD.md REFERENCE.md APPENDIX.md MEMORY_TEMPLATES.md MEMORY_RULES.md TESTING_PROTOCOLS.md scripts\assert_artifacts.py scripts\vibeweaver-audit-core.js scripts\mm_probe.py
 
 REM Check source files exist
 for %%F in (%FILES%) do (
@@ -45,7 +45,7 @@ for %%P in (vibeweaver-gate.js vibeweaver-audit.js) do (
 
 echo.
 echo [OK] vibeweaver skill installed to: %SKILLS_DIR%\
-echo      Files installed: 11
+echo      Files installed: 12
 echo      Plugins installed to: %USERPROFILE%\.config\opencode\plugins\
 echo      Restart OpenCode to activate.
 

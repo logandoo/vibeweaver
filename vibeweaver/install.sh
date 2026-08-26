@@ -53,6 +53,8 @@ mkdir -p "${SKILLS_DIR}/scripts"
 cp "${SCRIPT_DIR}/scripts/assert_artifacts.py" "${SKILLS_DIR}/scripts/assert_artifacts.py"
 echo "[OK] Installed: scripts/assert_artifacts.py"
 cp "${SCRIPT_DIR}/scripts/vibeweaver-audit-core.js" "${SKILLS_DIR}/scripts/vibeweaver-audit-core.js"
+cp "${SCRIPT_DIR}/scripts/mm_probe.py" "${SKILLS_DIR}/scripts/mm_probe.py"
+echo "[OK] Installed: scripts/mm_probe.py"
 echo "[OK] Installed: scripts/vibeweaver-audit-core.js"
 
 # Install the plugin pair (physical gate + Tier-0/1/2 auditor) into opencode's plugin dir

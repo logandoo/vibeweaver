@@ -11,9 +11,10 @@
 Captures the page operation flow as **video** (Playwright `record_video`),
 **in-page audio** (Web Audio capture script injected via `add_init_script`),
 plus a **terminal screenshot**. Which evidence gets captured AND graded is
-decided by the mm-sensor probe mode (TESTING_PROTOCOLS.md §A4.1 Step 0): `[video+audio]`
-→ all three · `[video]` → video + screenshot · `[image]` → screenshot only
-(original loop).
+decided by the verifier probe (TESTING_PROTOCOLS.md §A4.1 Step 0):
+`model-native [image]` → screenshots only (Read-tool grading under
+§A4.1.1 protocol) · `mm-sensor [video+audio]` → all three · `[video]` →
+video + screenshot · `[image]` → screenshot only (original loop).
 
 Save as `tests/flow_capture_test.py`:
 
