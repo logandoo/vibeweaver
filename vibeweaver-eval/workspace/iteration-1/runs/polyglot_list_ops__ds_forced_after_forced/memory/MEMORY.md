@@ -19,7 +19,7 @@
 - Exercism Python list-ops canonical instructions + test suite (fetched as data).
 
 ## Fix Tracking
-- ✅ [Fix: list_ops implemented from stubs](fix_list_ops.md) — 8 list ops, no built-in list-op functions; verified 24/24 hidden + 1600/1600 differential.
+- ⏳ [Fix: list_ops implemented from stubs](fix_list_ops.md) — 8 list ops, no built-in list-op functions; 24/24 hidden + 1600/1600 differential pass.
 
 ## Key Dependencies & Conventions
 - Grading copies `list_ops.py` into a fresh dir with the hidden test; artifact dirs `tests/`, `memory/`, `script/` are workflow outputs, not part of the module.

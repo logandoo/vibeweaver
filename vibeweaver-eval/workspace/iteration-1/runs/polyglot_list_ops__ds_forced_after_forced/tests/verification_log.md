@@ -10,5 +10,6 @@ Verifier: direct read of executed test logs (no media to grade).
 - probe: not run — backend-only task, no UI/media to grade (COV-5 → COV-6 mapping)
 - iter 1 FAIL: criteria #1–24 (all behavioral) | diagnosis: stubs `pass` → functions return None, no implementation yet (RED evidence: tests/red_evidence.log, 1/25) | changed: (none — RED run on stub)
 - iter 2 PASS: all 25 criteria | evidence: tests/green_evidence.log 25/25; tests/differential_sweep.log 1600/1600 vs built-in oracle; hidden list_ops_test.py 24/24 (isolated temp copy, graded-copy flow) | changed: list_ops.py
+- iter 3 PASS: fresh-run confirmation on final committed tree (after all commits) | evidence: tests/fresh_final_run.log 25/25; tests/fresh_differential.log 1600/1600; tests/fresh_hidden.log 24/24 | changed: (none)
 
 Convergence reached in 2 iterations (1 RED + 1 GREEN), no stalls, no cap-hits.
