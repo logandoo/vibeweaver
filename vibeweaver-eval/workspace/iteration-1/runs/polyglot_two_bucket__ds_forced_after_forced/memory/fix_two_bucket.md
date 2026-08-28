@@ -4,7 +4,7 @@ description: BFS state search over (bucket_one, bucket_two) liters for the Exerc
 type: fix
 date: 2026-08-29
 status: ✅
-commit: pending
+commit: c75d763
 ---
 
 # Fix: two_bucket measure implemented from stub
