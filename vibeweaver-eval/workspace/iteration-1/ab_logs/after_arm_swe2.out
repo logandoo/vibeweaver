@@ -1,0 +1,5 @@
+jobs: 3  (3 tasks x 1 arms)
+[ds_forced_after_forced] swebench_pallets_flask_4992 done in 227s exit=0 timeout=False
+[ds_forced_after_forced] swebench_pytest_dev_pytest_6116 done in 254s exit=0 timeout=False
+[ds_forced_after_forced] swebench_sympy_sympy_21627 done in 448s exit=0 timeout=False
+ALL DONE

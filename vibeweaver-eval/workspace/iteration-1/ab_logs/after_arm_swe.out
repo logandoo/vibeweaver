@@ -1,0 +1,110 @@
+Note: switching to '4c288bc97ea371817199908d0d9b12de9dae327e'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+Note: switching to '4c288bc97ea371817199908d0d9b12de9dae327e'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+Note: switching to 'e2ee3144ed6e241dea8d96215fcdca18b3892551'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+Note: switching to 'e2ee3144ed6e241dea8d96215fcdca18b3892551'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+Note: switching to '36453b95b13079296776d11b09cab2567ea3e703'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+Note: switching to '126f80578140e752ad5135aac77b8ff887eede3e'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -c with the switch command. Example:
+
+  git switch -c <new-branch-name>
+
+Or undo this operation with:
+
+  git switch -
+
+Turn off this advice by setting config variable advice.detachedHead to false
+
+jobs: 6  (6 tasks x 1 arms)
+[ds_forced_after_forced] swebench_pallets_flask_4045 done in 389s exit=0 timeout=False
+[ds_forced_after_forced] swebench_psf_requests_3362 done in 555s exit=0 timeout=False
+[ds_forced_after_forced] swebench_pytest_dev_pytest_9359 done in 768s exit=0 timeout=False
+[ds_forced_after_forced] swebench_pallets_flask_4992 done in 2400s exit=-9 timeout=True
+[ds_forced_after_forced] swebench_pytest_dev_pytest_6116 done in 2400s exit=-9 timeout=True
+[ds_forced_after_forced] swebench_sympy_sympy_21627 done in 2400s exit=-9 timeout=True
+ALL DONE

@@ -1,0 +1,31 @@
+== prompt examples ==
+PASS  '+1 (613)-995-0253'.number == '6139950253'
+PASS  '613-995-0253'.number == '6139950253'
+PASS  '1 613 995 0253'.number == '6139950253'
+PASS  '613.995.0253'.number == '6139950253'
+== valid cleanups (hidden suite) ==
+PASS  '(223) 456-7890'.number == '2234567890'
+PASS  '223.456.7890'.number == '2234567890'
+PASS  '223 456   7890   '.number == '2234567890'
+PASS  '12234567890'.number == '2234567890'
+PASS  '+1 (223) 456-7890'.number == '2234567890'
+== invalid inputs with exact messages ==
+PASS  '123456789' -> ValueError: 'must not be fewer than 10 digits'
+PASS  '22234567890' -> ValueError: '11 digits must start with 1'
+PASS  '321234567890' -> ValueError: 'must not be greater than 11 digits'
+PASS  '523-abc-7890' -> ValueError: 'letters not permitted'
+PASS  '523-@:!-7890' -> ValueError: 'punctuations not permitted'
+PASS  '(023) 456-7890' -> ValueError: 'area code cannot start with zero'
+PASS  '(123) 456-7890' -> ValueError: 'area code cannot start with one'
+PASS  '(223) 056-7890' -> ValueError: 'exchange code cannot start with zero'
+PASS  '(223) 156-7890' -> ValueError: 'exchange code cannot start with one'
+PASS  '1 (023) 456-7890' -> ValueError: 'area code cannot start with zero'
+PASS  '1 (123) 456-7890' -> ValueError: 'area code cannot start with one'
+PASS  '1 (223) 056-7890' -> ValueError: 'exchange code cannot start with zero'
+PASS  '1 (223) 156-7890' -> ValueError: 'exchange code cannot start with one'
+== interface ==
+PASS  PhoneNumber('2234567890').area_code == '223'
+PASS  PhoneNumber('2234567890').pretty() == '(223)-456-7890'
+PASS  PhoneNumber('12234567890').pretty() == '(223)-456-7890'
+
+TOTAL: all executed cases passed (4 prompt examples + 5 valid + 13 invalid + 3 interface)

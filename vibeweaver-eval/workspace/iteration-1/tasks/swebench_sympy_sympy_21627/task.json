@@ -3,7 +3,7 @@
   "task_id": "swebench_sympy_sympy_21627",
   "instance_id": "sympy__sympy-21627",
   "repo": "sympy/sympy",
-  "repo_path": "$EVAL_ROOT/workspace/iteration-1/repos/sympy__sympy",
+  "repo_path": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/sympy__sympy",
   "base_commit": "126f80578140e752ad5135aac77b8ff887eede3e",
   "problem_statement": "Bug: maximum recusion depth error when checking is_zero of cosh expression\nThe following code causes a `RecursionError: maximum recursion depth exceeded while calling a Python object` error when checked if it is zero:\r\n```\r\nexpr =sympify(\"cosh(acos(-i + acosh(-g + i)))\")\r\nexpr.is_zero\r\n```\n",
   "test_patch": "diff --git a/sympy/functions/elementary/tests/test_complexes.py b/sympy/functions/elementary/tests/test_complexes.py\n--- a/sympy/functions/elementary/tests/test_complexes.py\n+++ b/sympy/functions/elementary/tests/test_complexes.py\n@@ -464,6 +464,8 @@ def test_Abs():\n     # issue 19627\n     f = Function('f', positive=True)\n     assert sqrt(f(x)**2) == f(x)\n+    # issue 21625\n+    assert unchanged(Abs, S(\"im(acos(-i + acosh(-g + i)))\"))\n \n \n def test_Abs_rewrite():\n",
@@ -38,11 +38,5 @@
     "test_issue_14216",
     "test_issue_14238",
     "test_zero_assumptions"
-  ],
-  "p2p_guard": [
-    "test_adjoint",
-    "test_Abs_rewrite",
-    "test_conjugate_transpose",
-    "test_issue_11413"
   ]
 }

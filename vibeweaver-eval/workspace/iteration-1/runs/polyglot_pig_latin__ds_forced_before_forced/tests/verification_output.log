@@ -1,0 +1,28 @@
+'apple'            -> 'appleay'            expected 'appleay'            PASS
+'ear'              -> 'earay'              expected 'earay'              PASS
+'igloo'            -> 'iglooay'            expected 'iglooay'            PASS
+'object'           -> 'objectay'           expected 'objectay'           PASS
+'under'            -> 'underay'            expected 'underay'            PASS
+'equal'            -> 'equalay'            expected 'equalay'            PASS
+'pig'              -> 'igpay'              expected 'igpay'              PASS
+'koala'            -> 'oalakay'            expected 'oalakay'            PASS
+'xenon'            -> 'enonxay'            expected 'enonxay'            PASS
+'qat'              -> 'atqay'              expected 'atqay'              PASS
+'chair'            -> 'airchay'            expected 'airchay'            PASS
+'queen'            -> 'eenquay'            expected 'eenquay'            PASS
+'square'           -> 'aresquay'           expected 'aresquay'           PASS
+'therapy'          -> 'erapythay'          expected 'erapythay'          PASS
+'thrush'           -> 'ushthray'           expected 'ushthray'           PASS
+'school'           -> 'oolschay'           expected 'oolschay'           PASS
+'yttria'           -> 'yttriaay'           expected 'yttriaay'           PASS
+'xray'             -> 'xrayay'             expected 'xrayay'             PASS
+'yellow'           -> 'ellowyay'           expected 'ellowyay'           PASS
+'rhythm'           -> 'ythmrhay'           expected 'ythmrhay'           PASS
+'my'               -> 'ymay'               expected 'ymay'               PASS
+'liquid'           -> 'iquidlay'           expected 'iquidlay'           PASS
+'quick fast run'   -> 'ickquay astfay unray' expected 'ickquay astfay unray' PASS
+summary: 23/23 passed, 0 failed
+EDGE ''                   -> ''                   expected ''                   PASS
+EDGE '  hello   world  '  -> 'ellohay orldway'    expected 'ellohay orldway'    PASS
+EDGE 'nth'                -> 'nthay'              expected 'nthay'              PASS
+EDGE 'spray'              -> 'ayspray'            expected 'ayspray'            PASS

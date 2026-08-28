@@ -1,0 +1,108 @@
+fatal: repository '$EVAL_ROOT/workspace/iteration-1/repos/pallets__flask' does not exist
+Exception in thread Thread-1:
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    self.run()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 272, in worker
+    run_one(t, a, args.timeout, force_skill=args.force_skill)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 196, in run_one
+    make_workdir(meta, arm_dir)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 182, in make_workdir
+    subprocess.run(["git", "clone", "--quiet", "--shared",
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 528, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', 'clone', '--quiet', '--shared', '$EVAL_ROOT/workspace/iteration-1/repos/pallets__flask', '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_before_forced']' returned non-zero exit status 128.
+fatal: repository '$EVAL_ROOT/workspace/iteration-1/repos/pallets__flask' does not exist
+Exception in thread Thread-8:
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    self.run()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 272, in worker
+    run_one(t, a, args.timeout, force_skill=args.force_skill)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 196, in run_one
+    make_workdir(meta, arm_dir)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 182, in make_workdir
+    subprocess.run(["git", "clone", "--quiet", "--shared",
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 528, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', 'clone', '--quiet', '--shared', '$EVAL_ROOT/workspace/iteration-1/repos/pallets__flask', '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_forced_before_forced']' returned non-zero exit status 128.
+fatal: repository '$EVAL_ROOT/workspace/iteration-1/repos/psf__requests' does not exist
+Exception in thread Thread-4:
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    self.run()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 272, in worker
+    run_one(t, a, args.timeout, force_skill=args.force_skill)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 196, in run_one
+    make_workdir(meta, arm_dir)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 182, in make_workdir
+    subprocess.run(["git", "clone", "--quiet", "--shared",
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 528, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', 'clone', '--quiet', '--shared', '$EVAL_ROOT/workspace/iteration-1/repos/psf__requests', '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_forced_before_forced']' returned non-zero exit status 128.
+fatal: repository '$EVAL_ROOT/workspace/iteration-1/repos/pytest-dev__pytest' does not exist
+Exception in thread Thread-6:
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    self.run()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 272, in worker
+    run_one(t, a, args.timeout, force_skill=args.force_skill)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 196, in run_one
+    make_workdir(meta, arm_dir)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 182, in make_workdir
+    subprocess.run(["git", "clone", "--quiet", "--shared",
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 528, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', 'clone', '--quiet', '--shared', '$EVAL_ROOT/workspace/iteration-1/repos/pytest-dev__pytest', '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_forced_before_forced']' returned non-zero exit status 128.
+fatal: repository '$EVAL_ROOT/workspace/iteration-1/repos/pytest-dev__pytest' does not exist
+Exception in thread Thread-2:
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    self.run()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 272, in worker
+    run_one(t, a, args.timeout, force_skill=args.force_skill)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 196, in run_one
+    make_workdir(meta, arm_dir)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 182, in make_workdir
+    subprocess.run(["git", "clone", "--quiet", "--shared",
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 528, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', 'clone', '--quiet', '--shared', '$EVAL_ROOT/workspace/iteration-1/repos/pytest-dev__pytest', '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_before_forced']' returned non-zero exit status 128.
+fatal: repository '$EVAL_ROOT/workspace/iteration-1/repos/sympy__sympy' does not exist
+Exception in thread Thread-3:
+Traceback (most recent call last):
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 973, in _bootstrap_inner
+    self.run()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/threading.py", line 910, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 272, in worker
+    run_one(t, a, args.timeout, force_skill=args.force_skill)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 196, in run_one
+    make_workdir(meta, arm_dir)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/run_eval.py", line 182, in make_workdir
+    subprocess.run(["git", "clone", "--quiet", "--shared",
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/subprocess.py", line 528, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['git', 'clone', '--quiet', '--shared', '$EVAL_ROOT/workspace/iteration-1/repos/sympy__sympy', '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_forced_before_forced']' returned non-zero exit status 128.
+jobs: 16  (16 tasks x 1 arms)
+[ds_forced_before_forced] polyglot_simple_linked_list done in 71s exit=0 timeout=False
+[ds_forced_before_forced] polyglot_bowling done in 183s exit=0 timeout=False
+[ds_forced_before_forced] polyglot_variable_length_quantity done in 71s exit=0 timeout=False
+[ds_forced_before_forced] polyglot_transpose done in 260s exit=0 timeout=False
+[ds_forced_before_forced] polyglot_phone_number done in 268s exit=0 timeout=False
+[ds_forced_before_forced] polyglot_robot_name done in 273s exit=0 timeout=False
+[ds_forced_before_forced] polyglot_grade_school done in 332s exit=0 timeout=False
+[ds_forced_before_forced] polyglot_list_ops done in 366s exit=0 timeout=False
+[ds_forced_before_forced] polyglot_pig_latin done in 370s exit=0 timeout=False
+[ds_forced_before_forced] polyglot_two_bucket done in 366s exit=0 timeout=False
+ALL DONE

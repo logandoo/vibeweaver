@@ -72,9 +72,19 @@ def grade(task_dir: Path, run_dir: Path, arm: str) -> dict:
         "f2p_pass": False, "p2p_regressions": [], "patch_applied": False,
         "test_patch_applied": False, "notes": [], "f2p_details": [],
     }
-    # 1. collect diff from agent workdir vs base_commit (excluding opencode data dirs)
+    # 1. collect diff from agent workdir vs base_commit (excluding opencode data dirs
+    #    and vibeweaver workflow byproducts — the binary probe PNG breaks git apply,
+    #    and log/memory/assert artifacts are not the source fix under test)
     rc, diff, err = sh(["git", "-C", str(run_dir), "diff", meta["base_commit"],
-                        "--", ".", ":(exclude).opencode_data"])
+                        "--", ".", ":(exclude).opencode_data",
+                        ":(exclude)tests/probe_vision.png",
+                        ":(exclude)tests/probe_vision.expected",
+                        ":(exclude)tests/acceptance.md",
+                        ":(exclude)tests/verification_log.md",
+                        ":(exclude)tests/gate_audit.md",
+                        ":(exclude)tests/assert_artifacts.py",
+                        ":(exclude)memory",
+                        ":(exclude).vibeweaver"])
     if rc != 0 or not diff.strip():
         result["notes"].append("no diff produced")
         return result

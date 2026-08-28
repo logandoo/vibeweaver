@@ -1,0 +1,185 @@
+test_add_a_student (grade_school_test.GradeSchoolTest) ... FAIL
+test_adding_multiple_students_in_the_same_grade_in_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+test_adding_students_in_multiple_grades (grade_school_test.GradeSchoolTest) ... FAIL
+test_cannot_add_same_student_to_multiple_grades_in_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+test_cannot_add_student_to_same_grade_in_the_roster_more_than_once (grade_school_test.GradeSchoolTest) ... FAIL
+test_grade_is_empty_if_no_students_in_that_grade (grade_school_test.GradeSchoolTest) ... FAIL
+test_grade_is_empty_if_no_students_in_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+test_multiple_students_in_the_same_grade_are_added_to_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+test_roster_is_empty_when_no_student_is_added (grade_school_test.GradeSchoolTest) ... FAIL
+test_student_is_added_to_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+test_student_not_added_to_multiple_grades (grade_school_test.GradeSchoolTest) ... FAIL
+test_student_not_added_to_multiple_grades_in_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+test_student_not_added_to_other_grade_for_multiple_grades (grade_school_test.GradeSchoolTest) ... FAIL
+test_student_not_added_to_same_grade_in_the_roster_more_than_once (grade_school_test.GradeSchoolTest) ... FAIL
+test_student_not_added_to_same_grade_more_than_once (grade_school_test.GradeSchoolTest) ... FAIL
+test_students_are_sorted_by_grades_and_then_by_name_in_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+test_students_are_sorted_by_grades_in_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+test_students_are_sorted_by_name_in_a_grade (grade_school_test.GradeSchoolTest) ... FAIL
+test_students_are_sorted_by_name_in_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+test_students_in_multiple_grades_are_added_to_the_roster (grade_school_test.GradeSchoolTest) ... FAIL
+
+======================================================================
+FAIL: test_add_a_student (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 23, in test_add_a_student
+    self.assertEqual(school.added(), expected)
+AssertionError: None != [True]
+
+======================================================================
+FAIL: test_adding_multiple_students_in_the_same_grade_in_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 38, in test_adding_multiple_students_in_the_same_grade_in_the_roster
+    self.assertEqual(school.added(), expected)
+AssertionError: None != [True, True, True]
+
+======================================================================
+FAIL: test_adding_students_in_multiple_grades (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 73, in test_adding_students_in_multiple_grades
+    self.assertEqual(school.added(), expected)
+AssertionError: None != [True, True]
+
+======================================================================
+FAIL: test_cannot_add_same_student_to_multiple_grades_in_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 90, in test_cannot_add_same_student_to_multiple_grades_in_the_roster
+    self.assertEqual(school.added(), expected)
+AssertionError: None != [True, True, False, True]
+
+======================================================================
+FAIL: test_cannot_add_student_to_same_grade_in_the_roster_more_than_once (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 56, in test_cannot_add_student_to_same_grade_in_the_roster_more_than_once
+    self.assertEqual(school.added(), expected)
+AssertionError: None != [True, True, False, True]
+
+======================================================================
+FAIL: test_grade_is_empty_if_no_students_in_that_grade (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 145, in test_grade_is_empty_if_no_students_in_that_grade
+    self.assertEqual(school.grade(1), expected)
+AssertionError: None != []
+
+======================================================================
+FAIL: test_grade_is_empty_if_no_students_in_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 136, in test_grade_is_empty_if_no_students_in_the_roster
+    self.assertEqual(school.grade(1), expected)
+AssertionError: None != []
+
+======================================================================
+FAIL: test_multiple_students_in_the_same_grade_are_added_to_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 47, in test_multiple_students_in_the_same_grade_are_added_to_the_roster
+    self.assertEqual(school.roster(), expected)
+AssertionError: None != ['Blair', 'James', 'Paul']
+
+======================================================================
+FAIL: test_roster_is_empty_when_no_student_is_added (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 17, in test_roster_is_empty_when_no_student_is_added
+    self.assertEqual(school.roster(), expected)
+AssertionError: None != []
+
+======================================================================
+FAIL: test_student_is_added_to_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 30, in test_student_is_added_to_the_roster
+    self.assertEqual(school.roster(), expected)
+AssertionError: None != ['Aimee']
+
+======================================================================
+FAIL: test_student_not_added_to_multiple_grades (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 163, in test_student_not_added_to_multiple_grades
+    self.assertEqual(school.grade(2), expected)
+AssertionError: None != ['Blair', 'James']
+
+======================================================================
+FAIL: test_student_not_added_to_multiple_grades_in_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 100, in test_student_not_added_to_multiple_grades_in_the_roster
+    self.assertEqual(school.roster(), expected)
+AssertionError: None != ['Blair', 'James', 'Paul']
+
+======================================================================
+FAIL: test_student_not_added_to_other_grade_for_multiple_grades (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 172, in test_student_not_added_to_other_grade_for_multiple_grades
+    self.assertEqual(school.grade(3), expected)
+AssertionError: None != ['Paul']
+
+======================================================================
+FAIL: test_student_not_added_to_same_grade_in_the_roster_more_than_once (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 66, in test_student_not_added_to_same_grade_in_the_roster_more_than_once
+    self.assertEqual(school.roster(), expected)
+AssertionError: None != ['Blair', 'James', 'Paul']
+
+======================================================================
+FAIL: test_student_not_added_to_same_grade_more_than_once (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 154, in test_student_not_added_to_same_grade_more_than_once
+    self.assertEqual(school.grade(2), expected)
+AssertionError: None != ['Blair', 'James', 'Paul']
+
+======================================================================
+FAIL: test_students_are_sorted_by_grades_and_then_by_name_in_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 131, in test_students_are_sorted_by_grades_and_then_by_name_in_the_roster
+    self.assertEqual(school.roster(), expected)
+AssertionError: None != ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe', 'Jim']
+
+======================================================================
+FAIL: test_students_are_sorted_by_grades_in_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 109, in test_students_are_sorted_by_grades_in_the_roster
+    self.assertEqual(school.roster(), expected)
+AssertionError: None != ['Anna', 'Peter', 'Jim']
+
+======================================================================
+FAIL: test_students_are_sorted_by_name_in_a_grade (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 180, in test_students_are_sorted_by_name_in_a_grade
+    self.assertEqual(school.grade(5), expected)
+AssertionError: None != ['Bradley', 'Franklin']
+
+======================================================================
+FAIL: test_students_are_sorted_by_name_in_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 118, in test_students_are_sorted_by_name_in_the_roster
+    self.assertEqual(school.roster(), expected)
+AssertionError: None != ['Alex', 'Peter', 'Zoe']
+
+======================================================================
+FAIL: test_students_in_multiple_grades_are_added_to_the_roster (grade_school_test.GradeSchoolTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_grade_school/hidden_tests/grade_school_test.py", line 81, in test_students_in_multiple_grades_are_added_to_the_roster
+    self.assertEqual(school.roster(), expected)
+AssertionError: None != ['Chelsea', 'Logan']
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.001s
+
+FAILED (failures=20)

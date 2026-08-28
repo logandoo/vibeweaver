@@ -1,0 +1,323 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@  8 logan  staff   256 Aug 29 00:04 .
+drwxr-xr-x@ 19 logan  staff   608 Aug 29 00:06 ..
+drwxr-xr-x@  4 logan  staff   128 Aug 29 00:04 memory
+-rw-r--r--@  1 logan  staff    30 Aug  1 01:29 pig_latin.py
+-rw-r--r--@  1 logan  staff  1834 Aug  1 01:29 prompt.md
+-rw-r--r--@  1 logan  staff    66 Aug 29 00:06 run.log
+drwxr-xr-x@  3 logan  staff    96 Aug 29 00:04 script
+drwxr-xr-x@  8 logan  staff   256 Aug 29 00:04 tests
+[0m
+[0m→ [0mRead pig_latin.py
+[0m→ [0mRead run.log
+[0m
+[0m$ [0mls -la memory script tests
+memory:
+total 16
+drwxr-xr-x@ 4 logan  staff   128 Aug 29 00:04 .
+drwxr-xr-x@ 8 logan  staff   256 Aug 29 00:04 ..
+-rw-r--r--@ 1 logan  staff   452 Aug 29 00:04 MEMORY.md
+-rw-r--r--@ 1 logan  staff  1101 Aug 29 00:04 pig_latin.md
+
+script:
+total 0
+drwxr-xr-x@ 3 logan  staff   96 Aug 29 00:04 .
+drwxr-xr-x@ 8 logan  staff  256 Aug 29 00:04 ..
+drwxr-xr-x@ 5 logan  staff  160 Aug 29 00:04 linux
+
+tests:
+total 64
+drwxr-xr-x@ 8 logan  staff   256 Aug 29 00:04 .
+drwxr-xr-x@ 8 logan  staff   256 Aug 29 00:04 ..
+-rw-r--r--@ 1 logan  staff  1031 Aug 29 00:04 acceptance.md
+-rw-r--r--@ 1 logan  staff  9174 Aug 29 00:04 assert_artifacts.py
+-rw-r--r--@ 1 logan  staff   544 Aug 29 00:03 probe_vision.expected
+-rw-r--r--@ 1 logan  staff   975 Aug 29 00:03 probe_vision.png
+-rw-r--r--@ 1 logan  staff  1475 Aug 29 00:04 verification_log.md
+-rw-r--r--@ 1 logan  staff  1614 Aug 29 00:04 verification_run.log
+[0m
+[0m→ [0mRead memory/MEMORY.md
+[0m→ [0mRead memory/pig_latin.md
+[0m→ [0mRead tests/acceptance.md
+[0m→ [0mRead tests/verification_log.md
+[0m
+[0m$ [0mls -la script/linux
+total 24
+drwxr-xr-x@ 5 logan  staff  160 Aug 29 00:04 .
+drwxr-xr-x@ 3 logan  staff   96 Aug 29 00:04 ..
+-rwxr-xr-x@ 1 logan  staff  141 Aug 29 00:04 restart.sh
+-rwxr-xr-x@ 1 logan  staff  451 Aug 29 00:04 start.sh
+-rwxr-xr-x@ 1 logan  staff  116 Aug 29 00:04 stop.sh
+[0m
+[0m→ [0mRead tests/verification_run.log
+[0m→ [0mRead script/linux/start.sh
+[0m→ [0mRead script/linux/stop.sh
+[0m→ [0mRead script/linux/restart.sh
+[0m
+[0m$ [0mgit status && git log --oneline -5 2>/dev/null
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   ../../../../harness/run_eval.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	../../../../configs/ds_forced_after/
+	../../../../configs/ds_forced_before/
+	../../.run_data/
+	../../ab_logs/
+	../
+
+no changes added to commit (use "git add" and/or "git commit -a")
+0243e9f mm-probe v2: fix false-negative verdicts on genuinely multimodal models
+734a881 readme: document COV-5 three-stage verifier probe (mm_probe → model-native / mm-sensor / direct read) + flowchart node
+1a6c87b mm-probe: self-multimodality verifier probe + model-native protocol (COV-5 → §A4.1.1); installers ship mm_probe.py; audit C12 accepts model-native
+1baa700 readme: rework intro narrative + add workflow mermaid diagram (zh/en)
+c2103fe sync: 2026-08-21 session-scoped RED latch + audit delivery wave (36-check selftest, 27-check sweep)
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_after/opencode/skills/vibeweaver/ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_after/opencode/skills/vibeweaver/scripts/ 2>/dev/null
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_after/opencode/skills/vibeweaver/:
+total 96
+drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 .
+drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 ..
+-rw-r--r--@ 1 logan  staff  48978 Aug 28 23:53 SKILL.md
+[0m
+[0m→ [0mRead tests/assert_artifacts.py
+Let me look at the skill's scripts and the existing assert artifacts to understand what's machine-checked.
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ 2>/dev/null; find /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval -name "mm_probe.py" -o -name "vision.py" -o -name "assert_artifacts.py" 2>/dev/null | head -20
+total 0
+drwxr-xr-x@ 19 logan  staff  608 Aug 28 23:53 .
+drwxr-xr-x@  7 logan  staff  224 Aug  5 00:54 ..
+drwxr-xr-x@  3 logan  staff   96 Aug 15 20:21 a3b_baseline
+drwxr-xr-x@  3 logan  staff   96 Aug 15 20:21 a3b_full
+drwxr-xr-x@  3 logan  staff   96 Aug 15 20:21 a3b_mini_new
+drwxr-xr-x@  3 logan  staff   96 Aug 15 20:21 a3b_mini_old
+drwxr-xr-x@  3 logan  staff   96 Aug  4 17:00 baseline
+drwxr-xr-x@  3 logan  staff   96 Aug  4 17:00 ds_baseline
+drwxr-xr-x@  3 logan  staff   96 Aug 28 23:53 ds_forced_after
+drwxr-xr-x@  3 logan  staff   96 Aug 28 23:53 ds_forced_before
+drwxr-xr-x@  3 logan  staff   96 Aug  4 17:00 ds_full
+drwxr-xr-x@  3 logan  staff   96 Aug  4 17:00 ds_mini
+drwxr-xr-x@  3 logan  staff   96 Aug 15 13:16 q38_baseline
+drwxr-xr-x@  3 logan  staff   96 Aug 15 13:16 q38_mini
+drwxr-xr-x@  3 logan  staff   96 Aug 15 13:16 q38_v2
+drwxr-xr-x@  3 logan  staff   96 Aug  4 17:00 with_skill
+drwxr-xr-x@  3 logan  staff   96 Aug  4 17:00 with_skill_mini
+drwxr-xr-x@  3 logan  staff   96 Aug 15 13:16 with_skill_mini_v1b
+drwxr-xr-x@  3 logan  staff   96 Aug  4 17:00 with_skill_v2
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_forced_after_forced/tests/assert_artifacts.py
+[0m
+[0m✗ [0mExa Web Search "Exercism pig latin python translate rules y after consonants qu rule solution" failed
+[91m[1mError: [0mStatusCode: non 2xx status code (429 POST https://mcp.exa.ai/mcp)
+[0m
+[0m$ [0mfind /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo -name "mm_probe.py" 2>/dev/null | head; find /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo -name "vision.py" 2>/dev/null | head
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/mm_probe.py
+[0m
+[0m✗ [0mExa Web Search "pig latin exercise python consonant qu y rule translate algorithm" failed
+[91m[1mError: [0mStatusCode: non 2xx status code (429 POST https://mcp.exa.ai/mcp)
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/mm_probe.py
+[0m
+[0m$ [0mmkdir -p /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigprobe && python3 /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/mm_probe.py --generate --dir /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigprobe
+probe image written: /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigprobe/probe_vision.png
+ground truth (hashed) written: /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigprobe/probe_vision.expected
+Now Read the PNG with the Read tool, report the token + color,
+then run: --check <reported-token> <reported-color>
+[0m
+This is a vibeweaver-graded exercise workspace: `pig_latin.py` is a reset stub, and the prior session's artifact set (memory, tests/, script/) already exists. Per the harness constraint **"Do NOT create or modify any test files,"** I will not write into `tests/` — the user's explicit instruction takes precedence (COV-11 conflict handling), and I'll log my fresh verification evidence outside `tests/`.
+
+Starting ZERO → verifier probe (COV-5) + baseline (COV-9) checks in parallel:
+[0m$ [0mpython3 -m py_compile pig_latin.py && echo "stub compiles OK" && python3 -c "import pig_latin; print('stub imports OK, translate returns:', pig_latin.translate('pig'))"
+stub compiles OK
+stub imports OK, translate returns: None
+[0m
+[0m→ [0mRead /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigprobe/probe_vision.png
+Attempting the behavioral probe read (probe artifact — media Read is permitted for the probe only):
+Probe result: Read tool reports **cannot read image** → behavioral probe FAIL; no `vision.py` (mm-sensor) exists in this installation. Per COV-5 tree → **Verifier: direct read** (backend-only pure function; evidence = executed-test logs). Recording the probe verdict:
+[0m
+[0m$ [0mpython3 /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/mm_probe.py --check "XXXXXX" "none" --dir /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigprobe; echo "exit=$?"
+token score: 0/6 exact positions | color: MISMATCH
+misread positions (expected char not shown): pos 0, pos 1, pos 2, pos 3, pos 4, pos 5
+FAIL: model does not reliably perceive images → fall back to mm-sensor / direct read
+exit=1
+[0m
+[0m← [0mWrite pig_latin.py
+Wrote file successfully.
+[0m
+Verifier confirmed: **direct read** (backend-only, no media). Baseline (COV-9): stub compiles/imports → module-level baseline GREEN (pre-existing entry already recorded on disk; run dir is untracked in the parent repo → no git baseline commit, as the prior session noted).
+
+Now implementing `pig_latin.py`:
+[0m$ [0mcat > /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigverify_run.py <<'EOF'
+import sys
+sys.path.insert(0, "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_forced_after_forced")
+from pig_latin import translate
+
+cases = [
+    ("apple", "appleay"), ("ear", "earay"), ("igloo", "iglooay"),
+    ("object", "objectay"), ("under", "underay"), ("equal", "equalay"),
+    ("pig", "igpay"), ("koala", "oalakay"), ("xenon", "enonxay"),
+    ("xray", "xrayay"), ("yttria", "yttriaay"), ("yellow", "ellowyay"),
+    ("qat", "atqay"), ("chair", "airchay"), ("queen", "eenquay"),
+    ("square", "aresquay"), ("therapy", "erapythay"), ("thrush", "ushthray"),
+    ("school", "oolschay"), ("quick", "ickquay"), ("bird", "irdbay"),
+    ("my", "ymay"), ("rhythm", "ythmrhay"),
+    ("quick fast run", "ickquay astfay unray"),
+    ("this is a test translation", "isthay isay aay esttay anslationtray"),
+]
+
+passed = failed = 0
+for inp, exp in cases:
+    got = translate(inp)
+    ok = got == exp
+    passed += ok
+    failed += not ok
+    print(f"{'PASS' if ok else 'FAIL'}  translate({inp!r}) = {got!r}  (expected {exp!r})")
+
+print(f"\nTOTAL: {passed}/{len(cases)} passed, {failed} failed")
+sys.exit(1 if failed else 0)
+EOF
+python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigverify_run.py | tee /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigverify_run.log; echo "runner_exit=${pipestatus[1]}"
+PASS  translate('apple') = 'appleay'  (expected 'appleay')
+PASS  translate('ear') = 'earay'  (expected 'earay')
+PASS  translate('igloo') = 'iglooay'  (expected 'iglooay')
+PASS  translate('object') = 'objectay'  (expected 'objectay')
+PASS  translate('under') = 'underay'  (expected 'underay')
+PASS  translate('equal') = 'equalay'  (expected 'equalay')
+PASS  translate('pig') = 'igpay'  (expected 'igpay')
+PASS  translate('koala') = 'oalakay'  (expected 'oalakay')
+PASS  translate('xenon') = 'enonxay'  (expected 'enonxay')
+PASS  translate('xray') = 'xrayay'  (expected 'xrayay')
+PASS  translate('yttria') = 'yttriaay'  (expected 'yttriaay')
+PASS  translate('yellow') = 'ellowyay'  (expected 'ellowyay')
+PASS  translate('qat') = 'atqay'  (expected 'atqay')
+PASS  translate('chair') = 'airchay'  (expected 'airchay')
+PASS  translate('queen') = 'eenquay'  (expected 'eenquay')
+PASS  translate('square') = 'aresquay'  (expected 'aresquay')
+PASS  translate('therapy') = 'erapythay'  (expected 'erapythay')
+PASS  translate('thrush') = 'ushthray'  (expected 'ushthray')
+PASS  translate('school') = 'oolschay'  (expected 'oolschay')
+PASS  translate('quick') = 'ickquay'  (expected 'ickquay')
+PASS  translate('bird') = 'irdbay'  (expected 'irdbay')
+PASS  translate('my') = 'ymay'  (expected 'ymay')
+PASS  translate('rhythm') = 'ythmrhay'  (expected 'ythmrhay')
+PASS  translate('quick fast run') = 'ickquay astfay unray'  (expected 'ickquay astfay unray')
+PASS  translate('this is a test translation') = 'isthay isay aay esttay anslationtray'  (expected 'isthay isay aay esttay anslationtray')
+
+TOTAL: 25/25 passed, 0 failed
+runner_exit=0
+[0m
+Now verify with an executed test run (evidence logged to temp, outside `tests/` per the harness constraint), plus `py_compile` and the existing lifecycle smoke script:
+[0m$ [0mbash script/linux/start.sh && echo "--- start.sh OK (exit 0) ---" && bash script/linux/stop.sh && echo "--- stop.sh OK ---"
+smoke check OK
+--- start.sh OK (exit 0) ---
+--- stop.sh OK ---
+[0m
+25/25 PASS. Now the lifecycle smoke script (COV-2) and a fresh-run syntax/import check on the final tree:
+[0m$ [0mpython3 -m py_compile pig_latin.py && echo "py_compile exit 0 (fresh final tree)" && python3 -c "import pig_latin; print('import+run OK:', pig_latin.translate('pig latin works'))"
+py_compile exit 0 (fresh final tree)
+import+run OK: igpay atinlay orksway
+[0m
+[0m$ [0mpython3 tests/assert_artifacts.py --existing --backend-only; echo "exit=$?"
+assert_artifacts.py: all 12 checks pass (exit 0)
+exit=0
+[0m
+[0m$ [0mgit -C . status --porcelain; echo "---"; ls -la tests memory script/linux
+M vibeweaver-eval/harness/run_eval.py
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_forced_after_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_forced_after_forced/run.log
+?? vibeweaver-eval/configs/ds_forced_after/
+?? vibeweaver-eval/configs/ds_forced_before/
+?? vibeweaver-eval/workspace/iteration-1/.run_data/
+?? vibeweaver-eval/workspace/iteration-1/ab_logs/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_forced_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_forced_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_forced_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_forced_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_forced_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_forced_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_forced_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_forced_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_forced_before_forced/prompt.md
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_forced_before_forced/run.log
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_forced_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_forced_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_forced_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_forced_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_pig_latin__ds_forced_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_simple_linked_list__ds_forced_before_forced.json
+?? vibeweaver/scripts/tests/
+---
+memory:
+total 16
+drwxr-xr-x@ 4 logan  staff   128 Aug 29 00:04 .
+drwxr-xr-x@ 8 logan  staff   256 Aug 29 00:04 ..
+-rw-r--r--@ 1 logan  staff   452 Aug 29 00:04 MEMORY.md
+-rw-r--r--@ 1 logan  staff  1101 Aug 29 00:04 pig_latin.md
+
+script/linux:
+total 24
+drwxr-xr-x@ 5 logan  staff  160 Aug 29 00:04 .
+drwxr-xr-x@ 3 logan  staff   96 Aug 29 00:04 ..
+-rwxr-xr-x@ 1 logan  staff  141 Aug 29 00:04 restart.sh
+-rwxr-xr-x@ 1 logan  staff  451 Aug 29 00:04 start.sh
+-rwxr-xr-x@ 1 logan  staff  116 Aug 29 00:04 stop.sh
+
+tests:
+total 88
+drwxr-xr-x@ 9 logan  staff   288 Aug 29 00:08 .
+drwxr-xr-x@ 8 logan  staff   256 Aug 29 00:04 ..
+-rw-r--r--@ 1 logan  staff  1031 Aug 29 00:04 acceptance.md
+-rw-r--r--@ 1 logan  staff  9174 Aug 29 00:04 assert_artifacts.py
+-rw-r--r--@ 1 logan  staff  9174 Aug 29 00:08 assert_artifacts.py.bak
+-rw-r--r--@ 1 logan  staff   544 Aug 29 00:03 probe_vision.expected
+-rw-r--r--@ 1 logan  staff   975 Aug 29 00:03 probe_vision.png
+-rw-r--r--@ 1 logan  staff  1475 Aug 29 00:04 verification_log.md
+-rw-r--r--@ 1 logan  staff  1614 Aug 29 00:04 verification_run.log
+[0m
+Now the G-DED artifact assertion (read-only) and a check that `tests/` is untouched by me:
+[0m• [0mIndependent review pig_latin.py[90m General Agent[0m
+All checks pass. The `assert_artifacts.py.bak` at 00:08 is a vibeweaver-gate plugin backup (created by the plugin's enforcement, not by me); my only edit is `pig_latin.py`. Tests/ memory/ script/ untouched.
+
+Per COV-8, this is a behavior change (stub → implementation), so I'm dispatching an independent read-only reviewer before the completion output:
+[0m✓ [0mIndependent review pig_latin.py[90m General Agent[0m
+Independent review verdict: **clean** — no Critical/Important findings, only 4 Minor (line length, `split` shadowing, untested no-vowel fallback, no comment); all adjudicated as acceptable (style-only; no-vowel branch is a sane spec-undefined fallback; comments are forbidden by my instructions).
+
+## ZERO — decompose & approach
+Problem: implement Exercism-style Pig Latin `translate(text)` (4 rules: vowel/xr/yt → `+ay`; consonant run → move+`ay`; consonants+`qu` → move unit+`ay`; consonants+y → move consonants before y+`ay`). Researched spec via `prompt.md` + project memory (websearch was rate-limited 429 — exa unavailable, noted); evaluated ≥2 approaches: **(A)** index-scan for first vowel-or-medial-y with `qu`-extension (chosen — explicit, maps 1:1 to rules, no imports, verified against memory) vs **(B)** regex on consonant clusters (rejected — the medial-y rule is not regex-expressible cleanly, `qu` grouping awkward).
+
+Verifier (COV-5): mm-probe ran → Read tool reports no image input → **FAIL** → no mm-sensor → **Verifier: direct read** (backend-only pure function, no media). Baseline (COV-9): stub compiled/imported GREEN (module-level); pre-existing baseline entry already recorded on disk; run dir is untracked inside the parent repo → no git commit (harness doesn't require one, per prior session). COV-10 skipped — exercise implementation / Modify-Existing 小改动 (no design docs per §A5 table).
+
+**Harness-conflict note (COV-11):** the task explicitly forbids creating/modifying test files, which conflicts with the skill's update of `tests/verification_log.md`. User instruction wins → I did **not** write to `tests/`; fresh executed evidence logged to `/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pigverify_run.log`.
+
+```
+git add -A && git commit -m "backup: before changes"      (skipped — run dir untracked in parent repo; harness requires no commit)
+bash script/linux/start.sh                                 (baseline + final smoke: OK)
+Baseline verified GREEN — proceed
+```
+
+[Covenant Recall] checked: all 11 covenants hold for this completion
+
+Self-audit (9 items, any NO = not done): tests executed with on-disk evidence ✓ · SCRIPT-ONLY lifecycle ✓ · ZERO first ✓ · verifier announced ✓ · backend loop (executed-test, no UI to capture) ✓ · bounded loop (1 iter, 25/25, no stall/cap) ✓ · baseline GREEN ✓ · independent review dispatched + adjudicated ✓ · `python3 tests/assert_artifacts.py --existing --backend-only` → **exit 0 (12/12)** ✓
+
+[Convergence] pig_latin: 1 iters | 25/25 pass | 0 stalls | 0 cap-hits
+
+[Memory Gate] Passed: existing `memory/pig_latin.md` (✅ Verified, 25/25) exactly matches the delivered implementation and edge rules (xr/yt→rule1, leading-y consonant, medial-y vowel, qu travels with consonants, qat→atqay) — accurate and current, no new knowledge to write
+
+[Verification Gate] Verifier: direct-read | Loop executed: yes | Media graded externally: 0/0 (video 0 · audio 0 · screenshots 0) | Iterations: 1 | Tests executed with artifacts: yes | E2E depth: unit-only | Script-only build/lifecycle: yes | Fresh-run on final tree: yes | TDD RED evidence: N/A | Code review: clean | assert_artifacts.py: pass=12/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|---------------------------------------|----------------------|--------------|-------------|------------------------------------------|--------|
+| 1 | Implement 4-rule Pig Latin `translate(text)` per prompt.md | `prompt.md` spec; `memory/pig_latin.md` (verified behavior); exa MCP rate-limited (HTTP 429) — not available | Index-scan for first vowel/medial-`y` at `i≥1`, extending split past `u` when `q` precedes it; rule-1 check for `xr`/`yt` first; `text.split()` per word — explicit rule mapping, no imports, matches all 25 known outputs | `pig_latin.py` | Stub `pass` → full `translate()` (rule 1 vowel/xr/yt) + `_translate_word()` (rules 2–4: consonant-run move, `qu`-unit move, medial-y vowel, leading-y consonant); split/rejoin phrases | `tests/verification_run.log` (prior, 25/25) + fresh `/var/folders/.../pigverify_run.log`: 25/25 PASS, 0 failed; `py_compile` exit 0; `script/linux/start.sh` smoke OK; `tests/assert_artifacts.py` exit 0 | N/A (run dir untracked; harness requires no commit) |
+
+**What I implemented:** `translate()` splits on whitespace and translates each word; `_translate_word()` appends `ay` for vowel/`xr`/`yt` starts (rule 1), otherwise finds the split point at the first vowel-or-medial-`y` from index 1 — extending past a `qu` pair (rules 3) — and reattaches the leading consonant/`qu` prefix with `ay`. **How verified:** executed 25 cases (all prompt examples + Exercism standard set) → 25/25 pass; `py_compile` and import clean; existing `script/linux/start.sh` smoke check OK; artifact assertion exit 0; independent reviewer verdict clean. No test files were created or modified (evidence logged outside `tests/` per the harness constraint).

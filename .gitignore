@@ -6,3 +6,6 @@ node_modules/
 .venv/
 venv/
 .vibeweaver/
+.run_data/
+repos/
+venvs/

@@ -3,7 +3,7 @@
   "task_id": "swebench_pytest_dev_pytest_6116",
   "instance_id": "pytest-dev__pytest-6116",
   "repo": "pytest-dev/pytest",
-  "repo_path": "$EVAL_ROOT/workspace/iteration-1/repos/pytest-dev__pytest",
+  "repo_path": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/pytest-dev__pytest",
   "base_commit": "e670ff76cbad80108bde9bab616b66771b8653cf",
   "problem_statement": "pytest --collect-only needs a one char shortcut command\nI find myself needing to run `--collect-only` very often and that cli argument is a very long to type one. \r\n\r\nI do think that it would be great to allocate a character for it, not sure which one yet. Please use up/down thumbs to vote if you would find it useful or not and eventually proposing which char should be used. \r\n\r\nClearly this is a change very easy to implement but first I want to see if others would find it useful or not.\npytest --collect-only needs a one char shortcut command\nI find myself needing to run `--collect-only` very often and that cli argument is a very long to type one. \r\n\r\nI do think that it would be great to allocate a character for it, not sure which one yet. Please use up/down thumbs to vote if you would find it useful or not and eventually proposing which char should be used. \r\n\r\nClearly this is a change very easy to implement but first I want to see if others would find it useful or not.\n",
   "test_patch": "diff --git a/testing/test_collection.py b/testing/test_collection.py\n--- a/testing/test_collection.py\n+++ b/testing/test_collection.py\n@@ -402,7 +402,7 @@ def pytest_collect_file(path, parent):\n         )\n         testdir.mkdir(\"sub\")\n         testdir.makepyfile(\"def test_x(): pass\")\n-        result = testdir.runpytest(\"--collect-only\")\n+        result = testdir.runpytest(\"--co\")\n         result.stdout.fnmatch_lines([\"*MyModule*\", \"*test_x*\"])\n \n     def test_pytest_collect_file_from_sister_dir(self, testdir):\n@@ -433,7 +433,7 @@ def pytest_collect_file(path, parent):\n         p = testdir.makepyfile(\"def test_x(): pass\")\n         p.copy(sub1.join(p.basename))\n         p.copy(sub2.join(p.basename))\n-        result = testdir.runpytest(\"--collect-only\")\n+        result = testdir.runpytest(\"--co\")\n         result.stdout.fnmatch_lines([\"*MyModule1*\", \"*MyModule2*\", \"*test_x*\"])\n \n \n",
@@ -82,11 +82,5 @@
     "testing/test_collection.py::test_collect_sub_with_symlinks[False]",
     "testing/test_collection.py::test_collector_respects_tbstyle",
     "testing/test_collection.py::test_collect_pyargs_with_testpaths"
-  ],
-  "p2p_guard": [
-    "testing/test_collection.py::TestSession::test_find_byid_without_instance_parents",
-    "testing/test_collection.py::TestCollectFS::test__in_venv[activate.csh]",
-    "testing/test_collection.py::test_exit_on_collection_error",
-    "testing/test_collection.py::TestCollectFS::test_ignored_virtualenvs[activate]"
   ]
 }

@@ -1,0 +1,36 @@
+repo exists: pallets/flask
+repo exists: psf/requests
+repo exists: pytest-dev/pytest
+repo exists: sympy/sympy
+creating venv pallets__flask-4045 ...
+task prepared: pallets__flask-4045
+creating venv pallets__flask-4992 ...
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/prepare_swebench.py", line 120, in <module>
+    main()
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/prepare_swebench.py", line 113, in main
+    sh([str(vpy), "-m", "pip", "install", "-q"] + extra, timeout=2700)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/prepare_swebench.py", line 39, in sh
+    raise RuntimeError(f"CMD FAILED: {cmd}\n{r.stdout}\n{r.stderr}")
+RuntimeError: CMD FAILED: ['/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/venvs/pallets__flask-4992/bin/python', '-m', 'pip', 'install', '-q', 'werkzeug==2.3.7', 'jinja2==3.1.2', 'itsdangerous==2.1.2', 'click==8.1.7']
+
+ERROR: Could not find a version that satisfies the requirement werkzeug==2.3.7 (from versions: none)
+ERROR: No matching distribution found for werkzeug==2.3.7
+
+repo exists: pallets/flask
+repo exists: psf/requests
+repo exists: pytest-dev/pytest
+repo exists: sympy/sympy
+venv ready: pallets__flask-4045
+task prepared: pallets__flask-4045
+creating venv pallets__flask-4992 ...
+task prepared: pallets__flask-4992
+creating venv psf__requests-3362 ...
+task prepared: psf__requests-3362
+creating venv pytest-dev__pytest-6116 ...
+task prepared: pytest-dev__pytest-6116
+creating venv pytest-dev__pytest-9359 ...
+task prepared: pytest-dev__pytest-9359
+creating venv sympy__sympy-21627 ...
+  install attempt failed: ['-e', '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/sympy__sympy'] -> CMD FAILED: ['/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/venvs/sympy__sympy-21627/bin/python', '-m', 'pip', 'install', '-q', '-e', '/Users/logan/Documents/
+task prepared: sympy__sympy-21627

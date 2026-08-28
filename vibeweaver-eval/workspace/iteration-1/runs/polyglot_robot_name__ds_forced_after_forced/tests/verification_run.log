@@ -1,0 +1,8 @@
+criterion 1: PASS -- robot_name imports and Robot() constructs
+criterion 2: PASS -- name matches ^[A-Z]{2}[0-9]{3}$
+criterion 3: PASS -- name stable across repeated reads
+criterion 4: PASS -- two distinct robots have different names
+criterion 5: PASS -- reset() yields a new valid name different from previous
+criterion 6: PASS -- 500 robots all have unique names (no collisions, incl. after reset)
+criterion 7: PASS -- names are random / non-sequential (>=20 distinct letter prefixes)
+SUMMARY: 7/7 passed

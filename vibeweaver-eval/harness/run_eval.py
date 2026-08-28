@@ -44,6 +44,14 @@ ARMS = {
         "XDG_CONFIG_HOME": str(ROOT / "configs" / "ds_full"),
         "XDG_DATA_HOME": str(ROOT / "configs" / "ds_full" / "data"),
     },
+    "ds_forced_before": {
+        "XDG_CONFIG_HOME": str(ROOT / "configs" / "ds_forced_before"),
+        "XDG_DATA_HOME": str(ROOT / "configs" / "ds_forced_before" / "data"),
+    },
+    "ds_forced_after": {
+        "XDG_CONFIG_HOME": str(ROOT / "configs" / "ds_forced_after"),
+        "XDG_DATA_HOME": str(ROOT / "configs" / "ds_forced_after" / "data"),
+    },
     "ds_mini": {
         "XDG_CONFIG_HOME": str(ROOT / "configs" / "ds_mini"),
         "XDG_DATA_HOME": str(ROOT / "configs" / "ds_mini" / "data"),
@@ -170,9 +178,10 @@ def make_workdir(meta: dict, arm_dir: Path) -> None:
         return  # else empty scratch dir
     else:
         # local shared-object clone for speed; checkout base commit
+        repo_path = meta["repo_path"].replace("$EVAL_ROOT", str(ROOT))
         if not (arm_dir / ".git").exists():
             subprocess.run(["git", "clone", "--quiet", "--shared",
-                            meta["repo_path"], str(arm_dir)], check=True)
+                            repo_path, str(arm_dir)], check=True)
         subprocess.run(["git", "-C", str(arm_dir), "checkout", "--quiet", "-f",
                         meta["base_commit"]], check=True)
         subprocess.run(["git", "-C", str(arm_dir), "clean", "-fdq"], check=True)
@@ -221,6 +230,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--arm", choices=["baseline", "with_skill", "with_skill_v2",
                                       "with_skill_mini", "ds_baseline", "ds_full",
+                                      "ds_forced_before", "ds_forced_after",
                                       "ds_mini", "with_skill_mini_v2", "ds_mini_v2",
                                       "with_skill_mini_v1b", "q38_baseline",
                                       "q38_mini_v2", "q38_v2", "q38_mini_new",

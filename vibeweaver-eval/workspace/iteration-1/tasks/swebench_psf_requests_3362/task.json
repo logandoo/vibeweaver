@@ -3,7 +3,7 @@
   "task_id": "swebench_psf_requests_3362",
   "instance_id": "psf__requests-3362",
   "repo": "psf/requests",
-  "repo_path": "$EVAL_ROOT/workspace/iteration-1/repos/psf__requests",
+  "repo_path": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/psf__requests",
   "base_commit": "36453b95b13079296776d11b09cab2567ea3e703",
   "problem_statement": "Uncertain about content/text vs iter_content(decode_unicode=True/False)\nWhen requesting an application/json document, I'm seeing `next(r.iter_content(16*1024, decode_unicode=True))` returning bytes, whereas `r.text` returns unicode. My understanding was that both should return a unicode object. In essence, I thought \"iter_content\" was equivalent to \"iter_text\" when decode_unicode was True. Have I misunderstood something? I can provide an example if needed.\n\nFor reference, I'm using python 3.5.1 and requests 2.10.0.\n\nThanks!\n\n",
   "test_patch": "diff --git a/tests/test_requests.py b/tests/test_requests.py\n--- a/tests/test_requests.py\n+++ b/tests/test_requests.py\n@@ -980,6 +980,13 @@ def test_response_decode_unicode(self):\n         chunks = r.iter_content(decode_unicode=True)\n         assert all(isinstance(chunk, str) for chunk in chunks)\n \n+        # check for encoding value of None\n+        r = requests.Response()\n+        r.raw = io.BytesIO(b'the content')\n+        r.encoding = None\n+        chunks = r.iter_content(decode_unicode=True)\n+        assert all(isinstance(chunk, str) for chunk in chunks)\n+\n     def test_response_chunk_size_int(self):\n         \"\"\"Ensure that chunk_size is passed as an integer, otherwise\n         raise a TypeError.\n",
@@ -87,11 +87,5 @@
     "tests/test_requests.py::test_prepared_copy[kwargs2]",
     "tests/test_requests.py::test_prepared_copy[kwargs3]",
     "tests/test_requests.py::test_vendor_aliases"
-  ],
-  "p2p_guard": [
-    "tests/test_requests.py::TestCaseInsensitiveDict::test_fixes_649",
-    "tests/test_requests.py::TestRequests::test_links",
-    "tests/test_requests.py::TestCaseInsensitiveDict::test_lower_items",
-    "tests/test_requests.py::TestRequests::test_basic_building"
   ]
 }

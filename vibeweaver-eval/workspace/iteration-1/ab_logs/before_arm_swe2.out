@@ -1,0 +1,7 @@
+jobs: 5  (5 tasks x 1 arms)
+[ds_forced_before_forced] swebench_pallets_flask_4045 done in 350s exit=0 timeout=False
+[ds_forced_before_forced] swebench_pallets_flask_4992 done in 454s exit=0 timeout=False
+[ds_forced_before_forced] swebench_psf_requests_3362 done in 452s exit=0 timeout=False
+[ds_forced_before_forced] swebench_pytest_dev_pytest_6116 done in 396s exit=0 timeout=False
+[ds_forced_before_forced] swebench_pytest_dev_pytest_9359 done in 533s exit=0 timeout=False
+ALL DONE

@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_transpose",
+  "passed": true,
+  "tests_passed": 12,
+  "tests_total": 12,
+  "output": "............                                                             [100%]\n12 passed in 0.04s\n"
+}

@@ -1,0 +1,24 @@
+'apple'            -> None                 expected 'appleay'            FAIL
+'ear'              -> None                 expected 'earay'              FAIL
+'igloo'            -> None                 expected 'iglooay'            FAIL
+'object'           -> None                 expected 'objectay'           FAIL
+'under'            -> None                 expected 'underay'            FAIL
+'equal'            -> None                 expected 'equalay'            FAIL
+'pig'              -> None                 expected 'igpay'              FAIL
+'koala'            -> None                 expected 'oalakay'            FAIL
+'xenon'            -> None                 expected 'enonxay'            FAIL
+'qat'              -> None                 expected 'atqay'              FAIL
+'chair'            -> None                 expected 'airchay'            FAIL
+'queen'            -> None                 expected 'eenquay'            FAIL
+'square'           -> None                 expected 'aresquay'           FAIL
+'therapy'          -> None                 expected 'erapythay'          FAIL
+'thrush'           -> None                 expected 'ushthray'           FAIL
+'school'           -> None                 expected 'oolschay'           FAIL
+'yttria'           -> None                 expected 'yttriaay'           FAIL
+'xray'             -> None                 expected 'xrayay'             FAIL
+'yellow'           -> None                 expected 'ellowyay'           FAIL
+'rhythm'           -> None                 expected 'ythmrhay'           FAIL
+'my'               -> None                 expected 'ymay'               FAIL
+'liquid'           -> None                 expected 'iquidlay'           FAIL
+'quick fast run'   -> None                 expected 'ickquay astfay unray' FAIL
+summary: 0/23 passed, 23 failed

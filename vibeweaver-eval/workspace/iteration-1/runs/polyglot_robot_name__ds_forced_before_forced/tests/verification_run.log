@@ -1,0 +1,8 @@
+RESULT: ALL PASS
+  [PASS] format [A-Z]{2}\d{3} over 500 robots
+  [PASS] 500 robots unique
+  [PASS] name sticks
+  [PASS] double reset gives fresh distinct names
+  [PASS] re-seed + reset produces different name
+  [PASS] fresh robot name None before ask
+sample names: ['HW218', 'LH648', 'NF260']

@@ -1,0 +1,9 @@
+{
+  "task": "swebench_sympy_sympy_21627",
+  "arm": "ds_forced_before_forced",
+  "exit_code": 0,
+  "wall_seconds": 478.2,
+  "timed_out": false,
+  "log": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_forced_before_forced/run.log",
+  "workdir": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_forced_before_forced"
+}

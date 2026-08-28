@@ -1,0 +1,17 @@
+test_empty_string (transpose_test.TransposeTest) ... ok
+test_first_line_longer_than_second_line (transpose_test.TransposeTest) ... ok
+test_jagged_triangle (transpose_test.TransposeTest) ... ok
+test_mixed_line_length (transpose_test.TransposeTest) ... ok
+test_rectangle (transpose_test.TransposeTest) ... ok
+test_second_line_longer_than_first_line (transpose_test.TransposeTest) ... ok
+test_simple (transpose_test.TransposeTest) ... ok
+test_single_line (transpose_test.TransposeTest) ... ok
+test_square (transpose_test.TransposeTest) ... ok
+test_triangle (transpose_test.TransposeTest) ... ok
+test_two_characters_in_a_column (transpose_test.TransposeTest) ... ok
+test_two_characters_in_a_row (transpose_test.TransposeTest) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.000s
+
+OK

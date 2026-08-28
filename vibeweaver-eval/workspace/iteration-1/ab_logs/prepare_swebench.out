@@ -1,0 +1,18 @@
+cloning pallets/flask ...
+cloning psf/requests ...
+cloning pytest-dev/pytest ...
+cloning sympy/sympy ...
+creating venv pallets__flask-4045 ...
+  install attempt failed: ['-e', '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/pallets__flask'] -> CMD FAILED: ['/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/venvs/pallets__flask-4045/bin/python', '-m', 'pip', 'install', '-q', '-e', '/Users/logan/Documents
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/prepare_swebench.py", line 120, in <module>
+    main()
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/prepare_swebench.py", line 110, in main
+    sh([str(vpy), "-m", "pip", "install", "-q", "pytest"], timeout=2700)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/prepare_swebench.py", line 39, in sh
+    raise RuntimeError(f"CMD FAILED: {cmd}\n{r.stdout}\n{r.stderr}")
+RuntimeError: CMD FAILED: ['/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/venvs/pallets__flask-4045/bin/python', '-m', 'pip', 'install', '-q', 'pytest']
+
+ERROR: Could not find a version that satisfies the requirement pytest (from versions: none)
+ERROR: No matching distribution found for pytest
+

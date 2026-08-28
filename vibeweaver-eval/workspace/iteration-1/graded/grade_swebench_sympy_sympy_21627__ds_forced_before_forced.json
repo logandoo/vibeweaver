@@ -1,0 +1,30 @@
+{
+  "task": "swebench_sympy_sympy_21627",
+  "arm": "ds_forced_before_forced",
+  "instance_id": "sympy__sympy-21627",
+  "f2p_pass": true,
+  "p2p_regressions": [],
+  "patch_applied": true,
+  "test_patch_applied": true,
+  "notes": [
+    "test_patch applied after restoring agent-touched test files: sympy/functions/elementary/tests/test_complexes.py"
+  ],
+  "f2p_details": [
+    {
+      "node": "test_Abs",
+      "resolved": "sympy/printing/tests/test_str.py::test_Abs",
+      "ok": true
+    }
+  ],
+  "f2p_output_tail": [
+    "",
+    "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+    "1 passed, 3 warnings in 0.37s"
+  ],
+  "p2p_guard": [
+    "test_issue_14216",
+    "test_polarify",
+    "test_principal_branch"
+  ],
+  "p2p_pass": true
+}

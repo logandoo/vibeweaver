@@ -1,0 +1,28 @@
+{
+  "task": "swebench_psf_requests_3362",
+  "arm": "ds_forced_before_forced",
+  "instance_id": "psf__requests-3362",
+  "f2p_pass": true,
+  "p2p_regressions": [],
+  "patch_applied": true,
+  "test_patch_applied": true,
+  "notes": [],
+  "f2p_details": [
+    {
+      "node": "tests/test_requests.py::TestRequests::test_response_decode_unicode",
+      "resolved": "tests/test_requests.py::TestRequests::test_response_decode_unicode",
+      "ok": true
+    }
+  ],
+  "f2p_output_tail": [
+    "",
+    "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html",
+    "1 passed, 1 warning in 0.08s"
+  ],
+  "p2p_guard": [
+    "tests/test_requests.py::TestRequests::test_http_error",
+    "tests/test_requests.py::TestRequests::test_cookie_as_dict_keys",
+    "tests/test_requests.py::TestRequests::test_cookie_as_dict_keeps_len"
+  ],
+  "p2p_pass": true
+}
