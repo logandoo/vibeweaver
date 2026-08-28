@@ -1,0 +1,26 @@
+PASS  len(LinkedList()) == 0
+PASS  len(LinkedList([1])) == 1
+PASS  len(LinkedList([1,2,3])) == 3
+PASS  empty head raises EmptyListException
+PASS  singleton head value == 1
+PASS  LinkedList([1,2]).head().value() == 2
+PASS  push non-empty len 4
+PASS  push empty len 1 + head 5
+PASS  pop()==5
+PASS  post-pop len 2 + head 4
+PASS  singleton pop()==1
+PASS  post-singleton-pop head raises
+PASS  empty pop raises
+PASS  push/pop seq 3,2,1
+PASS  post-pop len 0
+PASS  re-push len 1 + head 4
+PASS  singleton head next None
+PASS  range(10) traverse 9..0 then None
+PASS  list(LinkedList()) == []
+PASS  list(LinkedList([1])) == [1]
+PASS  list(LinkedList([1,2,3])) == [3,2,1]
+PASS  reversed empty == []
+PASS  reversed singleton == [1]
+PASS  reversed [1,2,3] == [1,2,3]
+
+TOTAL: 24/24 passed, 0 failed
