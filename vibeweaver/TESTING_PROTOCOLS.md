@@ -63,13 +63,18 @@ probe is the single source of truth, not a filesystem/config guess).
   3. Report what you actually perceive: exact token + color name. If the
      Read errors (`Cannot read image …`) or you genuinely cannot extract the
      token/color, report that honestly — a failed probe is a valid result.
-  4. Validate: `python3 {VW_DIR}/scripts/mm_probe.py --check <token> <color>`.
-     - **exit 0 (PASS)** → the model IS image-perceptive → announce
-       `Verifier: model-native [image]`. Screenshots are graded via the
-       Read tool under **§A4.1.1 Visual Verification Protocol**
-       (observation-first · per-criterion verdicts · DOM/log cross-check ·
-       UNCERTAIN=FAIL). The §A4.1.1 chain is the countermeasure to
-       self-grading bias (the maker is the checker in this mode).
+   4. Validate: `python3 {VW_DIR}/scripts/mm_probe.py --check <token> <color>`.
+      - **exit 0 (PASS)** → the model IS image-perceptive → announce
+        `Verifier: model-native [image]`. PASS criterion: color exact AND
+        >= 5 of 6 token chars in exact positions (the 5x7 font is
+        ambiguity-pruned; a blind guesser scores ~0-1/6, so the gate is
+        unpassable without real perception, while one isolated slip no
+        longer disqualifies a vision-capable model).
+        Screenshots are graded via the
+        Read tool under **§A4.1.1 Visual Verification Protocol**
+        (observation-first · per-criterion verdicts · DOM/log cross-check ·
+        UNCERTAIN=FAIL). The §A4.1.1 chain is the countermeasure to
+        self-grading bias (the maker is the checker in this mode).
      - **exit 1 (FAIL)** → the model is NOT image-perceptive → Step 0b.
      - **exit 2 / error** → fix the probe invocation, re-run; on repeat
        failure treat as FAIL (0b).
