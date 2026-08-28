@@ -137,3 +137,6 @@ them, STOP and reassess before continuing.
 - Every major change gets a descriptive commit
 - Commit before starting work (baseline) and after each significant milestone
 - Never commit secrets, `.venv/`, `node_modules/`, or build artifacts
+- Production deploys are human-confirmed: the agent prepares (build,
+  changelog, rollback path); the user authorizes the production action —
+  no autonomous deploy to production targets

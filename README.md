@@ -12,6 +12,17 @@ For now the project is optimized for Opencode only; a DeepSeek Harness port is o
 
 As for Codex and Claude Code — never used them, no plans to, no idea. Anyone interested is welcome to fork.
 
+## 2026-08-28: AI-native SDLC hardening — completion-gate content checks + structured review
+
+Measured against Anthropic's AI-Native SDLC playbook (2026-08-21) and its Deputy-CISO security companion (2026-07-21), vibeweaver was strong on within-task discipline but had three real gaps: the completion gate checked *that evidence exists* but never *what the diff contains*; the A4.9 independent review had no dimension structure or nit cap; and there was no incident-postmortem / artifact-chain / agent-config-regression rule. This wave closes them, scoped for a single-user interactive skill rather than an org pipeline:
+
+- **New assertion groups 14-16** in the canonical script. Group 14 `secret scan` walks the change-wave diff per-commit (a net range would miss intra-wave add-then-delete) plus untracked files, catching AWS keys, private-key blocks, `ghp_`/`github_pat_`/`xox*`/`sk-`(incl. `sk-proj-`/`sk-ant-`) tokens and JSON/k=v credential assignments — while exempting the *safe* reference shapes (`os.environ.get(…)`, `process.env.X`, `config.password`, `self.x`), placeholder-marked lines, and markdown (warn-only). Group 15 `test-change guard` fails the wave if a test assertion line is removed (whole-file deletion included) without a `- test-change: <path> — <reason>` log entry — an agent fixing code must not silently weaken the check on that code. Group 16 `risk-tier` makes the independent review non-skippable when the diff touches `auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` code paths.
+- **A4.9 review structured**: findings are dimension-tagged (`Bugs`/`Security`/`Compliance`), Minor findings are capped at five itemized, and a recurring finding now feeds back into project memory / `CLAUDE.md` so the mistake is caught at generation time.
+- **Lifecycle docs**: new §A4.4.3 Artifact Chain (the chain is the audit trail — every artifact names its upstream link), APPENDIX §A9 incident-postmortem template (closes into an A4.8 regression test + memory + optional standing eval), an agent-config regression rule (editing `CLAUDE.md`/`.claude/**`/skill rules requires re-running the verification suite — steering config deserves the same regression testing as code), a cross-project ⛔-promotion channel, and a production-deploy human-confirm line.
+- **A4.9-reviewed in the loop**: the independent reviewer (verdict ready-with-fixes) caught a deletion fail-open, an over-block on safe credential handling, and JSON/modern-key detection holes — all fixed with fixture-first regressions (11/11 scenarios green).
+- **Benchmarked before/after**: deepseek-v4-flash, forced-injection A/B over the 16-task eval set (10 polyglot + 6 SWE-bench Lite) — pre-wave 15/16 vs post-wave **16/16**, with workflow-artifact adherence up 6/10 → 9/10 (single run, direction-only; raw data in `vibeweaver-eval/workspace/iteration-1/ab_logs/`).
+- Also: SKILL.md trimmed back under the 49 KB selftest cap (50,096 → 48,978 B) with zero binding-content loss (third-copy redundancy pointer-collapsed; gate-line template byte-identical).
+
 ## 2026-08-21: session-scoped RED latch + audit delivery wave
 
 The 08-19 auditor had a structural wart: a truncated session could leave `BLOCKING=yes` latched red for the whole project, released only at session end — and the test-dir exemption matched only top-level `tests/`, so nested `dev/tests/` golden files deadlocked too. Two live projects hit exactly this this week. This wave fixes the latch and delivers the payload to every copy:
@@ -362,14 +373,15 @@ Short version: both start the same way — decompose, then plan. The weight diff
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | The binding operational contract + router (814 lines, <49 KB — size-guarded) |
+| `SKILL.md` | The binding operational contract + router (815 lines, <49 KB — size-guarded) |
 | `COMPLETION_GATE.md` | Completion output spec · artifact gates · §AUDIT audit protocol · pre-output checklist |
 | `CODING_PRINCIPLES.md` | The four iron rules + Karpathy's six disciplines |
 | `ENGINEERING_STD.md` | Detailed engineering standards |
-| `REFERENCE.md` / `APPENDIX.md` | Workflow reference / executable templates |
+| `REFERENCE.md` / `APPENDIX.md` | Workflow reference / executable templates (incl. §A9 postmortem) |
 | `TESTING_PROTOCOLS.md` | §A4.1 loop + §A4.6 debugging + canonical §A4.7–§A4.10 protocols |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | Project memory subsystem |
-| `scripts/assert_artifacts.py` | The canonical 13-group assertion script projects copy into `tests/` |
+| `scripts/assert_artifacts.py` | The canonical 16-group assertion script projects copy into `tests/` (incl. secret scan / test-change guard / risk-tier) |
+| `scripts/mm_probe.py` | Behavioral self-multimodality probe (verifier selection, COV-5) |
 | `vibeweaver-gate.js` | The stop-hook plugin (opencode) + mechanized stall observer |
 | `vibeweaver-audit.js` | Three-tier mechanical auditor (Tier 0/1/2) — session-scoped RED latch, journaled auto-release, stale-latch healing |
 | `scripts/vibeweaver-audit-core.js` | Pure triage core (headless-testable) |

@@ -355,6 +355,7 @@ When `memory/` has **>15 topic files** or **MEMORY.md exceeds 150 lines or 20KB*
 6. **Remove stale references** — If a file or function mentioned in a memory no longer exists, delete or update the entry
 7. **Update MEMORY.md** — Remove pointers to deleted entries, add pointers to merged entries
 8. **Write a `memory/.consolidation-log.md`** — Record: date, what was merged/removed, old entry filenames
+9. **Cross-project ⛔ promotion** — If the same ⛔ Forbidden pattern exists in ≥2 projects' memories, propose to the user promoting it into the skill-level rules (ENGINEERING_STD.md / the skill's rule files). Project memory stays the record; a lesson recurring everywhere belongs one level up. Never edit skill rules silently — the user approves skill-level changes
 
 **Do NOT consolidate mid-session.** Only at session end, after memories are written.
 

@@ -13,8 +13,10 @@
 - **A4.4 Completion Output** — Covenant Recall · 9-item pre-output self-audit ·
   Gate Function · log-discipline rule · gate-line field semantics · E2E depth
   ladder · 8-column table spec + forbidden alternatives
-- **A4.4.1 G-DED Executable Artifact Assertions** — 13-assertion table · flags ·
+- **A4.4.1 G-DED Executable Artifact Assertions** — 16-assertion table · flags ·
   copy + self-verify
+- **A4.4.3 Artifact Chain** — every artifact names its upstream link; the
+  chain is the audit trail
 - **A4.4.2 Physical Gate (plugin enforcement)** — GATE-BLOCKED / GATE-WARNING /
   stall observer semantics
 - **PRE-OUTPUT MANDATORY CHECKLIST** — full ~40-item checklist; read start→end
@@ -172,6 +174,9 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only]
 | 11 | every `tests/*.webm` / `tests/*.wav` / `tests/*.mp4` / `tests/*.mp3` cited in `verification_log.md` exists and >0 bytes | A4.1 Step 2/3 |
 | 12 | every `- iter N FAIL:` log line carries its `diagnosis:` clause | A4.1 Step 4 |
 | 13 | no claim word (verified/confirmed/validated/tested/proven + Chinese 已验证/已确认/已测试…) appears on a prose log line without a coverage scope on that same line (fenced blocks, headings, tables, iter/baseline lines exempt) | A4.4 claim rule |
+| 14 | **secret scan** — no credential-looking string (AWS access key · `-----BEGIN … PRIVATE KEY-----` block · `ghp_`/`github_pat_`/`xox*`/`sk-` incl. `sk-proj-`/`sk-ant-` tokens · JSON or k=v form `api_key`/`secret`/`password`/`token` `= value` with value ≥12 chars; unquoted reference/call values like `os.environ.get(…)`/`config.x`/`self.x` are NOT flagged) appears on an ADDED line of the change-wave diff (per-commit patches of newest `backup: before changes` commit..HEAD + uncommitted; no backup commit → last commit + uncommitted; untracked non-ignored files are scanned whole). Lines carrying a placeholder marker (example/sample/dummy/placeholder/changeme/redacted/fake/`<…>`) are exempt; `*.md` hits print WARN but do not FAIL; any `assert_artifacts.py` is never scanned | A4.4 content gate |
+| 15 | **test-change guard** — no REMOVED assertion line (`assert` · `self.assert*` · `expect(` · `pytest.raises` · `require(` · `def test_` · `it(` · `test(` · `func Test` · `@Test`) in a test code file (path segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*` basename; code extensions only — whole-file deletions included) unless `verification_log.md` carries a `- test-change: <path> — <reason>` line. An agent fixing code must not silently weaken the check on that code; writing NEW tests stays free | A4.8 test integrity |
+| 16 | **risk-tier** — when the change-wave diff or an untracked file touches a risk-tier code path (`auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` path segment; code extensions only — deletions included), `tests/review_package.md` exists and >0 bytes — A4.9 review is non-skippable for risk-tier paths (existence check; package FRESHNESS is enforced by the §A4.9 scoped re-review process) | A4.9 risk tiering |
 
 The script byte-checks the artifacts behind every Gate Function claim — the
 external verifier for claims mm-sensor cannot see. The **canonical file is
@@ -187,13 +192,14 @@ cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
 ```
 
 The only allowed edit after copying is adding project-specific assertion
-lines — never remove or weaken groups 1-13.
+lines — never remove or weaken groups 1-16.
 
 **Self-verify the copy is complete (MUST do after copying it):** the script
-MUST contain each of these 13 markers — `verification_log` · `cap=5` ·
+MUST contain each of these 16 markers — `verification_log` · `cap=5` ·
 `screenshot` · `MEMORY.md` · `start.sh` · `git repo needs` · `FLOW_DESIGN` ·
 `README` · `Baseline verified GREEN` · `workflow trace` · `media evidence` ·
-`diagnosis:` · `claim without stated coverage`. Grep the file for all 13; ANY
+`diagnosis:` · `claim without stated coverage` · `secret scan` ·
+`test-change:` · `risk-tier`. Grep the file for all 16; ANY
 missing marker means an incomplete variant — re-copy from the canonical file.
 A script missing a marker will not catch the missing artifact; a complete
 script is what the exit-0 gate verifies.
@@ -237,6 +243,34 @@ non-vibeweaver projects are silent.
 The GATE-BLOCKED message means **keep working — fix the evidence, then the
 next write/edit re-checks automatically**. It is a completion gate, not an
 execution stop.
+
+---
+
+## A4.4.3 Artifact Chain — the chain is the audit trail
+
+Every stage of a task commits an artifact the NEXT stage reads; together they
+are the audit trail (who asked for what, what the agent produced, who approved
+it). Each artifact MUST name its upstream link, so the chain can be walked in
+both directions:
+
+- `tests/acceptance.md` ← names the source it was derived from (user request /
+  design doc / incident record) under its heading.
+- `tests/verification_log.md` entries ← cite the acceptance criterion numbers
+  they prove (A4.1 Step 4 requires criterion refs on FAIL lines; PASS lines
+  state covered criteria/scope).
+- `tests/review_package.md` ← records the exact `git diff $BASE..$HEAD` range
+  it reviews (A4.9 Step 1).
+- `memory/fix_*.md` ← frontmatter `commit:` hash of the fix (A7.9) — the
+  memory layer's link back into the chain.
+- Incident records (`docs/POSTMORTEM_*.md`, APPENDIX §A9) ← cite the alert /
+  log / metric that triggered them; the fix they produce cites the postmortem
+  in its commit message.
+
+A break in the chain (an artifact that names no upstream) is an audit gap:
+when you write an artifact, write its link. The links are file contents —
+greppable, machine-checkable, no model judgment involved (detection stays
+deterministic): criterion refs are linted by groups 12/13, commit hashes in
+fix memory are A7.10 gate 3, the review package's range is §A4.9 Step 1.
 
 ---
 
@@ -467,6 +501,14 @@ Before declaring any task complete, explicitly list and confirm:
 - [ ] ★ `python3 tests/assert_artifacts.py` executed and exited 0 before the
       `[Verification Gate]` line; the literal field `assert_artifacts.py:
       pass=N/fail=0` is present (A4.4.1)
+- [ ] ★ Change-wave diff passed the content gates (assert groups 14-16): no
+      credential-looking string on an added line (group 14) · no test
+      assertion removed without a `- test-change: <path> — <reason>` log line
+      (group 15) · risk-tier code paths reviewed with
+      `tests/review_package.md` on disk (group 16)
+- [ ] Artifact chain linked (§A4.4.3) — acceptance.md names its source, log
+      entries cite criterion #s, review_package records its diff range, fix
+      memory carries commit hashes
 - [ ] ★ Covenant Recall Checkpoints performed (§A4.1 Step 4 · §A4.4 · §A10 —
       §1 re-read) and the LITERAL line `[Covenant Recall] checked: all 11
       covenants hold for this completion` output before the [Verification

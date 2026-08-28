@@ -262,6 +262,7 @@ Write session memories to the `memory/` directory (see [MEMORY_RULES.md §A7.9 (
 - [ ] Tests written and passing (Playwright + httpx); logic-bearing code test-first with RED evidence logged (SKILL.md §A4.8)
 - [ ] Test results verified (screenshots + logs + database), run FRESH on the final tree
 - [ ] (Major changes) Independent code review dispatched; Critical/Important fixed, Minor deferred (SKILL.md §A4.9). Behavior-semantic changes trigger review even in one file; `Code review: N/A` reasons must cite `git diff --stat`, not memory. Cross-endpoint backend changes: real-HTTP workflow trace on disk (`tests/workflows/*.trace.log`).
+- [ ] (Agent-config tasks) `CLAUDE.md` / `.claude/**` / skill-rule edits followed by one re-run of the project's verification suite (C2 Step 6)
 - [ ] ⏳ Unverified fix topic file written (status: ⏳ or ❌; never directly to ✅) + MEMORY.md index updated
 - [ ] Acceptance checklist completed and passed
 
@@ -325,6 +326,7 @@ Write session memories to the `memory/` directory (see [MEMORY_RULES.md §A7.9 (
 | 22 | Retry a failing iteration with no diagnosis | FAIL log lines carry `diagnosis: <one falsifiable clause>` (A4.1 Step 4; a diagnosis-less retry is the same attempt) |
 | 23 | Re-derive a value already settled somewhere else | The Consistency Hub is the single canonical record (C3); change it once, grep the old spelling to zero hits |
 | 24 | Guess the next direction after a stall | §A4.10 parameterize: finite candidate set + cheapest refuting test, then shift abstraction/strategy/empirics |
+| 25 | Weaken or delete a failing test assertion to go green | Fix the code, not the test; an assertion removal carries `- test-change: <path> — <reason>` in verification_log.md (assert group 15) |
 
 ---
 
@@ -504,6 +506,13 @@ won't know whether you broke it or it was already broken.
   §A4.1 Step 0 probe mode; grade per the announced verifier: **model-native**
   (§A4.1.1 protocol) · **mm-sensor** (`vision.py --detail high`) · **direct
   read** (DOM/log cross-check) (§A4.1 Step 0).
+- **Agent-steering config change** (the task edits `CLAUDE.md` / `AGENTS.md`
+  / `.claude/**` / skill rule files — configuration that steers the agent) →
+  the wave's acceptance criteria MUST include one re-run of the project's
+  existing verification suite AFTER the change: steering config deserves the
+  same regression testing as code (the org-scale form: a scheduled eval
+  suite re-run on every config change, each production incident becoming a
+  permanent case — see APPENDIX §A9).
 - Act → Capture → Verify → Fix → Log to `tests/verification_log.md` →
   Repeat until ALL acceptance criteria pass or cap=5/stall=3× stops you.
 - ★ Convergence summary line + 8-column completion table (§A4.4) — final

@@ -12,6 +12,17 @@ Vibe-coding 的普及正在重塑开发者的角色：当模型写码能力不�
 
 至于 Codex 和 Claude Code，我没用过，也没打算用，不知道。如果有人感兴趣可以自行 fork。
 
+## 2026-08-28：AI-native SDLC 加固 —— 完工门内容检查 + 结构化评审
+
+对照 Anthropic《The AI-Native SDLC playbook》(2026-08-21) 与其副 CISO 安全配套文 (2026-07-21)：vibeweaver 的任务内纪律够硬，但有三处实质空白——完工门只查"证据在不在"、从不查 **diff 的内容**；A4.9 独立评审没有维度结构和 nit 上限；缺少事故复盘 / 工件链 / agent-config 回归规则。本波次按单用户交互式 skill 的尺度（而非组织级流水线）全部补齐：
+
+- **断言新增 14-16 组。** 组 14 `secret scan` 按"每提交补丁"扫描 change-wave diff（净范围 diff 会漏掉波内"加了又删"）并整扫未跟踪文件：AWS 密钥、私钥块、`ghp_`/`github_pat_`/`xox*`/`sk-`（含 `sk-proj-`/`sk-ant-`）令牌、JSON 或 k=v 形态的凭据赋值——同时豁免**安全写法**的引用值（`os.environ.get(…)`、`process.env.X`、`config.password`、`self.x`）、占位标记行与 markdown（仅 WARN）。组 15 `test-change guard`：测试断言行被删除（含整文件删除）且没有 `- test-change: <path> — <reason>` 日志理由即判失败——修代码的 agent 不许悄悄弱化对这段代码的检查。组 16 `risk-tier`：diff 触及 `auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` 代码路径时，独立评审不可跳过。
+- **A4.9 评审结构化**：发现按 `Bugs`/`Security`/`Compliance` 打维度标签；Minor 逐条最多 5 条（余者计数）；同一错误被第二次标记时回写项目记忆 / `CLAUDE.md`，让错误在"生成时"而非"评审时"被拦下。
+- **生命周期文档**：新增 §A4.4.3 Artifact Chain（工件链即审计轨迹——每个工件指认上游环节）、APPENDIX §A9 事故复盘模板（闭环到 A4.8 回归测试 + 记忆 + 可选常驻 eval）、agent-config 回归规则（改 `CLAUDE.md`/`.claude/**`/skill 规则文件必须重跑验证套件——操纵 agent 的配置和代码一样需要回归测试）、跨项目 ⛔ 提升通道、生产部署人工确认一行。
+- **评审在环实证**：本波次的独立 reviewer（裁决 ready-with-fixes）抓到删除文件 fail-open、安全写法误伤、JSON/现代密钥漏检各一处——全部以夹具先行回归修复（11/11 场景绿）。
+- **修改前后 A/B 实测**：deepseek-v4-flash 强制注入、16 题评测集（10 polyglot + 6 SWE-bench Lite）——修改前 15/16，修改后 **16/16**；工作流产物遵循度 6/10 → 9/10（单轮方向性结果；原始数据在 `vibeweaver-eval/workspace/iteration-1/ab_logs/`）。
+- 另：SKILL.md 修剪回 49KB 自测线内（50,096 → 48,978 B，零绑定内容损失——第三重冗余指针化，gate-line 模板字节未动）。
+
 ## 2026-08-21：会话级 RED 锁存 + 审计交付波次
 
 08-19 的审计器有个结构性隐患：会话被截断后，`BLOCKING=yes` 会针对整个项目落下 RED 锁存，只有到会话结束才释放——而且测试目录豁免只匹配顶层 `tests/`，嵌套的 `dev/tests/` golden 文件也会被锁死。本周就有两个真实项目撞上了这个死锁。这一波修复锁存，并把 payload 交付到所有副本：
@@ -349,14 +360,15 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 | 文件                                                    | 用途                                                                            |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `SKILL.md`                                            | 绑定操作契约 + 路由器（814 行，<49KB，有体积守卫）                              |
+| `SKILL.md`                                            | 绑定操作契约 + 路由器（815 行，<49KB，有体积守卫）                              |
 | `COMPLETION_GATE.md`                                  | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单                      |
 | `CODING_PRINCIPLES.md`                                | 四条铁律 + Karpathy 的六条纪律                                                  |
 | `ENGINEERING_STD.md`                                  | 工程标准细则                                                                    |
-| `REFERENCE.md` / `APPENDIX.md`                      | 流程参考 / 可执行模板                                                           |
+| `REFERENCE.md` / `APPENDIX.md`                      | 流程参考 / 可执行模板（含 §A9 事故复盘模板）                                   |
 | `TESTING_PROTOCOLS.md`                                | §A4.1 循环 + §A4.6 调试 + §A4.7–§A4.10 规范文本                            |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`           | 项目记忆子系统                                                                  |
-| `scripts/assert_artifacts.py`                         | 13 组断言的规范脚本，项目复制进`tests/` 使用                                  |
+| `scripts/assert_artifacts.py`                         | 16 组断言的规范脚本，项目复制进`tests/` 使用（含 secret scan / test-change guard / risk-tier） |
+| `scripts/mm_probe.py`                                 | 行为化多模态自探针（COV-5 验证器选择）                                          |
 | `vibeweaver-gate.js`                                  | stop hook 插件（opencode）+ 机械化停滞观测                                      |
 | `vibeweaver-audit.js`                                 | 三层机械审计器（Tier 0/1/2）——会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈 |
 | `scripts/vibeweaver-audit-core.js`                    | 纯裁决核心（可无头测试）                                                        |

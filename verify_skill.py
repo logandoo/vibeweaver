@@ -36,6 +36,7 @@ PAYLOAD_FILES = [
     "TESTING_PROTOCOLS.md",
     "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
     "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
+    "scripts/mm_probe.py",
     "vibeweaver-gate.js", "vibeweaver-audit.js", "install.sh", "install.bat",
 ]
 INSTALLED_DOCS = [

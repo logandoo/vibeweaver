@@ -1,14 +1,16 @@
 """G-DED artifact assertions — byte-level check of verification claims.
 Canonical copy: vibeweaver skill `scripts/assert_artifacts.py`.
-Mirrors COMPLETION_GATE.md §A4.4.1 minimum-check table (all 13 groups).
+Mirrors COMPLETION_GATE.md §A4.4.1 minimum-check table (all 16 groups).
 Group 12 enforces the A4.1 diagnosis clause; group 13 is a
 claim-without-scope lint (approach modeled on J-Space Cognition Suite's
 `ship` check at idea level; implementation here is original —
-see repo README → Attribution)."""
+see repo README → Attribution). Groups 14-16 are change-wave content
+gates: 14 secret scan, 15 test-change guard, 16 risk-tier review."""
 import argparse, os, pathlib, re, subprocess, sys
 
 FAILS = []
 PASSES = 0
+GIT_TIMEOUT = False
 
 # Group 13 word sets, chosen for what vibeweaver logs actually overclaim with.
 # CLAIM  — verbs that assert a verification result happened.
@@ -35,6 +37,185 @@ COVER = re.compile(
 STRUCT_LINE = re.compile(r"^(?:#{1,6}\s|>|\|{1,2}\s*-+|\s*$)")
 EXEMPT_LINE = re.compile(r"(?:^- iter \d+ (?:PASS|FAIL):|^- Baseline verified GREEN|^- COV-\d+ skipped)")
 FENCE = re.compile(r"^\s{0,3}(?:```|~~~)")
+
+# --- groups 14-16: change-wave content gates (canonical spec:
+# COMPLETION_GATE.md §A4.4.1 rows 14-16) -------------------------------
+CODE_EXT = {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".go", ".rs",
+            ".java", ".sql", ".sh"}
+SECRET_RES = [
+    re.compile(r"AKIA[0-9A-Z]{16}"),                       # AWS access key id
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    re.compile(r"ghp_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,}|"
+               r"xox[baprs]-[A-Za-z0-9-]{16,}|"
+               r"sk-(?:proj-|ant-)?[A-Za-z0-9_\-]{16,}"),  # GitHub/Slack/OpenAI/Anthropic tokens
+]
+# generic k = v: quoted literal values are candidates; UNQUOTED values
+# containing `.`/`(`/`)` are references or calls (os.environ.get(…),
+# process.env.X, config.password, self.x) — the SAFE handling pattern,
+# never flagged. Values outside the base charset (spaces, !#%…) may
+# escape — documented tradeoff, biased against false-blocking.
+GENERIC_KV = re.compile(
+    r"(?i)\b(?:api[_-]?key|apikey|secret|password|passwd|pwd|token|"
+    r"private[_-]?key|access[_-]?key)\b[\"']?\s*[:=]\s*"
+    r"(?P<q>[\"']?)(?P<v>[A-Za-z0-9_/+.\-]{12,})")
+PLACEHOLDER = re.compile(r"(?i)example|sample|dummy|placeholder|changeme|"
+                         r"redacted|fake|<[^>]+>")
+ASSERT_LINE = re.compile(r"^\s*(?:assert\b|self\.assert|expect\s*\(|"
+                         r"pytest\.raises|require\s*\(|def test_|it\s*\(|"
+                         r"test\s*\(|func Test|@Test)")
+TEST_DIR = re.compile(r"(^|/)(?:tests?|__tests__|spec)/")
+RISK_PATH = re.compile(r"(?i)(^|/)(?:auth|security|payments?|billing|crypto|"
+                       r"migrations?|permissions?|acl)(?:/|\.|_|$)")
+
+
+def _git(root, *args):
+    global GIT_TIMEOUT
+    try:
+        r = subprocess.run(["git", "-C", str(root), *args],
+                           capture_output=True, text=True, timeout=20)
+        return r.returncode, r.stdout
+    except FileNotFoundError:
+        return -1, ""
+    except subprocess.TimeoutExpired:
+        GIT_TIMEOUT = True
+        return -2, ""
+
+
+def wave_diff_text(root):
+    """Change-wave diff: PER-COMMIT patches of newest `backup: before changes`
+    commit..HEAD (a net range diff would hide intra-wave add-then-remove),
+    else `git show HEAD`; plus uncommitted `git diff HEAD`. "" = no git repo."""
+    rc, _ = _git(root, "rev-parse", "--git-dir")
+    if rc != 0:
+        return ""
+    rc, sha = _git(root, "log", "--format=%H", "-1", "--fixed-strings",
+                   "--grep=backup: before changes")
+    parts = []
+    if rc == 0 and sha.strip():
+        _, d = _git(root, "log", "-p", "--format=", f"{sha.strip()}..HEAD")
+        parts.append(d)
+    else:
+        _, d = _git(root, "show", "--format=", "HEAD")
+        parts.append(d)
+    _, d = _git(root, "diff", "HEAD")
+    parts.append(d)
+    return "\n".join(parts)
+
+
+def untracked_files(root):
+    """Untracked, non-gitignored files (never visible in git diff)."""
+    rc, out = _git(root, "ls-files", "--others", "--exclude-standard")
+    return [l for l in out.splitlines() if l.strip()] if rc == 0 else []
+
+
+HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+
+
+def parse_diff(text):
+    """{path: [added, removed]} — added = [(new-file lineno, text)] via @@
+    hunks; removed = [text]. Deleted files keep their `--- a/` path so
+    removed lines and the path are retained (whole-file deletion must NOT
+    fail-open the guards)."""
+    files, cur, nline = {}, None, 0
+    for line in text.splitlines():
+        h = HUNK.match(line)
+        if h:
+            nline = int(h.group(1))
+        elif line.startswith("--- a/"):
+            cur = line[6:]
+            files.setdefault(cur, [[], []])
+        elif line.startswith("+++ b/"):
+            cur = line[6:]
+            files.setdefault(cur, [[], []])
+        elif line.startswith("--- /dev/null"):
+            cur = None
+        elif line.startswith("+++ /dev/null"):
+            pass                                # deleted file: keep a/ path
+        elif cur and line.startswith("+"):
+            files[cur][0].append((nline, line[1:]))
+            nline += 1
+        elif cur and line.startswith("-"):
+            files[cur][1].append(line[1:])
+        elif line.startswith(" "):
+            nline += 1
+    return files
+
+
+def _is_test_code(path):
+    p = pathlib.PurePosixPath(path)
+    if p.suffix not in CODE_EXT or "assert_artifacts.py" in path:
+        return False
+    if TEST_DIR.search(path):
+        return True
+    n = p.name
+    return (n.startswith("test_") or "_test." in n
+            or ".test." in n or ".spec." in n)
+
+
+def secret_scan(root):
+    """Group 14 — secret scan. Returns (fails, warns). Only ADDED diff lines
+    and untracked files; placeholder-marked lines exempt; .md warn-only;
+    any assert_artifacts.py never scanned."""
+    fails, warns = [], []
+
+    def hit(path, lineno, text):
+        if "assert_artifacts.py" in path or PLACEHOLDER.search(text):
+            return
+        found = any(rx.search(text) for rx in SECRET_RES)
+        if not found:
+            m = GENERIC_KV.search(text)
+            found = bool(m) and (bool(m.group("q")) or
+                                 not any(c in m.group("v") for c in ".()"))
+        if found:
+            (warns if path.endswith(".md") else fails).append(
+                f"secret scan: {path}:{lineno}: credential-looking string "
+                f"on an added line — {text.strip()[:50]!r} (A4.4 content gate)")
+
+    for path, (added, _r) in parse_diff(wave_diff_text(root)).items():
+        for lineno, l in added:
+            hit(path, lineno, l)
+    for rel in untracked_files(root):
+        p = root / rel
+        try:
+            if not p.is_file() or p.stat().st_size > 1_000_000:
+                continue
+            t = p.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for i, l in enumerate(t.splitlines(), 1):
+            hit(rel, i, l)
+    return fails, warns
+
+
+def test_change_guard(root, vl):
+    """Group 15 — test-change guard: REMOVED assertion lines in test code
+    files require a `- test-change: <path> — <reason>` log line."""
+    fails = []
+    for path, (_a, removed) in parse_diff(wave_diff_text(root)).items():
+        if not _is_test_code(path):
+            continue
+        n = sum(1 for l in removed if ASSERT_LINE.match(l))
+        if n and not re.search(r"^- test-change:.*" + re.escape(path), vl, re.M):
+            fails.append(
+                f"test-change guard: {path}: {n} assertion line(s) removed "
+                f"without a `- test-change:` justification in "
+                f"verification_log.md (A4.8 test integrity)")
+    return fails
+
+
+def risk_tier(root):
+    """Group 16 — risk-tier: diffs/untracked files touching risk-tier code
+    paths require tests/review_package.md on disk."""
+    paths = set(parse_diff(wave_diff_text(root))) | set(untracked_files(root))
+    hits = sorted(p for p in paths
+                  if pathlib.PurePosixPath(p).suffix in CODE_EXT
+                  and RISK_PATH.search(p))
+    rp = root / "tests" / "review_package.md"
+    if hits and not (rp.exists() and rp.stat().st_size > 0):
+        return [f"risk-tier: change-wave touches risk-tier path(s) "
+                f"({', '.join(hits[:5])}) but tests/review_package.md "
+                f"missing/empty — A4.9 review non-skippable (A4.9)"]
+    return []
 
 
 def check(ok: bool, msg: str):
@@ -179,6 +360,26 @@ def main():
     for i, snippet in claim_without_coverage(vl):
         check(False,
               f"verification_log.md line {i}: claim without stated coverage — {snippet!r} (A4.4 claim rule)")
+
+    # 14) secret scan — the change-wave diff / untracked files must not ADD
+    #     credential-looking lines (.md warn-only; placeholder-marked exempt)
+    s14_fails, s14_warns = secret_scan(root)
+    for w in s14_warns:
+        print("WARN " + w)
+    for f in s14_fails:
+        check(False, f)
+
+    # 15) test-change guard — removed test assertions need a logged reason
+    for f in test_change_guard(root, vl):
+        check(False, f)
+
+    # 16) risk-tier — risk-tier code paths require the A4.9 review package
+    for f in risk_tier(root):
+        check(False, f)
+
+    if GIT_TIMEOUT:
+        print("WARN groups 14-16: a git call timed out — content gates ran "
+              "on partial data (fail-open); re-run to confirm")
 
     if FAILS:
         print("ASSERT FAILURES (%d):" % len(FAILS))

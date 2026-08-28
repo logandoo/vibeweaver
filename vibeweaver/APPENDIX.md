@@ -616,7 +616,7 @@ git commit -m "feat: add <specific behavior>"
 > Flags: `--existing` (Modify-Existing task → skip new-project §A5 design-doc
 > + git checks) · `--backend-only` (no UI → skip `PAGE_DESIGN.html` and
 > `script/linux/project_build.sh`).
-> The 13 assertion groups mirror COMPLETION_GATE.md §A4.4.1's minimum-check table.
+> The 16 assertion groups mirror COMPLETION_GATE.md §A4.4.1's minimum-check table.
 
 **The canonical script is `scripts/assert_artifacts.py` in this skill's
 directory** — copy it, do NOT retype it (self-written variants omit check
@@ -641,6 +641,82 @@ cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
   (pasted RED output) are exempt. The claim/scope lint is modeled on
   J-Space Cognition Suite's `ship` check (idea level; see repo
   README → Attribution).
+- **Group 14 — secret scan** — the change-wave diff (per-commit patches of
+  newest `backup: before
+  changes` commit..HEAD + uncommitted; no backup commit → last commit +
+  uncommitted; untracked non-ignored files are scanned whole) must not ADD a
+  credential-looking line: AWS access keys,
+  private-key blocks, `ghp_`/`github_pat_`/`xox*`/`sk-` tokens (incl.
+  `sk-proj-`/`sk-ant-`), or JSON / k=v form
+  `api_key`/`secret`/`password`/`token` assignments with value ≥12 chars.
+  Unquoted reference/call values (`os.environ.get(…)`, `process.env.X`,
+  `config.password`, `self.x`) are NOT flagged; values with characters
+  outside the base set (spaces, `!#%`…) may escape — a documented tradeoff
+  biased against false-blocking.
+  Placeholder-marked lines (example/sample/dummy/placeholder/changeme/
+  redacted/fake/`<…>`) are exempt; `.md` hits warn only (printed, no FAIL);
+  the script never scans any `assert_artifacts.py`.
+- **Group 15 — test-change guard** — a REMOVED assertion line in a test code
+  file requires a `- test-change: <path> — <reason>` entry in
+  `verification_log.md`. An agent fixing code must not silently weaken the
+  check on that code; writing NEW tests stays free (A4.8).
+- **Group 16 — risk-tier** — diffs or untracked files touching
+  `auth`/`security`/`payment`/
+  `billing`/`crypto`/`migration`/`permission`/`acl` code paths require
+  `tests/review_package.md` on disk (A4.9 review non-skippable for
+  risk-tier paths).
 
-Self-verify the copy with the 13 markers listed in COMPLETION_GATE.md §A4.4.1; an
+Self-verify the copy with the 16 markers listed in COMPLETION_GATE.md §A4.4.1; an
 incomplete variant is re-copied, never patched by hand.
+
+---
+
+## §A9. Incident Postmortem Template — `docs/POSTMORTEM_<date>_<slug>.md`
+
+For incidents that reached a working system (production breakage, user-reported
+failure, anything that escaped the loops or recurred). A bug found and fixed in
+the same session needs only the A4.6 root-cause heading — reserve this template
+for the ones that surprised someone. The postmortem is a chain artifact
+(COMPLETION_GATE.md §A4.4.3): it cites its trigger upstream, and the fix + its
+regression test cite it downstream.
+
+Save as `docs/POSTMORTEM_<YYYY-MM-DD>_<slug>.md`:
+
+````markdown
+# Postmortem: <title> — <YYYY-MM-DD>
+
+## Trigger (upstream link)
+<what fired: alert / user report / log line / metric + where it was seen;
+path or link to the evidence>
+
+## Impact
+<who and what was affected, for how long, blast radius>
+
+## Timeline
+<detected → diagnosed → fixed → verified, with timestamps>
+
+## Root Cause (A4.6)
+<the four-phase investigation compressed: full error, reproduction, the ONE
+hypothesis that survived, and the dual-path check that confirmed it>
+
+## Fix
+<commit hash + one-paragraph description — links this postmortem downstream>
+
+## Regression Proof (A4.8 — non-negotiable)
+<the test that now guards this bug class: file path + the watched RED→GREEN
+and revert-and-fail evidence in tests/verification_log.md>
+
+## Lessons → Memory (A7.9)
+<what was written back: ⏳/❌ fix entry name, ⛔ if ≥3 failures, feedback or
+project entries — the lesson must re-enter future sessions>
+
+## Optional: Standing Eval
+<if this bug class deserves a permanent check: the re-runnable acceptance
+check that re-runs whenever agent-steering config changes (CLAUDE.md,
+.claude/**, skill rule files) — see REFERENCE.md C2 Step 6>
+````
+
+**Closing the loop:** an incident is not closed when the fix merges but when
+(1) its regression test exists and was watched failing on the buggy code,
+(2) its lesson is in memory, and (3) any standing eval above is wired to
+re-run. Until then the postmortem stays in the owner's triage queue.

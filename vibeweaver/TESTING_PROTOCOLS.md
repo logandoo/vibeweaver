@@ -604,7 +604,12 @@ tests, docs, and config included; "only core logic files changed" is NOT a
 valid reduction (observed rationalization). **Skip for:** mechanical
 single-file bugfixes with NO behavior-semantic change, copy/style tweaks,
 config edits — each `A4.9 not triggered` reason in the gate line must cite
-`git diff --stat` output, not self-recollection.
+`git diff --stat` output, not self-recollection. **Risk-tier paths —
+non-skippable:** when the diff touches a code path matching
+`(?i)(^|/)(auth|security|payments?|billing|crypto|migrations?|permissions?|acl)(/|\.|_|$)`
+(code extensions only), the trigger fires REGARDLESS of file count —
+`A4.9 not triggered` is not a valid gate-line reason for these; assert
+group 16 machine-checks `tests/review_package.md` exists on disk.
 
 **How:**
 1. Get the review range: `BASE_SHA` = baseline commit (C2 Step 5), `HEAD_SHA` =
@@ -614,9 +619,15 @@ config edits — each `A4.9 not triggered` reason in the gate line must cite
 2. Dispatch a reviewer subagent (opencode `task` tool) with: the file path,
    the acceptance criteria / requirements (or `tests/acceptance.md` path), and
    this verdict contract — **Strengths · Issues (Critical / Important / Minor,
-   each with file:line + why it matters) · Assessment (ready / ready-with-fixes
-   / not ready)**. The reviewer is READ-ONLY: it inspects, never mutates the
-   working tree.
+   each tagged with its dimension — `Bugs` (logic/edge cases) · `Security`
+   (injection/authz/secrets/attacker-controlled input) · `Compliance`
+   (matches acceptance criteria / plan / design principles) — with file:line +
+   why it matters) · Assessment (ready / ready-with-fixes / not ready)**.
+   Findings come back ranked by severity; **Minor findings are itemized at
+   most 5, the rest summarized as a count** (nit cap — review must not become
+   noise); generated paths and anything already mechanically enforced (hooks,
+   assert groups) are out of scope for findings. The reviewer is READ-ONLY:
+   it inspects, never mutates the working tree.
 3. Act on the verdict (fix-round loop):
    - **Critical** → fix now; re-run covering tests; scoped re-review (Step 4).
    - **Important** → fix before the completion table; re-run covering tests;
@@ -642,6 +653,11 @@ config edits — each `A4.9 not triggered` reason in the gate line must cite
 5. **Reviewer disagreement is allowed** — if a finding is technically wrong
    for THIS codebase, push back with reasoning (cite working tests/code)
    instead of complying blindly. Record the ruling. Never silently discard.
+6. **Findings feed the rules (closed loop):** when the SAME mistake is flagged
+   a second time — across reviews or sessions — the correction goes into
+   project memory (feedback / ⛔ per A7.9), or the project's `CLAUDE.md` /
+   `AGENTS.md` when one exists, so the mistake is caught at generation time,
+   not at review. Review reads those files; the loop tightens itself.
 
 **Red flags:** skipping review because "it's simple" · fixing findings without
 re-running tests · accepting every suggestion without verifying it against the

@@ -23,31 +23,27 @@ Reading a companion at its trigger in the [Read Contract](#read-contract--mandat
 is part of the workflow — not optional discovery.
 
 **Architecture (progressive disclosure):** §1 covenants + §2 ZERO + §3 mode/memory
-are inline because they fire at activation. Full protocol text for §A4.1 (loop),
-§A4.4/§A4.4.1/§A4.4.2 (completion & artifact gates), §A4.6 (debugging), §A5.1
-(design-gate mechanics), Part B/C (workflow steps), and the pre-output MANDATORY
-CHECKLIST lives in the companions, each read **IN FULL** at its trigger (Read
-Contract below).
+are inline because they fire at activation. Full protocol text (§A4.1 loop ·
+§A4.4 gates · §A4.6 debugging · §A5.1 design gate · Part B/C workflows ·
+pre-output MANDATORY CHECKLIST) lives in the companions, each read **IN FULL**
+at its trigger (Read Contract below).
 
-**Size budget:** keep this file < 49 KB (tool-output cap ≈ 51.2 KB minus
-~1.2 KB wrapper — selftest T11 asserts it) and every companion ≤ 45 KB (one
-Read must return it un-truncated). Growing this file by >~20 lines signals
-the detail belongs in a companion; a new rule enters as a compact line here
-+ full text in a companion.
+**Size budget:** keep this file < 49 KB (selftest T11 asserts it) and every
+companion ≤ 45 KB (one Read must return it un-truncated). A new rule enters
+as a compact line here + full text in a companion.
 
 **Truncation self-heal (check first, every activation):** if this content appears
-truncated (truncation notice, or the Reference Files section at the bottom is
-missing), do NOT proceed from partial memory — Read this SKILL.md to the end
-(offset continuations) before any action. Every section here is binding.
+truncated (notice, or the Reference Files section at the bottom is missing),
+do NOT proceed from partial memory — Read this SKILL.md to the end before any
+action. Every section here is binding.
 
 ---
 
 ## §1 OPERATING COVENANT — read first, never violate ★ NON-NEGOTIABLE
 
-These are the **HARD GATES** and **SELF-STARTING TRIGGERS** of this skill. They are
-repeated below only as canonical pointers; their authoritative text is in §A4
-and §PART A. **A weak-model failure mode is to remember only §A4.1+§ZERO.**
-So all eleven rules below are doubled here at the very top — confirm you
+These are the **HARD GATES** and **SELF-STARTING TRIGGERS** of this skill,
+repeated below as canonical pointers (authoritative text: §A4 / §PART A).
+**A weak-model failure mode is to remember only §A4.1+§ZERO** — confirm you
 comply with each before declaring done.
 
 `COV-1. NO TEST, NO DONE` — every code change MUST be followed by actually
@@ -109,8 +105,7 @@ you write so the bound is visible to the user.
 `COV-8. Major-change review dispatch (§A4.9)` — for ANY of: new feature ·
 ≥3 files changed · schema/API-surface change · security-sensitive area ·
 **behavior-semantic change** (a runtime pipeline / write-path /
-type-distinction semantic is altered — the v1/v2 dream dual-write split
-is the canonical case: a one-file diff can still be a behavior change),
+type-distinction semantic is altered — a one-file diff can still be a behavior change),
 you MUST dispatch an independent reviewer (opencode `task` tool) over
 `git diff <baseline>..<head>` BEFORE the completion table; receive verdict,
 fix Critical/Important, re-run covering tests, record Minor to memory.
@@ -129,9 +124,9 @@ git add -A && git commit -m "backup: before changes"
 bash script/linux/<existing-build-or-start-script>.sh  (or existing test runner)  — run-once baseline check
 Baseline verified GREEN — proceed  (or: Baseline has N pre-existing failures → reported to user, logged to tests/verification_log.md, awaiting decision)
 ```
-"Build passed earlier" does NOT count — and neither does the previous
-change-wave's baseline in the same session: EVERY change-wave gets its own
-three lines, even a follow-up fix minutes after the last run. Record the
+"Build passed earlier" does NOT count — neither does the previous
+change-wave's baseline: EVERY change-wave gets its own three lines, even a
+follow-up fix minutes later. Record the
 verdict as the first entry under the task heading in
 `tests/verification_log.md`: `- Baseline verified GREEN` (or
 `- COV-9 skipped — reason: …`) — the file, not the narration, is what
@@ -167,7 +162,7 @@ Full rule: §2 Step 0.4.
 following on disk and in your final answer:`
 
 - `tests/acceptance.md` — one numbered line per criterion; **first line
-  verbatim** `> cap=5  stall=3×` (this is the user-owned stop condition).
+  verbatim** `> cap=5  stall=3×` (user-owned stop condition).
 - `tests/verification_log.md` — one entry per loop iteration; the format
   is given in §A4.1 Step 4. The file MUST have ≥1 iteration entry.
 - `[Convergence] <task>: N iters | X/Y pass | N stalls | N cap-hits`
@@ -264,9 +259,9 @@ Operational rules: [MEMORY_RULES.md §A7.6](MEMORY_RULES.md). Binding summary:
    memory → trust current code.
 
 ### §3.3 Re-entry After a Long Gap (compaction / new session / >30 min idle)
-If the middle of the task is no longer in your context (session boundary,
-compaction/summarisation, long idle), the durable files carry it — your
-memory of it does not. Before touching the work again, in this order:
+If the middle of the task is no longer in your context, the durable files
+carry it — your memory of it does not. Before touching the work again, in
+this order:
 1. Re-read `tests/verification_log.md` **in full** (every iteration line, not
    just the last one).
 2. Re-read `tests/acceptance.md` line by line.
@@ -373,20 +368,12 @@ tables, runtime degradation, decision rules, fresh-brain retry): §A4.1 in
 [TESTING_PROTOCOLS.md](TESTING_PROTOCOLS.md).**
 
 1. **Step 0 — Announce the verifier at task start (in ZERO, before any code)
-   — COV-5.** Probe in this order (full tree: TESTING_PROTOCOLS.md §A4.1
-   Step 0; `VW_DIR` = this skill's install dir):    (a) `python3 {VW_DIR}/scripts/
-   mm_probe.py --generate` → Read `tests/probe_vision.png` → report token +
-   color → `--check`; PASS → `Verifier: model-native [image]` — grade
-   screenshots via Read tool under the §A4.1.1 Visual Verification Protocol
-   (observation-first · per-criterion verdicts · DOM/log cross-check ·
-   UNCERTAIN=FAIL). (b) probe FAIL + mm-sensor listed → run
-   `python3 {SKILL_DIR}/vision.py --probe`, announce `Verifier: mm-sensor
-   [video+audio|video|image]` per probe; grade EVERY captured media via
-   `python3 {SKILL_DIR}/vision.py --detail high <file>`; NEVER the model's
-   own vision / Read tool on media while mm-sensor is the verifier
-   (self-grading = violation; on errors fix config & retry, no fallback).
-   (c) neither → `Verifier: direct read (no multimodal model, no mm-sensor)`;
-   screenshots cross-checked with DOM/log inspection.
+   — COV-5.** Probe order + full tree: COV-5 (§1) and TESTING_PROTOCOLS.md
+   §A4.1 Step 0 (model-native self-probe → mm-sensor → direct read); the
+   announced mode is fixed for the task. Grading discipline per mode:
+   model-native → §A4.1.1 (UNCERTAIN=FAIL) · mm-sensor → every capture via
+   `vision.py --detail high`, self-grading = violation · direct read →
+   DOM/log cross-check.
 2. **Step 1 — Acceptance criteria gate (BEFORE acting; USER-OWNED STOP
    CONDITION).** Individually-checkable pass/fail criteria (ONE criterion =
    ONE yes/no sentence) → `tests/acceptance.md`, first line verbatim
@@ -429,8 +416,8 @@ should work" are NOT valid substitutes.
 |---|---|
 | **Playwright** (Python) | screenshots + operation video (`record_video`) + in-page audio capture of running UI (front page, page, component, route) — APPENDIX §A1 |
 | `scripts/mm_probe.py --generate` + `--check` | self-multimodality probe (behavioral): PASS → `model-native` verifier; FAIL → mm-sensor / direct read (A4.1 Step 0) |
-| mm-sensor via `vision.py --probe` | mm-sensor capability probe: decides `[video+audio]` / `[video]` / `[image]` (A4.1 Step 0) |
-| mm-sensor via `vision.py --detail high <webm/wav/png>` | media verifier when the model-native probe fails (maker/checker split); grades video, audio, screenshots per mode (A4.1 Step 0) |
+| mm-sensor via `vision.py --probe` | capability probe: decides `[video+audio]` / `[video]` / `[image]` (A4.1 Step 0) |
+| mm-sensor via `vision.py --detail high <webm/wav/png>` | media verifier when the probe fails (maker/checker split); grades video/audio/screenshots per mode (A4.1 Step 0) |
 | `tests/acceptance.md` | user-owned stop condition (A4.1 Step 1) |
 | `tests/verification_log.md` | per-iteration pass/fail log (A4.1 Step 4) |
 | **httpx** preferred, else **requests** | backend API tests (A4.7) |
@@ -441,9 +428,8 @@ All tests MUST produce **log files** on disk.
 #### A4.3 Verification Rules
 - Do NOT rely on standardized/mocked test results
 - Verify with: captured evidence of the running system — screenshots /
-  operation video / page audio per the A4.1 Step 0 mode (graded via the
-  announced verifier: §A4.1.1 model-native protocol · mm-sensor · direct
-  read), log inspection, or DB queries
+  operation video / page audio per the A4.1 Step 0 mode (graded per the
+  announced verifier), log inspection, or DB queries
 - Any result not matching an acceptance criterion = test failure
 - **Act → Capture → Verify → Fix → Log → Repeat** until ALL criteria pass
   or cap=5/stall=3× stops you (COV-7)
@@ -488,20 +474,20 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only]
   artifacts on disk (NEVER edit the script, paste fabricated output, or skip
   the run), re-run until exit 0.
 - Flags: `--existing` (Modify-Existing) · `--backend-only` (no UI);
-  new-project tasks run WITHOUT `--existing`. Full 13-assertion table:
+  new-project tasks run WITHOUT `--existing`. Full 16-assertion table:
   COMPLETION_GATE.md §A4.4.1.
 
 Canonical file: `scripts/assert_artifacts.py` in this skill's installation
-directory (e.g. `~/.config/opencode/skills/vibeweaver/scripts/assert_artifacts.py`).
-Missing `tests/assert_artifacts.py` → **COPY THE CANONICAL FILE** (never a
-self-written variant — they consistently omit check groups):
+directory. Missing `tests/assert_artifacts.py` → **COPY THE CANONICAL FILE**
+(never a self-written variant — they consistently omit check groups):
 `cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py`.
 Only allowed edit after copying: ADD project-specific lines — never remove /
-weaken groups 1-13. **Self-verify the copy** — it MUST contain all 13 markers
+weaken groups 1-16. **Self-verify the copy** — it MUST contain all 16 markers
 (grep each; ANY missing = incomplete variant → re-copy): `verification_log` ·
 `cap=5` · `screenshot` · `MEMORY.md` · `start.sh` · `git repo needs` ·
 `FLOW_DESIGN` · `README` · `Baseline verified GREEN` · `workflow trace` ·
-`media evidence` · `diagnosis:` · `claim without stated coverage`. With
+`media evidence` · `diagnosis:` · `claim without stated coverage` ·
+`secret scan` · `test-change:` · `risk-tier`. With
 `--backend-only`, the completion table's `What Changed` column MUST state
 `Page design skipped — backend-only project (no UI)`.
 
@@ -582,11 +568,14 @@ Canonical text of COV-8 — **full protocol: §A4.9 in
 ANY of — new feature · ≥3 files changed (**counts EVERY path in
 `git diff --stat $BASE..$HEAD`** — tests/docs/config included; "only core
 logic files" is NOT a valid reduction) · schema/API-surface change ·
-security-sensitive area · **behavior-semantic change** (a one-file diff can
+security-sensitive area · **risk-tier code paths** (non-skippable; regex +
+details in §A4.9; assert group 16 checks `tests/review_package.md`) ·
+**behavior-semantic change** (a one-file diff can
 still be a behavior change). BEFORE the A4.4 completion table (and after
 Gate-1 evidence): write log/diff to ONE file, dispatch a READ-ONLY
 reviewer subagent with the verdict contract (Strengths ·
-Critical/Important/Minor with file:line + why · Assessment); fix
+Critical/Important/Minor — dimension-tagged Bugs/Security/Compliance,
+Minors ≤5 itemized — with file:line + why · Assessment); fix
 Critical/Important with re-run covering tests + scoped re-review (max 5
 rounds, stall 3× → §A4.10), defer Minors to memory, every finding
 adjudicated with a ruling — no silent discard. Non-trigger: the
@@ -778,7 +767,7 @@ artifact-carrying items):
 - [ ] (Modify Existing) **COV-9** — `backup: before changes` commit, THEN one run of existing build/test/start via `script/`, per change-wave; `- Baseline verified GREEN` (or state-skip) FIRST log entry in `tests/verification_log.md`
 - [ ] **COV-2** scripts-only build/lifecycle (no raw `npm run build`/`vite`/`npm start`/`uvicorn`) · **COV-1** tests EXECUTED with evidence on disk ("build passed" is NOT evidence)
 - [ ] `tests/acceptance.md` first line `> cap=5  stall=3×` · loop ended by ALL pass or declared cap/stall
-- [ ] **COV-5** — verifier PROBED + announced with mode at task start (model-native [image] → §A4.1.1 protocol verdicts with quoted evidence; mm-sensor [mode] → every capture via `vision.py --detail high`, self-grading = violation; direct read → DOM/log cross-check); evidence on disk under `tests/`; ≥1 iter entry, `diagnosis:` on every FAIL
+- [ ] **COV-5** — verifier PROBED + announced with mode at task start (grading per mode: §A4.1.1 / `vision.py --detail high` / DOM-log cross-check); evidence on disk under `tests/`; ≥1 iter entry, `diagnosis:` on every FAIL
 - [ ] FRESH run on the exact tree delivered (no commit after last test) · **A4.8** RED evidence logged (logic-bearing code)
 - [ ] `[Convergence]` line before the table (A4.1 Step 5) · (backend) A4.7 done; cross-endpoint → A4.7b `tests/workflows/*.trace.log` + `E2E depth` reported
 - [ ] **COV-8** — A4.9 dispatched + findings adjudicated, OR `A4.9 not triggered —` backed by `git diff --stat` (not memory)
@@ -804,7 +793,7 @@ un-truncated.
   stall escape.
 - [COMPLETION_GATE.md](COMPLETION_GATE.md) — **R1b.** §A4.4 (self-audit · Gate
   Function · gate-line semantics + E2E ladder · 8-column spec) · §A4.4.1
-  (13-assertion table) · §A4.4.2 (physical gate) · §AUDIT (vibeweaver-audit
+  (16-assertion table) · §A4.4.2 (physical gate) · §AUDIT (vibeweaver-audit
   protocol: gate_audit.md + Tier-2 escalation) · §PRE-OUTPUT MANDATORY
   CHECKLIST.
 - [REFERENCE.md](REFERENCE.md) — **R2/R3/R4/R5.** Full Part B/C workflow
@@ -815,7 +804,7 @@ un-truncated.
   [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) 4 iron rules.
 - [APPENDIX.md](APPENDIX.md) — executable templates §A1 capture · §A2 API ·
   §A3 fallback · §A4 websocket · §A5 config.toml · §A6 scripts · §A7 plan ·
-  §A8 assert script.
+  §A8 assert script · §A9 postmortem.
 - [MEMORY_RULES.md](MEMORY_RULES.md) §A7.1–§A7.14 ·
   [MEMORY_TEMPLATES.md](MEMORY_TEMPLATES.md) templates.
 - `scripts/assert_artifacts.py` — canonical artifact-assertion script; copy
