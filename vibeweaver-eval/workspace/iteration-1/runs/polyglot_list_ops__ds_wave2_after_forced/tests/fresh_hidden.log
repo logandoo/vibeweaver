@@ -1,0 +1,34 @@
+[2026-08-29 20:20:27,053] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-5.2.3.dev198+ge670ff76c.d20260815, py-1.11.0, pluggy-0.13.1 -- /Library/Developer/CommandLineTools/usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /private/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/listops_graded
+plugins: anyio-4.12.1, httpbin-2.1.0
+collecting ... collected 24 items
+
+list_ops_test.py::ListOpsTest::test_append_empty_list_to_list PASSED     [  4%]
+list_ops_test.py::ListOpsTest::test_append_empty_lists PASSED            [  8%]
+list_ops_test.py::ListOpsTest::test_append_list_to_empty_list PASSED     [ 12%]
+list_ops_test.py::ListOpsTest::test_append_non_empty_lists PASSED        [ 16%]
+list_ops_test.py::ListOpsTest::test_concat_empty_list PASSED             [ 20%]
+list_ops_test.py::ListOpsTest::test_concat_list_of_lists PASSED          [ 25%]
+list_ops_test.py::ListOpsTest::test_concat_list_of_nested_lists PASSED   [ 29%]
+list_ops_test.py::ListOpsTest::test_filter_empty_list PASSED             [ 33%]
+list_ops_test.py::ListOpsTest::test_filter_non_empty_list PASSED         [ 37%]
+list_ops_test.py::ListOpsTest::test_foldl_direction_dependent_function_applied_to_non_empty_list PASSED [ 41%]
+list_ops_test.py::ListOpsTest::test_foldl_direction_independent_function_applied_to_non_empty_list PASSED [ 45%]
+list_ops_test.py::ListOpsTest::test_foldl_empty_list PASSED              [ 50%]
+list_ops_test.py::ListOpsTest::test_foldr_direction_dependent_function_applied_to_non_empty_list PASSED [ 54%]
+list_ops_test.py::ListOpsTest::test_foldr_direction_independent_function_applied_to_non_empty_list PASSED [ 58%]
+list_ops_test.py::ListOpsTest::test_foldr_empty_list PASSED              [ 62%]
+list_ops_test.py::ListOpsTest::test_foldr_foldr_add_string PASSED        [ 66%]
+list_ops_test.py::ListOpsTest::test_length_empty_list PASSED             [ 70%]
+list_ops_test.py::ListOpsTest::test_length_non_empty_list PASSED         [ 75%]
+list_ops_test.py::ListOpsTest::test_map_empty_list PASSED                [ 79%]
+list_ops_test.py::ListOpsTest::test_map_non_empty_list PASSED            [ 83%]
+list_ops_test.py::ListOpsTest::test_reverse_empty_list PASSED            [ 87%]
+list_ops_test.py::ListOpsTest::test_reverse_list_of_lists_is_not_flattened PASSED [ 91%]
+list_ops_test.py::ListOpsTest::test_reverse_non_empty_list PASSED        [ 95%]
+list_ops_test.py::ListOpsTest::test_reverse_reverse_mixed_types PASSED   [100%]
+
+============================== 24 passed in 0.02s ==============================
