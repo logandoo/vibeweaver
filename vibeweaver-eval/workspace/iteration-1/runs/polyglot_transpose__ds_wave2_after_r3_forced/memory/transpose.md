@@ -16,3 +16,4 @@ date: 2026-08-29
 - Grader = hidden `transpose_test.py` (Exercism canonical, 12 tests) via `python3 -m pytest -q`.
 - Do not create/modify test files in workspace; run suites from /tmp copies.
 - `.rstrip()` on output rows would be WRONG — it strips real trailing spaces (fails the `"h "` case); the trailing-strip must be conditioned on the source row being too short.
+- Invariant (A4.9 M2): trailing-strip uses `len(line)-1` as a source-row index; valid only because the column join emits exactly one char per input row. If the join shape ever changes, this must be revisited.

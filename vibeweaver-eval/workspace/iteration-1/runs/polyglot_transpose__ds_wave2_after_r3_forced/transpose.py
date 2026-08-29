@@ -1,7 +1,5 @@
 def transpose(text):
     rows = text.split("\n")
-    if not rows:
-        return ""
     width = max(len(row) for row in rows)
     out = []
     for column in range(width):

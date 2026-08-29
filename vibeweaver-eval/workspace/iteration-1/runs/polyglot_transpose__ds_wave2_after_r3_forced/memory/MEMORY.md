@@ -14,5 +14,5 @@ Transpose exercise workspace (polyglot benchmark, `polyglot_transpose__ds_wave2_
 - Mode: AUTO · Verifier: direct read (non-web).
 - Companion files R1/R2/R1b/R9 not shipped in this config (only SKILL.md); verify scripts (mm_probe.py/vision.py) absent — assert_artifacts.py reused from sibling run's verified copy (D-3).
 
-## A4.9 review (2026-08-29) — NOT REQUIRED
-- A4.9 not triggered — verified via `git diff --stat d1dc499..HEAD`: 1 file changed (transpose.py), pure-function behavior on a single library file with no schema/API-surface/security/risk-tier implications; the entire change-wave test surface (12 canonical cases) re-run green. No independent review dispatched (single-file, no risk-tier paths, no cross-module interface).
+## A4.9 review (2026-08-29) — APPROVED
+- 0 Critical / 0 Important / 4 Minor (Bugs): M1 dead `if not rows:` guard → FIXED (removed, iter 2 re-verified green); M2 trailing-strip invariant (`len(line)-1` row index holds only because join emits one char/row) → accepted, documented in transpose.md; M3 while-loop readability → accepted as-is; M4 no docstring → accepted (behavior-only deliverable). Reviewer also fuzz-verified 50,000 cases vs independent reference (0 failures).
