@@ -1,0 +1,20 @@
+Differential sweep: solution vs independent bit-string reference (zfill-to-multiple-of-7 encode_ref, streaming decode_ref)
+Target: variable_length_quantity.py  (encode/decode, 32-bit unsigned restriction)
+Date: 2026-08-29
+Command: python3 /tmp/vlq_sweep.py   (reference rebuilt to zfill bit string to multiple of 7 BEFORE splitting)
+
+Coverage:
+  - encode table values: 0, 0x7F, 0x80, 0x2000, 0x4000, 0x100000, 0x8000000, 0x10000000, 0xFF000000, 0xFFFFFFFF
+  - encode scan: 0x0..0xFFFFFFFF sampled (40k-step, ~262k points via range-scan)
+  - encode/roundtrip: 10000 random values + 2000 random values (full 32-bit domain)
+  - encode/roundtrip multi: 2000 random lists of 1..8 values
+  - roundtrip decode(encode(x)) == x for every value above
+
+Result:
+SWEEP DONE: checks=108002 passed=108002 failed=0
+exit=0
+
+Previous runs (for diagnosis record):
+  run-1: 4837 failures -- reference bug (encode_ref split bin() string directly; dropped leading 7-bit group padding)
+  run-2: 4837 failures -- reference still buggy (pad>0 path: range(pad, len, 7) could miss trailing <7 bits)
+  run-3 (final): 0 failures -- reference rebuilt as zfill-to-multiple-of-7 then uniform 7-bit split
