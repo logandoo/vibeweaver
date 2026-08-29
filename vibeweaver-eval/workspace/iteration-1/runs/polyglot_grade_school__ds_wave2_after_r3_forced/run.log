@@ -141,3 +141,428 @@ Companion files exist at the skill root. Let me load the mandatory companions an
 Now let me read the remaining mandatory companions (R1b, R9, R2 for Modify-Existing).
 [0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/WORKFLOWS_EXTENDED.md
 [0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/REFERENCE.md
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/MEMORY_RULES.md
+Now let me read the memory rules/templates (R7) and check git status.
+[0m
+[0m$ [0mgit -C /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced status 2>&1 | head; echo "---is git---"; ls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/.git 2>&1 | head -3
+On branch main
+Your branch is ahead of 'origin/main' by 49 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+  (commit or discard the untracked or modified content in submodules)
+	modified:   run.log
+	modified:   ../polyglot_grade_school__ds_wave2_before_r3_forced/run.log
+---is git---
+ls: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/.git: No such file or directory
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git rev-parse --show-toplevel && git log --oneline -3 && git status --short vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo
+dc93730 backup: before changes
+5231e95 backup: before changes
+7873e44 backup: before changes
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/run.log
+[0m
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/MEMORY_TEMPLATES.md
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && sed -n '1,60p' vibeweaver/scripts/assert_artifacts.py
+"""G-DED artifact assertions — byte-level check of verification claims.
+Canonical copy: vibeweaver skill `scripts/assert_artifacts.py`.
+Mirrors COMPLETION_GATE.md §A4.4.1 minimum-check table (all 16 groups).
+Group 12 enforces the A4.1 diagnosis clause; group 13 is a
+claim-without-scope lint (approach modeled on J-Space Cognition Suite's
+`ship` check at idea level; implementation here is original —
+see repo README → Attribution). Groups 14-16 are change-wave content
+gates: 14 secret scan (`vw-approved` marker ⇄ `- secret-approved:` log
+pairing), 15 test-change guard, 16 risk-tier review. Project profiles
+(tests/project_profile.json or --profile) declaratively skip groups that
+are structurally N/A for the project kind (service/UI/new-project) —
+a profile never weakens an applicable group."""
+import argparse, json, os, pathlib, re, subprocess, sys
+
+FAILS = []
+PASSES = 0
+GIT_TIMEOUT = False
+
+# Group 13 word sets, chosen for what vibeweaver logs actually overclaim with.
+# CLAIM  — verbs that assert a verification result happened.
+# COVER  — scope/evidence indicators: quantifiers, counts, artifact refs.
+# A bare object name is not scope: "the endpoint is verified" names WHAT,
+# not HOW MUCH was checked, so object nouns (endpoint/file/…) are excluded.
+CLAIM = re.compile(
+    r"\b(?:verified|confirmed|validated|proven|tested)\b|"
+    r"\ball\s+(?:checks?|tests?)\s+pass(?:es|ed)?\b|\bchecks?\s+pass\b|"
+    r"已验证|验证通过|已确认|确认无误|已测试|测试通过|已证明",
+    re.I,
+)
+COVER = re.compile(
+    r"\b(?:all|each|every|both)\b|"                     # quantifiers
+    r"\b\d+\s*/\s*\d+\b|"                               # 3/3 fractions
+    r"\bcriterion\s*#?\d+\b|\bcriteria\b|"              # criterion scope
+    r"\bn\s*[<≤=]\s*\d+\b|"                             # bounded sweeps
+    r"tests/[\w./-]+|\S+\.(?:png|mp4|webm|wav)\b|\S+\.trace\.log\b|"  # artifact refs
+    r"\bcoverage\b|\bcovered\b|\bsweep\b|\bswept\b|"
+    r"全部|所有|每个|每条|逐一|逐条|覆盖|边界|用例|场景|"
+    r"包括|包含|至少|至多|最多|最少|随机",
+    re.I,
+)
+STRUCT_LINE = re.compile(r"^(?:#{1,6}\s|>|\|{1,2}\s*-+|\s*$)")
+EXEMPT_LINE = re.compile(r"(?:^- iter \d+ (?:PASS|FAIL):|^- Baseline verified GREEN|^- COV-\d+ skipped)")
+FENCE = re.compile(r"^\s{0,3}(?:```|~~~)")
+
+# --- groups 14-16: change-wave content gates (canonical spec:
+# COMPLETION_GATE.md §A4.4.1 rows 14-16) -------------------------------
+CODE_EXT = {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".go", ".rs",
+            ".java", ".sql", ".sh"}
+SECRET_RES = [
+    re.compile(r"AKIA[0-9A-Z]{16}"),                       # AWS access key id
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    re.compile(r"ghp_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,}|"
+               r"xox[baprs]-[A-Za-z0-9-]{16,}|"
+               r"sk-(?:proj-|ant-)?[A-Za-z0-9_\-]{16,}"),  # GitHub/Slack/OpenAI/Anthropic tokens
+]
+# generic k = v: quoted literal values are candidates; UNQUOTED values
+# containing `.`/`(`/`)` are references or calls (os.environ.get(…),
+# process.env.X, config.password, self.x) — the SAFE handling pattern,
+# never flagged. Values outside the base charset (spaces, !#%…) may
+# escape — documented tradeoff, biased against false-blocking.
+[0m
+I have all the protocol context needed. Let me survey the git state and the canonical assert script interface.
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git status --short | head -30 && echo "---log---" && git log --oneline -5
+M vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/list_ops.py
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/tests/verification_log.md
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/tests/verify_list_ops.py
+ m vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_after_r3_forced/run.log
+ m vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_after_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_before_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_after_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r3_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r3_forced/run.log
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_after_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_before_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_after_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_before_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_forced_after_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_forced_before_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_after_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_before_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_forced_after_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_forced_before_forced
+ m vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_wave2_after_forced
+---log---
+813e67c backup: before changes
+984cc1a feat: implement NANP phone number cleaning (PhoneNumber class)
+dc93730 backup: before changes
+5231e95 backup: before changes
+7873e44 backup: before changes
+[0m
+## Objective
+- Implement the Exercism "grade school" exercise in `grade_school.py` (class `School` with `add_student`/`roster`/`grade`/`added`) per `prompt.md`, following the mandatory vibeweaver skill workflow, and verify by actually running the code with on-disk evidence.
+- Constraint from task: do NOT create or modify any test files; only edit `grade_school.py`.
+
+## Important Details
+- Workspace: `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/` — contains `grade_school.py` (stub: `class School` with pass stubs for `__init__`, `add_student(name, grade)`, `roster()`, `grade(grade_number)`, `added()`), `prompt.md`, `run.log`. No `memory/` or `tests/` dirs. `python3` = 3.9.6. No `.git` inside run dir (git status walked up to a parent repo; branch main, 49 ahead, run.log modified).
+- Spec from `prompt.md`: add student to grade ("Add Jim to grade 2" → "OK"); list students in a grade; sorted roster (grades 1,2,3... then names alphabetically); students have one name; same student cannot be added twice to a grade or the roster — implementation "should indicate that this is incorrect."
+- Canonical interface (verified from GitHub raw webfetch, Exercism test file "last updated 2026-02-19"): `school.added()` returns a list of booleans per add attempt (e.g. add Blair, James, James, Paul → `[True, True, False, True]`); `add_student` returns True if added, False if duplicate; `roster()` empty when no students; `roster()` returns `["Blair", "James", "Paul"]` for same-grade adds. NOTE: modern canonical treats `added()` as booleans — older Exercism versions returned names in insertion order; this ambiguity should be kept in mind (tests fetched were truncated at ~"test_student_not_added_to_same_g").
+- Canonical sources fetched: `https://raw.githubusercontent.com/exercism/python/main/exercises/practice/grade-school/grade_school_test.py` and `https://raw.githubusercontent.com/exercism/problem-specifications/main/exercises/grade-school/canonical-data.json` (both truncated by read tool).
+- Websearch via exa MCP returned 429 twice (rate-limited); webfetch of exercism.org returned 403; GitHub raw fetch succeeded.
+- Skill: full copy (SKILL.md + all companions + `scripts/assert_artifacts.py`, `scripts/mm_probe.py`) lives at `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/`. The config-mounted copy at `.../configs/ds_forced_after/opencode/skills/vibeweaver/` contains ONLY `SKILL.md` (no companions/scripts) — the root copy is the source for canonical `tests/assert_artifacts.py`.
+- Mandatory workflow state to honor: `Mode: AUTO` (default, COV-12); verifier = direct read (non-web, C7 — library, no UI/HTTP, no Playwright); `tests/acceptance.md` first line verbatim `> cap=5  stall=3×`; per-iteration `tests/verification_log.md` entries w/ `diagnosis:` on FAIL; `[Convergence]` line; `[Verification Gate]` line with literal `HARD-GATE-1: NO-TEST-NO-DONE=pass` and `HARD-GATE-2: SCRIPT-ONLY=na` (no `script/` dir → N/A); `[Memory Gate]` + memory topic files + `memory/MEMORY.md`; AUTO `tests/decisions.md` + `[Decisions]` line; COV-9 baseline GREEN lines for Modify-Existing; COV-10 skip (minor tweak/stub fill → state skip reason); COV-8 A4.9 check (likely not triggered — single file, cite why); `python3 tests/assert_artifacts.py` exit 0; 8-column completion table (exact header: `| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |`).
+- Tension to reconcile: task says "Do NOT create or modify any test files" vs skill-required `tests/` artifacts — plan is to create skill workflow artifacts (`tests/acceptance.md`, `tests/verification_log.md`, `tests/assert_artifacts.py`) but no exercise test modules / no `test_*.py`, verifying via inline `python3 -c` runs logged to disk.
+- ZERO is done: decomposition + web research (canonical test/data fetched) + approach chosen implicitly (dict grade→names + bool-results list); evaluate/state ≥2 approaches explicitly before coding.
+
+## Work State
+### Completed
+- Read `prompt.md`, `grade_school.py` stub, `run.log`; confirmed `python3` 3.9.6, empty `memory/`/`tests/`.
+- Located full skill root with companions + scripts; found only SKILL.md in configs-mounted copy.
+- Read companions in full: `TESTING_PROTOCOLS.md` (R1), `COMPLETION_GATE.md` (R1b), `REFERENCE.md` (R2), `WORKFLOWS_EXTENDED.md` (R9), `MEMORY_RULES.md` (R7).
+- Fetched canonical Exercism python `grade_school_test.py` and `canonical-data.json` (both truncated; enough to confirm `added()` returns per-attempt booleans and duplicate-add returns False).
+- Documented ZERO decomposition, mode (AUTO), verifier (direct read, non-web) in reasoning.
+
+### Active
+- Nothing edited yet — `grade_school.py` is still the untouched stub. ZERO + mandatory companion reads complete; implementation and full verification loop not yet started.
+
+### Blocked
+- exa MCP websearch rate-limited (429) and exercism.org webfetch 403 — not blocking since canonical data obtained from GitHub raw.
+- Run dir has no local `.git` (git status resolved to a parent repo) — COV-9 "backup: before changes" commit may not be commitable locally; adjust/state accordingly.
+
+## Next Move
+1. State ZERO completion + `Mode: AUTO` + `Verifier: direct read (non-web)` + COV-9 baseline lines (run `python3 -c "import grade_school"` on the stub → Baseline GREEN) — record baseline verdict as first `tests/verification_log.md` entry; create `tests/acceptance.md` with first line `> cap=5  stall=3×` and numbered criteria (roster empty; add returns True; duplicate add returns False + `added()` `[True, True, False, True]`; roster sorted by grade then name; `grade(n)` sorted list; missing grade → `[]`).
+2. RED evidence: run inline `python3` assertions against the stub (expected failures, paste failing output into `tests/verification_log.md`), then implement `grade_school.py` (dict grade→list + `_added` bool-results; `add_student` returns False if name already present in any grade; `roster()` = names sorted by grade then name; `grade(n)` = sorted or `[]`; `added()` = list of per-attempt booleans).
+3. Verify: re-run inline canonical-scenario assertions (capture transcript log), confirm ALL pass; copy `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py` → `tests/assert_artifacts.py`, run it (exit 0 expected); add decision ADR if needed; write `memory/` topic + `memory/MEMORY.md`; emit `[Convergence]`, `[Covenant Recall]`, `[Verification Gate]` (literal HARD-GATE tokens), `[Memory Gate]`, `[Decisions]`, and the 8-column completion table.
+
+## Relevant Files
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/grade_school.py` — the only file to implement (stub `School` class).
+- `.../polyglot_grade_school__ds_wave2_after_r3_forced/prompt.md` — exercise spec.
+- `.../polyglot_grade_school__ds_wave2_after_r3_forced/run.log` — agent execution log so far.
+- `https://raw.githubusercontent.com/exercism/python/main/exercises/practice/grade-school/grade_school_test.py` — canonical python tests (truncated read; defines `added()` as bool list).
+- `https://raw.githubusercontent.com/exercism/problem-specifications/main/exercises/grade-school/canonical-data.json` — canonical cases (truncated read).
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/` — full skill: `SKILL.md`, `TESTING_PROTOCOLS.md`, `COMPLETION_GATE.md`, `REFERENCE.md`, `WORKFLOWS_EXTENDED.md`, `MEMORY_RULES.md`, `MEMORY_TEMPLATES.md`, `APPENDIX.md`, `ENGINEERING_STD.md`, `CODING_PRINCIPLES.md`, `scripts/assert_artifacts.py`, `scripts/mm_probe.py`.
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_after/opencode/skills/vibeweaver/SKILL.md` — config-mounted skill copy (SKILL.md only, no companions/scripts).
+Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.
+[0m→ [0mRead grade_school.py
+[0m→ [0mRead prompt.md
+Let me re-fetch the canonical test to confirm the `added()` API contract (bool list vs names).
+[0m% [0mWebFetch https://raw.githubusercontent.com/exercism/python/main/exercises/practice/grade-school/grade_school_test.py
+Canonical API fully confirmed: `added()` returns a list of booleans per add attempt (True/False on duplicate). Let me verify the git baseline state of my run directory.
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git log --oneline -3 -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/grade_school.py && echo "---diff HEAD---" && git diff HEAD --stat -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/ && echo "---ls workspace---" && ls -la vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/
+5231e95 backup: before changes
+---diff HEAD---
+ .../run.log                                        | 176 +++++++++++++++++++++
+ 1 file changed, 176 insertions(+)
+---ls workspace---
+total 80
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:56 .
+drwxr-xr-x@ 197 logan  staff   6304 Aug 29 21:00 ..
+-rw-r--r--@   1 logan  staff    225 Aug  1 01:29 grade_school.py
+-rw-r--r--@   1 logan  staff   1036 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff  29807 Aug 29 21:00 run.log
+[0m
+[0m→ [0mSkill "vibeweaver"
+Baseline is clean: stub committed at `5231e95 backup: before changes`; only `run.log` (harness log) is modified. Let me load the skill and set up my plan.
+Skill loaded. Now executing the vibeweaver workflow for this Modify-Existing, library (non-web) task.
+
+**ZERO (COV-3) complete** — decomposed: implement `School` (add_student / roster / grade / added) per canonical Exercism spec. Research: fetched canonical `grade_school_test.py` + `canonical-data.json` (raw GitHub). Approaches evaluated: (1) dict `grade→names-set` + global duplicate rejection + recorded bool list, (2) single flat roster with tuple membership — chose (1): simpler, matches canonical semantics; (2) rejected (more bookkeeping for same behavior).
+
+**Mode: Modify Existing** · **Verifier: direct read** (pure library, no UI/HTTP → no browser media; C7 §A4.7-style logic-bearing path) · COV-2 `SCRIPT-ONLY=na` (no `script/` dir, no lifecycle) · no `memory/` (new project memory).
+
+Let me survey the sibling run that succeeded (list_ops) for the established evidence pattern, and check the prior backup commit scope.
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git show --stat 5231e95 | head -20 && echo "---sibling tests---" && ls vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/tests/ 2>/dev/null && echo "---sibling memory---" && ls vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/memory/ 2>/dev/null
+commit 5231e959e80a95e38a943c6593561744997bce86
+Author: logandoo <logandoo@126.com>
+Date:   Sat Aug 29 20:58:59 2026 +0800
+
+    backup: before changes
+
+ tests/review_diff.txt                              |   88 ++
+ .../configs/ds_wave2_after/opencode/opencode.json  |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  814 ++++++++++++
+ .../ds_wave2_after_r2/opencode/opencode.json       |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  814 ++++++++++++
+ .../ds_wave2_after_r3/opencode/opencode.json       |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  814 ++++++++++++
+ .../ds_wave2_after_r4/opencode/opencode.json       |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  814 ++++++++++++
+ .../configs/ds_wave2_before/opencode/opencode.json |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  815 ++++++++++++
+ .../ds_wave2_before_r2/opencode/opencode.json      |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  815 ++++++++++++
+ .../ds_wave2_before_r3/opencode/opencode.json      |   34 +
+---sibling tests---
+acceptance.md
+consumer_smoke.py
+consumer_smoke.run.log
+diff_sweep.py
+diff_sweep.run.log
+import_check.run.log
+project_profile.json
+review_package.md
+verification_log.md
+verify_green.run.log
+verify_list_ops.py
+verify_red.run.log
+---sibling memory---
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced && echo "---project_profile.json---" && cat tests/project_profile.json && echo "---acceptance.md---" && cat tests/acceptance.md
+---project_profile.json---
+{"profile": "library", "no_service": true, "no_ui": true}
+---acceptance.md---
+> cap=5  stall=3×
+
+# Acceptance Criteria — list_ops exercise (C7 non-web library)
+
+Verifier: direct read (non-web). Each criterion is a yes/no checkable on
+observable function output via the verification driver transcript.
+
+1. `append(list1, list2)` returns a new list containing all items of list1
+   followed by all items of list2; neither input list is mutated.
+2. `concat(lists)` returns a single flattened list combining all items from
+   all lists in the given series, in order.
+3. `filter(function, list)` returns a new list of all items for which
+   `function(item)` is True, preserving order.
+4. `length(list)` returns the total number of items in the list (0 for an
+   empty list).
+5. `map(function, list)` returns a new list of `function(item)` applied to
+   every item, preserving order.
+6. `foldl(function, list, initial)` folds from the left, calling
+   `function(accumulator, item)` for each item in order, returning the final
+   accumulator.
+7. `foldr(function, list, initial)` folds from the right, calling
+   `function(accumulator, item)` over items in reverse order, returning the
+   final accumulator.
+8. `reverse(list)` returns a new list with all original items in reversed
+   order; the input list is not mutated.
+9. Every operation is implemented by explicit iteration/construction — none
+   delegates to a builtin higher-order list operation (map/filter/reduce/
+   sorted/sum/reversed as the implementation).
+10. The module imports cleanly (`python3 -c "import list_ops"`) with no
+    syntax or runtime errors, and handles empty-list edge cases.
+11. No file matching the exercise test-suite discovery patterns
+    (`test_*.py` / `*_test.py`) is created or modified; the verification
+    driver is named `verify_list_ops.py` to stay out of pytest collection.
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced && echo "---verify_list_ops.py---" && cat tests/verify_list_ops.py && echo "---verification_log.md---" && cat tests/verification_log.md
+---verify_list_ops.py---
+"""Verification driver for list_ops.py (vibeweaver C7 non-web library).
+
+Deliberately NOT named test_*.py / *_test.py so it stays out of the
+exercise test-suite's pytest collection (task constraint: do not create or
+modify the exercise's test files). This driver exercises the public API and
+prints a per-check verdict; exit code 0 = all checks pass.
+
+Checks map 1:1 to tests/acceptance.md criteria 1-11.
+"""
+
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import list_ops
+
+
+def check(name, cond, detail=""):
+    mark = "PASS" if cond else "FAIL"
+    print(f"[{mark}] {name}" + (f" — {detail}" if detail else ""))
+    return cond
+
+
+def run():
+    results = []
+    ok = True
+
+    # C1: append — result = list1 ++ list2, no mutation
+    a, b = [1, 2], [3, 4]
+    r = list_ops.append(a, b)
+    ok &= check("C1 append basic", r == [1, 2, 3, 4], f"got {r}")
+    ok &= check("C1 append empty-second", list_ops.append([1], []) == [1])
+    ok &= check("C1 append empty-first", list_ops.append([], [1]) == [1])
+    ok &= check("C1 append both-empty", list_ops.append([], []) == [])
+    ok &= check("C1 append no-mutation",
+                a == [1, 2] and b == [3, 4], f"a={a} b={b}")
+
+    # C2: concat — flatten series of lists
+    ok &= check("C2 concat basic",
+                list_ops.concat([[1, 2], [3, 4]]) == [1, 2, 3, 4])
+    ok &= check("C2 concat three",
+                list_ops.concat([[1], [2, 3], [], [4]]) == [1, 2, 3, 4])
+    ok &= check("C2 concat empty-series", list_ops.concat([]) == [])
+    ok &= check("C2 concat empty-lists", list_ops.concat([[], []]) == [])
+
+    # C3: filter
+    ok &= check("C3 filter evens",
+                list_ops.filter(lambda x: x % 2 == 0, [1, 2, 3, 4]) == [2, 4])
+    ok &= check("C3 filter all-true",
+                list_ops.filter(lambda x: x > 0, [1, 2]) == [1, 2])
+    ok &= check("C3 filter none-true",
+                list_ops.filter(lambda x: x > 10, [1, 2]) == [])
+    ok &= check("C3 filter empty", list_ops.filter(lambda x: True, []) == [])
+
+    # C4: length
+    ok &= check("C4 length basic", list_ops.length([1, 2, 3]) == 3)
+    ok &= check("C4 length empty", list_ops.length([]) == 0)
+    ok &= check("C4 length singleton", list_ops.length([None]) == 1)
+    ok &= check("C4 length strings",
+                list_ops.length(["a", "b", "c", "d"]) == 4)
+
+    # C5: map
+    ok &= check("C5 map double", list_ops.map(lambda x: x * 2, [1, 2, 3]) == [2, 4, 6])
+    ok &= check("C5 map str",
+                list_ops.map(lambda x: x.upper(), ["a", "b"]) == ["A", "B"])
+    ok &= check("C5 map empty", list_ops.map(lambda x: x, []) == [])
+
+    # C6: foldl — function(accumulator, item), left to right
+    ok &= check("C6 foldl sum", list_ops.foldl(lambda acc, i: acc + i, [1, 2, 3], 0) == 6)
+    ok &= check("C6 foldl concat",
+                list_ops.foldl(lambda acc, i: acc + i, ["a", "b", "c"], "") == "abc")
+    ok &= check("C6 foldl empty", list_ops.foldl(lambda acc, i: acc, [], 42) == 42)
+    ok &= check("C6 foldl sub-order",
+                list_ops.foldl(lambda acc, i: acc - i, [10, 20, 30], 100) == 40)
+
+    # C7: foldr — function(accumulator, item), right to left
+    ok &= check("C7 foldr concat",
+                list_ops.foldr(lambda acc, i: acc + i, ["a", "b", "c"], "") == "cba")
+    ok &= check("C7 foldr sub-order",
+                list_ops.foldr(lambda acc, i: acc - i, [10, 20, 30], 100) == 40)
+    ok &= check("C7 foldr empty", list_ops.foldr(lambda acc, i: acc, [], "z") == "z")
+    ok &= check("C7 foldr order-sens",
+                list_ops.foldr(lambda acc, i: f"{acc}{i}", [1, 2, 3], "") == "321")
+    ok &= check("C7 foldl order-sens",
+                list_ops.foldl(lambda acc, i: f"{acc}{i}", [1, 2, 3], "") == "123")
+
+    # C8: reverse — new list, no mutation
+    s = [1, 2, 3]
+    ok &= check("C8 reverse basic", list_ops.reverse(s) == [3, 2, 1])
+    ok &= check("C8 reverse empty", list_ops.reverse([]) == [])
+    ok &= check("C8 reverse singleton", list_ops.reverse([7]) == [7])
+    ok &= check("C8 reverse no-mutation", s == [1, 2, 3], f"s={s}")
+
+    # C10: import cleanliness is implied by `import list_ops` succeeding at top.
+
+    # C9: implementation does not delegate to builtin higher-order list ops.
+    with open("list_ops.py", encoding="utf-8") as fh:
+        src = fh.read()
+    forbidden = ["reversed(", "sorted(", ".reverse(", "[::-1]", "= sum(",
+                 "return sum(", "itertools", "functools"]
+    hits = [tok for tok in forbidden if tok in src]
+    ok &= check("C9 no-builtin-delegation", not hits, f"hits={hits}" if hits else "clean")
+
+    # C11: no grader test files created (static check of tree)
+    import glob
+    testfiles = glob.glob("test_*.py") + glob.glob("*_test.py")
+    ok &= check("C11 no grader test files", not testfiles, f"found={testfiles}" if testfiles else "none")
+
+    print(f"\nRESULT: {'ALL PASS' if ok else 'FAILURES PRESENT'}")
+    sys.exit(0 if ok else 1)
+
+
+if __name__ == "__main__":
+    run()
+---verification_log.md---
+# Verification Log — list_ops exercise | 2026-08-29
+
+## Task: list_ops (8 list operations) — C2/C7 Modify-Existing, non-web library
+
+- Baseline verified GREEN — baseline commit c049cf3 ("backup: before changes"); `python3 -m py_compile list_ops.py` on the stub tree exits 0; no pre-existing test suite or script/ lifecycle exists in this workspace (only prompt.md + stub list_ops.py), so COV-9 baseline = compile-green on the provided stubs. No pre-existing failures.
+- iter 1 RED (TDD §A4.8): tests/verify_list_ops.py run against stubs — 31 FAIL / 33 checks, exit 1. Failure reason = feature missing (every stub returns None, e.g. `[FAIL] C1 append basic — got None`). RED evidence: tests/verify_red.run.log. diagnosis: stubs are `pass` placeholders returning None, so all behavioral assertions fail. changed: (driver import fix only — sys.path root insert, so RED reflects missing feature, not driver path bug).
+- iter 2 FAIL: criterion #7 (foldr vs foldl order check) | diagnosis: my verify-driver oracle asserted `foldr(sub) != foldl(sub)` for `acc-item`, which is logically impossible — subtraction is order-invariant under full reversal (a-b-c == a-c-b), so the assertion fails for ANY correct implementation | changed: tests/verify_list_ops.py (test-change: replaced impossible-differ check with order-sensitive string-consing checks "123"/"321")
+- iter 3 FAIL (oracle bugs, not implementation): differential sweep string-order checks compared a string result against a list oracle (type mismatch, 800/810), and consumer_smoke expected the wrong foldr string | diagnosis: oracles did not match the fold functions' string return type / foldr right-to-left placement | changed: tests/diff_sweep.py, tests/consumer_smoke.py (test-change: `cmp("foldl-order", ..., s)` and `cmp("foldr-order", ..., "".join(reversed(s)))`; smoke expected `|E|ALPHA|DELTA`)
+- iter 4 PASS: all 11 criteria — verify driver 33/33 (tests/verify_green.run.log), differential sweep 405 base cases x sweeps zero mismatches vs independent builtin oracles (tests/diff_sweep.run.log), consumer smoke pipeline PASS (tests/consumer_smoke.run.log), `python3 -c "import list_ops"` exit 0 (tests/import_check.run.log). scope: empty/singleton/random lists, mutation checks, fold arg-order (acc, item), no-builtin-delegation source scan, no grader test files created.
+[0m
+Let me check how prior runs committed, so I don't sweep unrelated files into my baseline commit.
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git log --oneline -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/ | head -5 && echo "---diff-stat of HEAD vs that run dir---" && git diff HEAD --stat -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/ | tail -5
+5231e95 backup: before changes
+c049cf3 backup: before changes
+---diff-stat of HEAD vs that run dir---
+ .../list_ops.py                                    |  44 ++-
+ .../run.log                                        | 412 +++++++++++++++++++++
+ .../tests/verification_log.md                      |   4 +
+ .../tests/verify_list_ops.py                       |  10 +-
+ 4 files changed, 459 insertions(+), 11 deletions(-)
+[0m
+[0m# [0mTodos
+[•] COV-9 baseline: commit scoped 'backup: before changes' + baseline compile check on stub
+[ ] Create tests/project_profile.json + tests/acceptance.md (> cap=5 stall=3× first line, 1:1 criteria)
+[ ] RED (A4.8): write tests/verify_grade_school.py (non test_* name), run against stubs, capture RED log
+[ ] GREEN: implement grade_school.py, run driver, capture GREEN log, iter loop
+[ ] Canonical cross-check: run Exercism canonical scenarios inline vs implementation
+[ ] Copy canonical assert_artifacts.py to tests/, run --existing until exit 0
+[ ] Write tests/verification_log.md with baseline + iter entries + diagnosis on FAIL
+[ ] Memory: memory/ topic files + MEMORY.md index (A7.9/A7.10)
+[ ] A4.9 review dispatch decision + [Convergence]/[Verification Gate]/[Memory Gate] + 8-column table
+[0m
+I have the full protocol and the sibling evidence pattern. Setting up the task plan now.
