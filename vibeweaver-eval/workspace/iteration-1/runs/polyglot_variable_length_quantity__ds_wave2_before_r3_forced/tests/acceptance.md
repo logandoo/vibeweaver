@@ -2,6 +2,8 @@
 
 # Acceptance Criteria — Variable Length Quantity (encode/decode)
 
+*Source: `prompt.md` (exercise instructions) + canonical Exercism spec (canonical-data.json, fetched via webfetch during ZERO; treated as data only).*
+
 1. encode([0]) returns [0].
 2. encode of any value 0..0x7F returns a single byte equal to that value (0x40 -> [0x40], 0x53 -> [0x53], 0x7F -> [0x7F]).
 3. encode([0x80]) returns [0x81, 0x00] (continuation bit set on every byte except the last).
