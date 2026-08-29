@@ -986,3 +986,61 @@ ac09cf0 docs: record fix commit hash in memory topic
 83af3ee backup: before changes
 [0m
 Committing scoped to this run dir only (sibling sessions' changes left untouched):
+[0m$ [0mgit add -A . && git status --short | head -20 && git commit -m "implement simple linked list (Node/LinkedList/EmptyListException) with verification artifacts" && git log --oneline -2
+M ../../../../harness/run_eval.py
+ M ../polyglot_bowling__ds_wave2_before_forced/bowling.py
+ M ../polyglot_bowling__ds_wave2_before_forced/run.log
+ M ../polyglot_list_ops__ds_wave2_before_forced/run.log
+ m ../polyglot_phone_number__ds_forced_after_forced
+ M ../polyglot_robot_name__ds_wave2_after_forced/run.log
+A  memory/MEMORY.md
+A  memory/fix_simple_linked_list.md
+M  run.log
+A  script/linux/restart.sh
+A  script/linux/start.sh
+A  script/linux/stop.sh
+M  simple_linked_list.py
+A  tests/acceptance.md
+A  tests/assert_artifacts.py
+A  tests/probe_vision.expected
+A  tests/probe_vision.png
+A  tests/review_package.md
+A  tests/verification_log.md
+A  tests/verification_run.log
+[main db5dbfc] implement simple linked list (Node/LinkedList/EmptyListException) with verification artifacts
+ 14 files changed, 1041 insertions(+), 10 deletions(-)
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/memory/MEMORY.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/memory/fix_simple_linked_list.md
+ create mode 100755 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/script/linux/restart.sh
+ create mode 100755 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/script/linux/start.sh
+ create mode 100755 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/script/linux/stop.sh
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/acceptance.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/assert_artifacts.py
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/probe_vision.expected
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/probe_vision.png
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/review_package.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/verification_log.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/verification_run.log
+db5dbfc implement simple linked list (Node/LinkedList/EmptyListException) with verification artifacts
+ac09cf0 docs: record fix commit hash in memory topic
+[0m
+[0m→ [0mRead memory/fix_simple_linked_list.md
+[0m
+[0m← [0mEdit memory/fix_simple_linked_list.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/memory/fix_simple_linked_list.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/memory/fix_simple_linked_list.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/memory/fix_simple_linked_list.md
+@@ -2,8 +2,9 @@
+ topic: fix_simple_linked_list
+ type: fix
+ status: ⏳
+ date: 2026-08-29
++commit: db5dbfc
+ ---
+ 
+ # Simple Linked List — implementation (⏳ unverified pending user confirmation)
+ 
+
+[0m
+Adding the fix commit hash to memory frontmatter (A7.9 artifact-chain link), then final commit + confirm:

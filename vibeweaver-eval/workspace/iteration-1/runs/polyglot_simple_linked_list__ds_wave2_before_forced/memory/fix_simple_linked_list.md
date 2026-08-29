@@ -3,6 +3,7 @@ topic: fix_simple_linked_list
 type: fix
 status: ⏳
 date: 2026-08-29
+commit: db5dbfc
 ---
 
 # Simple Linked List — implementation (⏳ unverified pending user confirmation)
