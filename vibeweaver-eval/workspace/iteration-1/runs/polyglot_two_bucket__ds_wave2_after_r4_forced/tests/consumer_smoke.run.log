@@ -1,0 +1,1 @@
+consumer smoke PASS: from two_bucket import measure works; 2 value cases + 1 raise case OK

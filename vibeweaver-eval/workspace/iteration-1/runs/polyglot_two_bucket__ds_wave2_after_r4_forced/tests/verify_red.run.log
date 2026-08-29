@@ -1,0 +1,13 @@
+FAIL (3, 5, 1, 'one'): got None, want (4, 'one', 5)
+FAIL (3, 5, 1, 'two'): got None, want (8, 'two', 3)
+FAIL (7, 11, 2, 'one'): got None, want (14, 'one', 11)
+FAIL (7, 11, 2, 'two'): got None, want (18, 'two', 7)
+FAIL (1, 3, 3, 'two'): got None, want (1, 'two', 0)
+FAIL (2, 3, 3, 'one'): got None, want (2, 'two', 2)
+FAIL (5, 1, 2, 'one'): got None, want (6, 'one', 1)
+FAIL (3, 15, 9, 'one'): got None, want (6, 'two', 0)
+FAIL (6, 15, 9, 'one'): got None, want (10, 'two', 0)
+FAIL (6, 15, 5, 'one'): got None, expected ValueError
+FAIL (5, 7, 8, 'one'): got None, expected ValueError
+
+RESULT: 11 FAILURE(S)
