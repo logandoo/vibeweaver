@@ -1,0 +1,9 @@
+{
+  "task": "polyglot_variable_length_quantity",
+  "arm": "ds_wave2_before_r3_forced",
+  "exit_code": 0,
+  "wall_seconds": 442.4,
+  "timed_out": false,
+  "log": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r3_forced/run.log",
+  "workdir": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r3_forced"
+}

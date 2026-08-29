@@ -1106,3 +1106,172 @@ Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspa
  4. encode([0x2000]) returns [0xC0, 0x00].
 
 [0m
+Now committing the final artifacts, then running the final fresh test pass + assert_artifacts on the exact delivered tree.
+[0m$ [0mgit add -A tests/ memory/ run.log 2>/dev/null; git status --short
+M ../polyglot_bowling__ds_wave2_after_r3_forced/bowling.py
+ M ../polyglot_bowling__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_bowling__ds_wave2_before_r3_forced/bowling.py
+ M ../polyglot_bowling__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_grade_school__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_grade_school__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_list_ops__ds_wave2_after_r3_forced/run.log
+ m ../polyglot_phone_number__ds_forced_after_forced
+ M ../polyglot_phone_number__ds_wave2_after_r3_forced/phone_number.py
+ M ../polyglot_phone_number__ds_wave2_after_r3_forced/run.log
+ m ../polyglot_phone_number__ds_wave2_before_forced
+ M ../polyglot_phone_number__ds_wave2_before_r3_forced/memory/fix_phone_number.md
+ M ../polyglot_phone_number__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_phone_number__ds_wave2_before_r3_forced/tests/verification_log.md
+ M ../polyglot_pig_latin__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_pig_latin__ds_wave2_after_r3_forced/tests/verification_log.md
+ M ../polyglot_pig_latin__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_robot_name__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_transpose__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_transpose__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_transpose__ds_wave2_before_r3_forced/transpose.py
+ M ../polyglot_two_bucket__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_two_bucket__ds_wave2_after_r3_forced/two_bucket.py
+ M ../polyglot_two_bucket__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_two_bucket__ds_wave2_before_r3_forced/two_bucket.py
+M  memory/fix_variable_length_quantity.md
+M  run.log
+M  tests/acceptance.md
+A  tests/fresh_run_canonical.log
+A  tests/fresh_run_sweep.log
+A  tests/review_package.md
+M  tests/verification_log.md
+ m ../swebench_pallets_flask_4045__ds_forced_after_forced
+ m ../swebench_pallets_flask_4045__ds_forced_before_forced
+ m ../swebench_pallets_flask_4045__ds_wave2_after_forced
+ m ../swebench_pallets_flask_4045__ds_wave2_before_forced
+ m ../swebench_pallets_flask_4992__ds_forced_after_forced
+ m ../swebench_pallets_flask_4992__ds_forced_before_forced
+ m ../swebench_pallets_flask_4992__ds_wave2_after_forced
+ m ../swebench_pallets_flask_4992__ds_wave2_before_forced
+ m ../swebench_psf_requests_3362__ds_forced_after_forced
+ m ../swebench_psf_requests_3362__ds_forced_before_forced
+ m ../swebench_psf_requests_3362__ds_wave2_after_forced
+ m ../swebench_psf_requests_3362__ds_wave2_before_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_forced_after_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_forced_before_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_wave2_after_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_wave2_before_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_forced_after_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_forced_before_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_wave2_after_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_wave2_before_forced
+ m ../swebench_sympy_sympy_21627__ds_forced_after_forced
+ m ../swebench_sympy_sympy_21627__ds_forced_before_forced
+ m ../swebench_sympy_sympy_21627__ds_wave2_after_forced
+ m ../swebench_sympy_sympy_21627__ds_wave2_before_forced
+?? ../polyglot_bowling__ds_wave2_after_r3_forced/memory/
+?? ../polyglot_bowling__ds_wave2_after_r3_forced/tests/
+?? ../polyglot_bowling__ds_wave2_before_r3_forced/memory/
+?? ../polyglot_bowling__ds_wave2_before_r3_forced/script/
+?? ../polyglot_bowling__ds_wave2_before_r3_forced/tests/
+?? ../polyglot_grade_school__ds_wave2_before_r3_forced/memory/
+?? ../polyglot_grade_school__ds_wave2_before_r3_forced/tests/acceptance.md
+?? ../polyglot_grade_school__ds_wave2_before_r3_forced/tests/final_fresh_run.log
+?? ../polyglot_grade_school__ds_wave2_before_r3_forced/tests/verification_log.md
+?? ../polyglot_phone_number__ds_wave2_after_r3_forced/memory/
+?? ../polyglot_phone_number__ds_wave2_after_r3_forced/script/
+?? ../polyglot_phone_number__ds_wave2_after_r3_forced/tests/
+?? ../polyglot_phone_number__ds_wave2_before_r3_forced/tests/fresh_run.log
+?? ../polyglot_phone_number__ds_wave2_before_r3_forced/tests/review_package.md
+?? ../polyglot_pig_latin__ds_wave2_after_r3_forced/tests/baseline_run.log
+?? ../polyglot_pig_latin__ds_wave2_after_r3_forced/tests/fresh_run.log
+?? ../polyglot_pig_latin__ds_wave2_after_r3_forced/tests/review_package.md
+?? ../polyglot_transpose__ds_wave2_before_r3_forced/memory/
+?? ../polyglot_transpose__ds_wave2_before_r3_forced/tests/
+?? ../polyglot_two_bucket__ds_wave2_after_r3_forced/tests/
+?? ../polyglot_variable_length_quantity__ds_wave2_after_r3_forced/
+?? ../result_polyglot_grade_school__ds_wave2_before_r3_forced.json
+?? ../result_polyglot_phone_number__ds_wave2_after_r3_forced.json
+?? ../result_polyglot_phone_number__ds_wave2_before_r3_forced.json
+?? ../result_polyglot_pig_latin__ds_wave2_before_r3_forced.json
+?? ../result_polyglot_transpose__ds_wave2_before_r3_forced.json
+?? ../result_polyglot_two_bucket__ds_wave2_before_r3_forced.json
+[0m
+Only my workspace files staged. Committing final artifacts, then the fresh-run-on-final-tree verification.
+[0m$ [0mgit commit -q -m "docs: final verification artifacts, A4.9 review package, memory commit refs" && git rev-parse --short HEAD && git status --short .
+3e71eb7
+ M run.log
+[0m
+[0m$ [0mpython3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/vlq_verify/test_vlq.py > tests/fresh_run_canonical.log 2>&1; echo "suite_exit=$?"; python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/vlq_verify/sweep_vlq.py > tests/fresh_run_sweep.log 2>&1; echo "sweep_exit=$?"; python3 tests/assert_artifacts.py; echo "assert_exit=$?"
+suite_exit=0
+sweep_exit=0
+profile: library — service lifecycle N/A (group 5 skipped); UI N/A
+ASSERT FAILURES (5):
+  - new-project design doc missing: FLOW_DESIGN.html (A5 / C1 step 2)
+  - new-project design doc missing: DATABASE_DESIGN.html (A5 / C1 step 2)
+  - new-project design doc missing: BACKEND_DESIGN.html (A5 / C1 step 2)
+  - new-project README.md/README.html missing (C1 step 15)
+  - new-project requirements.txt/package.json missing (C1 step 15)
+assert_exit=1
+[0m
+This is a Modify-Existing task — the correct invocation is `--existing` (new-project design-doc checks are skipped). Re-running correctly:
+[0m$ [0mpython3 tests/assert_artifacts.py --existing; echo "assert_exit=$?"
+profile: library — service lifecycle N/A (group 5 skipped); UI N/A
+assert_artifacts.py: all 9 checks pass (exit 0)
+assert_exit=0
+[0m
+[0m$ [0mgit status --short . ; echo "---"; git diff --stat tests/ 2>/dev/null; echo "---logtail---"; tail -3 tests/fresh_run_canonical.log; cat tests/fresh_run_sweep.log
+M run.log
+---
+---logtail---
+Ran 34 tests in 0.000s
+
+OK
+SWEEP DONE: checks=8019 failures=0
+[0m
+[0m$ [0mgit show --stat --format='%h %s' a056e23 | tail -15
+a056e23 feat: implement VLQ encode/decode (32-bit restricted)
+
+ .../memory/MEMORY.md                               |   8 +
+ .../memory/fix_variable_length_quantity.md         |  32 ++
+ .../tests/assert_artifacts.py                      | 479 +++++++++++++++++++++
+ .../tests/canonical_suite_run.log                  |   5 +
+ .../tests/differential_sweep_run.log               |   1 +
+ .../tests/project_profile.json                     |   5 +
+ .../tests/verification_log.md                      |  10 +
+ .../variable_length_quantity.py                    |  28 +-
+ 8 files changed, 566 insertions(+), 2 deletions(-)
+[0m
+[0m← [0mWrite tests/decisions.md
+Wrote file successfully.
+[0m
+Adding the COV-12 AUTO-mode decisions artifact (required before the completion table), then committing and re-verifying.
+[0m$ [0mgit add tests/decisions.md && git commit -q -m "docs: record AUTO-mode decisions (ADR-001..004)" && git rev-parse --short HEAD && git status --short . && python3 tests/assert_artifacts.py --existing; echo "assert_exit=$?"
+e0fb728
+ M run.log
+profile: library — service lifecycle N/A (group 5 skipped); UI N/A
+assert_artifacts.py: all 9 checks pass (exit 0)
+assert_exit=0
+[0m
+Final airtight fresh-run on HEAD `e0fb728` (code unchanged since `a056e23`, but re-running so the delivered tree itself is the tested tree):
+[0m$ [0mpython3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/vlq_verify/test_vlq.py > tests/fresh_run_canonical.log 2>&1; echo "suite_exit=$?"; python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/vlq_verify/sweep_vlq.py > tests/fresh_run_sweep.log 2>&1; echo "sweep_exit=$?"; git diff --stat tests/ 2>/dev/null; echo "diff_empty=$?"; tail -2 tests/fresh_run_canonical.log; cat tests/fresh_run_sweep.log
+suite_exit=0
+sweep_exit=0
+diff_empty=0
+
+OK
+SWEEP DONE: checks=8019 failures=0
+[0m
+All 9 pre-output audit items hold (baseline GREEN logged · RED evidence in log · fresh run on exact tree `e0fb728` · verifier probed+announced · tests on disk · script-only `na` for pure library · A4.9 reviewer dispatched, verdict `ready`). Completing:
+
+[Covenant Recall] checked: all 12 covenants hold for this completion
+
+[Memory Gate] Passed: MEMORY.md index updated; topic `memory/fix_variable_length_quantity.md` written with commit ref `a056e23` + file sha; ⏳ status documented (test-verified, awaiting user confirmation); A7.9/A7.10 obligations hold | memory_gate: pass
+
+[Convergence] VLQ encode/decode: 4 iters | 23/23 pass | 0 stalls | 0 cap-hits
+
+[Verification Gate] Verifier: direct-read | Loop executed: yes | Media graded externally: 0/0 | Iterations: 4 | Tests executed with artifacts: yes | E2E depth: unit-only (pure-function library — no server, no cross-endpoint behavior) | Script-only build/lifecycle: na (no build/lifecycle for a pure library) | Fresh-run on final tree: yes | TDD RED evidence: yes | Code review: clean | assert_artifacts.py: pass=9/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=na
+
+[Decisions] 4 auto-decisions → tests/decisions.md
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|--------------------------------------|------------------------|---------------|--------------|------------------------------------------|--------|
+| 1 | Implement VLQ `encode(numbers)` / `decode(bytes_)` per Exercism spec (32-bit unsigned) | Searched: websearch (rate-limited, unusable) → skill companions (TESTING_PROTOCOLS.md, REFERENCE.md C2) → webfetch of canonical Exercism test file + canonical-data.json. Found: canonical 34-test suite, `0x80` continuation / `0x7F` payload rules, exact error strings. Rejected: string-bit-reference for the implementation (kept only as an independent test oracle in the temp-runner sweep) | LSB-first 7-bit grouping collected then reversed (yields canonical minimal form); `decode` accumulates `(value<<7)|(byte&0x7F)` and terminates each value when bit 7 is clear; strict 0..0xFFFFFFFF validation with exact messages. Why: matches canonical-data behavior, off-by-one-free at every group boundary, exact error texts | variable_length_quantity.py; tests/verification_log.md; tests/canonical_suite_run.log; tests/differential_sweep_run.log; tests/assert_artifacts.py; tests/project_profile.json; memory/MEMORY.md; memory/fix_variable_length_quantity.md (tests/acceptance.md added in baseline dc937309) | `encode` validates range (`ValueError("negative integer")` / `ValueError("integer too large")`), emits 7-bit groups with `0x80` continuation; `decode` parses stream, raises `ValueError("incomplete sequence")` on truncated input; `[]`→`[]` both ways; multi-value concat + order preserved | tests/canonical_suite_run.log → "Ran 34 tests in 0.000s / OK"; tests/differential_sweep_run.log → "SWEEP DONE: checks=8019 failures=0" (round-trip, multi-value, 3000 random byte sequences, error-message checks vs independent reference) | a056e23 |
+| 2 | A4.9 independent review + fresh-run confirmation of the delivered tree (COV-8/COV-6) | A4.9 reviewer subagent over tests/review_package.md (range `a056e23^..a056e23`); package built from `git diff -U10` | Read-only reviewer dispatched; verdict `ready` — no Critical/Important, 4 Minors deferred to memory; then covering tests re-run fresh on the exact final tree + assert_artifacts gate | tests/review_package.md; tests/fresh_run_canonical.log; tests/fresh_run_sweep.log; tests/verification_log.md; tests/acceptance.md; memory/fix_variable_length_quantity.md; tests/decisions.md | Added review package (records exact diff range), fresh-run evidence logs, A4.9 verdict + iter-4 PASS log entries, acceptance.md source link, memory commit/sha refs, AUTO-mode ADRs | A4.9 verdict "ready"; tests/fresh_run_canonical.log "OK" + tests/fresh_run_sweep.log "checks=8019 failures=0" on HEAD e0fb728 (byte-identical to committed); assert_artifacts.py --existing → "all 9 checks pass (exit 0)" | 3e71eb7 (review/artifacts), e0fb728 (decisions.md) |
+
+Work complete. Delivered `variable_length_quantity.py` (encode/decode, 32-bit restricted) verified by 34/34 canonical tests + 8019-check independent sweep, reviewed clean, `assert_artifacts.py` exit 0.

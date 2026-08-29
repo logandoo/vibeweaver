@@ -1,0 +1,4 @@
+PASS input='ABC\nDEF' -> 'AD\nBE\nCF' (expected 'AD\nBE\nCF')
+PASS input='ABC\nDE' -> 'AD\nBE\nC' (expected 'AD\nBE\nC')
+PASS input='AB\nDEF' -> 'AD\nBE\n F' (expected 'AD\nBE\n F')
+PASS input='' -> '' (expected '')

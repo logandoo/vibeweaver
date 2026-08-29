@@ -1,0 +1,56 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff   160 Aug 29 21:08 .
+drwxr-xr-x@ 227 logan  staff  7264 Aug 29 21:08 ..
+-rw-r--r--@   1 logan  staff   131 Aug  1 01:29 bowling.py
+-rw-r--r--@   1 logan  staff  2160 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff    39 Aug 29 21:08 run.log
+[0m
+[0m✗ [0mExa Web Search "bowling score calculator codewars kata implement roll score python" failed
+[91m[1mError: [0mStatusCode: non 2xx status code (429 POST https://mcp.exa.ai/mcp)
+[0m→ [0mRead prompt.md
+[0m→ [0mRead bowling.py
+[0m→ [0mRead run.log
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_after/opencode/skills/vibeweaver/
+total 96
+drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 .
+drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 ..
+-rw-r--r--@ 1 logan  staff  48978 Aug 28 23:53 SKILL.md
+[0m
+[0m✗ [0mExa Web Search "exercism bowling python BowlingGame roll score solution" failed
+[91m[1mError: [0mStatusCode: non 2xx status code (429 POST https://mcp.exa.ai/mcp)
+[0m
+[0m$ [0mgit rev-parse --is-inside-work-tree 2>&1; python3 -c "import bowling; g=bowling.BowlingGame(); print('baseline import OK, score()=', g.score())"
+true
+baseline import OK, score()= None
+[0m
+The skill directory contains only SKILL.md (no companions — state-skip R1/R1b reads for missing files; no canonical `scripts/assert_artifacts.py` either). Web research (exa MCP) is rate-limited (429 ×2) — stating skip for §0.2 with reason below.
+
+## §2 ZERO — Decompose & Research
+
+**Decompose:** Implement `BowlingGame` in `bowling.py` supporting `roll(pins)` and `score()` per the ten-pin bowling spec in `prompt.md` (10 frames; strike = 10 + next two rolls; spare = 10 + next roll; 10th-frame fill balls counted as pins).
+
+**Approaches evaluated (from domain knowledge; web unavailable):**
+- **A — Record all rolls, walk frames at `score()`:** store every roll in a list; iterate 10 frames advancing a pointer (1 roll for strike, 2 otherwise), summing bonuses from subsequent rolls. Simple, robust, handles 10th-frame fill balls naturally.
+- **B — Incremental frame-state machine:** track current frame/strike-spare pending bonuses on each `roll()`. More state, more bug surface for the 10th frame.
+- **C — Two-pass with deque lookahead:** over-engineered.
+
+**Chosen: A** (smallest, clearest; rejects B's state complexity and C's needless machinery).
+
+**Mode: AUTO**
+
+**Verifier announcement (COV-5):** non-web task (pure Python class, no UI/HTTP) → **`Verifier: direct read (non-web)`** — evidence = CLI invocation transcripts + score outputs.
+
+State-skips: `COV-2` → HARD-GATE-2=na (no `script/`, no build/service lifecycle for a single-module class). §0.2 web research → skipped: exa MCP returned 429 twice; spec in prompt.md is fully self-contained. Companion reads R1/R1b → companions absent from skill dir.
+## §3 Mode: Modify-Existing (stub file) · no `script/`, `memory/`, or `config.toml` present
+
+**COV-9 baseline (per change-wave):**
+```
+git add -A && git commit -m "backup: before changes"
+python3 -c "import bowling..."  — run-once baseline check (no existing build/start script; import check is the runner)
+Baseline verified GREEN — proceed  (stub imports; score() returns None as expected from stub)
+```

@@ -1,0 +1,29 @@
+PASS number('+1 (613)-995-0253') == '6139950253'
+PASS number('613-995-0253') == '6139950253'
+PASS number('1 613 995 0253') == '6139950253'
+PASS number('613.995.0253') == '6139950253'
+PASS number('(223) 456-7890') == '2234567890'
+PASS number('223 456   7890   ') == '2234567890'
+PASS number('12234567890') == '2234567890'
+PASS number('223.456.7890') == '2234567890'
+PASS number('+1 (223) 456-7890') == '2234567890'
+PASS error('123456789') -> ValueError('must not be fewer than 10 digits')
+PASS error('22234567890') -> ValueError('11 digits must start with 1')
+PASS error('321234567890') -> ValueError('must not be greater than 11 digits')
+PASS error('123456789012') -> ValueError('must not be greater than 11 digits')
+PASS error('(223) 456-78a0') -> ValueError('letters not permitted')
+PASS error('223.456.78@0') -> ValueError('punctuations not permitted')
+PASS error('223-456-78:0') -> ValueError('punctuations not permitted')
+PASS error('223-456-78!0') -> ValueError('punctuations not permitted')
+PASS error('(023) 456-7890') -> ValueError('area code cannot start with zero')
+PASS error('(123) 456-7890') -> ValueError('area code cannot start with one')
+PASS error('223 (056) 7890') -> ValueError('exchange code cannot start with zero')
+PASS error('223 (156) 7890') -> ValueError('exchange code cannot start with one')
+PASS error('1 (023) 456-7890') -> ValueError('area code cannot start with zero')
+PASS area_code('2234567890') == '223'
+PASS pretty('2234567890') == '(223)-456-7890'
+PASS pretty('12234567890') == '(223)-456-7890'
+25/25 cases PASS
+[2026-08-29 21:00:57,995] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+.....................                                                    [100%]
+21 passed in 0.01s

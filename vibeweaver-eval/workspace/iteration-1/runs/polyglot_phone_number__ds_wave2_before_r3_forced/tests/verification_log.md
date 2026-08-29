@@ -14,3 +14,7 @@
   spacing variants, 9/10/11/>11-digit lengths, country-code stripping, and
   area/exchange 0-1 prefix rules (each with expected value or expected
   `ValueError`) | changed: phone_number.py
+- A4.9 independent review: verdict PASS — 0 Critical, 0 Important, 1 Minor
+  (non-string inputs raise TypeError rather than ValueError; string-only
+  contract per exercise — ruling: accepted, deferred to memory) |
+  evidence: tests/review_package.md + reviewer's executed edge-case battery

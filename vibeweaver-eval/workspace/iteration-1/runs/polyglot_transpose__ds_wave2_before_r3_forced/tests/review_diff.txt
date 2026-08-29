@@ -1,0 +1,21 @@
+diff --git a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_r3_forced/transpose.py b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_r3_forced/transpose.py
+index 24b60af..ad97946 100644
+--- a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_r3_forced/transpose.py
++++ b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_r3_forced/transpose.py
+@@ -1,2 +1,15 @@
+ def transpose(text):
+-    pass
++    lines = text.split("\n")
++    max_len = max((len(line) for line in lines), default=0)
++    result = []
++    for col in range(max_len):
++        cells = []
++        for line in lines:
++            if col < len(line):
++                cells.append(line[col])
++            else:
++                cells.append(None)
++        while cells and cells[-1] is None:
++            cells.pop()
++        result.append("".join(" " if cell is None else cell for cell in cells))
++    return "\n".join(result)

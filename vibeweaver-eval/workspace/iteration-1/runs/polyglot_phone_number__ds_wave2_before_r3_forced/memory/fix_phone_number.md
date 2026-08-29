@@ -31,3 +31,9 @@ Starter stub had an empty `__init__` (`pass`).
 
 ## Trust
 ✅ Verified — independent of exercise harness; matches canonical NANP rules.
+
+## A4.9 review ruling
+- Reviewer PASS (tests/review_package.md). Minor accepted: non-string inputs
+  raise `TypeError` (from `re.sub`) not `ValueError` — contract is
+  string-only; no change made. Do not add type coercion without a test
+  requirement.

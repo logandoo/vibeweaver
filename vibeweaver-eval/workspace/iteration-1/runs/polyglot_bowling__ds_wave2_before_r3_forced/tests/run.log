@@ -1,0 +1,18 @@
+[2026-08-29 20:59:52,785] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+...............................                                          [100%]
+31 passed in 0.03s
+Traceback (most recent call last):
+  File "<string>", line 20, in <module>
+  File "<string>", line 9, in play
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_r3_forced/bowling.py", line 17, in score
+    raise ValueError("Game is not complete")
+ValueError: Game is not complete
+all ones: got 20 == expected 20  OK
+perfect game: got 300 == expected 300  OK
+10th X 1 9 -> 20: got 20 == expected 20  OK
+10th XXX -> 30: got 30 == expected 30  OK
+10th 7/3 7 -> 17: got 17 == expected 17  OK
+gutter: got 0 == expected 0  OK
+validation: 7 ValueError raises  OK
+prompt 3-frame example rolls accepted (X 5/ 90); scoring deferred to game end as specified
+ALL SANITY CHECKS PASSED

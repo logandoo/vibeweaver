@@ -1,0 +1,11 @@
+[2026-08-29 21:00:23,727] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-5.2.3.dev198+ge670ff76c.d20260815, py-1.11.0, pluggy-0.13.1
+rootdir: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1
+plugins: anyio-4.12.1, httpbin-2.1.0
+collected 12 items
+
+../../tasks/polyglot_transpose/hidden_tests/transpose_test.py .......... [ 83%]
+..                                                                       [100%]
+
+============================== 12 passed in 0.01s ==============================

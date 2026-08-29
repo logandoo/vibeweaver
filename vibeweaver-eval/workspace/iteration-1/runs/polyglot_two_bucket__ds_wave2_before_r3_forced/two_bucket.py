@@ -51,4 +51,4 @@ def measure(bucket_one, bucket_two, goal, start_bucket):
             visited.add(state)
             queue.append((state, next_moves))
 
-    return None
+    raise ValueError("The goal is not reachable.")
