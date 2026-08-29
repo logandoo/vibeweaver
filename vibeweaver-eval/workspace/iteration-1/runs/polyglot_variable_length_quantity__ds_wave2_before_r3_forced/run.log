@@ -336,3 +336,79 @@ Wrote file successfully.
 **Verifier: direct read (no multimodal model, no mm-sensor)** — probe FAIL confirmed (0/6 token chars, color MISMATCH, image read error), and `mm-sensor` is not among available skills. This task is a pure-logic library (no UI/runtime rendering), so verification runs via executed tests (A4.8 TDD loop) with on-disk evidence logs; `direct read` is the announced verifier.
 
 Now writing acceptance criteria and baseline records.
+[0m$ [0mgit add -A && git commit -qm "backup: before changes" && git log --oneline -1
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r2_forced
+hint: You've added another git repository inside your current repository.
+hint: Clones of the outer repository will not contain the contents of
+hint: the embedded repository and will not know how to obtain it.
+hint: If you meant to add a submodule, use:
+hint:
+hint: 	git submodule add <url> vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r2_forced
+hint:
+hint: If you added this path by mistake, you can remove it from the
+hint: index with:
+hint:
+hint: 	git rm --cached vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r2_forced
+hint:
+hint: See "git help submodule" for more information.
+hint: Disable this message with "git config set advice.addEmbeddedRepo false"
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_wave2_before_forced
+5231e95 backup: before changes
+[0m
+[0m$ [0mgit show --stat HEAD 2>&1 | head -40; echo "==="; git diff --name-only HEAD~1 HEAD 2>&1 | wc -l
+commit 5231e959e80a95e38a943c6593561744997bce86
+Author: logandoo <logandoo@126.com>
+Date:   Sat Aug 29 20:58:59 2026 +0800
+
+    backup: before changes
+
+ tests/review_diff.txt                              |   88 ++
+ .../configs/ds_wave2_after/opencode/opencode.json  |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  814 ++++++++++++
+ .../ds_wave2_after_r2/opencode/opencode.json       |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  814 ++++++++++++
+ .../ds_wave2_after_r3/opencode/opencode.json       |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  814 ++++++++++++
+ .../ds_wave2_after_r4/opencode/opencode.json       |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  814 ++++++++++++
+ .../configs/ds_wave2_before/opencode/opencode.json |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  815 ++++++++++++
+ .../ds_wave2_before_r2/opencode/opencode.json      |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  815 ++++++++++++
+ .../ds_wave2_before_r3/opencode/opencode.json      |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  815 ++++++++++++
+ .../ds_wave2_before_r4/opencode/opencode.json      |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  815 ++++++++++++
+ vibeweaver-eval/harness/run_eval.py                |   26 +-
+ .../ab_logs/AB_REPORT_wave3_2026-08-29.md          |   69 ++
+ ...de_polyglot_bowling__ds_wave2_after_forced.json |    7 +
+ ...e_polyglot_bowling__ds_wave2_before_forced.json |    7 +
+ ...lyglot_grade_school__ds_wave2_after_forced.json |    7 +
+ ...yglot_grade_school__ds_wave2_before_forced.json |    7 +
+ ...e_polyglot_list_ops__ds_wave2_after_forced.json |    7 +
+ ..._polyglot_list_ops__ds_wave2_before_forced.json |    7 +
+ ...lyglot_phone_number__ds_wave2_after_forced.json |    7 +
+ ...yglot_phone_number__ds_wave2_before_forced.json |    7 +
+ ..._polyglot_pig_latin__ds_wave2_after_forced.json |    7 +
+ ...polyglot_pig_latin__ds_wave2_before_forced.json |    7 +
+ ...polyglot_robot_name__ds_wave2_after_forced.json |    7 +
+ ...olyglot_robot_name__ds_wave2_before_forced.json |    7 +
+ ..._simple_linked_list__ds_wave2_after_forced.json |    7 +
+ ...simple_linked_list__ds_wave2_before_forced.json |    7 +
+ ..._polyglot_transpose__ds_wave2_after_forced.json |    7 +
+===
+     354
+[0m
+The baseline commit swept in 354 unrelated files. Undoing and re-doing a surgical baseline for only this workspace.
