@@ -17,9 +17,11 @@ class Robot:
     def reset(self):
         self._name = None
 
+    _NAMESPACE_SIZE = 26 * 26 * 1000
+
     @classmethod
     def _generate_name(cls):
-        while True:
+        while len(cls._used_names) < cls._NAMESPACE_SIZE:
             candidate = (
                 random.choice(string.ascii_uppercase)
                 + random.choice(string.ascii_uppercase)
@@ -28,3 +30,4 @@ class Robot:
             if candidate not in cls._used_names:
                 cls._used_names.add(candidate)
                 return candidate
+        raise RuntimeError("robot name space exhausted")

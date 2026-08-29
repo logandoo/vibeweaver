@@ -14,3 +14,12 @@ Upstream: tests/acceptance.md (criteria 1-6) ← prompt.md + hidden test contrac
 - iter 3 PASS: consumer smoke 9/9 checks passed | criteria: 1-6 (uniqueness
   sweep 2000 robots, prefix/suffix variation, non-sequential) |
   evidence tests/consumer_smoke.run.log.
+- iter 4 PASS: A4.9 review fix + re-run — reviewer finding (Important):
+  `while True` generation loop is unbounded on namespace exhaustion
+  (robot_name.py:22); fixed by bounding the loop on
+  `len(_used_names) < _NAMESPACE_SIZE` (676k) and raising RuntimeError when
+  the name space is exhausted; hidden suite 4/4 + consumer smoke 9/9 re-run
+  green on the fixed tree | criteria: 1-6 | evidence tests/robot_name_hidden.run.log,
+  tests/consumer_smoke.run.log (re-run). Minor finding (thread-safety of
+  check-then-add) deferred to memory/robot_name.md — irrelevant to the
+  single-threaded graded suite.
