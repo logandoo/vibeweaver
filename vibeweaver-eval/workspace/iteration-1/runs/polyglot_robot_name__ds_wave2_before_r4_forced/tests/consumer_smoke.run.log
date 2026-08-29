@@ -1,0 +1,11 @@
+PASS c1 name format regex
+PASS c2 name sticks across accesses
+PASS c3 different robots differ
+PASS c4 reset yields new different name
+PASS c5 global uniqueness over 2000 robots
+PASS c5 all sweep names match format
+PASS c6 letter prefixes vary (not single)
+PASS c6 digit suffixes vary (not single)
+PASS c6 not a fixed sequential pattern
+
+sample names: ['AA580', 'AA942', 'AB023', 'AB129', 'AB517'] ... ['ZY955', 'ZZ216', 'ZZ583']

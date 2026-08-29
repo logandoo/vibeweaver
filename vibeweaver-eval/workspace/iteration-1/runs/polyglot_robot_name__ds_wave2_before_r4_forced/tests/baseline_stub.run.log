@@ -1,0 +1,63 @@
+[2026-08-29 21:11:44,208] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-5.2.3.dev198+ge670ff76c.d20260815, py-1.11.0, pluggy-0.13.1 -- /Library/Developer/CommandLineTools/usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /private/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/robot_name_before_r4
+plugins: anyio-4.12.1, httpbin-2.1.0
+collecting ... collected 4 items
+
+robot_name_test.py::RobotNameTest::test_different_robots_have_different_names FAILED [ 25%]
+robot_name_test.py::RobotNameTest::test_has_name FAILED                  [ 50%]
+robot_name_test.py::RobotNameTest::test_name_sticks FAILED               [ 75%]
+robot_name_test.py::RobotNameTest::test_reset_name FAILED                [100%]
+
+=================================== FAILURES ===================================
+___________ RobotNameTest.test_different_robots_have_different_names ___________
+
+self = <robot_name_test.RobotNameTest testMethod=test_different_robots_have_different_names>
+
+    def test_different_robots_have_different_names(self):
+        self.assertNotEqual(
+>           Robot().name,
+            Robot().name
+        )
+E       AttributeError: 'Robot' object has no attribute 'name'
+
+robot_name_test.py:25: AttributeError
+_________________________ RobotNameTest.test_has_name __________________________
+
+self = <robot_name_test.RobotNameTest testMethod=test_has_name>
+
+    def test_has_name(self):
+>       self.assertRegex(Robot().name, self.name_re)
+E       AttributeError: 'Robot' object has no attribute 'name'
+
+robot_name_test.py:16: AttributeError
+________________________ RobotNameTest.test_name_sticks ________________________
+
+self = <robot_name_test.RobotNameTest testMethod=test_name_sticks>
+
+    def test_name_sticks(self):
+        robot = Robot()
+>       robot.name
+E       AttributeError: 'Robot' object has no attribute 'name'
+
+robot_name_test.py:20: AttributeError
+________________________ RobotNameTest.test_reset_name _________________________
+
+self = <robot_name_test.RobotNameTest testMethod=test_reset_name>
+
+    def test_reset_name(self):
+        # Set a seed
+        seed = "Totally random."
+    
+        # Initialize RNG using the seed
+        random.seed(seed)
+    
+        # Call the generator
+        robot = Robot()
+>       name = robot.name
+E       AttributeError: 'Robot' object has no attribute 'name'
+
+robot_name_test.py:38: AttributeError
+============================== 4 failed in 0.03s ===============================
