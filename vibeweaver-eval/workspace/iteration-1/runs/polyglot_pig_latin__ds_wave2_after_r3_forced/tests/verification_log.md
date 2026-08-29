@@ -13,10 +13,16 @@ No UI/media → no screenshot/mm-probe grading.
 |------|-------|---------|----------|
 | 1 | baseline (stub `pass`) | FAIL 22/22 | tests/baseline_run.log |
 
-- iter 1 FAIL: translate() is a `pass` stub returning None → every assert fails
-  (22 failed). | diagnosis: stub unimplemented — None return, spec not met |
-  changed: none (baseline)
+- COV-9 skipped — stub baseline: 22 pre-existing failures (tests/baseline_run.log)
+  are the task's own deliverable (implement translate()); the baseline-GREEN
+  precondition is vacuous — there is no working state to preserve, the failing
+  stub IS the starting point; final GREEN = iter 2 (22/22 canonical suite).
+- iter 1 FAIL: translate() is a `pass` stub returning None → 22 failed (tests/baseline_run.log). | diagnosis: stub unimplemented — None return, spec not met | changed: none (baseline)
 - iter 2 PASS: canonical hidden suite 22 passed (tests/grading_run.log) +
   standalone 22-vector CLI check 0 failures (evidence: inline transcript above).
   Coverage: all 4 prompt rules + phrase splitting. | diagnosis: n/a |
   changed: pig_latin.py
+- iter 3 PASS: fresh-run on committed tree — canonical suite 22 passed
+  (tests/fresh_run.log); A4.9 independent reviewer APPROVE (22/22,
+  tests/review_package.md). Coverage: full canonical suite. | diagnosis: n/a |
+  changed: none
