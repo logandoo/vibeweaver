@@ -1,0 +1,12 @@
+PASS transpose('ABC\nDEF') -> 'AD\nBE\nCF'
+PASS transpose('ABC\nDE') -> 'AD\nBE\nC'
+PASS transpose('AB\nDEF') -> 'AD\nBE\n F'
+PASS transpose('') -> ''
+PASS transpose('A1') -> 'A\n1'
+PASS transpose('A\n1') -> 'A1'
+PASS transpose('A\n\n') -> 'A'
+PASS transpose('AB\n\nCD') -> 'A C\nB D'
+PASS transpose('ABC ') -> 'A\nB\nC\n '
+PASS transpose('ABC\nAB') -> 'AA\nBB\nC'
+---
+all examples pass: True
