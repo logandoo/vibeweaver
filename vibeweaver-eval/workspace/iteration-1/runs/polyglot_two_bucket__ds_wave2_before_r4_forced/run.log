@@ -1095,3 +1095,180 @@ Now memory files. Let me check the memory templates for the required format:
 Wrote file successfully.
 [0m
 Writing the AUTO-mode decisions file (COV-12) and then committing the code change:
+[0m$ [0mgit status --short -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/ && echo "---" && git add vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/ && git commit -m "feat(two-bucket): implement measure() via BFS over bucket states" && git log --oneline -3
+M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/two_bucket.py
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/
+---
+[main 9079be5] feat(two-bucket): implement measure() via BFS over bucket states
+ 5 files changed, 695 insertions(+), 1 deletion(-)
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/acceptance.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/decisions.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+9079be5 feat(two-bucket): implement measure() via BFS over bucket states
+9394419 docs: project memory for bowling scoring
+cc46e3c feat: implement bowling game scoring and validation
+[0m
+[0m← [0mWrite memory/MEMORY.md
+Wrote file successfully.
+[0m
+Feat commit `9079be5`. Now writing memory files with the fix hash:
+[0m← [0mWrite memory/project_two_bucket.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite memory/fix_two_bucket_measure.md
+Wrote file successfully.
+[0m
+Now copy the canonical assert_artifacts.py, self-verify the 16 markers, and run it:
+[0m$ [0mcp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py tests/assert_artifacts.py && for m in "verification_log" "cap=5" "screenshot" "MEMORY.md" "start.sh" "git repo needs" "FLOW_DESIGN" "README" "Baseline verified GREEN" "workflow trace" "media evidence" "diagnosis:" "claim without stated coverage" "secret scan" "test-change:" "risk-tier"; do rg -q --fixed-strings "$m" tests/assert_artifacts.py && echo "OK  $m" || echo "MISSING  $m"; done
+OK  verification_log
+OK  cap=5
+OK  screenshot
+OK  MEMORY.md
+OK  start.sh
+OK  git repo needs
+OK  FLOW_DESIGN
+OK  README
+OK  Baseline verified GREEN
+OK  workflow trace
+OK  media evidence
+OK  diagnosis:
+OK  claim without stated coverage
+OK  secret scan
+OK  test-change:
+OK  risk-tier
+[0m
+All 16 markers present. Running the gate:
+[0m$ [0mpython3 tests/assert_artifacts.py --existing --backend-only --profile library; echo "exit=$?"
+profile: library — service lifecycle N/A (group 5 skipped)
+ASSERT FAILURES (1):
+  - verification_log.md line 9: FAIL entry lacks `diagnosis:` clause (A4.1 Step 4)
+exit=1
+[0m
+[0m← [0mEdit tests/verification_log.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+@@ -5,12 +5,9 @@
+ (execution-based unit verification; no UI/browser runtime → §A4.1 media loop N/A).
+ 
+ - Baseline verified GREEN (module `two_bucket.py` imports and runs with no
+   syntax/runtime errors; no pre-existing tests exist for the stub)
+-- iter 0 FAIL: canonical 0/11, sweep 1074/1074 mismatches — the stub returns
+-  `None` for every input (no body beyond `pass`), RED watched before
+-  implementation per A4.8. diagnosis: stub has no implementation; expected
+-  RED. Full output: temp-dir `tb_verify/tb_red.log` (exit 1).
++- iter 0 FAIL: canonical 0/11, sweep 1074/1074 mismatches (stub returns `None` for every input). diagnosis: stub body is empty `pass`, no behavior implemented — expected RED per A4.8. Full output: temp-dir `tb_verify/tb_red.log` (exit 1).
+ - iter 1 PASS: canonical 11/11 — all 9 reachable triples match exact expected
+   values, both unreachable cases raise `ValueError`; differential sweep
+   1074/1074 vs an independent label-correcting (Bellman-Ford) reference solver
+   with legal-path simulation (criteria 1-5). Full output:
+
+[0m
+Group 12 requires `diagnosis:` on the same line as the `FAIL:` marker. Fixing:
+[0m$ [0mpython3 tests/assert_artifacts.py --existing --backend-only --profile library; echo "exit=$?"
+profile: library — service lifecycle N/A (group 5 skipped)
+assert_artifacts.py: all 9 checks pass (exit 0)
+exit=0
+[0m
+Gate exit 0 (9 checks). Now COV-8 / A4.9 — behavior-semantic change, so I dispatch an independent read-only reviewer over the change-wave diff:
+[0m$ [0mgit diff 1b5da76..9079be5 --stat -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/ && echo "=====DIFF=====" && git diff 1b5da76..9079be5 -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/two_bucket.py
+.../run.log                                        | 578 +++++++++++++++++++++
+ .../tests/acceptance.md                            |  16 +
+ .../tests/decisions.md                             |  43 ++
+ .../tests/verification_log.md                      |  17 +
+ .../two_bucket.py                                  |  42 +-
+ 5 files changed, 695 insertions(+), 1 deletion(-)
+=====DIFF=====
+diff --git a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/two_bucket.py b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/two_bucket.py
+index 7029bcb..25b1718 100644
+--- a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/two_bucket.py
++++ b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/two_bucket.py
+@@ -1,2 +1,42 @@
++from collections import deque
++
++
+ def measure(bucket_one, bucket_two, goal, start_bucket):
+-    pass
++    cap_one, cap_two = bucket_one, bucket_two
++    initial = (cap_one, 0) if start_bucket == "one" else (0, cap_two)
++    forbidden = (0, cap_two) if start_bucket == "one" else (cap_one, 0)
++
++    if initial == forbidden:
++        raise ValueError("Goal is not reachable")
++    if initial[0] == goal:
++        return (1, "one", initial[1])
++    if initial[1] == goal:
++        return (1, "two", initial[0])
++
++    def neighbors(state):
++        a, b = state
++        pour_one_to_two = min(a, cap_two - b)
++        pour_two_to_one = min(b, cap_one - a)
++        return (
++            (cap_one, b),
++            (a, cap_two),
++            (0, b),
++            (a, 0),
++            (a - pour_one_to_two, b + pour_one_to_two),
++            (a + pour_two_to_one, b - pour_two_to_one),
++        )
++
++    seen = {initial}
++    queue = deque([(initial, 1)])
++    while queue:
++        state, actions = queue.popleft()
++        for nxt in neighbors(state):
++            if nxt == state or nxt == forbidden or nxt in seen:
++                continue
++            if nxt[0] == goal:
++                return (actions + 1, "one", nxt[1])
++            if nxt[1] == goal:
++                return (actions + 1, "two", nxt[0])
++            seen.add(nxt)
++            queue.append((nxt, actions + 1))
++    raise ValueError("Goal is not reachable")
+[0m
+[0m• [0mIndependent A4.9 code review[90m General Agent[0m
+[0m✓ [0mIndependent A4.9 code review[90m General Agent[0m
+[0m
+[0m← [0mWrite tests/review_package.md
+Wrote file successfully.
+[0m
+Reviewer verdict: clean (0 Critical/Important, 3 Minor). Recording the review package, updating the log, and noting deferred Minors in memory:
+[0m← [0mEdit tests/verification_log.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+@@ -11,4 +11,7 @@
+   values, both unreachable cases raise `ValueError`; differential sweep
+   1074/1074 vs an independent label-correcting (Bellman-Ford) reference solver
+   with legal-path simulation (criteria 1-5). Full output:
+   temp-dir `tb_verify/tb_green.log` (exit 0).
++- A4.9 review: diff `1b5da76..9079be5`, reviewer verdict clean (0 Critical,
++  0 Important, 3 Minor deferred to `memory/fix_two_bucket_measure.md`;
++  package at `tests/review_package.md`).
+
+[0m
+[0m← [0mEdit memory/fix_two_bucket_measure.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/memory/fix_two_bucket_measure.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/memory/fix_two_bucket_measure.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/memory/fix_two_bucket_measure.md
+@@ -32,4 +32,12 @@
+ **Status:** ⏳ Pending — awaiting user confirmation. Tests GREEN: 11/11
+ canonical cases (9 reachable triples exact + 2 `ValueError`) and 0/1074
+ differential-sweep mismatches against an independent label-correcting
+ reference with legal-path simulation (`tb_verify/tb_green.log`, exit 0).
++
++**A4.9 review findings (deferred Minor, no action taken):**
++1. `two_bucket.py:9-10` — `initial == forbidden` guard is dead code for any
++   positive-capacity input (harmless defensive guard).
++2. `two_bucket.py:6` — `start_bucket` not validated; a non-`"one"` value is
++   silently treated as `"two"` (outside canonical scope).
++3. `two_bucket.py:11-14` — `goal == 0` would succeed via the untouched bucket
++   (physically meaningless; outside canonical scope).
+
+[0m
