@@ -15,3 +15,6 @@ Loop bound: `cap=5  stall=3×` (see tests/acceptance.md). Verifier: direct-read
 - A4.9 review: diff `1b5da76..9079be5`, reviewer verdict clean (0 Critical,
   0 Important, 3 Minor deferred to `memory/fix_two_bucket_measure.md`;
   package at `tests/review_package.md`).
+- Final fresh run on committed tree (HEAD `8852cc4`): canonical 11/11 PASS,
+  differential sweep 0/1074 mismatches, harness exit 0
+  (`tb_verify/tb_fresh.log`); assert_artifacts.py all 9 checks exit 0.

@@ -1272,3 +1272,153 @@ Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspa
 +   (physically meaningless; outside canonical scope).
 
 [0m
+Committing the memory/review artifacts, then running the fresh final-tree verification:
+[0m$ [0mgit add vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/ && git commit -m "chore(two-bucket): add review package, project memory, artifact assertions" && git log --oneline -3
+[main 8852cc4] chore(two-bucket): add review package, project memory, artifact assertions
+ 7 files changed, 762 insertions(+), 4 deletions(-)
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/memory/MEMORY.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/memory/fix_two_bucket_measure.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/memory/project_two_bucket.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/assert_artifacts.py
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/review_package.md
+8852cc4 chore(two-bucket): add review package, project memory, artifact assertions
+7ed17eb backup: before changes
+646c738 two_bucket: final harness transcript + fresh-run evidence
+[0m
+The monorepo has concurrent sessions committing; let me verify my commit chain and the final tree are intact:
+[0m$ [0mgit log --oneline -8; echo "---"; git log --oneline --all --grep="two-bucket" | head; echo "---"; git status --short -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/; echo "---"; ls -la vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/
+8852cc4 chore(two-bucket): add review package, project memory, artifact assertions
+7ed17eb backup: before changes
+646c738 two_bucket: final harness transcript + fresh-run evidence
+aab54e6 two_bucket: implement measure via BFS with full verification evidence
+fc5055f docs: final verification artifacts
+1691b06 chore: artifact verification scripts and logs
+9079be5 feat(two-bucket): implement measure() via BFS over bucket states
+9394419 docs: project memory for bowling scoring
+---
+8852cc4 chore(two-bucket): add review package, project memory, artifact assertions
+9079be5 feat(two-bucket): implement measure() via BFS over bucket states
+bb6745a memory: record fix commit hash for two-bucket topic
+c75d763 implement two-bucket measure via BFS state search
+ef234c0 memory: record two-bucket BFS solution + review findings
+---
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/run.log
+---
+total 280
+drwxr-xr-x@   7 logan  staff    224 Aug 29 21:13 .
+drwxr-xr-x@ 249 logan  staff   7968 Aug 29 21:19 ..
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:17 memory
+-rw-r--r--@   1 logan  staff   2375 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff  96005 Aug 29 21:20 run.log
+drwxr-xr-x@   7 logan  staff    224 Aug 29 21:20 tests
+-rw-r--r--@   1 logan  staff   1381 Aug 29 21:15 two_bucket.py
+[0m
+[0m$ [0mgit merge-base --is-ancestor 9079be5 HEAD && echo "9079be5 IS ancestor of HEAD" || echo "9079be5 NOT ancestor"; git merge-base --is-ancestor 1b5da76 HEAD && echo "1b5da76 IS ancestor" || echo "1b5da76 NOT ancestor"; echo "---HEAD tree check---"; git show 8852cc4:--two_bucket.py 2>/dev/null | head -1; git show HEAD:vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/two_bucket.py | head -1; echo "---verification_log at HEAD---"; git show HEAD:vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md | rg -c "iter [01]|Baseline verified GREEN"
+9079be5 IS ancestor of HEAD
+1b5da76 IS ancestor
+---HEAD tree check---
+from collections import deque
+---verification_log at HEAD---
+3
+[0m
+## Objective
+- Implement the Exercism "Two Bucket" exercise in `two_bucket.py` in the run workspace `.../runs/polyglot_two_bucket__ds_wave2_before_r4_forced/`: write `measure(bucket_one, bucket_two, goal, start_bucket)` returning `(actions, goal_bucket, other_bucket_liters)`, raise `ValueError` for unreachable goals, without creating/modifying any test files in the workspace, prove correctness, and report per the vibeweaver completion gate.
+- The vibeweaver skill is bound as the mandatory workflow (covenants COV-1..COV-12, A4.8 TDD, A4.9 review, A4.10 differential verification, artifact assertions, exact completion output).
+
+## Important Details
+- Workspace: `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/`. Contains `prompt.md`, `two_bucket.py`, `run.log`, plus newly created `tests/` and `memory/` (memory/ still empty).
+- Canonical "Two Bucket" rules: 3 actions (pour until source empty or dest full / empty / fill); one action at a time; forbidden after-action state = starting bucket empty AND other bucket full; first fill of the starting bucket counts as action 1.
+- Canonical expected (all 11 verified PASS by harness): `(3,5,1,"one")→(4,"one",5)`; `(3,5,1,"two")→(8,"two",3)`; `(7,11,2,"one")→(14,"one",11)`; `(7,11,2,"two")→(18,"two",7)`; `(1,3,3,"two")→(1,"two",0)`; `(2,3,3,"one")→(2,"two",2)`; `(5,1,2,"one")→(6,"one",1)`; `(3,15,9,"one")→(6,"two",0)`; `(6,15,9,"one")→(10,"two",0)`; `(6,15,5,"one")` and `(5,7,8,"one")` → ValueError. Source: Exercism `canonical-data.json` (webfetch; exa was HTTP 429).
+- Chosen approach: BFS over (b1,b2) states (guarantees minimal action count, encodes forbidden rule). Rejected: gcd number-theory formula (error-prone).
+- Git: monorepo root `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo`; sibling runs' files are modified — stage/commit only THIS workspace path. COV-9 baseline commit made: `1b5da76 backup: before changes` (newest backup commit, so assert_artifacts change-wave diffs `1b5da76..HEAD` = my changes only). Prior/older backup commits existed before mine.
+- assert_artifacts.py (canonical at `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py`) run with `--existing --backend-only --profile library` for this library exercise (profile library skips group 5 service-lifecycle; --existing skips groups 6/7/8). Group 9 requires literal `Baseline verified GREEN` in verification_log.md; group 4 requires `memory/MEMORY.md` with `](....md)` topic-file link + ≥1 topic .md; group 12 requires `diagnosis:` on FAIL lines; groups 14-16 scan change-wave diff (secrets/test-change/risk — keep module secret-free); group 13 claim-lint (iter/baseline log lines exempt; keep prose scoped). Must run until exit 0.
+- Mode: COV-12 AUTO — requires `tests/decisions.md` (ADR blocks) and `[Decisions] N auto-decisions → tests/decisions.md` line before the completion table.
+- Final output must include literal: `[Covenant Recall] checked: all 12 covenants hold for this completion`, then self-audit, `[Decisions] …`, `[Verification Gate]` with literal `HARD-GATE-1: NO-TEST-NO-DONE=pass/na` and `HARD-GATE-2: SCRIPT-ONLY=pass/na` plus `covenant_recall: pass`, `memory_gate: pass`, `assert_artifacts.py: pass=N/fail=0`, `[Memory Gate] Passed: …`, `[Convergence] <task>: N iters | X/Y pass | …`, and the exact 8-column table: `| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |`. Only at the very end — do not emit "done"/"task complete" early.
+- User directive: NO test files in the workspace → all executable verification lives in temp dir `/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/`; workspace gets only code + evidence artifacts.
+- A4.9 review trigger fires (new feature / behavior-semantic change in diff) → dispatch an independent reviewer over `git diff 1b5da76..HEAD` before the completion table.
+- COV-2: no `script/` dir → SCRIPT-ONLY=na. COV-5: no UI/browser → §A4.1 media loop N/A; verifier = direct execution-based unit verification (announced conceptually; no screenshot/file citations in log prose).
+
+## Work State
+### Completed
+- Read Contract: R1 `TESTING_PROTOCOLS.md` (full), R1b `COMPLETION_GATE.md` (full, output format confirmed), R2 `REFERENCE.md` (full — C2 Modify-Existing workflow), canonical `scripts/assert_artifacts.py` (full).
+- §2 ZERO done: decompose + research + 2 approaches evaluated; BFS chosen.
+- COV-9: baseline commit `1b5da76 backup: before changes` (staged only this workspace: `two_bucket.py`, `prompt.md`, `run.log`). Baseline run GREEN — stub imports cleanly, returns `None` (no pre-existing tests exist).
+- Scaffolding: `tests/acceptance.md` (first line verbatim `> cap=5  stall=3×`, 6 criteria, sources = prompt.md + canonical-data.json, checkboxes still ☐); `tests/verification_log.md` (change-wave `1b5da76 → HEAD`, cap line, entries: `- Baseline verified GREEN …`, `- iter 0 FAIL: canonical 0/11, sweep 1074/1074 … diagnosis: stub has no implementation … tb_red.log (exit 1)`, `- iter 1 PASS: canonical 11/11 … sweep 1074/1074 … tb_green.log (exit 0)`).
+- TDD per A4.8: RED run vs stub — canonical 0/11 FAIL, sweep 1074/1074 mismatches, exit 1 (evidence `tb_red.log`); then implementation.
+- Implemented `two_bucket.py`: BFS (`deque`) — `initial = (cap_one,0)` if start=="one" else `(0,cap_two)`; `forbidden = (0,cap_two)` if start=="one" else `(cap_one,0)`; returns `(actions+1, "one"/"two", other)`; `raise ValueError("Goal is not reachable")` when queue exhausts.
+- GREEN run: canonical 11/11 PASS; sweep initially 63/1074 mismatches — diagnosed as pure tie-breaks (multiple optimal solutions exist, e.g. `(1,2,1,"two")` → `(2,"one",2)` vs `(2,"one",1)`; no canonical case affected). Fixed the reference to set-based `optimal_outcomes()` (accepts ANY optimal outcome triple); re-run: 0/1074 mismatches, exit 0 (evidence `tb_green.log`).
+- Verification harness (temp dir `tb_verify/`): `run_verify.py` (workspace path overridable via env `TB_WS`), `canonical_cases.py` (11 cases), `reference_solver.py` (independent Bellman-Ford-style label-correcting relaxation = minimality oracle; `optimal_outcomes()` set-based; `legal_step()` rule validator + `verify_path()` legality simulation), `tb_stub_red/two_bucket.py` (stub copy for RED evidence).
+
+### Active
+- Memory files not yet created (only empty `memory/` dir). Just read `MEMORY_TEMPLATES.md` (format partially seen; more of the file remains). Planned: `memory/MEMORY.md` index (User Context / Project Context / Fix Tracking sections) + `memory/project_two_bucket.md` + `memory/fix_two_bucket_measure.md` (⏳ Unverified trust tier, frontmatter `commit:` = the upcoming feat commit hash — so write AFTER the feat commit).
+- `tests/decisions.md` (AUTO-mode ADRs) not yet written. Planned ADRs: (1) BFS over gcd approach; (2) forbidden-state handling; (3) verification harness in temp dir (no test files in workspace). Required `[Decisions]` line before completion table.
+- A4.9 independent review dispatch over `git diff 1b5da76..HEAD` — not yet done (must happen after feat commit).
+- No `tests/assert_artifacts.py` copy yet; not yet run with `--existing --backend-only --profile library` to exit 0.
+- No feat commit yet; no fresh run on final tree; no final output.
+
+### Blocked
+- (none)
+
+## Next Move
+1. Make the feat commit in the workspace (`git add two_bucket.py tests/ memory/ && git commit -m "feat(two-bucket): implement BFS measure()"` — stage only this workspace path).
+2. Write memory files with the feat commit hash: `memory/MEMORY.md` (index, ≤200 lines/25KB, `](….md)` topic links), `memory/project_two_bucket.md`, `memory/fix_two_bucket_measure.md` (⏳, frontmatter `commit:` = feat hash); then write `tests/decisions.md` (3 ADR blocks, AUTO mode).
+3. Copy canonical `scripts/assert_artifacts.py` → `tests/assert_artifacts.py`; run `python3 tests/assert_artifacts.py --existing --backend-only --profile library` and iterate on failures until exit 0.
+4. Dispatch A4.9 independent reviewer over `git diff 1b5da76..HEAD` (behavior-semantic change → trigger), adjudicate findings, record outcome (e.g. `tests/review_package.md`), fix if needed.
+5. Fresh run of the harness against the final tree (GREEN re-confirm), update acceptance.md checkboxes ☑, then emit the final completion output: `[Covenant Recall] checked: all 12 covenants hold for this completion`, self-audit, `[Decisions] N auto-decisions → tests/decisions.md`, `[Verification Gate]` line (literal HARD-GATE-1/HARD-GATE-2 tokens, covenant_recall/memory_gate/assert_artifacts fields), `[Memory Gate]`, `[Convergence]`, and the 8-column completion table.
+
+## Relevant Files
+- `.../runs/polyglot_two_bucket__ds_wave2_before_r4_forced/two_bucket.py`: now contains the BFS `measure()` implementation (functional, verified).
+- `.../runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/acceptance.md`: acceptance criteria (first line `> cap=5  stall=3×`), sources linked.
+- `.../runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md`: baseline + iter 0 FAIL + iter 1 PASS entries, uses `diagnosis:` (checked).
+- `.../runs/polyglot_two_bucket__ds_wave2_before_r4_forced/memory/`: empty dir — needs MEMORY.md + topic files.
+- `/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/`: harness (`run_verify.py`, `canonical_cases.py`, `reference_solver.py`), evidence `tb_red.log` (exit 1), `tb_green.log` (exit 0), `tb_stub_red/two_bucket.py`.
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py`: canonical artifact-assertion script to copy into workspace `tests/`.
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/MEMORY_TEMPLATES.md`: memory file format reference (partially read — finish before writing memory files if format details are needed).
+- `.../runs/polyglot_two_bucket__ds_wave2_before_r4_forced/prompt.md` and `run.log`: harness-owned files (do not break; prompt.md only).
+Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.
+[0m$ [0mTB_WS=/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced python3 run_verify.py > tb_fresh.log 2>&1; echo "harness exit=$?"; tail -5 tb_fresh.log
+harness exit=0
+  canonical[9] PASS measure(6, 15, 9, 'one') -> (10, 'two', 0) (expected (10, 'two', 0))
+  canonical[10] PASS measure(6, 15, 5, 'one') -> <class 'ValueError'> (expected <class 'ValueError'>)
+  canonical[11] PASS measure(5, 7, 8, 'one') -> <class 'ValueError'> (expected <class 'ValueError'>)
+  sweep: 1074 cases, 0 mismatches
+SUMMARY: canonical 11/11 pass, sweep mismatches 0/1074
+[0m
+Chain intact, HEAD tree correct. Now the final fresh-run verification against the committed tree — harness re-run plus the artifact gate:
+[0m$ [0mpython3 tests/assert_artifacts.py --existing --backend-only --profile library; echo "assert exit=$?"
+profile: library — service lifecycle N/A (group 5 skipped)
+assert_artifacts.py: all 9 checks pass (exit 0)
+assert exit=0
+[0m
+[0m→ [0mRead tests/acceptance.md
+Both gates green on the final tree. Adding the fresh-run evidence and ticking the acceptance checkboxes, then a final commit:
+[0m
+[0m$ [0mperl -pi -e 's/ \| ☐ \|$/ | ☑ |/' tests/acceptance.md && rg -c "☑" tests/acceptance.md
+6
+[0m
+[0m→ [0mRead tests/verification_log.md
+[0m
+[0m← [0mEdit tests/verification_log.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+@@ -14,4 +14,7 @@
+   temp-dir `tb_verify/tb_green.log` (exit 0).
+ - A4.9 review: diff `1b5da76..9079be5`, reviewer verdict clean (0 Critical,
+   0 Important, 3 Minor deferred to `memory/fix_two_bucket_measure.md`;
+   package at `tests/review_package.md`).
++- Final fresh run on committed tree (HEAD `8852cc4`): canonical 11/11 PASS,
++  differential sweep 0/1074 mismatches, harness exit 0
++  (`tb_verify/tb_fresh.log`); assert_artifacts.py all 9 checks exit 0.
+
+[0m
+[0m$ [0mgit status --short -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/; echo "---diff stat---"; git diff --stat -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/ | tail -3
+M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/acceptance.md
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+---diff stat---
+ .../tests/acceptance.md                            |  12 +-
+ .../tests/verification_log.md                      |   3 +
+ 3 files changed, 150 insertions(+), 6 deletions(-)
+[0m
