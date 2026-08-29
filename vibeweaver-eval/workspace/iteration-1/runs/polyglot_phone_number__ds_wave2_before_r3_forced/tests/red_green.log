@@ -1,0 +1,62 @@
+[FAIL] cleans +1 (613)-995-0253 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] cleans 613-995-0253 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] cleans 1 613 995 0253 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] cleans 613.995.0253 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] cleans (223) 456-7890 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] cleans dots 223.456.7890 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] cleans multiple spaces -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] 11 digits starting with 1 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] 11 digits w/ punct +1 (223) 456-7890 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] 9 digits invalid -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] 11 digits not starting 1 invalid -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] >11 digits invalid -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] letters invalid -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] punctuation invalid -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] area code starts 0 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] area code starts 1 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] exchange starts 0 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] exchange starts 1 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] 11-digit area starts 0 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] 11-digit area starts 1 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] 11-digit exchange starts 0 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] 11-digit exchange starts 1 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] punctuation 12345*#-7890 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] country code too long 11 223-456-7890 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] country code starting 0 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] country code starting 1 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] area_code() returns first 3 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'area_code'"
+[FAIL] pretty_print() formats -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'pretty_print'"
+
+0/28 cases passed
+
+=== GREEN RUN (implemented) ===
+[PASS] cleans +1 (613)-995-0253 -> '6139950253'
+[PASS] cleans 613-995-0253 -> '6139950253'
+[PASS] cleans 1 613 995 0253 -> '6139950253'
+[PASS] cleans 613.995.0253 -> '6139950253'
+[PASS] cleans (223) 456-7890 -> '2234567890'
+[PASS] cleans dots 223.456.7890 -> '2234567890'
+[PASS] cleans multiple spaces -> '2234567890'
+[PASS] 11 digits starting with 1 -> '2234567890'
+[PASS] 11 digits w/ punct +1 (223) 456-7890 -> '2234567890'
+[PASS] 9 digits invalid -> 'ValueError: number must be 10 or 11 digits'
+[PASS] 11 digits not starting 1 invalid -> 'ValueError: 11 digits must start with 1'
+[PASS] >11 digits invalid -> 'ValueError: number must be 10 or 11 digits'
+[PASS] letters invalid -> 'ValueError: number must be 10 or 11 digits'
+[PASS] punctuation invalid -> 'ValueError: number must be 10 or 11 digits'
+[PASS] area code starts 0 -> 'ValueError: area code cannot start with zero or one'
+[PASS] area code starts 1 -> 'ValueError: area code cannot start with zero or one'
+[PASS] exchange starts 0 -> 'ValueError: exchange code cannot start with zero or one'
+[PASS] exchange starts 1 -> 'ValueError: exchange code cannot start with zero or one'
+[PASS] 11-digit area starts 0 -> 'ValueError: area code cannot start with zero or one'
+[PASS] 11-digit area starts 1 -> 'ValueError: area code cannot start with zero or one'
+[PASS] 11-digit exchange starts 0 -> 'ValueError: exchange code cannot start with zero or one'
+[PASS] 11-digit exchange starts 1 -> 'ValueError: exchange code cannot start with zero or one'
+[PASS] punctuation 12345*#-7890 -> 'ValueError: number must be 10 or 11 digits'
+[PASS] country code too long 11 223-456-7890 -> 'ValueError: number must be 10 or 11 digits'
+[PASS] country code starting 0 -> 'ValueError: number must be 10 or 11 digits'
+[PASS] country code starting 1 -> 'ValueError: number must be 10 or 11 digits'
+[PASS] area_code() returns first 3 -> '613'
+[PASS] pretty_print() formats -> '(613) 995-0253'
+
+28/28 cases passed

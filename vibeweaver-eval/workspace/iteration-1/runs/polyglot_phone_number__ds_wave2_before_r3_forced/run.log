@@ -278,3 +278,176 @@ Now the COV-9 baseline commit + check:
 COMMITTED
 7873e44 backup: before changes
 [0m
+Baseline commit done. Now baseline import check + RED evidence (stub predictably fails):
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced && mkdir -p tests memory && python3 -c "import phone_number; print('baseline import OK')" 2>&1 | tee tests/baseline_import.log
+baseline import OK
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced && python3 - > tests/red_green.log 2>&1 <<'PYEOF'
+import sys
+sys.path.insert(0, ".")
+from phone_number import PhoneNumber
+
+def check(label, fn, expect):
+    try:
+        result = fn()
+        ok = (result == expect)
+    except ValueError as e:
+        ok = (expect == "ValueError")
+        result = f"ValueError: {e}"
+    except Exception as e:
+        ok = False
+        result = f"EXC {type(e).__name__}: {e}"
+    print(f"[{'PASS' if ok else 'FAIL'}] {label} -> {result!r}")
+    return ok
+
+cases = [
+    ("cleans +1 (613)-995-0253", lambda: PhoneNumber("+1 (613)-995-0253").number, "6139950253"),
+    ("cleans 613-995-0253", lambda: PhoneNumber("613-995-0253").number, "6139950253"),
+    ("cleans 1 613 995 0253", lambda: PhoneNumber("1 613 995 0253").number, "6139950253"),
+    ("cleans 613.995.0253", lambda: PhoneNumber("613.995.0253").number, "6139950253"),
+    ("cleans (223) 456-7890", lambda: PhoneNumber("(223) 456-7890").number, "2234567890"),
+    ("cleans dots 223.456.7890", lambda: PhoneNumber("223.456.7890").number, "2234567890"),
+    ("cleans multiple spaces", lambda: PhoneNumber("223 456   7890   ").number, "2234567890"),
+    ("11 digits starting with 1", lambda: PhoneNumber("12234567890").number, "2234567890"),
+    ("11 digits w/ punct +1 (223) 456-7890", lambda: PhoneNumber("+1 (223) 456-7890").number, "2234567890"),
+    ("9 digits invalid", lambda: PhoneNumber("123456789").number, "ValueError"),
+    ("11 digits not starting 1 invalid", lambda: PhoneNumber("22234567890").number, "ValueError"),
+    (">11 digits invalid", lambda: PhoneNumber("321234567890").number, "ValueError"),
+    ("letters invalid", lambda: PhoneNumber("523-abc-7890").number, "ValueError"),
+    ("punctuation invalid", lambda: PhoneNumber("523-@:!-7890").number, "ValueError"),
+    ("area code starts 0", lambda: PhoneNumber("(023) 456-7890").number, "ValueError"),
+    ("area code starts 1", lambda: PhoneNumber("(123) 456-7890").number, "ValueError"),
+    ("exchange starts 0", lambda: PhoneNumber("(223) 056-7890").number, "ValueError"),
+    ("exchange starts 1", lambda: PhoneNumber("(223) 156-7890").number, "ValueError"),
+    ("11-digit area starts 0", lambda: PhoneNumber("1 (023) 456-7890").number, "ValueError"),
+    ("11-digit area starts 1", lambda: PhoneNumber("1 (123) 456-7890").number, "ValueError"),
+    ("11-digit exchange starts 0", lambda: PhoneNumber("1 (223) 056-7890").number, "ValueError"),
+    ("11-digit exchange starts 1", lambda: PhoneNumber("1 (223) 156-7890").number, "ValueError"),
+    ("punctuation 12345*#-7890", lambda: PhoneNumber("12345*#-7890").number, "ValueError"),
+    ("country code too long 11 223-456-7890", lambda: PhoneNumber("11 223-456-7890").number, "ValueError"),
+    ("country code starting 0", lambda: PhoneNumber("011 223-456-7890").number, "ValueError"),
+    ("country code starting 1", lambda: PhoneNumber("111 223-456-7890").number, "ValueError"),
+    ("area_code() returns first 3", lambda: PhoneNumber("6139950253").area_code(), "613"),
+    ("pretty_print() formats", lambda: PhoneNumber("6139950253").pretty_print(), "(613) 995-0253"),
+]
+
+ok_count = 0
+for lbl, fn, exp in cases:
+    ok_count += 1 if check(lbl, fn, exp) else 0
+print(f"\n{ok_count}/{len(cases)} cases passed")
+sys.exit(0 if ok_count == len(cases) else 1)
+PYEOF
+echo "exit=$?"; tail -5 tests/red_green.log
+exit=1
+[FAIL] country code starting 1 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'number'"
+[FAIL] area_code() returns first 3 -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'area_code'"
+[FAIL] pretty_print() formats -> "EXC AttributeError: 'PhoneNumber' object has no attribute 'pretty_print'"
+
+0/28 cases passed
+[0m
+[0m← [0mWrite phone_number.py
+Wrote file successfully.
+[0m
+RED confirmed: 0/28 pass (AttributeError — stub has no implementation). Now implementing:
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced && python3 - >> tests/red_green.log 2>&1 <<'PYEOF'
+print("\n=== GREEN RUN (implemented) ===")
+import sys
+sys.path.insert(0, ".")
+from phone_number import PhoneNumber
+
+def check(label, fn, expect):
+    try:
+        result = fn()
+        ok = (result == expect)
+    except ValueError as e:
+        ok = (expect == "ValueError")
+        result = f"ValueError: {e}"
+    except Exception as e:
+        ok = False
+        result = f"EXC {type(e).__name__}: {e}"
+    print(f"[{'PASS' if ok else 'FAIL'}] {label} -> {result!r}")
+    return ok
+
+cases = [
+    ("cleans +1 (613)-995-0253", lambda: PhoneNumber("+1 (613)-995-0253").number, "6139950253"),
+    ("cleans 613-995-0253", lambda: PhoneNumber("613-995-0253").number, "6139950253"),
+    ("cleans 1 613 995 0253", lambda: PhoneNumber("1 613 995 0253").number, "6139950253"),
+    ("cleans 613.995.0253", lambda: PhoneNumber("613.995.0253").number, "6139950253"),
+    ("cleans (223) 456-7890", lambda: PhoneNumber("(223) 456-7890").number, "2234567890"),
+    ("cleans dots 223.456.7890", lambda: PhoneNumber("223.456.7890").number, "2234567890"),
+    ("cleans multiple spaces", lambda: PhoneNumber("223 456   7890   ").number, "2234567890"),
+    ("11 digits starting with 1", lambda: PhoneNumber("12234567890").number, "2234567890"),
+    ("11 digits w/ punct +1 (223) 456-7890", lambda: PhoneNumber("+1 (223) 456-7890").number, "2234567890"),
+    ("9 digits invalid", lambda: PhoneNumber("123456789").number, "ValueError"),
+    ("11 digits not starting 1 invalid", lambda: PhoneNumber("22234567890").number, "ValueError"),
+    (">11 digits invalid", lambda: PhoneNumber("321234567890").number, "ValueError"),
+    ("letters invalid", lambda: PhoneNumber("523-abc-7890").number, "ValueError"),
+    ("punctuation invalid", lambda: PhoneNumber("523-@:!-7890").number, "ValueError"),
+    ("area code starts 0", lambda: PhoneNumber("(023) 456-7890").number, "ValueError"),
+    ("area code starts 1", lambda: PhoneNumber("(123) 456-7890").number, "ValueError"),
+    ("exchange starts 0", lambda: PhoneNumber("(223) 056-7890").number, "ValueError"),
+    ("exchange starts 1", lambda: PhoneNumber("(223) 156-7890").number, "ValueError"),
+    ("11-digit area starts 0", lambda: PhoneNumber("1 (023) 456-7890").number, "ValueError"),
+    ("11-digit area starts 1", lambda: PhoneNumber("1 (123) 456-7890").number, "ValueError"),
+    ("11-digit exchange starts 0", lambda: PhoneNumber("1 (223) 056-7890").number, "ValueError"),
+    ("11-digit exchange starts 1", lambda: PhoneNumber("1 (223) 156-7890").number, "ValueError"),
+    ("punctuation 12345*#-7890", lambda: PhoneNumber("12345*#-7890").number, "ValueError"),
+    ("country code too long 11 223-456-7890", lambda: PhoneNumber("11 223-456-7890").number, "ValueError"),
+    ("country code starting 0", lambda: PhoneNumber("011 223-456-7890").number, "ValueError"),
+    ("country code starting 1", lambda: PhoneNumber("111 223-456-7890").number, "ValueError"),
+    ("area_code() returns first 3", lambda: PhoneNumber("6139950253").area_code(), "613"),
+    ("pretty_print() formats", lambda: PhoneNumber("6139950253").pretty_print(), "(613) 995-0253"),
+]
+
+ok_count = 0
+for lbl, fn, exp in cases:
+    ok_count += 1 if check(lbl, fn, exp) else 0
+print(f"\n{ok_count}/{len(cases)} cases passed")
+sys.exit(0 if ok_count == len(cases) else 1)
+PYEOF
+echo "green-exit=$?"; tail -6 tests/red_green.log
+green-exit=0
+[PASS] country code starting 0 -> 'ValueError: number must be 10 or 11 digits'
+[PASS] country code starting 1 -> 'ValueError: number must be 10 or 11 digits'
+[PASS] area_code() returns first 3 -> '613'
+[PASS] pretty_print() formats -> '(613) 995-0253'
+
+28/28 cases passed
+[0m
+[0m← [0mWrite tests/acceptance.md
+Wrote file successfully.
+[0m
+GREEN: **28/28 pass**. Now writing the required artifacts (acceptance criteria, verification log, memory) and copying the canonical assert script:
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite memory/MEMORY.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite memory/fix_phone_number.md
+Wrote file successfully.
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && cp vibeweaver/scripts/assert_artifacts.py vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced/tests/assert_artifacts.py && cd vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced && for m in verification_log cap=5 screenshot MEMORY.md start.sh "git repo needs" FLOW_DESIGN README "Baseline verified GREEN" "workflow trace" "media evidence" "diagnosis:" "claim without stated coverage" "secret scan" "test-change:" "risk-tier"; do rg -l --fixed-strings "$m" tests/assert_artifacts.py >/dev/null && echo "OK: $m" || echo "MISSING: $m"; done
+OK: verification_log
+OK: cap=5
+OK: screenshot
+OK: MEMORY.md
+OK: start.sh
+OK: git repo needs
+OK: FLOW_DESIGN
+OK: README
+OK: Baseline verified GREEN
+OK: workflow trace
+OK: media evidence
+OK: diagnosis:
+OK: claim without stated coverage
+OK: secret scan
+OK: test-change:
+OK: risk-tier
+[0m
+All 16 markers verified in the copied script. Running it:
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced && python3 tests/assert_artifacts.py --existing --backend-only --profile library; echo "assert-exit=$?"
+profile: library — service lifecycle N/A (group 5 skipped)
+assert_artifacts.py: all 9 checks pass (exit 0)
+assert-exit=0
+[0m
