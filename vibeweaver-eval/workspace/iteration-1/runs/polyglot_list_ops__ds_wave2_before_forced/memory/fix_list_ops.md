@@ -4,7 +4,7 @@ description: 8 list operations (append/concat/filter/length/map/foldl/foldr/reve
 type: fix
 date: 2026-08-29
 status: ⏳
-commit: (pending final commit)
+commit: 39b82f0
 ---
 
 # Fix: list_ops implemented from stubs
