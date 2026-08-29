@@ -1,5 +1,6 @@
 # A4.9 Independent Review Package — polyglot_variable_length_quantity (ds_wave2_after_r2_forced)
 
+- Reviewed diff range: `git diff 9d845af..f0d7a39 -- workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_r2_forced/` (17 files: 1 modified source, tests/, script/, memory/, run.log).
 - Trigger: feature implementation (change-wave: variable_length_quantity.py + tests/ + script/ + memory/, exceeds 3-file bar).
 - Reviewer: independent agent (no access to prior session context).
 - Reviewed: variable_length_quantity.py, tests/acceptance.md, tests/canonical_suite.log, tests/differential_check.log, tests/red_evidence.log, tests/decisions.md, tests/verification_log.md.
