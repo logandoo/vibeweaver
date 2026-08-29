@@ -1,0 +1,30 @@
+PASS  c1 construct
+PASS  c2 all zeros -> 0
+PASS  c2 no strikes/spares -> 90
+PASS  c3 spare followed by zeros -> 10
+PASS  c3 spare double-counts next roll -> 16
+PASS  c3 consecutive spares -> 31
+PASS  c4 strike alone -> 10
+PASS  c4 strike double-counts two rolls -> 26
+PASS  c4 consecutive strikes -> 81
+PASS  c4 last two strikes non-strike bonus -> 31
+PASS  c5 10th spare fill ball scored once -> 17
+PASS  c5 10th spare + strike fill -> 20
+PASS  c6 10th strike two fill balls -> 18
+PASS  c6 10th strike spare fills -> 20
+PASS  c6 10th strike three strikes -> 30
+PASS  c7 perfect game -> 300
+PASS  c8 roll(-1) -> raise
+PASS  c8 roll(11) -> raise
+PASS  c8 frame over 10 -> raise
+PASS  c8 bonus over 10 after non-strike -> raise
+PASS  c8 bonus cannot be strike if first not strike -> raise
+PASS  c8 second bonus over 10 -> raise
+PASS  c8 roll after game over -> raise
+PASS  c8 roll after open 10th -> raise
+PASS  c8 roll after 10th spare fill -> raise
+PASS  c8 roll after 10th strike fills -> raise
+PASS  c8 score before complete -> raise
+PASS  c8 score unstarted -> raise
+PASS  c8 score with 10th bonus pending -> raise
+SUMMARY: 29/29 passed, 0 failed
