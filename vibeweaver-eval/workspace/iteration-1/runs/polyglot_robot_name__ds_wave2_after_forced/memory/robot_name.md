@@ -18,7 +18,8 @@ created: 2026-08-29
 - Why: matches the canonical Exercism solution, zero dependencies, memory small (only used names stored), retry cost negligible (676,000 possible names → collisions rare). Rejected: pre-shuffle-all-names (heavy ~700K-slot structure) and sequential/counter names (forbidden by spec).
 
 ## Verification outcome
-- Acceptance criteria 1–7 all pass; format regex, stability, distinctness, reset semantics, 500-robot uniqueness sweep, and non-sequential prefix variety verified in `tests/verification_run.log` (iter 1 PASS). Extended sweeps: 3000 more robots unique, 200 sequential resets OK, 3503 total names unique.
+- Acceptance criteria 1–7 all pass; format regex, stability, distinctness, reset semantics, 500-robot uniqueness sweep, and non-sequential prefix variety verified in `tests/verification_run.log` (iter 1 PASS). Extended sweeps: 3000 more robots unique, 200 sequential resets OK, 3500 total names unique.
+- Re-verified fresh on the re-run tree (2026-08-29 re-run after workspace reset to stub): 7/7 PASS, runner exit 0, lifecycle scripts all OK (start/restart/stop), py_compile exit 0.
 - Verifier: direct read (non-web) — no multimodal model (probe failed: model cannot read images), no mm-sensor; backend-only library → no UI media.
 
 ## A4.9 review (independent, PASS-WITH-MINORS) — adjudication

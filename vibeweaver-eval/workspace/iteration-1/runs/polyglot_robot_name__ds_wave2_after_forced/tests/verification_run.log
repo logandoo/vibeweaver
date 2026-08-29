@@ -1,11 +1,11 @@
-criterion 1: PASS -- robot_name imports and Robot() constructs
-criterion 2: PASS -- name matches ^[A-Z]{2}[0-9]{3}$ (got XV493)
+criterion 1: PASS -- robot_name imports and Robot() constructible
+criterion 2: PASS -- name matches ^[A-Z]{2}[0-9]{3}$ (got ZZ425)
 criterion 3: PASS -- name stable across repeated reads
-criterion 4: PASS -- distinct instances differ (UI798 vs NR726)
-criterion 5: PASS -- reset yields new valid name different from previous (QB023 -> PY503)
+criterion 4: PASS -- distinct instances differ (ZZ425 vs JZ832)
+criterion 5: PASS -- reset yields new valid name different from previous (ZZ425 -> NO055)
 criterion 6: PASS -- 500 robots all have unique names
-criterion 7: PASS -- names non-sequential: 345 distinct 2-letter prefixes, 399 distinct digit suffixes
+criterion 7: PASS -- names non-sequential: 350 distinct 2-letter prefixes, 401 distinct digit suffixes
 extended sweep: 3000 more robots unique = True
 extended sweep: 200 sequential resets all valid + different-from-prev = True
-extended sweep: 3503 total names all unique = True
+extended sweep: 3500 total names all unique = True
 SUMMARY: 7/7 passed

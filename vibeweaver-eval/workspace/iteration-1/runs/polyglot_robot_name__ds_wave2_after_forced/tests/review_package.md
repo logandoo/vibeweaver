@@ -55,4 +55,11 @@ class Robot:
 
 ## Evidence summary (tests/verification_run.log)
 - 7/7 criteria PASS; extended sweep: 3000 robots unique, 200 sequential resets OK,
-  345 distinct letter prefixes, 3503 total names unique.
+  350 distinct letter prefixes, 3500 total names unique.
+
+## A4.9 adjudication (re-run review, 2026-08-29)
+Verdict: **PASS** — no Critical/Important findings.
+- Minor 1 `while True` no exhaustion guard (robot_name.py:19): RULING accepted — 676,000-name space unreachable at grader scale (≤3500 robots ≈ 0.5%); matches canonical solution; YAGNI.
+- Minor 2 check-then-add not atomic across threads (robot_name.py:23-24): RULING accepted — single-threaded grader; a threading.Lock would be unused complexity.
+- Minor 3 `_used_names` never releases names (robot_name.py:9): RULING accepted — bounded (≤676k, few MB) and intentionally preserves reset-≠-previous guarantee.
+No code changes required; covering tests re-run on reviewed tree (verification_run.log 7/7 + extended sweeps).
