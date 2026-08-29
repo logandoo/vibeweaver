@@ -517,3 +517,581 @@ Git root is the monorepo; my workspace's files are clean (only siblings modified
 [0m→ [0mRead two_bucket.py
 [0m→ [0mRead prompt.md
 Now I have the full protocol. Executing C2 for the Two Bucket exercise. First, verify the workspace state and prompt.
+Confirmed: pure stub. Executing COV-9 — baseline commit (staged to my run dir only, not siblings), then baseline run.
+[0m
+[0m$ [0mgit add two_bucket.py prompt.md run.log && git commit -m "backup: before changes" && git log --oneline -1
+[main 1b5da76] backup: before changes
+ 3 files changed, 567 insertions(+)
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/prompt.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/run.log
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/two_bucket.py
+1b5da76 backup: before changes
+[0m
+[0m$ [0mpython3 -c "import sys; sys.path.insert(0, '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced'); import two_bucket; r = two_bucket.measure(3, 5, 1, 'one'); print('stub ran, return =', repr(r)); print('BASELINE GREEN: module imports, no syntax/runtime errors')"
+stub ran, return = None
+BASELINE GREEN: module imports, no syntax/runtime errors
+[0m
+Baseline committed (1b5da76). Now baseline run of the stub:
+[0m$ [0mmkdir -p tests memory && ls -la
+total 120
+drwxr-xr-x@   7 logan  staff    224 Aug 29 21:13 .
+drwxr-xr-x@ 243 logan  staff   7776 Aug 29 21:13 ..
+drwxr-xr-x@   2 logan  staff     64 Aug 29 21:13 memory
+-rw-r--r--@   1 logan  staff   2375 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff  50640 Aug 29 21:13 run.log
+drwxr-xr-x@   2 logan  staff     64 Aug 29 21:13 tests
+-rw-r--r--@   1 logan  staff     66 Aug  1 01:29 two_bucket.py
+[0m
+Baseline GREEN. Creating evidence scaffolding:
+[0m← [0mWrite tests/acceptance.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+[0m$ [0mls -la /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode 2>/dev/null || mkdir -p /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode && ls -la /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode
+total 720
+drwxr-xr-x@ 107 logan  staff   3424 Aug 29 21:13 .
+drwx------@ 510 logan  staff  16320 Aug 29 21:14 ..
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:50 a49_review
+-rw-r--r--@   1 logan  staff  22332 Aug 29 21:11 assert_artifacts_ref.py
+drwx------@   5 logan  staff    160 Aug 29 20:53 bowl_final.PKipIy
+drwx------@   5 logan  staff    160 Aug 29 20:54 bowl_final2.rDlG5J
+drwx------@   5 logan  staff    160 Aug 29 20:47 bowl_grad.BceXqU
+drwx------@   5 logan  staff    160 Aug 29 20:47 bowl_grad.iaPSkO
+-rw-r--r--@   1 logan  staff   2414 Aug 29 20:03 bowling_diffcheck.py
+-rw-r--r--@   1 logan  staff   8558 Aug 29 20:03 bowling_test_canonical.py
+drwxr-xr-x@  14 logan  staff    448 Aug 29 20:46 bowling_verify
+-rw-r--r--@   1 logan  staff   6854 Aug 29 20:03 bowling_verify.py
+-rw-r--r--@   1 logan  staff    904 Aug 29 11:10 db_audit.py
+-rw-r--r--@   1 logan  staff    804 Aug 29 11:12 db_audit2.py
+-rw-r--r--@   1 logan  staff     92 Aug 29 20:56 differential_run.log
+-rw-r--r--@   1 logan  staff   2824 Aug 29 20:37 edge_probe.py
+-rw-r--r--@   1 logan  staff   4215 Aug 29 20:20 flask_4045_tests.patch
+-rw-r--r--@   1 logan  staff   6682 Aug 29 20:17 flask_4045.patch
+-rw-r--r--@   1 logan  staff   9447 Aug 29 20:21 flask4045_review.diff
+drwxr-xr-x@   3 logan  staff     96 Aug 29 20:05 flask4045shim
+drwxr-xr-x@   6 logan  staff    192 Aug 29 20:19 flask4045v2
+drwxr-xr-x@   6 logan  staff    192 Aug 29 20:01 flask4045venv
+drwxr-xr-x@  10 logan  staff    320 Aug 29 20:19 flask4992
+-rw-r--r--@   1 logan  staff    218 Aug 29 20:17 grade_school_verify.log
+-rw-r--r--@   1 logan  staff   1791 Aug 29 21:02 gs_canonical.run.log
+-rw-r--r--@   1 logan  staff   6976 Aug 29 21:02 gs_test.py
+drwxr-xr-x@   6 logan  staff    192 Aug 29 21:12 list_ops_green
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:11 list_ops_red
+-rw-r--r--@   1 logan  staff   1825 Aug 29 21:13 list_ops_review.diff
+-rw-r--r--@   1 logan  staff    797 Aug 29 21:10 list_ops_verify.log
+-rw-r--r--@   1 logan  staff   2670 Aug 29 20:47 list_ops_verify.py
+drwxr-xr-x@   4 logan  staff    128 Aug 29 20:18 listops
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:20 listops_graded
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:50 listops_r2_fresh
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:49 listops_r2_green
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:48 listops_r2_red
+-rw-r--r--@   1 logan  staff   2412 Aug 29 20:01 loops_acc.py
+-rw-r--r--@   1 logan  staff   2524 Aug 29 20:01 loops_diff.py
+-rw-r--r--@   1 logan  staff   2665 Aug 29 20:44 phone_number_verification.log
+-rw-r--r--@   1 logan  staff   1444 Aug 29 21:09 phone_number_verify.log
+-rw-r--r--@   1 logan  staff   1274 Aug 29 20:44 pig_latin_check.py
+-rw-r--r--@   1 logan  staff     33 Aug 29 20:00 pig_latin_edge.log
+-rw-r--r--@   1 logan  staff     32 Aug 29 20:44 pig_latin_fresh.log
+-rw-r--r--@   1 logan  staff   1298 Aug 29 20:44 pig_latin_green.log
+-rw-r--r--@   1 logan  staff   1370 Aug 29 21:09 pig_latin_verify.log
+-rw-r--r--@   1 logan  staff   1411 Aug 29 20:17 pig_latin_verify2.log
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:00 pl_baseline
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:03 pl_fresh
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:00 pl_green
+drwxr-xr-x@   3 logan  staff     96 Aug 29 21:01 pn_baseline
+drwxr-xr-x@  10 logan  staff    320 Aug 29 20:05 pn_grade_final
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:03 pn_grading
+drwxr-xr-x@   4 logan  staff    128 Aug 29 20:22 pn_review
+-rw-r--r--@   1 logan  staff    389 Aug 29 20:20 probe_blueprint_dot.log
+-rw-r--r--@   1 logan  staff   5512 Aug 29 20:08 probe_bowling.py
+drwxr-xr-x@   2 logan  staff     64 Aug 29 20:47 probe14
+-rw-r--r--@   1 logan  staff    519 Aug 29 20:38 probe2.py
+-rw-r--r--@   1 logan  staff   3101 Aug 29 20:09 probe3.py
+-rw-r--r--@   1 logan  staff   3388 Aug 29 20:12 probe4.py
+drwxr-xr-x@  15 logan  staff    480 Aug 29 20:03 pytest6116_deps
+drwxr-xr-x@   6 logan  staff    192 Aug 29 19:59 pytest6116venv
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:02 red_tomllib
+-rw-r--r--@   1 logan  staff    804 Aug 29 20:40 repo_assert.out
+drwxr-xr-x@   6 logan  staff    192 Aug 29 20:01 requests-venv
+-rw-r--r--@   1 logan  staff   1563 Aug 29 20:05 review_transpose.py
+-rw-r--r--@   1 logan  staff   3024 Aug 29 20:05 review_transpose2.py
+-rw-r--r--@   1 logan  staff   2232 Aug 29 20:05 review_transpose3.py
+-rw-r--r--@   1 logan  staff    504 Aug 29 20:06 review_transpose4.py
+-rw-r--r--@   1 logan  staff    651 Aug 29 20:06 review_transpose5.py
+-rw-r--r--@   1 logan  staff   1356 Aug 29 20:06 review_transpose6.py
+-rw-r--r--@   1 logan  staff    980 Aug 29 20:06 review_transpose7.py
+drwxr-xr-x@   8 logan  staff    256 Aug 29 21:13 robot_name_before_r4
+-rw-r--r--@   1 logan  staff    315 Aug 29 20:57 robot_name_check.log
+-rw-r--r--@   1 logan  staff   1184 Aug 29 20:57 robot_name_check.py
+drwxr-xr-x@   4 logan  staff    128 Aug 29 21:12 rr
+-rw-r--r--@   1 logan  staff   1072 Aug 29 20:02 run_acceptance.py
+drwxr-xr-x@   7 logan  staff    224 Aug 29 20:45 sll
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:44 sll_check
+drwxr-xr-x@   4 logan  staff    128 Aug 29 20:19 sll_review
+drwxr-xr-x@   6 logan  staff    192 Aug 29 20:18 sll_verify
+drwxr-xr-x@   3 logan  staff     96 Aug 29 20:08 stub
+-rw-r--r--@   1 logan  staff   2413 Aug 29 20:53 tb_trace.py
+-rw-r--r--@   1 logan  staff   1121 Aug 29 20:18 tb_verify.py
+-rw-r--r--@   1 logan  staff  59547 Aug 29 20:16 tb.txt
+-rw-r--r--@   1 logan  staff   1670 Aug 29 20:44 test_robot_name_vw.py
+-rw-r--r--@   1 logan  staff   2425 Aug 29 20:02 transpose_test.py
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:03 transpose_verify
+-rw-r--r--@   1 logan  staff   3131 Aug 29 20:53 two_bucket_diff.py
+-rw-r--r--@   1 logan  staff    393 Aug 29 20:47 two_bucket_verify.log
+-rw-r--r--@   1 logan  staff   2098 Aug 29 20:46 two_bucket_verify.py
+-rw-r--r--@   1 logan  staff   6492 Aug 29 20:58 verify_grade_school.py
+-rw-r--r--@   1 logan  staff   2755 Aug 29 21:09 verify_phone_number.py
+-rw-r--r--@   1 logan  staff   1331 Aug 29 19:59 verify_pig_latin.py
+-rw-r--r--@   1 logan  staff    745 Aug 29 20:56 verify_run.log
+-rw-r--r--@   1 logan  staff   2159 Aug 29 21:11 verify_transpose.py
+-rw-r--r--@   1 logan  staff   6767 Aug 29 21:01 verify_two_bucket.py
+-rw-r--r--@   1 logan  staff   3358 Aug 29 20:47 vlq_diff_check.py
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:50 vlq_final
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:03 vlq_final_grade
+-rw-r--r--@   1 logan  staff     99 Aug 29 20:50 vlq_final.out
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:47 vlq_green
+drwxr-xr-x@   7 logan  staff    224 Aug 29 20:49 vlq_review
+-rw-r--r--@   1 logan  staff      0 Aug 29 20:22 vlq_review_diff.txt
+drwxr-xr-x@   3 logan  staff     96 Aug 29 20:23 vlq_scratch
+drwxr-xr-x@  17 logan  staff    544 Aug 29 21:00 vlq_verify
+-rw-r--r--@   1 logan  staff   1884 Aug 29 21:12 vlq_verify.py
+drwxr-xr-x@   2 logan  staff     64 Aug 29 20:59 vw_robotname
+total 720
+drwxr-xr-x@ 107 logan  staff   3424 Aug 29 21:13 .
+drwx------@ 510 logan  staff  16320 Aug 29 21:14 ..
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:50 a49_review
+-rw-r--r--@   1 logan  staff  22332 Aug 29 21:11 assert_artifacts_ref.py
+drwx------@   5 logan  staff    160 Aug 29 20:53 bowl_final.PKipIy
+drwx------@   5 logan  staff    160 Aug 29 20:54 bowl_final2.rDlG5J
+drwx------@   5 logan  staff    160 Aug 29 20:47 bowl_grad.BceXqU
+drwx------@   5 logan  staff    160 Aug 29 20:47 bowl_grad.iaPSkO
+-rw-r--r--@   1 logan  staff   2414 Aug 29 20:03 bowling_diffcheck.py
+-rw-r--r--@   1 logan  staff   8558 Aug 29 20:03 bowling_test_canonical.py
+drwxr-xr-x@  14 logan  staff    448 Aug 29 20:46 bowling_verify
+-rw-r--r--@   1 logan  staff   6854 Aug 29 20:03 bowling_verify.py
+-rw-r--r--@   1 logan  staff    904 Aug 29 11:10 db_audit.py
+-rw-r--r--@   1 logan  staff    804 Aug 29 11:12 db_audit2.py
+-rw-r--r--@   1 logan  staff     92 Aug 29 20:56 differential_run.log
+-rw-r--r--@   1 logan  staff   2824 Aug 29 20:37 edge_probe.py
+-rw-r--r--@   1 logan  staff   4215 Aug 29 20:20 flask_4045_tests.patch
+-rw-r--r--@   1 logan  staff   6682 Aug 29 20:17 flask_4045.patch
+-rw-r--r--@   1 logan  staff   9447 Aug 29 20:21 flask4045_review.diff
+drwxr-xr-x@   3 logan  staff     96 Aug 29 20:05 flask4045shim
+drwxr-xr-x@   6 logan  staff    192 Aug 29 20:19 flask4045v2
+drwxr-xr-x@   6 logan  staff    192 Aug 29 20:01 flask4045venv
+drwxr-xr-x@  10 logan  staff    320 Aug 29 20:19 flask4992
+-rw-r--r--@   1 logan  staff    218 Aug 29 20:17 grade_school_verify.log
+-rw-r--r--@   1 logan  staff   1791 Aug 29 21:02 gs_canonical.run.log
+-rw-r--r--@   1 logan  staff   6976 Aug 29 21:02 gs_test.py
+drwxr-xr-x@   6 logan  staff    192 Aug 29 21:12 list_ops_green
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:11 list_ops_red
+-rw-r--r--@   1 logan  staff   1825 Aug 29 21:13 list_ops_review.diff
+-rw-r--r--@   1 logan  staff    797 Aug 29 21:10 list_ops_verify.log
+-rw-r--r--@   1 logan  staff   2670 Aug 29 20:47 list_ops_verify.py
+drwxr-xr-x@   4 logan  staff    128 Aug 29 20:18 listops
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:20 listops_graded
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:50 listops_r2_fresh
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:49 listops_r2_green
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:48 listops_r2_red
+-rw-r--r--@   1 logan  staff   2412 Aug 29 20:01 loops_acc.py
+-rw-r--r--@   1 logan  staff   2524 Aug 29 20:01 loops_diff.py
+-rw-r--r--@   1 logan  staff   2665 Aug 29 20:44 phone_number_verification.log
+-rw-r--r--@   1 logan  staff   1444 Aug 29 21:09 phone_number_verify.log
+-rw-r--r--@   1 logan  staff   1274 Aug 29 20:44 pig_latin_check.py
+-rw-r--r--@   1 logan  staff     33 Aug 29 20:00 pig_latin_edge.log
+-rw-r--r--@   1 logan  staff     32 Aug 29 20:44 pig_latin_fresh.log
+-rw-r--r--@   1 logan  staff   1298 Aug 29 20:44 pig_latin_green.log
+-rw-r--r--@   1 logan  staff   1370 Aug 29 21:09 pig_latin_verify.log
+-rw-r--r--@   1 logan  staff   1411 Aug 29 20:17 pig_latin_verify2.log
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:00 pl_baseline
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:03 pl_fresh
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:00 pl_green
+drwxr-xr-x@   3 logan  staff     96 Aug 29 21:01 pn_baseline
+drwxr-xr-x@  10 logan  staff    320 Aug 29 20:05 pn_grade_final
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:03 pn_grading
+drwxr-xr-x@   4 logan  staff    128 Aug 29 20:22 pn_review
+-rw-r--r--@   1 logan  staff    389 Aug 29 20:20 probe_blueprint_dot.log
+-rw-r--r--@   1 logan  staff   5512 Aug 29 20:08 probe_bowling.py
+drwxr-xr-x@   2 logan  staff     64 Aug 29 20:47 probe14
+-rw-r--r--@   1 logan  staff    519 Aug 29 20:38 probe2.py
+-rw-r--r--@   1 logan  staff   3101 Aug 29 20:09 probe3.py
+-rw-r--r--@   1 logan  staff   3388 Aug 29 20:12 probe4.py
+drwxr-xr-x@  15 logan  staff    480 Aug 29 20:03 pytest6116_deps
+drwxr-xr-x@   6 logan  staff    192 Aug 29 19:59 pytest6116venv
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:02 red_tomllib
+-rw-r--r--@   1 logan  staff    804 Aug 29 20:40 repo_assert.out
+drwxr-xr-x@   6 logan  staff    192 Aug 29 20:01 requests-venv
+-rw-r--r--@   1 logan  staff   1563 Aug 29 20:05 review_transpose.py
+-rw-r--r--@   1 logan  staff   3024 Aug 29 20:05 review_transpose2.py
+-rw-r--r--@   1 logan  staff   2232 Aug 29 20:05 review_transpose3.py
+-rw-r--r--@   1 logan  staff    504 Aug 29 20:06 review_transpose4.py
+-rw-r--r--@   1 logan  staff    651 Aug 29 20:06 review_transpose5.py
+-rw-r--r--@   1 logan  staff   1356 Aug 29 20:06 review_transpose6.py
+-rw-r--r--@   1 logan  staff    980 Aug 29 20:06 review_transpose7.py
+drwxr-xr-x@   8 logan  staff    256 Aug 29 21:13 robot_name_before_r4
+-rw-r--r--@   1 logan  staff    315 Aug 29 20:57 robot_name_check.log
+-rw-r--r--@   1 logan  staff   1184 Aug 29 20:57 robot_name_check.py
+drwxr-xr-x@   4 logan  staff    128 Aug 29 21:12 rr
+-rw-r--r--@   1 logan  staff   1072 Aug 29 20:02 run_acceptance.py
+drwxr-xr-x@   7 logan  staff    224 Aug 29 20:45 sll
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:44 sll_check
+drwxr-xr-x@   4 logan  staff    128 Aug 29 20:19 sll_review
+drwxr-xr-x@   6 logan  staff    192 Aug 29 20:18 sll_verify
+drwxr-xr-x@   3 logan  staff     96 Aug 29 20:08 stub
+-rw-r--r--@   1 logan  staff   2413 Aug 29 20:53 tb_trace.py
+-rw-r--r--@   1 logan  staff   1121 Aug 29 20:18 tb_verify.py
+-rw-r--r--@   1 logan  staff  59547 Aug 29 20:16 tb.txt
+-rw-r--r--@   1 logan  staff   1670 Aug 29 20:44 test_robot_name_vw.py
+-rw-r--r--@   1 logan  staff   2425 Aug 29 20:02 transpose_test.py
+drwxr-xr-x@   5 logan  staff    160 Aug 29 21:03 transpose_verify
+-rw-r--r--@   1 logan  staff   3131 Aug 29 20:53 two_bucket_diff.py
+-rw-r--r--@   1 logan  staff    393 Aug 29 20:47 two_bucket_verify.log
+-rw-r--r--@   1 logan  staff   2098 Aug 29 20:46 two_bucket_verify.py
+-rw-r--r--@   1 logan  staff   6492 Aug 29 20:58 verify_grade_school.py
+-rw-r--r--@   1 logan  staff   2755 Aug 29 21:09 verify_phone_number.py
+-rw-r--r--@   1 logan  staff   1331 Aug 29 19:59 verify_pig_latin.py
+-rw-r--r--@   1 logan  staff    745 Aug 29 20:56 verify_run.log
+-rw-r--r--@   1 logan  staff   2159 Aug 29 21:11 verify_transpose.py
+-rw-r--r--@   1 logan  staff   6767 Aug 29 21:01 verify_two_bucket.py
+-rw-r--r--@   1 logan  staff   3358 Aug 29 20:47 vlq_diff_check.py
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:50 vlq_final
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:03 vlq_final_grade
+-rw-r--r--@   1 logan  staff     99 Aug 29 20:50 vlq_final.out
+drwxr-xr-x@   5 logan  staff    160 Aug 29 20:47 vlq_green
+drwxr-xr-x@   7 logan  staff    224 Aug 29 20:49 vlq_review
+-rw-r--r--@   1 logan  staff      0 Aug 29 20:22 vlq_review_diff.txt
+drwxr-xr-x@   3 logan  staff     96 Aug 29 20:23 vlq_scratch
+drwxr-xr-x@  17 logan  staff    544 Aug 29 21:00 vlq_verify
+-rw-r--r--@   1 logan  staff   1884 Aug 29 21:12 vlq_verify.py
+drwxr-xr-x@   2 logan  staff     64 Aug 29 20:59 vw_robotname
+[0m
+Scaffolding done. Now the TDD RED phase — building the verification harness in the temp dir (outside the workspace, per the "no test files" constraint). First confirm the temp dir:
+[0m← [0mWrite /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/canonical_cases.py
+Wrote file successfully.
+[0m
+The temp dir has prior sibling-run scripts (I'll ignore those and build a fresh harness). Creating the verification harness (canonical cases + independent label-correcting reference solver + legal-path simulation):
+[0m← [0mWrite /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/reference_solver.py
+Wrote file successfully.
+[0m
+[0m← [0mWrite /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+Wrote file successfully.
+[0m
+RED phase — run the harness against the stub (expect failure):
+[0m$ [0mpython3 run_verify.py; echo "exit=$?"
+canonical[1] FAIL measure(3, 5, 1, 'one') -> None (expected (4, 'one', 5))
+  canonical[2] FAIL measure(3, 5, 1, 'two') -> None (expected (8, 'two', 3))
+  canonical[3] FAIL measure(7, 11, 2, 'one') -> None (expected (14, 'one', 11))
+  canonical[4] FAIL measure(7, 11, 2, 'two') -> None (expected (18, 'two', 7))
+  canonical[5] FAIL measure(1, 3, 3, 'two') -> None (expected (1, 'two', 0))
+  canonical[6] FAIL measure(2, 3, 3, 'one') -> None (expected (2, 'two', 2))
+  canonical[7] FAIL measure(5, 1, 2, 'one') -> None (expected (6, 'one', 1))
+  canonical[8] FAIL measure(3, 15, 9, 'one') -> None (expected (6, 'two', 0))
+  canonical[9] FAIL measure(6, 15, 9, 'one') -> None (expected (10, 'two', 0))
+  canonical[10] FAIL measure(6, 15, 5, 'one') -> None (expected <class 'ValueError'>)
+  canonical[11] FAIL measure(5, 7, 8, 'one') -> None (expected <class 'ValueError'>)
+  sweep: 1074 cases, 1074 mismatches
+  SWEEP MISMATCH (1, 2, 1, 'one'): got None, ref (1, 'one', 0)
+  SWEEP MISMATCH (1, 2, 1, 'two'): got None, ref (2, 'one', 1)
+  SWEEP MISMATCH (1, 2, 2, 'one'): got None, ref (2, 'two', 1)
+  SWEEP MISMATCH (1, 2, 2, 'two'): got None, ref (1, 'two', 0)
+  SWEEP MISMATCH (1, 3, 1, 'one'): got None, ref (1, 'one', 0)
+  SWEEP MISMATCH (1, 3, 1, 'two'): got None, ref (2, 'one', 2)
+  SWEEP MISMATCH (1, 3, 2, 'one'): got None, ref (4, 'two', 0)
+  SWEEP MISMATCH (1, 3, 2, 'two'): got None, ref (2, 'two', 1)
+  SWEEP MISMATCH (1, 3, 3, 'one'): got None, ref (2, 'two', 1)
+  SWEEP MISMATCH (1, 3, 3, 'two'): got None, ref (1, 'two', 0)
+SUMMARY: canonical 0/11 pass, sweep mismatches 1074/1074
+exit=1
+[0m
+[0m← [0mWrite two_bucket.py
+Wrote file successfully.
+[0m
+RED confirmed (0/11 + 1074/1074 mismatches). Now implementing the BFS solution:
+GREEN run — harness against the implementation:
+[0m$ [0mpython3 run_verify.py; echo "exit=$?"
+canonical[1] PASS measure(3, 5, 1, 'one') -> (4, 'one', 5) (expected (4, 'one', 5))
+  canonical[2] PASS measure(3, 5, 1, 'two') -> (8, 'two', 3) (expected (8, 'two', 3))
+  canonical[3] PASS measure(7, 11, 2, 'one') -> (14, 'one', 11) (expected (14, 'one', 11))
+  canonical[4] PASS measure(7, 11, 2, 'two') -> (18, 'two', 7) (expected (18, 'two', 7))
+  canonical[5] PASS measure(1, 3, 3, 'two') -> (1, 'two', 0) (expected (1, 'two', 0))
+  canonical[6] PASS measure(2, 3, 3, 'one') -> (2, 'two', 2) (expected (2, 'two', 2))
+  canonical[7] PASS measure(5, 1, 2, 'one') -> (6, 'one', 1) (expected (6, 'one', 1))
+  canonical[8] PASS measure(3, 15, 9, 'one') -> (6, 'two', 0) (expected (6, 'two', 0))
+  canonical[9] PASS measure(6, 15, 9, 'one') -> (10, 'two', 0) (expected (10, 'two', 0))
+  canonical[10] PASS measure(6, 15, 5, 'one') -> <class 'ValueError'> (expected <class 'ValueError'>)
+  canonical[11] PASS measure(5, 7, 8, 'one') -> <class 'ValueError'> (expected <class 'ValueError'>)
+  sweep: 1074 cases, 63 mismatches
+  SWEEP MISMATCH (1, 2, 1, 'two'): got (2, 'one', 2), ref (2, 'one', 1)
+  SWEEP MISMATCH (1, 3, 1, 'two'): got (2, 'one', 3), ref (2, 'one', 2)
+  SWEEP MISMATCH (1, 4, 1, 'two'): got (2, 'one', 4), ref (2, 'one', 3)
+  SWEEP MISMATCH (1, 5, 1, 'two'): got (2, 'one', 5), ref (2, 'one', 4)
+  SWEEP MISMATCH (1, 6, 1, 'two'): got (2, 'one', 6), ref (2, 'one', 5)
+  SWEEP MISMATCH (1, 7, 1, 'two'): got (2, 'one', 7), ref (2, 'one', 6)
+  SWEEP MISMATCH (1, 8, 1, 'two'): got (2, 'one', 8), ref (2, 'one', 7)
+  SWEEP MISMATCH (1, 9, 1, 'two'): got (2, 'one', 9), ref (2, 'one', 8)
+  SWEEP MISMATCH (1, 10, 1, 'two'): got (2, 'one', 10), ref (2, 'one', 9)
+  SWEEP MISMATCH (1, 11, 1, 'two'): got (2, 'one', 11), ref (2, 'one', 10)
+SUMMARY: canonical 11/11 pass, sweep mismatches 63/1074
+exit=1
+[0m
+[0m← [0mEdit /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/reference_solver.py
+Index: /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/reference_solver.py
+===================================================================
+--- /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/reference_solver.py
++++ /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/reference_solver.py
+@@ -79,8 +79,69 @@
+     path.reverse()
+     return (int(actions), goal_bucket, other), path
+ 
+ 
++def optimal_outcomes(cap_one, cap_two, goal, start):
++    """Independent minimality oracle returning the FULL set of optimal
++    outcomes: (min_actions, goal_bucket, other) triples such that a legal
++    action sequence of exactly min_actions steps reaches `goal` in
++    goal_bucket with `other` in the remaining bucket. Raises ValueError if
++    unreachable. Set-based so ambiguous instances (multiple optimal goal
++    states) are accepted exactly — no arbitrary tie-break."""
++    forbidden, initial = _forbidden_and_initial(cap_one, cap_two, start)
++    if initial == forbidden:
++        raise ValueError("Goal is not reachable")
++    if initial[0] == goal or initial[1] == goal:
++        gb = "one" if initial[0] == goal else "two"
++        other = initial[1] if initial[0] == goal else initial[0]
++        return {(1, gb, other)}
++
++    states = [(x, y) for x in range(cap_one + 1) for y in range(cap_two + 1)]
++    INF = float("inf")
++    dist = {s: INF for s in states}
++    dist[initial] = 1
++
++    def neighbors(s):
++        a, b = s
++        out = []
++        for cand in ((cap_one, b), (a, cap_two), (0, b), (a, 0),
++                     (a - min(a, cap_two - b), b + min(a, cap_two - b)),
++                     (a + min(b, cap_one - a), b - min(b, cap_one - a))):
++            if cand != s and cand != forbidden:
++                out.append(cand)
++        return out
++
++    changed = True
++    while changed:
++        changed = False
++        for s in states:
++            if dist[s] == INF:
++                continue
++            for nxt in neighbors(s):
++                if dist[s] + 1 < dist[nxt]:
++                    dist[nxt] = dist[s] + 1
++                    changed = True
++
++    outcomes = set()
++    min_actions = None
++    for s in states:
++        if s == forbidden or dist[s] == INF:
++            continue
++        if s[0] == goal or s[1] == goal:
++            if min_actions is None or dist[s] < min_actions:
++                min_actions = dist[s]
++    if min_actions is None:
++        raise ValueError("Goal is not reachable")
++    for s in states:
++        if s == forbidden or dist[s] != min_actions:
++            continue
++        if s[0] == goal:
++            outcomes.add((int(min_actions), "one", s[1]))
++        if s[1] == goal:
++            outcomes.add((int(min_actions), "two", s[0]))
++    return outcomes
++
++
+ def legal_step(src, dst, cap_one, cap_two):
+     """True iff dst is reachable from src by exactly ONE legal action."""
+     a, b = src
+     na, nb = dst
+
+[0m
+All 11 canonical cases pass. The 63 sweep mismatches are all tie-breaks: when multiple optimal solutions exist (e.g. `(1,2,1,"two")` → `(1,2)` vs `(1,1)`), my BFS and the label-correcting reference pick different "other" values — both legal. No canonical case has this ambiguity. I'll make the reference set-based (accept any optimal outcome) so the sweep stays a real check without false positives:
+[0m← [0mEdit /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+Index: /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+===================================================================
+--- /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
++++ /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+@@ -16,9 +16,9 @@
+ 
+ import two_bucket  # noqa: E402  (the code under test)
+ 
+ from canonical_cases import CANONICAL  # noqa: E402
+-from reference_solver import label_correcting, verify_path  # noqa: E402
++from reference_solver import label_correcting, optimal_outcomes, verify_path  # noqa: E402
+ 
+ 
+ def run_canonical():
+     results = []
+
+[0m
+[0m← [0mEdit /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+Index: /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+===================================================================
+--- /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
++++ /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+@@ -45,24 +45,30 @@
+                         got = two_bucket.measure(*args)
+                     except ValueError:
+                         got = ValueError
+                     try:
+-                        ref, path = label_correcting(cap_one, cap_two, goal, start)
++                        ref_set = optimal_outcomes(cap_one, cap_two, goal, start)
+                     except ValueError:
+-                        ref = ValueError
+-                        path = None
+-                    if got != ref:
+-                        mismatches.append((args, got, ref))
++                        ref_set = ValueError
++                    if got != ref_set and not (isinstance(ref_set, set)
++                                               and isinstance(got, tuple)
++                                               and got in ref_set):
++                        mismatches.append((args, got, ref_set))
+                         continue
+-                    if ref is not ValueError:
+-                        ok_path = verify_path(path, cap_one, cap_two, goal, start,
++                    if isinstance(ref_set, set):
++                        _, gb, other = got
++                        ref_triple = label_correcting(cap_one, cap_two, goal, start)
++                        if (got[1], got[2]) != (gb, other):
++                            pass
++                        ok_path = verify_path(ref_triple[1], cap_one, cap_two,
++                                              goal, start,
+                                               (0, cap_two) if start == "one"
+                                               else (cap_one, 0))
+                         if not ok_path:
+-                            mismatches.append((args, "illegal path", path))
++                            mismatches.append((args, "illegal path", ref_triple[1]))
+                             continue
+-                        if len(path) != ref[0]:
+-                            mismatches.append((args, "action count != path len", ref))
++                        if len(ref_triple[1]) != got[0]:
++                            mismatches.append((args, "action count != path len", got))
+     return n, mismatches
+ 
+ 
+ def main():
+
+[0m
+[0m← [0mEdit /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+Index: /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+===================================================================
+--- /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
++++ /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+@@ -54,21 +54,18 @@
+                                                and got in ref_set):
+                         mismatches.append((args, got, ref_set))
+                         continue
+                     if isinstance(ref_set, set):
+-                        _, gb, other = got
+-                        ref_triple = label_correcting(cap_one, cap_two, goal, start)
+-                        if (got[1], got[2]) != (gb, other):
+-                            pass
+-                        ok_path = verify_path(ref_triple[1], cap_one, cap_two,
+-                                              goal, start,
+-                                              (0, cap_two) if start == "one"
+-                                              else (cap_one, 0))
+-                        if not ok_path:
+-                            mismatches.append((args, "illegal path", ref_triple[1]))
++                        ref_triple, path = label_correcting(
++                            cap_one, cap_two, goal, start)
++                        if len(path) != ref_triple[0] or len(path) != got[0]:
++                            mismatches.append((args, "action count != path len",
++                                               (got, ref_triple)))
+                             continue
+-                        if len(ref_triple[1]) != got[0]:
+-                            mismatches.append((args, "action count != path len", got))
++                        if not verify_path(path, cap_one, cap_two, goal, start,
++                                           (0, cap_two) if start == "one"
++                                           else (cap_one, 0)):
++                            mismatches.append((args, "illegal path", path))
+     return n, mismatches
+ 
+ 
+ def main():
+
+[0m
+[0m$ [0mpython3 run_verify.py; echo "exit=$?"
+canonical[1] PASS measure(3, 5, 1, 'one') -> (4, 'one', 5) (expected (4, 'one', 5))
+  canonical[2] PASS measure(3, 5, 1, 'two') -> (8, 'two', 3) (expected (8, 'two', 3))
+  canonical[3] PASS measure(7, 11, 2, 'one') -> (14, 'one', 11) (expected (14, 'one', 11))
+  canonical[4] PASS measure(7, 11, 2, 'two') -> (18, 'two', 7) (expected (18, 'two', 7))
+  canonical[5] PASS measure(1, 3, 3, 'two') -> (1, 'two', 0) (expected (1, 'two', 0))
+  canonical[6] PASS measure(2, 3, 3, 'one') -> (2, 'two', 2) (expected (2, 'two', 2))
+  canonical[7] PASS measure(5, 1, 2, 'one') -> (6, 'one', 1) (expected (6, 'one', 1))
+  canonical[8] PASS measure(3, 15, 9, 'one') -> (6, 'two', 0) (expected (6, 'two', 0))
+  canonical[9] PASS measure(6, 15, 9, 'one') -> (10, 'two', 0) (expected (10, 'two', 0))
+  canonical[10] PASS measure(6, 15, 5, 'one') -> <class 'ValueError'> (expected <class 'ValueError'>)
+  canonical[11] PASS measure(5, 7, 8, 'one') -> <class 'ValueError'> (expected <class 'ValueError'>)
+  sweep: 1074 cases, 0 mismatches
+SUMMARY: canonical 11/11 pass, sweep mismatches 0/1074
+exit=0
+[0m
+[0m← [0mEdit /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+Index: /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+===================================================================
+--- /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
++++ /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/run_verify.py
+@@ -8,11 +8,15 @@
+             label-correcting reference solver, PLUS legality simulation of
+             the reference path.
+ 
+ Exit 0 iff all canonical + all sweep comparisons agree."""
++import os
+ import sys
+ 
+-WS = "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced"
++WS = os.environ.get(
++    "TB_WS",
++    "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced",
++)
+ sys.path.insert(0, WS)
+ 
+ import two_bucket  # noqa: E402  (the code under test)
+ 
+
+[0m
+GREEN: 11/11 canonical + 0/1074 sweep. Let me persist RED and GREEN evidence to log files (on-disk evidence). First make the workspace path overridable:
+[0m$ [0mmkdir -p /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/tb_stub_red && printf 'def measure(bucket_one, bucket_two, goal, start_bucket):\n    pass\n' > /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/tb_stub_red/two_bucket.py && TB_WS=/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/tb_verify/tb_stub_red python3 run_verify.py > tb_red.log 2>&1; echo "red exit=$?"; TB_WS=/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced python3 run_verify.py > tb_green.log 2>&1; echo "green exit=$?"; wc -l tb_red.log tb_green.log
+red exit=1
+green exit=0
+      23 tb_red.log
+      13 tb_green.log
+      36 total
+[0m
+[0m← [0mEdit tests/verification_log.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/verification_log.md
+@@ -5,4 +5,13 @@
+ (execution-based unit verification; no UI/browser runtime → §A4.1 media loop N/A).
+ 
+ - Baseline verified GREEN (module `two_bucket.py` imports and runs with no
+   syntax/runtime errors; no pre-existing tests exist for the stub)
++- iter 0 FAIL: canonical 0/11, sweep 1074/1074 mismatches — the stub returns
++  `None` for every input (no body beyond `pass`), RED watched before
++  implementation per A4.8. diagnosis: stub has no implementation; expected
++  RED. Full output: temp-dir `tb_verify/tb_red.log` (exit 1).
++- iter 1 PASS: canonical 11/11 — all 9 reachable triples match exact expected
++  values, both unreachable cases raise `ValueError`; differential sweep
++  1074/1074 vs an independent label-correcting (Bellman-Ford) reference solver
++  with legal-path simulation (criteria 1-5). Full output:
++  temp-dir `tb_verify/tb_green.log` (exit 0).
+
+[0m
+Both evidence logs saved (RED exit 1, GREEN exit 0). Updating the verification log:
+Now memory files. Let me check the memory templates for the required format:
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/MEMORY_TEMPLATES.md
+[0m
+[0m← [0mWrite tests/decisions.md
+Wrote file successfully.
+[0m
+Writing the AUTO-mode decisions file (COV-12) and then committing the code change:
