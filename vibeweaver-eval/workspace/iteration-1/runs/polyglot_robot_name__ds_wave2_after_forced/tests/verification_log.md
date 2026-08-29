@@ -14,7 +14,7 @@
   - SUMMARY: 1/7 passed (criterion 1 = imports/constructs PASS; criteria 2–7 FAIL)
 
 ### Loop iterations
-- iter 1 PASS: criteria #1–#7 — 7/7 executed checks in `tests/verification_run.log` all PASS (format regex `^[A-Z]{2}[0-9]{3}$`; name stable across reads; distinct across instances; reset yields new valid name; 500-robot uniqueness sweep; non-sequential prefix variety); extended sweep: 3000 robots unique, 200 sequential resets OK, 647 distinct letter prefixes / 977 digit suffixes; changed: `robot_name.py` (stub → full implementation).
+- iter 1 PASS: criteria #1–#7 — 7/7 executed checks in `tests/verification_run.log` all PASS (format regex `^[A-Z]{2}[0-9]{3}$`; name stable across reads; distinct across instances; reset yields new valid name; 500-robot uniqueness sweep; non-sequential prefix variety — 345 distinct 2-letter prefixes / 399 distinct digit suffixes on 500-sample); extended sweep: 3000 more robots unique, 200 sequential resets all valid + different-from-prev, 3503 total names unique; changed: `robot_name.py` (stub → full implementation).
 
 ## FRESH run on final tree
 - `python3 -m py_compile robot_name.py` → exit 0 (no syntax errors).
