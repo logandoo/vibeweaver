@@ -879,3 +879,69 @@ Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspa
 
 [0m
 Reviewer verdict: **PASS** — no Critical/Important; 4 Minor (readability). Per A4.9, I record the review package + adjudicate the Minors (defer to memory).
+Committing the review artifacts, then running the fresh-run on the final committed tree.
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git add vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced && git commit -q -m "docs: record A4.9 review verdict + adjudication (bowling, APPROVE; 4 minors deferred to memory)" && git log --oneline -3
+8a4fbac docs: record A4.9 review verdict + adjudication (bowling, APPROVE; 4 minors deferred to memory)
+32e6522 simple_linked_list: implement singly linked list exercise
+7dc4f30 docs: record AUTO-mode decisions log
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git rev-parse HEAD && git status --porcelain vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/ && echo "--- fresh run ---" && cd vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced && bash script/linux/restart.sh > tests/restart_run.log 2>&1; echo "restart exit=$?" && cd /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/bowling_verify && cp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/bowling.py . && python3 -m pytest -q bowling_test.py > /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/tests/fresh_run.log 2>&1; echo "fresh exit=$?"; tail -3 /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/tests/fresh_run.log
+8a4fbac4fc12304bc7e26c11ae0349326666f21a
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/run.log
+--- fresh run ---
+restart exit=0
+fresh exit=0
+[2026-08-29 20:23:24,535] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+...............................                                          [100%]
+31 passed in 0.02s
+[0m
+Fresh-run on the committed tree: 31/31 passed, restart clean. Final artifact-assertion re-run.
+[0m$ [0mpython3 tests/assert_artifacts.py --existing --backend-only > tests/assert_run.log 2>&1; echo "exit=$?"; cat tests/assert_run.log; echo "--- workspace test-file check (must be none) ---"; ls tests/; echo "--- bowling.py final ---"; wc -l bowling.py
+exit=0
+assert_artifacts.py: all 11 checks pass (exit 0)
+--- workspace test-file check (must be none) ---
+acceptance.md
+assert_artifacts.py
+assert_run.log
+canonical_run.log
+decisions.md
+differential_run.log
+fresh_run.log
+restart_run.log
+review_package.md
+verification_log.md
+--- bowling.py final ---
+      80 bowling.py
+[0m
+All gates pass. Producing the completion output.
+
+**9-item pre-output self-audit:**
+1. ✅ COV-1: tests executed with on-disk evidence (`tests/canonical_run.log`, `tests/differential_run.log`, `tests/fresh_run.log`, `tests/restart_run.log`, `tests/assert_run.log`)
+2. ✅ COV-2: lifecycle via `script/linux/restart.sh` (used, not bypassed)
+3. ✅ COV-3/COV-11: ZERO done (decompose + approach evaluation; exa search attempted → 429; fetched spec treated as data)
+4. ✅ COV-5: verifier announced at start (`direct read (non-web)`); maker/checker split via independent reference scorer
+5. ✅ COV-7: `> cap=5  stall=3×` top line; converged in 1 iteration, 14/14 criteria
+6. ✅ COV-9: baseline commit `796962b` + baseline run recorded first in `tests/verification_log.md`
+7. ✅ COV-8: A4.9 reviewer dispatched over `git diff 796962b..HEAD`; APPROVE; adjudicated
+8. ✅ A4.8 RED evidence: baseline stub run recorded (31 failed) in verification_log
+9. ✅ `python3 tests/assert_artifacts.py --existing --backend-only` → exit 0 (11/11)
+
+[Covenant Recall] checked: all 12 covenants hold for this completion
+
+[Memory Gate] Passed: A7.9 writes done (memory/MEMORY.md + memory/bowling.md topic with index pointers); A7.10 final gate satisfied — memory_gate: pass
+
+[Convergence] Bowling game: 1 iters | 14/14 pass | 0 stalls | 0 cap-hits
+
+```
+[Verification Gate] Verifier: direct-read (non-web) | Loop executed: yes | Media graded externally: 0/0 (video 0 · audio 0 · screenshots 0) | Iterations: 1 | Tests executed with artifacts: yes | E2E depth: unit-only | Script-only build/lifecycle: yes | Fresh-run on final tree: yes | TDD RED evidence: yes | Code review: clean | assert_artifacts.py: pass=11/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass
+```
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|----------------------------------------|----------------------|--------------|-------------|------------------------------------------|--------|
+| 1 | Implement bowling scoring (`roll`/`score`) per prompt.md | exa MCP websearch attempted → HTTP 429 rate-limited (no results); spec taken from prompt.md + read-only canonical Exercism `bowling_test.py` (31 tests). Approach evaluated: A rolls-list + frame-walk (chosen — simple, mirrors scoring definition) vs B frame-object decomposition (more state, error-prone 10th-frame rules) vs C incremental running total (subtle across consecutive strikes) | `bowling.py` | Stub → 80-line implementation: flat `self.rolls`; `roll()` validates negative/>10/frame-over-10 (incl. 10th-frame strike-bonus carve-out), game-over, then appends; `score()` frame-walks 10 frames (strike→+10+next2, spare→+10+next1, else sum); `_frame_state()`/`_is_complete()` walkers gate bonus sufficiency | `tests/canonical_run.log` → `31 passed in 0.01s` (exit 0); `tests/differential_run.log` → 0/5000 score + 0/4000 validation + 0/2000 incomplete mismatches vs independent frame reference; `tests/fresh_run.log` → 31 passed on final committed tree | 0314ec9 |
+| 2 | COV-2 script-only lifecycle for pure-library workspace | n/a (no build/service exists; pattern from vibeweaver §A6 library convention) | `script/linux/start.sh`, `stop.sh`, `restart.sh` | start = `py_compile` + perfect-game smoke assert (300); stop = no-op; restart = stop+start | `tests/restart_run.log` → `smoke check OK: perfect game = 300`, exit 0 | 0314ec9 |
+| 3 | Skill workflow artifacts (acceptance, verification log, decisions, memory, review, assertions) | n/a (workflow-specified) | `tests/acceptance.md`, `tests/verification_log.md`, `tests/decisions.md`, `tests/review_package.md`, `tests/assert_artifacts.py`, `memory/MEMORY.md`, `memory/bowling.md` | Acceptance criteria (14, `> cap=5  stall=3×`); verification log with baseline + iter-1 PASS; 4 AUTO ADRs; A4.9 review package (APPROVE, 4 minors adjudicated/deferred); assert script + run logs | `tests/assert_run.log` → `all 11 checks pass (exit 0)` | 8a4fbac |
+
+Companion note: `TESTING_PROTOCOLS.md`/`COMPLETION_GATE.md`/`REFERENCE.md`/`WORKFLOWS_EXTENDED.md` and `mm_probe.py`/`vision.py`/`assert_artifacts.py` are not shipped in this config (only `SKILL.md`) — checked via `ls`; proceeded on the inline contract, reused the sibling run's verified `assert_artifacts.py` (D-3).
+
+**Report:** Implemented `BowlingGame` in `bowling.py` (flat rolls list, frame-walk scoring, full validation incl. 10th-frame fill balls). Verified by executing the canonical 31-test suite (31/31 pass), an 11,000-comparison differential against an independent frame-object reference (0 mismatches), a perfect-game smoke check (300), and a fresh run on the final committed tree. No test files created or modified in the workspace.

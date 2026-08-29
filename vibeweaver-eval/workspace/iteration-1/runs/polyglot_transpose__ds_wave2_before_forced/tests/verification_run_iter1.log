@@ -1,0 +1,50 @@
+............
+----------------------------------------------------------------------
+Ran 12 tests in 0.000s
+
+OK
+prompt example OK: 'ABC\nDEF' -> 'AD\nBE\nCF'
+prompt example OK: 'ABC\nDE' -> 'AD\nBE\nC'
+prompt example OK: 'AB\nDEF' -> 'AD\nBE\n F'
+ALL PROMPT EXAMPLES PASS; py_compile OK
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/tests/assert_artifacts.py", line 393, in <module>
+    main()
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/tests/assert_artifacts.py", line 300, in main
+    is_exec = (sp.stat().st_mode & 0o111) if posix else True
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/pathlib.py", line 1222, in stat
+    return self._accessor.stat(self)
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/script/linux/start.sh'
+[START] transpose is a library-only project (no server lifecycle).
+[START] Running import smoke check...
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+TypeError: 'module' object is not callable
+[RESTART] transpose is library-only; restart = stop + fresh start smoke.
+[STOP] No .pid file found — nothing to stop (library-only project).
+[START] transpose is a library-only project (no server lifecycle).
+[START] Running import smoke check...
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+TypeError: 'module' object is not callable
+[STOP] No .pid file found — nothing to stop (library-only project).
+[START] transpose is a library-only project (no server lifecycle).
+[START] Running import smoke check...
+[START] transpose import + smoke OK
+[START] Session PID recorded: 56230
+[RESTART] transpose is library-only; restart = stop + fresh start smoke.
+[STOP] Terminating session PID 56230 (targeted kill, never pattern-kill).
+[STOP] Done.
+[START] transpose is a library-only project (no server lifecycle).
+[START] Running import smoke check...
+[START] transpose import + smoke OK
+[START] Session PID recorded: 56251
+[RESTART] Done.
+[STOP] Terminating session PID 56251 (targeted kill, never pattern-kill).
+[STOP] Done.
+............
+----------------------------------------------------------------------
+Ran 12 tests in 0.000s
+
+OK
+assert_artifacts.py: all 12 checks pass (exit 0)

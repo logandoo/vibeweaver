@@ -266,3 +266,15 @@ The run dir is untracked within a large repo. Let me check the canonical assert 
 [ ] Commit implementation + completion output (table, gates)
 [0m
 Now I have the full picture. This is a pure-logic Python exercise (the canonical Exercism "Phone Number" task). No UI, no service, no script/ — so the Playwright loop, mm-probe, and service lifecycle don't apply; the logic-bearing path (A4.8 TDD RED→GREEN) with direct-read verification is the right fit. Let me set up tracking and execute.
+**ZERO** — Decomposition & approach evaluation (COV-3):
+- Known: canonical NANP cleaning exercise — strip non-digits, drop country code `1` if 11 digits, validate 10-digit structure (area/exchange codes cannot start with 0/1), raise `ValueError` on any invalid input.
+- Research: websearch rate-limited (429, 2 attempts). State skip reason: answer is unambiguously derivable from prompt.md + standard NANP rules; this is the well-known Exercism "Phone Number" exercise.
+- Approach A (chosen): `re.sub(r'\D','',n)` → strip leading `1` if 11 digits → length/prefix validation. Approach B (rejected): manual char-by-char state machine — more bug-prone, no benefit. Approach C (rejected): full-string regex — fragile against varied punctuation.
+
+Verifier (COV-5): no UI/service — **direct-read, logic-verified via executed Python runs (A4.8 RED→GREEN)**; Playwright/mm-probe N/A (no browser-rendered output).
+
+Now the COV-9 baseline commit + check:
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git add vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced/phone_number.py vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced/prompt.md vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced/run.log && git commit -m "backup: before changes" -q && echo COMMITTED && git log --oneline -1
+COMMITTED
+7873e44 backup: before changes
+[0m

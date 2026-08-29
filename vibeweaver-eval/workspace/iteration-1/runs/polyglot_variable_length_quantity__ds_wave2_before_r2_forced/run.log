@@ -1,0 +1,428 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead variable_length_quantity.py
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff   160 Aug 29 20:44 .
+drwxr-xr-x@ 153 logan  staff  4896 Aug 29 20:44 ..
+-rw-r--r--@   1 logan  staff  1403 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff   111 Aug 29 20:44 run.log
+-rw-r--r--@   1 logan  staff    61 Aug  1 01:29 variable_length_quantity.py
+[0m
+[0m← [0mWrite variable_length_quantity.py
+Wrote file successfully.
+[0m
+Single-file, well-specified algorithm (examples fully define behavior) — trivial implement, so I skip web research (COV-3 skip reason: unambiguously derivable from the prompt's spec + example table).
+[0m$ [0mpython3 -c "
+import variable_length_quantity as v
+cases = [
+    (0x00000000, [0x00]),
+    (0x00000040, [0x40]),
+    (0x0000007F, [0x7F]),
+    (0x00000080, [0x81, 0x00]),
+    (0x00002000, [0xC0, 0x00]),
+    (0x00003FFF, [0xFF, 0x7F]),
+    (0x00004000, [0x81, 0x80, 0x00]),
+    (0x00100000, [0xC0, 0x80, 0x00]),
+    (0x001FFFFF, [0xFF, 0xFF, 0x7F]),
+    (0x00200000, [0x81, 0x80, 0x80, 0x00]),
+    (0x08000000, [0xC0, 0x80, 0x80, 0x00]),
+    (0x0FFFFFFF, [0xFF, 0xFF, 0xFF, 0x7F]),
+]
+ok = True
+for num, expected in cases:
+    enc = v.encode([num])
+    dec = v.decode(enc)
+    status = 'PASS' if enc == expected and dec == [num] else 'FAIL'
+    if status == 'FAIL':
+        ok = False
+    print(f'{status} {num:#010x} -> {[hex(b) for b in enc]} expected {[hex(b) for b in expected]} decode {dec}')
+print('all pass' if ok else 'FAILURES')
+"
+PASS 0x00000000 -> ['0x0'] expected ['0x0'] decode [0]
+PASS 0x00000040 -> ['0x40'] expected ['0x40'] decode [64]
+PASS 0x0000007f -> ['0x7f'] expected ['0x7f'] decode [127]
+PASS 0x00000080 -> ['0x81', '0x0'] expected ['0x81', '0x0'] decode [128]
+PASS 0x00002000 -> ['0xc0', '0x0'] expected ['0xc0', '0x0'] decode [8192]
+PASS 0x00003fff -> ['0xff', '0x7f'] expected ['0xff', '0x7f'] decode [16383]
+PASS 0x00004000 -> ['0x81', '0x80', '0x0'] expected ['0x81', '0x80', '0x0'] decode [16384]
+PASS 0x00100000 -> ['0xc0', '0x80', '0x0'] expected ['0xc0', '0x80', '0x0'] decode [1048576]
+PASS 0x001fffff -> ['0xff', '0xff', '0x7f'] expected ['0xff', '0xff', '0x7f'] decode [2097151]
+PASS 0x00200000 -> ['0x81', '0x80', '0x80', '0x0'] expected ['0x81', '0x80', '0x80', '0x0'] decode [2097152]
+PASS 0x08000000 -> ['0xc0', '0x80', '0x80', '0x0'] expected ['0xc0', '0x80', '0x80', '0x0'] decode [134217728]
+PASS 0x0fffffff -> ['0xff', '0xff', '0xff', '0x7f'] expected ['0xff', '0xff', '0xff', '0x7f'] decode [268435455]
+all pass
+[0m
+[0m$ [0mpython3 -c "
+import variable_length_quantity as v
+assert v.encode([]) == []
+assert v.encode([0, 0]) == [0, 0]
+assert v.decode([]) == []
+assert v.encode([0xFFFFFFFF]) == [0xFF, 0xFF, 0xFF, 0xFF, 0x0F]
+assert v.decode([0xFF, 0xFF, 0xFF, 0xFF, 0x0F]) == [0xFFFFFFFF]
+try:
+    v.decode([0x80])
+    print('FAIL: expected ValueError')
+except ValueError:
+    print('PASS: incomplete sequence raises ValueError')
+print('edge cases ok')
+"
+Traceback (most recent call last):
+  File "<string>", line 6, in <module>
+AssertionError
+[0m
+[0m$ [0mpython3 -c "
+import variable_length_quantity as v
+print('encode:', [hex(b) for b in v.encode([0xFFFFFFFF])])
+print('decode:', v.decode([0xFF, 0xFF, 0xFF, 0xFF, 0x0F]))
+print('decode of encode:', v.decode(v.encode([0xFFFFFFFF])))
+"
+encode: ['0x8f', '0xff', '0xff', '0xff', '0x7f']
+decode: [34359738255]
+decode of encode: [4294967295]
+[0m
+My assertion was wrong, not the implementation — 0xFFFFFFFF needs 5 groups: [0x8F, 0xFF, 0xFF, 0xFF, 0x7F]. Let me re-run edge cases with corrected expectations.
+[0m$ [0mpython3 -c "
+import variable_length_quantity as v
+assert v.encode([]) == []
+assert v.encode([0, 0]) == [0, 0]
+assert v.decode([]) == []
+assert v.encode([0xFFFFFFFF]) == [0x8F, 0xFF, 0xFF, 0xFF, 0x7F]
+assert v.decode([0x8F, 0xFF, 0xFF, 0xFF, 0x7F]) == [0xFFFFFFFF]
+try:
+    v.decode([0x80])
+    print('FAIL: expected ValueError')
+except ValueError:
+    print('PASS: incomplete sequence raises ValueError')
+print('edge cases ok')
+"
+PASS: incomplete sequence raises ValueError
+edge cases ok
+[0m
+[0m$ [0mls "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_before/opencode/skills/vibeweaver/scripts/" 2>/dev/null; ls tests 2>/dev/null; echo "---"; ls ~/.config/opencode/vibeweaver/memory/ 2>/dev/null
+---
+[0m
+All example table cases plus edge cases pass. Now creating the skill-required verification artifacts.
+[0m$ [0mfind "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_before/opencode/skills/vibeweaver" -maxdepth 2 -type f | sort
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_before/opencode/skills/vibeweaver/SKILL.md
+[0m
+[0m← [0mWrite tests/acceptance.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+Skill companions aren't installed (only SKILL.md) — no canonical assert script to copy. Creating the workflow log artifacts.
+[0m$ [0mgit status --short; echo "---"; git diff --stat; echo "---"; git log --oneline -3 2>/dev/null
+M ../../../../harness/run_eval.py
+ M ../polyglot_bowling__ds_wave2_after_forced/run.log
+ M ../polyglot_bowling__ds_wave2_before_forced/run.log
+ M ../polyglot_grade_school__ds_wave2_before_r2_forced/grade_school.py
+ M ../polyglot_grade_school__ds_wave2_before_r2_forced/run.log
+ M ../polyglot_list_ops__ds_wave2_before_forced/run.log
+ m ../polyglot_phone_number__ds_forced_after_forced
+ M ../polyglot_robot_name__ds_wave2_after_forced/run.log
+ M ../polyglot_robot_name__ds_wave2_after_r2_forced/robot_name.py
+ M ../polyglot_robot_name__ds_wave2_after_r2_forced/run.log
+ M ../polyglot_simple_linked_list__ds_wave2_after_forced/run.log
+ M ../polyglot_simple_linked_list__ds_wave2_before_forced/run.log
+ M ../polyglot_variable_length_quantity__ds_wave2_after_forced/run.log
+ m ../swebench_pallets_flask_4045__ds_forced_after_forced
+ m ../swebench_pallets_flask_4045__ds_forced_before_forced
+ m ../swebench_pallets_flask_4992__ds_forced_after_forced
+ m ../swebench_pallets_flask_4992__ds_forced_before_forced
+ m ../swebench_psf_requests_3362__ds_forced_after_forced
+ m ../swebench_psf_requests_3362__ds_forced_before_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_forced_after_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_forced_before_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_forced_after_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_forced_before_forced
+ m ../swebench_sympy_sympy_21627__ds_forced_after_forced
+ m ../swebench_sympy_sympy_21627__ds_forced_before_forced
+ M ../../../../../vibeweaver/COMPLETION_GATE.md
+ M ../../../../../vibeweaver/SKILL.md
+ M ../../../../../vibeweaver/TESTING_PROTOCOLS.md
+ M ../../../../../vibeweaver/scripts/assert_artifacts.py
+ M ../../../../../vibeweaver/vibeweaver-gate.js
+?? ../../../../../tests/review_diff.txt
+?? ../../../../configs/ds_wave2_after/
+?? ../../../../configs/ds_wave2_after_r2/
+?? ../../../../configs/ds_wave2_after_r3/
+?? ../../../../configs/ds_wave2_after_r4/
+?? ../../../../configs/ds_wave2_before/
+?? ../../../../configs/ds_wave2_before_r2/
+?? ../../../../configs/ds_wave2_before_r3/
+?? ../../../../configs/ds_wave2_before_r4/
+?? ../../ab_logs/AB_REPORT_wave3_2026-08-29.md
+?? ../../graded/grade_polyglot_bowling__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_bowling__ds_wave2_before_forced.json
+?? ../../graded/grade_polyglot_grade_school__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_grade_school__ds_wave2_before_forced.json
+?? ../../graded/grade_polyglot_list_ops__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_list_ops__ds_wave2_before_forced.json
+?? ../../graded/grade_polyglot_phone_number__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_phone_number__ds_wave2_before_forced.json
+?? ../../graded/grade_polyglot_pig_latin__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_pig_latin__ds_wave2_before_forced.json
+?? ../../graded/grade_polyglot_robot_name__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_robot_name__ds_wave2_before_forced.json
+?? ../../graded/grade_polyglot_simple_linked_list__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_simple_linked_list__ds_wave2_before_forced.json
+?? ../../graded/grade_polyglot_transpose__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_transpose__ds_wave2_before_forced.json
+?? ../../graded/grade_polyglot_two_bucket__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_two_bucket__ds_wave2_before_forced.json
+?? ../../graded/grade_polyglot_variable_length_quantity__ds_wave2_after_forced.json
+?? ../../graded/grade_polyglot_variable_length_quantity__ds_wave2_before_forced.json
+?? ../../graded/grade_swebench_pallets_flask_4045__ds_wave2_after_forced.json
+?? ../../graded/grade_swebench_pallets_flask_4045__ds_wave2_before_forced.json
+?? ../../graded/grade_swebench_pallets_flask_4992__ds_wave2_after_forced.json
+?? ../../graded/grade_swebench_pallets_flask_4992__ds_wave2_before_forced.json
+?? ../../graded/grade_swebench_psf_requests_3362__ds_wave2_after_forced.json
+?? ../../graded/grade_swebench_psf_requests_3362__ds_wave2_before_forced.json
+?? ../../graded/grade_swebench_pytest_dev_pytest_6116__ds_wave2_after_forced.json
+?? ../../graded/grade_swebench_pytest_dev_pytest_6116__ds_wave2_before_forced.json
+?? ../../graded/grade_swebench_pytest_dev_pytest_9359__ds_wave2_after_forced.json
+?? ../../graded/grade_swebench_pytest_dev_pytest_9359__ds_wave2_before_forced.json
+?? ../../graded/grade_swebench_sympy_sympy_21627__ds_wave2_after_forced.json
+?? ../../graded/grade_swebench_sympy_sympy_21627__ds_wave2_before_forced.json
+?? ../../graded/wave2_ab_summary.json
+?? ../polyglot_bowling__ds_wave2_after_forced/tests/fresh_run.log
+?? ../polyglot_bowling__ds_wave2_after_r2_forced/
+?? ../polyglot_bowling__ds_wave2_before_r2_forced/
+?? ../polyglot_grade_school__ds_wave2_after_forced/
+?? ../polyglot_grade_school__ds_wave2_after_r2_forced/
+?? ../polyglot_grade_school__ds_wave2_before_forced/
+?? ../polyglot_grade_school__ds_wave2_before_r2_forced/tests/
+?? ../polyglot_list_ops__ds_wave2_after_r2_forced/
+?? ../polyglot_list_ops__ds_wave2_before_r2_forced/
+?? ../polyglot_phone_number__ds_wave2_after_forced/
+?? ../polyglot_phone_number__ds_wave2_after_r2_forced/
+?? ../polyglot_phone_number__ds_wave2_before_forced/
+?? ../polyglot_phone_number__ds_wave2_before_r2_forced/
+?? ../polyglot_pig_latin__ds_wave2_after_forced/
+?? ../polyglot_pig_latin__ds_wave2_after_r2_forced/
+?? ../polyglot_pig_latin__ds_wave2_before_forced/
+?? ../polyglot_pig_latin__ds_wave2_before_r2_forced/
+?? ../polyglot_robot_name__ds_wave2_after_r2_forced/tests/
+?? ../polyglot_robot_name__ds_wave2_before_forced/
+?? ../polyglot_robot_name__ds_wave2_before_r2_forced/
+?? ../polyglot_simple_linked_list__ds_wave2_after_r2_forced/
+?? ../polyglot_simple_linked_list__ds_wave2_before_r2_forced/
+?? ../polyglot_transpose__ds_wave2_after_forced/
+?? ../polyglot_transpose__ds_wave2_after_r2_forced/
+?? ../polyglot_transpose__ds_wave2_before_forced/
+?? ../polyglot_transpose__ds_wave2_before_r2_forced/
+?? ../polyglot_two_bucket__ds_wave2_after_forced/
+?? ../polyglot_two_bucket__ds_wave2_after_r2_forced/
+?? ../polyglot_two_bucket__ds_wave2_before_forced/
+?? ../polyglot_two_bucket__ds_wave2_before_r2_forced/
+?? ../polyglot_variable_length_quantity__ds_wave2_after_r2_forced/
+?? ../polyglot_variable_length_quantity__ds_wave2_before_forced/
+?? ./
+?? ../result_polyglot_bowling__ds_wave2_after_forced.json
+?? ../result_polyglot_bowling__ds_wave2_before_forced.json
+?? ../result_polyglot_grade_school__ds_wave2_after_forced.json
+?? ../result_polyglot_grade_school__ds_wave2_after_r2_forced.json
+?? ../result_polyglot_grade_school__ds_wave2_before_forced.json
+?? ../result_polyglot_list_ops__ds_wave2_after_forced.json
+?? ../result_polyglot_list_ops__ds_wave2_before_forced.json
+?? ../result_polyglot_phone_number__ds_wave2_after_forced.json
+?? ../result_polyglot_phone_number__ds_wave2_after_r2_forced.json
+?? ../result_polyglot_phone_number__ds_wave2_before_forced.json
+?? ../result_polyglot_phone_number__ds_wave2_before_r2_forced.json
+?? ../result_polyglot_pig_latin__ds_wave2_after_forced.json
+?? ../result_polyglot_pig_latin__ds_wave2_before_forced.json
+?? ../result_polyglot_pig_latin__ds_wave2_before_r2_forced.json
+?? ../result_polyglot_robot_name__ds_wave2_after_forced.json
+?? ../result_polyglot_robot_name__ds_wave2_before_forced.json
+?? ../result_polyglot_robot_name__ds_wave2_before_r2_forced.json
+?? ../result_polyglot_simple_linked_list__ds_wave2_after_forced.json
+?? ../result_polyglot_simple_linked_list__ds_wave2_before_forced.json
+?? ../result_polyglot_simple_linked_list__ds_wave2_before_r2_forced.json
+?? ../result_polyglot_transpose__ds_wave2_after_forced.json
+?? ../result_polyglot_transpose__ds_wave2_after_r2_forced.json
+?? ../result_polyglot_transpose__ds_wave2_before_forced.json
+?? ../result_polyglot_two_bucket__ds_wave2_after_forced.json
+?? ../result_polyglot_two_bucket__ds_wave2_before_forced.json
+?? ../result_polyglot_variable_length_quantity__ds_wave2_after_forced.json
+?? ../result_polyglot_variable_length_quantity__ds_wave2_before_forced.json
+?? ../result_swebench_pallets_flask_4045__ds_wave2_after_forced.json
+?? ../result_swebench_pallets_flask_4045__ds_wave2_before_forced.json
+?? ../result_swebench_pallets_flask_4992__ds_wave2_after_forced.json
+?? ../result_swebench_pallets_flask_4992__ds_wave2_before_forced.json
+?? ../result_swebench_psf_requests_3362__ds_wave2_after_forced.json
+?? ../result_swebench_psf_requests_3362__ds_wave2_before_forced.json
+?? ../result_swebench_pytest_dev_pytest_6116__ds_wave2_after_forced.json
+?? ../result_swebench_pytest_dev_pytest_6116__ds_wave2_before_forced.json
+?? ../result_swebench_pytest_dev_pytest_9359__ds_wave2_after_forced.json
+?? ../result_swebench_pytest_dev_pytest_9359__ds_wave2_before_forced.json
+?? ../result_swebench_sympy_sympy_21627__ds_wave2_after_forced.json
+?? ../result_swebench_sympy_sympy_21627__ds_wave2_before_forced.json
+?? ../swebench_pallets_flask_4045__ds_wave2_after_forced/
+?? ../swebench_pallets_flask_4045__ds_wave2_before_forced/
+?? ../swebench_pallets_flask_4992__ds_wave2_after_forced/
+?? ../swebench_pallets_flask_4992__ds_wave2_before_forced/
+?? ../swebench_psf_requests_3362__ds_wave2_after_forced/
+?? ../swebench_psf_requests_3362__ds_wave2_before_forced/
+?? ../swebench_pytest_dev_pytest_6116__ds_wave2_after_forced/
+?? ../swebench_pytest_dev_pytest_6116__ds_wave2_before_forced/
+?? ../swebench_pytest_dev_pytest_9359__ds_wave2_after_forced/
+?? ../swebench_pytest_dev_pytest_9359__ds_wave2_before_forced/
+?? ../swebench_sympy_sympy_21627__ds_wave2_after_forced/
+?? ../swebench_sympy_sympy_21627__ds_wave2_before_forced/
+?? ../../../../../vibeweaver/WORKFLOWS_EXTENDED.md
+---
+ vibeweaver-eval/harness/run_eval.py                |  26 +-
+ .../run.log                                        |  66 +++
+ .../run.log                                        |  61 +++
+ .../grade_school.py                                |  18 +-
+ .../run.log                                        |  63 +++
+ .../run.log                                        | 219 ++++++++
+ .../polyglot_phone_number__ds_forced_after_forced  |   0
+ .../run.log                                        |  56 ++
+ .../robot_name.py                                  |  29 +-
+ .../run.log                                        | 119 +++++
+ .../run.log                                        | 380 ++++++++++++++
+ .../run.log                                        |  37 ++
+ .../run.log                                        |  51 ++
+ ...ench_pallets_flask_4045__ds_forced_after_forced |   0
+ ...nch_pallets_flask_4045__ds_forced_before_forced |   0
+ ...ench_pallets_flask_4992__ds_forced_after_forced |   0
+ ...nch_pallets_flask_4992__ds_forced_before_forced |   0
+ ...bench_psf_requests_3362__ds_forced_after_forced |   0
+ ...ench_psf_requests_3362__ds_forced_before_forced |   0
+ ..._pytest_dev_pytest_6116__ds_forced_after_forced |   0
+ ...pytest_dev_pytest_6116__ds_forced_before_forced |   0
+ ..._pytest_dev_pytest_9359__ds_forced_after_forced |   0
+ ...pytest_dev_pytest_9359__ds_forced_before_forced |   0
+ ...bench_sympy_sympy_21627__ds_forced_after_forced |   0
+ ...ench_sympy_sympy_21627__ds_forced_before_forced |   0
+ vibeweaver/COMPLETION_GATE.md                      |  23 +-
+ vibeweaver/SKILL.md                                | 571 ++++++++++-----------
+ vibeweaver/TESTING_PROTOCOLS.md                    |  53 +-
+ vibeweaver/scripts/assert_artifacts.py             |  96 +++-
+ vibeweaver/vibeweaver-gate.js                      |  18 +-
+ 30 files changed, 1557 insertions(+), 329 deletions(-)
+---
+3a78fe2 backup: before changes
+311a653 backup: before changes
+ba98348 docs: record AUTO-mode decisions for simple_linked_list run
+[0m
+[0m• [0mReview VLQ implementation[90m General Agent[0m
+My change is a new single-file implementation (new-feature trigger → COV-8). Dispatching an independent reviewer.
+[0m✓ [0mReview VLQ implementation[90m General Agent[0m
+[0m
+[0m← [0mEdit variable_length_quantity.py
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/variable_length_quantity.py
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/variable_length_quantity.py
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/variable_length_quantity.py
+@@ -1,7 +1,9 @@
+ def encode(numbers):
+     result = []
+     for number in numbers:
++        if not 0 <= number <= 0xFFFFFFFF:
++            raise ValueError("number out of 32-bit unsigned range")
+         if number == 0:
+             result.append(0)
+             continue
+         groups = []
+
+[0m
+Reviewer approves; two Important findings worth fixing (cheap, safe): range validation for >32-bit inputs and silently-dropped negative inputs.
+[0m← [0mEdit variable_length_quantity.py
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/variable_length_quantity.py
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/variable_length_quantity.py
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/variable_length_quantity.py
+@@ -21,9 +21,11 @@
+ result = []
+ value = 0
+ for byte in bytes_:
+     value = (value << 7) | (byte & 0x7F)
+-    if not byte & 0x80:
++    if not (byte & 0x80):
++        if value > 0xFFFFFFFF:
++            raise ValueError("number out of 32-bit unsigned range")
+         result.append(value)
+         value = 0
+ if bytes_ and (bytes_[-1] & 0x80):
+     raise ValueError("incomplete sequence")
+
+[0m
+[0m$ [0mpython3 -c "
+import variable_length_quantity as v
+cases = [
+    (0x00000000, [0x00]),
+    (0x00000040, [0x40]),
+    (0x0000007F, [0x7F]),
+    (0x00000080, [0x81, 0x00]),
+    (0x00002000, [0xC0, 0x00]),
+    (0x00003FFF, [0xFF, 0x7F]),
+    (0x00004000, [0x81, 0x80, 0x00]),
+    (0x00100000, [0xC0, 0x80, 0x00]),
+    (0x001FFFFF, [0xFF, 0xFF, 0x7F]),
+    (0x00200000, [0x81, 0x80, 0x80, 0x00]),
+    (0x08000000, [0xC0, 0x80, 0x80, 0x00]),
+    (0x0FFFFFFF, [0xFF, 0xFF, 0xFF, 0x7F]),
+]
+ok = True
+for num, expected in cases:
+    enc = v.encode([num]); dec = v.decode(enc)
+    if not (enc == expected and dec == [num]): ok = False; print('FAIL', hex(num))
+# edges
+assert v.encode([]) == [] and v.decode([]) == []
+assert v.encode([0, 0]) == [0, 0]
+assert v.encode([0xFFFFFFFF]) == [0x8F, 0xFF, 0xFF, 0xFF, 0x7F]
+assert v.decode([0x8F, 0xFF, 0xFF, 0xFF, 0x7F]) == [0xFFFFFFFF]
+for bad in [lambda: v.decode([0x80]), lambda: v.decode([0x41, 0x81])]:
+    try: bad(); ok=False; print('FAIL no error')
+    except ValueError: pass
+# multi-value stream
+assert v.decode([0xC0, 0x00, 0xC0, 0x00]) == [0x2000, 0x2000]
+# new range guards
+for exc in [lambda: v.encode([-1]), lambda: v.encode([0x100000000]), lambda: v.decode([0xFF,0xFF,0xFF,0xFF,0x7F])]:
+    try: exc(); ok=False; print('FAIL range guard')
+    except ValueError: pass
+print('all pass' if ok else 'FAILURES')
+"
+all pass
+[0m
+[0m→ [0mRead variable_length_quantity.py
+[0m
+[0m← [0mEdit tests/verification_log.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/tests/verification_log.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/tests/verification_log.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/tests/verification_log.md
+@@ -7,4 +7,11 @@
+ ## iter 1 PASS: criteria 1-6 | diagnosis: all criteria pass
+ - Evidence: executed `python3` against the implemented module (commands below). All 12 rows of the prompt example table produce the exact expected VLQ byte sequences and decode back to the original number. Edge cases pass: empty input round-trips, `encode([0,0]) == [0,0]`, max 32-bit value `0xFFFFFFFF` round-trips as `[0x8F, 0xFF, 0xFF, 0xFF, 0x7F]`, and an incomplete sequence `[0x80]` raises `ValueError`.
+ - changed: variable_length_quantity.py
+ - No code changed after this verification run (fresh run on final tree).
++
++## iter 2 PASS: criteria 1-6 | diagnosis: review fixes applied and verified
++- Independent review (COV-8) returned APPROVE; 2 Important findings fixed:
++  (1) encode now raises `ValueError` for inputs outside 0..0xFFFFFFFF (was silently emitting/accepting out-of-domain values); (2) encode no longer silently drops negatives (now raises). Decode also rejects values > 32 bits.
++- Re-ran full example-table + edge suite: all 12 table rows exact-match in both directions; edges pass (empty round-trip, `encode([0,0])`, `0xFFFFFFFF` → `[0x8F,0xFF,0xFF,0xFF,0x7F]` round-trip, multi-value stream `[0x2000,0x2000]`, incomplete-sequence `ValueError`, and new range-guard `ValueError` for `encode([-1])`, `encode([0x100000000])`, `decode([0xFF,0xFF,0xFF,0xFF,0x7F])`).
++- changed: variable_length_quantity.py (range guards)
++- No code changed after this verification run (fresh run on final tree).
+
+[0m
+## [Covenant Recall] checked: all 11 covenants hold for this completion
+
+**9-item self-audit:** (1) artifacts on disk — yes (`tests/acceptance.md`, `tests/verification_log.md`) · (2) executed tests with evidence — yes, full spec-table + edge suite run 3×, logged · (3) fresh run on final tree — yes, no code changes after last run · (4) acceptance.md first line `> cap=5  stall=3×` — yes · (5) diagnosis on every FAIL — N/A (no FAIL iterations) · (6) A4.9 review dispatched + findings adjudicated — yes (approved; 2 Important fixed + re-tested, Minors adjudicated) · (7) memory gate — N/A (no `memory/` dir in this one-shot eval workspace) · (8) baseline — GREEN (stub no-op; `backup: before changes` present in git log) · (9) covenants re-checked before output — yes. `tests/assert_artifacts.py` not run: canonical script not installed in this skill copy (only `SKILL.md` present), so no self-variant was written per A4.4.1.
+
+**[Memory Gate] Passed: N/A — no memory/ directory exists in this one-shot eval workspace; no cross-session knowledge to persist (memory_gate: na)**
+
+**[Verification Gate] Verifier: direct-read (no UI, no runtime output — pure library logic; COV-5/COV-4 N/A by design) | Loop executed: yes | Media graded externally: N/A | Iterations: 2 | Tests executed with artifacts: yes | E2E depth: unit-only (stdlib function suite driven by spec table) | Script-only build/lifecycle: N/A | Fresh-run on final tree: yes | TDD RED evidence: N/A (single known-algorithm module, verification via spec-table equivalence) | Code review: 2-fixed (independent reviewer APPROVE; 2 Important findings fixed + re-tested, Minors adjudicated) | assert_artifacts.py: N/A (canonical script not installed in this workspace) | covenant_recall: pass | memory_gate: na | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=na**
+
+**[Convergence] VLQ encode/decode: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits**
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---|---|---|---|---|---|---|
+| 1 | Implement VLQ encoding/decoding | None — spec table in `prompt.md` fully defines behavior (COV-3 skip: unambiguously derivable from prompt) | Standard VLQ: 7-bit groups, bit 7 set on all but last byte; decode accumulates 7-bit groups per terminator. Chosen over bit-buffer tricks for clarity; rejected precomputed table/recursion as overkill | `variable_length_quantity.py` (+ `tests/acceptance.md`, `tests/verification_log.md`) | Replaced stubs with `encode` (7-bit grouping + continuation bits, `0` special-case, range guard 0..0xFFFFFFFF) and `decode` (accumulator, per-group flush, incomplete-sequence + >32-bit `ValueError`) | `tests/verification_log.md` — all 12 example-table rows exact-match in both directions (`0x0FFFFFFF`→`[FF FF FF 7F]`, `0x00200000`→`[81 80 80 00]`, …); edges pass: empty round-trip, `encode([0,0])==[0,0]`, `0xFFFFFFFF`→`[8F FF FF FF 7F]` round-trip, multi-value `[C0 00 C0 00]`→`[0x2000,0x2000]`, `ValueError` on `[0x80]`, `[0x41,0x81]`, `encode([-1])`, `encode([0x100000000])`, `decode([FF FF FF FF 7F])`; independent review APPROVE (2 Important fixed + re-run) | N/A |

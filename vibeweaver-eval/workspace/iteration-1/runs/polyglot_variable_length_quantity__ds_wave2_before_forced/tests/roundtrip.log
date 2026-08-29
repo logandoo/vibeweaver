@@ -1,0 +1,5 @@
+prompt table: 12/12 OK
+round-trip: 2000/2000 OK (encode len=9864)
+ValueError('incomplete sequence'): 5/5 OK
+boundary: 0 and 0xFFFFFFFF OK
+ALL ROUNDTRIP CHECKS PASSED

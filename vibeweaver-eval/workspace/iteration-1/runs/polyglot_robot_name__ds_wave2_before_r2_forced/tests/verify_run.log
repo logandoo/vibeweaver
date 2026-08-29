@@ -1,0 +1,12 @@
+[PASS] iter1 name format regex: TS750 matches [A-Z]{2}[0-9]{3}
+[PASS] iter1 name stable on repeat access
+[PASS] iter1 name length == 5
+[PASS] iter1 two different robots get different names (TS750 vs KC630)
+[PASS] iter1 robot2 format: KC630
+[PASS] iter2 reset gives new name (TS750 -> CX129)
+[PASS] iter2 reset name format: CX129
+[PASS] iter2 reset name differs from other robot
+[PASS] iter2 1000 robots all unique names
+[PASS] iter2 uniqueness set size == 1000
+
+TOTAL: 0 failures

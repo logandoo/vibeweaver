@@ -5,8 +5,12 @@ Group 12 enforces the A4.1 diagnosis clause; group 13 is a
 claim-without-scope lint (approach modeled on J-Space Cognition Suite's
 `ship` check at idea level; implementation here is original —
 see repo README → Attribution). Groups 14-16 are change-wave content
-gates: 14 secret scan, 15 test-change guard, 16 risk-tier review."""
-import argparse, os, pathlib, re, subprocess, sys
+gates: 14 secret scan (`vw-approved` marker ⇄ `- secret-approved:` log
+pairing), 15 test-change guard, 16 risk-tier review. Project profiles
+(tests/project_profile.json or --profile) declaratively skip groups that
+are structurally N/A for the project kind (service/UI/new-project) —
+a profile never weakens an applicable group."""
+import argparse, json, os, pathlib, re, subprocess, sys
 
 FAILS = []
 PASSES = 0
@@ -152,11 +156,18 @@ def _is_test_code(path):
             or ".test." in n or ".spec." in n)
 
 
-def secret_scan(root):
+def secret_scan(root, vl=""):
     """Group 14 — secret scan. Returns (fails, warns). Only ADDED diff lines
     and untracked files; placeholder-marked lines exempt; .md warn-only;
-    any assert_artifacts.py never scanned."""
-    fails, warns = [], []
+    any assert_artifacts.py never scanned. A `vw-approved` inline marker
+    exempts a credential line ONLY when verification_log.md carries the
+    path-scoped pairing `- secret-approved: <path> — <reason>` (marker count
+    per path must be ≤ approvals for that path — same binding shape as group
+    15's `- test-change: <path>`). A bare mention of the marker on a line
+    that matches no credential pattern is a no-op (prose mentions never
+    trip the gate). Pairing failures FAIL regardless of file type (the
+    .md warn-only rule applies only to plain unmarked secrets)."""
+    fails, warns, marker_paths = [], [], {}
 
     def hit(path, lineno, text):
         if "assert_artifacts.py" in path or PLACEHOLDER.search(text):
@@ -165,11 +176,15 @@ def secret_scan(root):
         if not found:
             m = GENERIC_KV.search(text)
             found = bool(m) and (bool(m.group("q")) or
-                                 not any(c in m.group("v") for c in ".()"))
-        if found:
-            (warns if path.endswith(".md") else fails).append(
-                f"secret scan: {path}:{lineno}: credential-looking string "
-                f"on an added line — {text.strip()[:50]!r} (A4.4 content gate)")
+                                 bool(not any(c in m.group("v") for c in ".()")))
+        if not found:
+            return
+        if re.search(r"vw-approved", text, re.I):
+            marker_paths[path] = marker_paths.get(path, 0) + 1
+            return
+        (warns if path.endswith(".md") else fails).append(
+            f"secret scan: {path}:{lineno}: credential-looking string "
+            f"on an added line — {text.strip()[:50]!r} (A4.4 content gate)")
 
     for path, (added, _r) in parse_diff(wave_diff_text(root)).items():
         for lineno, l in added:
@@ -184,6 +199,15 @@ def secret_scan(root):
             continue
         for i, l in enumerate(t.splitlines(), 1):
             hit(rel, i, l)
+    for mpath, cnt in sorted(marker_paths.items()):
+        approvals = len(re.findall(
+            r"^- secret-approved:\s*" + re.escape(mpath) + r"(?![\w.\-])", vl, re.M))
+        if approvals < cnt:
+            fails.append(
+                f"secret scan: {mpath}: {cnt} `vw-approved` marker line(s) but "
+                f"{approvals} matching `- secret-approved: {mpath}` line(s) in "
+                f"verification_log.md — every approved secret needs its own "
+                f"path-scoped approval (A4.4 content gate)")
     return fails, warns
 
 
@@ -257,9 +281,64 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--existing", action="store_true", help="Modify-Existing task: skip new-project §A5 design-doc + git checks")
     ap.add_argument("--backend-only", action="store_true", help="no UI: skip PAGE_DESIGN.html and project_build.sh checks")
+    ap.add_argument("--profile", default="", help="project profile: service|backend-api|web-static|cli|library — skips structurally-N/A groups (overrides tests/project_profile.json)")
     args = ap.parse_args()
 
     root = pathlib.Path(__file__).resolve().parent.parent
+
+    # --- project profile: declarative N/A for groups that are structurally
+    # impossible for this project kind (a library has no service to start).
+    # A profile SKIPS a group only; it never weakens an applicable group.
+    # Explicit keys in tests/project_profile.json override the preset.
+    prof_name = args.profile
+    prof_cfg = {}
+    pf = root / "tests" / "project_profile.json"
+    if pf.exists():
+        try:
+            loaded = json.loads(pf.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                prof_cfg = loaded
+                if not prof_name:
+                    prof_name = str(prof_cfg.get("profile", "") or "")
+            else:
+                check(False, "tests/project_profile.json must contain a JSON "
+                             "object with a 'profile' key (A4.4.1 profile)")
+        except (OSError, ValueError) as e:
+            check(False, f"tests/project_profile.json unparseable ({e}) — "
+                         f"profile overrides ignored (A4.4.1 profile)")
+    KNOWN_PROFILES = ("service", "backend-api", "web-static", "cli", "library")
+    if prof_name and prof_name not in KNOWN_PROFILES:
+        print(f"profile: {prof_name} — WARN unknown profile name, preset "
+              f"skips not applied; only explicit keys below take effect")
+    for k in ("no_service", "no_ui", "no_new_project"):
+        if k in prof_cfg and not isinstance(prof_cfg[k], bool):
+            check(False, f"tests/project_profile.json: '{k}' must be boolean, "
+                         f"got {type(prof_cfg[k]).__name__} — override ignored "
+                         f"(A4.4.1 profile)")
+            prof_cfg[k] = None
+    no_service = prof_cfg.get("no_service")
+    no_ui = prof_cfg.get("no_ui")
+    no_new_project = prof_cfg.get("no_new_project")
+    if prof_name == "cli" or prof_name == "library" or prof_name == "web-static":
+        no_service = True if no_service is None else no_service
+    if prof_name in ("backend-api", "cli", "library"):
+        no_ui = True if no_ui is None else no_ui
+    if prof_name == "backend-api":
+        no_service = False if no_service is None else no_service
+    backend_only = args.backend_only or bool(no_ui)
+    existing = args.existing or bool(no_new_project)
+    skips = []
+    if no_service:
+        skips.append("service lifecycle N/A (group 5 skipped)")
+    if backend_only and not args.backend_only:
+        skips.append("UI N/A")
+    if existing and not args.existing:
+        skips.append("new-project gates N/A")
+    if prof_name or skips or any(prof_cfg.get(k) is not None
+                                 for k in ("no_service", "no_ui", "no_new_project")):
+        print("profile: " + (prof_name or "custom")
+              + (" — " + "; ".join(skips) if skips else " — full gates"))
+
     tests = root / "tests"
     vl = read(tests / "verification_log.md")
     acc = read(tests / "acceptance.md")
@@ -291,21 +370,28 @@ def main():
         check(any(p.name != "MEMORY.md" for p in topics),
               "memory/: at least one topic file besides MEMORY.md (A7.9)")
 
-    # 5) scripts — start/stop/restart (+ project_build unless --backend-only) (A2/COV-2)
+    # 5) scripts — start/stop/restart (+ project_build unless no-UI) (A2/COV-2)
     #    exec-bit is only meaningful on POSIX; on Windows .sh files ride along
     #    and only their existence is enforceable.
-    posix = os.name != "nt"
-    for s in ["start.sh", "stop.sh", "restart.sh"]:
-        sp = root / "script" / "linux" / s
-        is_exec = (sp.stat().st_mode & 0o111) if posix else True
-        check(sp.exists() and is_exec,
-              f"script/linux/{s} missing or not executable (A2/COV-2)")
-    if not args.backend_only:
-        bp = root / "script" / "linux" / "project_build.sh"
-        check(bp.exists(), "script/linux/project_build.sh missing (A2; use --backend-only if no UI)")
+    #    Profiles (cli/library/web-static) skip this group — structurally N/A
+    #    (a library has no service lifecycle; skipping is declarative, and the
+    #    skip line above names it in the output for the completion gate).
+    if not no_service:
+        posix = os.name != "nt"
+        for s in ["start.sh", "stop.sh", "restart.sh"]:
+            sp = root / "script" / "linux" / s
+            if not sp.exists():
+                check(False, f"script/linux/{s} missing or not executable (A2/COV-2)")
+                continue
+            is_exec = bool(sp.stat().st_mode & 0o111) if posix else True
+            check(is_exec,
+                  f"script/linux/{s} missing or not executable (A2/COV-2)")
+        if not backend_only:
+            bp = root / "script" / "linux" / "project_build.sh"
+            check(bp.exists(), "script/linux/project_build.sh missing (A2; use --backend-only if no UI)")
 
     # 6) git — new projects: repo exists with >=2 commits (C1 step 1/15, A9)
-    if not args.existing:
+    if not existing:
         try:
             r = subprocess.run(["git", "-C", str(root), "log", "--oneline"],
                                capture_output=True, text=True, timeout=20)
@@ -317,22 +403,22 @@ def main():
               f"new-project git repo needs >=2 commits (init + final); found {n_commits} (C1 step 1/15)")
 
     # 7) §A5 design docs — new projects (skipped with --existing) (A5 / C1 step 2)
-    if not args.existing:
+    if not existing:
         for doc in ["FLOW_DESIGN.html", "DATABASE_DESIGN.html", "BACKEND_DESIGN.html"]:
             check((root / doc).exists(), f"new-project design doc missing: {doc} (A5 / C1 step 2)")
-        if not args.backend_only:
+        if not backend_only:
             check((root / "PAGE_DESIGN.html").exists(),
                   "new-project design doc missing: PAGE_DESIGN.html (A5; use --backend-only if no UI)")
 
     # 8) README + requirements — new projects (skipped with --existing) (C1 step 15)
-    if not args.existing:
+    if not existing:
         check(any((root / n).exists() for n in ["README.md", "README.html"]),
               "new-project README.md/README.html missing (C1 step 15)")
         check(any((root / n).exists() for n in ["requirements.txt", "package.json"]),
               "new-project requirements.txt/package.json missing (C1 step 15)")
 
     # 9) COV-9 — Modify-Existing tasks: baseline verdict recorded on disk (COV-9)
-    if args.existing:
+    if existing:
         check(bool(re.search(r"Baseline verified GREEN|COV-9 skipped", vl, re.M)),
               "tests/verification_log.md missing `- Baseline verified GREEN` or `- COV-9 skipped —` entry (COV-9)")
 
@@ -363,7 +449,7 @@ def main():
 
     # 14) secret scan — the change-wave diff / untracked files must not ADD
     #     credential-looking lines (.md warn-only; placeholder-marked exempt)
-    s14_fails, s14_warns = secret_scan(root)
+    s14_fails, s14_warns = secret_scan(root, vl)
     for w in s14_warns:
         print("WARN " + w)
     for f in s14_fails:

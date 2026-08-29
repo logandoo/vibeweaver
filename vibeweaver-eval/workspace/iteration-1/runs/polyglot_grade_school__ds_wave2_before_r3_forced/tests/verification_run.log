@@ -1,0 +1,23 @@
+============================================================
+RESULT: 20/20 passed
+============================================================
+PASS - roster empty 
+PASS - add a student (added=[True]) 
+PASS - student is added to the roster 
+PASS - adding multiple same grade (added=[T,T,T]) 
+PASS - multiple same grade in roster 
+PASS - cannot add to same grade twice (added=[T,T,F,T]) 
+PASS - student not added to same grade more than once 
+PASS - adding students in multiple grades 
+PASS - students in multiple grades in roster 
+PASS - cannot add same student to multiple grades (added=[T,T,F,T]) 
+PASS - student not added to multiple grades in roster 
+PASS - students sorted by grades 
+PASS - students sorted by name 
+PASS - sorted by grades and name (prompt example) 
+PASS - grade empty when no students 
+PASS - grade empty if no students in that grade 
+PASS - student not added to same grade more than once (grade) 
+PASS - student not added to multiple grades (grade 2) 
+PASS - student not added to other grade (grade 3) 
+PASS - students sorted by name in a grade 

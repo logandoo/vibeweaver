@@ -1,0 +1,88 @@
+diff --git a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/bowling.py b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/bowling.py
+index de2dbb0..f8136ea 100644
+--- a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/bowling.py
++++ b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/bowling.py
+@@ -1,9 +1,80 @@
+ class BowlingGame:
+     def __init__(self):
+-        pass
++        self.rolls = []
+ 
+     def roll(self, pins):
+-        pass
++        if pins < 0:
++            raise ValueError("Negative roll is invalid")
++        if pins > 10:
++            raise ValueError("Pin count exceeds pins on the lane")
++        if self._is_complete():
++            raise IndexError("Cannot roll after the game is over")
++
++        frame, ball, frame_rolls = self._frame_state()
++        if ball >= 2:
++            if frame < 10:
++                if frame_rolls[0] != 10 and frame_rolls[0] + pins > 10:
++                    raise ValueError("Pin count exceeds pins on the lane")
++            else:
++                if ball == 2 and frame_rolls[0] != 10 and frame_rolls[0] + pins > 10:
++                    raise ValueError("Pin count exceeds pins on the lane")
++                if ball == 3 and frame_rolls[0] == 10 and frame_rolls[1] != 10 and frame_rolls[1] + pins > 10:
++                    raise ValueError("Pin count exceeds pins on the lane")
++        self.rolls.append(pins)
+ 
+     def score(self):
+-        pass
++        if not self._is_complete():
++            raise IndexError("Score cannot be taken until the end of the game")
++
++        total = 0
++        i = 0
++        for _ in range(10):
++            if self.rolls[i] == 10:
++                total += 10 + self.rolls[i + 1] + self.rolls[i + 2]
++                i += 1
++            elif self.rolls[i] + self.rolls[i + 1] == 10:
++                total += 10 + self.rolls[i + 2]
++                i += 2
++            else:
++                total += self.rolls[i] + self.rolls[i + 1]
++                i += 2
++        return total
++
++    def _frame_state(self):
++        i = 0
++        frame = 1
++        while frame < 10:
++            if i >= len(self.rolls):
++                break
++            if self.rolls[i] == 10:
++                i += 1
++                frame += 1
++            elif i + 1 < len(self.rolls):
++                i += 2
++                frame += 1
++            else:
++                break
++        frame_rolls = self.rolls[i:]
++        return frame, len(frame_rolls) + 1, frame_rolls
++
++    def _is_complete(self):
++        i = 0
++        frame = 1
++        while frame < 10:
++            if i >= len(self.rolls):
++                return False
++            if self.rolls[i] == 10:
++                i += 1
++                frame += 1
++            else:
++                if i + 1 >= len(self.rolls):
++                    return False
++                i += 2
++                frame += 1
++
++        frame_10_rolls = len(self.rolls) - i
++        if frame_10_rolls < 2:
++            return False
++        if self.rolls[i] == 10 or self.rolls[i] + self.rolls[i + 1] == 10:
++            return frame_10_rolls >= 3
++        return True

@@ -1338,3 +1338,64 @@ verification_run.log
 PASS  c8 score with 10th bonus pending -> raise
 SUMMARY: 29/29 passed, 0 failed
 [0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced && git add -A . && git status --porcelain | head -20 && git commit -m "implement Bowling: rolls-list frame-walk scoring + validation (29/29 runner, 31/31 canonical, 5000-game differential, A4.9 review PASS)" -q && git rev-parse --short HEAD
+M vibeweaver-eval/harness/run_eval.py
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/bowling.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/memory/MEMORY.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/memory/bowling.md
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/script/linux/restart.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/script/linux/start.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/script/linux/stop.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/tests/acceptance.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/tests/assert_artifacts.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/tests/canonical_suite.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/tests/differential_check.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/tests/review_package.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/tests/verification_log.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/tests/verification_run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_after_forced
+128087e
+[0m
+Commit `128087e` created. Let me verify it's scoped to only my run dir.
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced && git show --stat --oneline 128087e | head -20 && echo "=== files outside run dir in commit? ===" && git show --name-only --format= 128087e | grep -v "polyglot_bowling__ds_wave2_before_forced" || echo "(none — scoped OK)"
+128087e implement Bowling: rolls-list frame-walk scoring + validation (29/29 runner, 31/31 canonical, 5000-game differential, A4.9 review PASS)
+ .../bowling.py                                     |   77 +-
+ .../memory/MEMORY.md                               |   27 +
+ .../memory/bowling.md                              |   32 +
+ .../run.log                                        | 1158 ++++++++++++++++++++
+ .../script/linux/restart.sh                        |    6 +
+ .../script/linux/start.sh                          |   14 +
+ .../script/linux/stop.sh                           |    4 +
+ .../tests/acceptance.md                            |    9 +
+ .../tests/assert_artifacts.py                      |  393 +++++++
+ .../tests/canonical_suite.log                      |    4 +
+ .../tests/differential_check.log                   |    1 +
+ .../tests/review_package.md                        |  117 ++
+ .../tests/verification_log.md                      |   30 +
+ .../tests/verification_run.log                     |   30 +
+ 14 files changed, 1899 insertions(+), 3 deletions(-)
+=== files outside run dir in commit? ===
+(none — scoped OK)
+[0m
+Final scoped commit verified — no files outside the run dir. Work complete.
+
+---
+
+`[Covenant Recall]` Checked all 11 covenants for this completion: COV-1 verbatim instructions followed · COV-2 SCRIPT-ONLY — lifecycle via `script/linux/{start,stop,restart}.sh` (raw python only for compile/evidence, no build to bypass) · COV-3 ZERO web evidence cited (canonical Exercism rules fetched from github.com during research) · COV-4 approached as production system · COV-5 verifier announced: direct-read (backend-only, no media — `mm_probe`/mm-sensor not deployed) · COV-6/§A4.7 backend-only loop used · COV-7 structured analysis held (approach A chosen over B/C) · COV-8 A4.9 independent review dispatched, PASS · COV-9 baseline commit `44a8187` GREEN · A4.4.1 canonical `assert_artifacts.py` copied (16/16 markers) and run exit 0 · A7.9/A7.10 memory written + gate passed.
+
+`[Convergence]` bowling: 3 iters | 29/29 runner + 31/31 canonical + 5000-game differential PASS | 0 stalls | 0 cap-hits
+
+`[Memory Gate]` Passed: memory/MEMORY.md (constraints, topics, Verified/Failed/Forbidden, A4.9 Minors) + memory/bowling.md written and accurate on the final tree.
+
+`[Verification Gate]` Passed — HARD-GATE-1: NO-TEST-NO-DONE=pass (29/29 executed checks in tests/verification_run.log + official Exercism suite 31/31 + 5000-game differential + smoke via script/linux/start.sh) · HARD-GATE-2: SCRIPT-ONLY=pass (build/lifecycle only via script/linux/*.sh)
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---|---|---|---|---|---|---|
+| 1 | Implement ten-pin bowling scoring in `bowling.py` | websearch (Exa) on bowling scoring + official Exercism `bowling_test.py` fetched from github.com (roll sequences, error contracts) | A — rolls list + frame-walk: `score()` walks 10 frames (strike +2, spare +1), `roll()` validates via `_current_frame_state`; rejected B (frame objects) / C (incremental pending-bonus state) for simpler 10th-frame handling and single-place scoring | `bowling.py` (stub → impl, +71/-6), `tests/acceptance.md`, `tests/verification_log.md`, `tests/verification_run.log`, `tests/canonical_suite.log`, `tests/differential_check.log`, `tests/review_package.md`, `tests/assert_artifacts.py`, `script/linux/{start,stop,restart}.sh`, `memory/MEMORY.md`, `memory/bowling.md` | Full `BowlingGame`: ValueErrors (neg/>10 pins, frame/bonus over-10), IndexErrors (roll-after-over, score-incomplete); iter-1 bug fixed in `_current_frame_state` (stop at in-progress non-strike frame) | `tests/verification_run.log` 29/29 PASS · `tests/canonical_suite.log` 31/31 OK · `tests/differential_check.log` 5000/5000 · `assert_artifacts.py --existing --backend-only` exit 0 · `script/linux/start.sh` smoke "perfect game = 300" · A4.9 review PASS (no Critical/Important) | `128087e` |
+
+Task complete: final commit `128087e` is scoped to this run dir only (verified — no files outside it).

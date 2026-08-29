@@ -1,0 +1,80 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead simple_linked_list.py
+I'll start by reading the task files.
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff   160 Aug 29 20:56 .
+drwxr-xr-x@ 187 logan  staff  5984 Aug 29 20:56 ..
+-rw-r--r--@   1 logan  staff   873 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff   143 Aug 29 20:57 run.log
+-rw-r--r--@   1 logan  staff   464 Aug  1 01:29 simple_linked_list.py
+[0m
+[0m→ [0mRead run.log
+[0m
+[0m← [0mWrite simple_linked_list.py
+Wrote file successfully.
+[0m
+This is the Exercism "Simple Linked List" exercise — a well-known canonical problem. Per §2 ZERO: the solution is unambiguously derivable from the well-documented exercise spec (known API: `push` prepends, `pop` from head, `head()` raises `EmptyListException` when empty, `reversed()` returns a new list, constructor accepts an iterable). State-skip for web research: well-known canonical exercise, no ambiguity to research.
+
+Let me implement the solution.
+[0m$ [0mpython3 -B -c "
+import simple_linked_list as sll
+
+# Constructor from iterable (canonical: yields reversed order)
+l = sll.LinkedList(range(1, 4))
+assert list(l) == [3, 2, 1], list(l)
+assert len(l) == 3
+assert l.head().value() == 3
+assert l.head().next().value() == 2
+
+# push / pop
+l.push(4)
+assert list(l) == [4, 3, 2, 1]
+assert len(l) == 4
+assert l.pop() == 4
+assert l.pop() == 3
+assert list(l) == [2, 1]
+assert len(l) == 2
+
+# reversed returns new list, original unchanged
+r = l.reversed()
+assert list(r) == [1, 2], list(r)
+assert list(l) == [2, 1]
+assert l.reversed().head().value() == 1
+
+# empty list behaviors
+e = sll.LinkedList()
+assert len(e) == 0
+assert list(e) == []
+try:
+    e.head()
+    raise AssertionError('head should raise')
+except sll.EmptyListException:
+    pass
+try:
+    e.pop()
+    raise AssertionError('pop should raise')
+except sll.EmptyListException:
+    pass
+
+# Node API
+n = sll.Node(5)
+assert n.value() == 5
+assert n.next() is None
+
+print('ALL CHECKS PASSED')
+"
+
+ALL CHECKS PASSED
+[0m
+Now let me verify it runs without errors and behaves correctly (no test files created — inline verification only).
+Implemented `simple_linked_list.py` (Exercism Simple Linked List):
+
+- **Node** — `__init__(value)` stores value + `_next`; `value()` and `next()` accessors.
+- **LinkedList** — `push(value)` prepends to head; `pop()` removes/returns head (raises `EmptyListException` if empty); `head()` returns head node (raises if empty); `__len__` tracked via `_size`; `__iter__` yields head→tail; `reversed()` returns a new reversed `LinkedList` without mutating the original; constructor accepts an optional iterable (pushes in iteration order, producing reversed order per spec).
+
+Verification: ran `python3 -B` with inline assertions covering constructor-from-iterable, push/pop ordering and lengths, head/next node access, reversed() non-mutation, empty-list `head`/`pop` raising `EmptyListException`, and the Node API — `ALL CHECKS PASSED`. No test files created or modified; no syntax or runtime errors.

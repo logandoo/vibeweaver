@@ -1,0 +1,15 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff   160 Aug 29 20:56 .
+drwxr-xr-x@ 187 logan  staff  5984 Aug 29 20:56 ..
+-rw-r--r--@   1 logan  staff   131 Aug  1 01:29 bowling.py
+-rw-r--r--@   1 logan  staff  2160 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff    66 Aug 29 20:57 run.log
+[0m
+[0m→ [0mRead bowling.py
+[0m→ [0mRead run.log

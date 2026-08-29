@@ -1,0 +1,6 @@
+    def test_zero(self):
+>       self.assertEqual(encode([0x0]), [0x0])
+E       AssertionError: None != [0]
+
+variable_length_quantity_test.py:15: AssertionError
+26 failed in 0.07s

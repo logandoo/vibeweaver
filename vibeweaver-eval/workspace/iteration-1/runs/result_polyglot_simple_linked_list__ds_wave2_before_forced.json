@@ -1,0 +1,9 @@
+{
+  "task": "polyglot_simple_linked_list",
+  "arm": "ds_wave2_before_forced",
+  "exit_code": 0,
+  "wall_seconds": 370.1,
+  "timed_out": false,
+  "log": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/run.log",
+  "workdir": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced"
+}

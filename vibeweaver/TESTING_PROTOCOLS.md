@@ -5,7 +5,8 @@
 > it holds the full protocol text behind the SKILL.md binding stubs: §A4.1
 > (capture-driven verification loop), §A4.6 (systematic debugging), and the
 > canonical text of §A4.7 (COV-6), §A4.7b, §A4.8, §A4.9 (COV-8), plus
-> §A4.10 (stall escape). If in conflict with §1 covenants in SKILL.md, the
+> §A4.10 (stall escape) and §A4.11 (PAUSED/modes, COV-12). If in conflict
+> with §1 covenants in SKILL.md, the
 > covenants prevail. Section numbers are preserved so cross-references
 > (`A4.1`, `A4.6`, `A4.8`, …) keep resolving.
 
@@ -750,3 +751,53 @@ Shifting to vagueness, to summarizing the problem, or to "let me try it
 again" is not a licensed shift. And: if the same wall returns a **third
 time**, the problem is mis-framed, not mis-solved — restate it in different
 primitives (→ §A4.6 escalation to the user).
+
+---
+
+## A4.11 PAUSED Protocol & Operating Modes (COV-12 companion)
+
+**Modes.** Every task declares `Mode: AUTO` (default) or `Mode: GUIDED`
+in ZERO. Modes govern ONLY Class-I interaction points; the evidence gates
+(COV-1/2/5/7, assert exit-0, A4.9, Memory Gate) are mode-invariant — neither
+mode turns a FAIL into a PASS.
+
+**Class-I points** (mode-dependent): I1 ambiguous request → GUIDED asks /
+AUTO derives the most conservative interpretation → ADR · I2 vague
+acceptance criteria → GUIDED asks / AUTO derives strict criteria from the
+request's explicit words → ADR · I3 Design Gate A/B → GUIDED confirms /
+AUTO records the approach as ADR · I4 baseline pre-existing failures →
+GUIDED awaits decision / AUTO proceeds only with failures provably out of
+task scope (named) · I5 mid-loop criterion edit → GUIDED asks / AUTO ADR
+quotes the exact edit · I6 cap/stall → GUIDED reports / AUTO shifts via
+§A4.10 first, PAUSED packet only on a SECOND capped sub-problem.
+
+**Class-E hard stops** (BOTH modes — AUTO never auto-decides): COV-11
+untrusted-content conflict · production deploy / release to real users ·
+destructive or irreversible ops outside the project tree (force-push, data
+deletion, infra mutation) · credential exposure beyond what the task
+provided · `assert_artifacts.py` exit 1 with no legal repair path ·
+anything the user asked to be consulted on.
+
+**ADR format** (`tests/decisions.md`, append-only):
+```
+## D-3 | <ISO time> | iter 2
+trigger: <Class-I point> | options: <2-3> | chosen: <safest>
+why: <one falsifiable clause> | revisit-if: <invalidating condition>
+```
+Completion adds `[Decisions] N auto-decisions → tests/decisions.md` before
+the table. User veto of an ADR = feedback memory (A7.9) + redo next wave.
+
+**PAUSED packet** (both modes, any stop — SKILL.md §3.4): write
+`tests/paused_state.md` AND end the turn with the same one-liner:
+```
+[PAUSED] gate=<name> | question=<one line> | options=<2-3> | default-if-continue=<option> | state=<wave, files touched, next step>
+```
+**Resume contract:** user "continue" = approval of `default-if-continue`
+(NOT a re-plan). On resume: clear `paused_state.md`, append
+`- resumed: <default> approved` to `verification_log.md`, continue from
+`state:`. Re-entry order: paused_state → acceptance.md (full) →
+verification_log tail (~40 lines) → §1 covenant.
+
+**AUTO runaway bound:** at most ONE extra autonomous direction per stop
+type; ≥3 ADRs on the SAME sub-problem → next stop escalates to PAUSED
+regardless of mode — the mode buys autonomy, not license to spin.

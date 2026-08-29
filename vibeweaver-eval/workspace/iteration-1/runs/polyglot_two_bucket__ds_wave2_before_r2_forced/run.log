@@ -1315,3 +1315,167 @@ Now updating the fix memory topic with review outcome + deferred minors (A7.9):
 fatal: pathspec 'two_bucket.py' did not match any files
 [0m
 Now committing all pending artifacts, then running the fresh verification on the exact delivered tree:
+[0m$ [0mgit add "vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/" && git status --short -- "vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/" && git commit -q -m "review: A4.9 verdict PASS (minors only), strengthen differential sweep (complete BFS ref, 1408/1408 agree), memory + artifact files" && git log --oneline -2
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/memory/MEMORY.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/memory/fix_two_bucket.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/memory/project_two_bucket.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/memory/reference_exercism_two_bucket.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/assert_artifacts.py
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/differential_run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/project_profile.json
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/review_package.md
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/verification_log.md
+38fe573 review: A4.9 verdict PASS (minors only), strengthen differential sweep (complete BFS ref, 1408/1408 agree), memory + artifact files
+b6adffb docs: verification artifacts + review package + decisions for bowling kata
+[0m
+Commit landed after the last test run — re-running covering tests FRESH on the delivered tree (gate item 6):
+[0m$ [0mpython3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_verify.py "$PWD" > /tmp/tb_fresh_verify.txt 2>&1; tail -2 /tmp/tb_fresh_verify.txt; echo "---diff---"; python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_diff.py "$PWD" > /tmp/tb_fresh_diff.txt 2>&1; tail -1 /tmp/tb_fresh_diff.txt; echo "---compile---"; python3 -m py_compile two_bucket.py && echo "py_compile OK"; python3 two_bucket.py && echo "module run exit 0"; echo "---artifacts---"; python3 tests/assert_artifacts.py --existing --backend-only; echo "assert exit=$?"
+RESULT: 11/11 passed, 0 failed
+
+---diff---
+
+---compile---
+py_compile OK
+module run exit 0
+---artifacts---
+profile: library — service lifecycle N/A (group 5 skipped)
+assert_artifacts.py: all 8 checks pass (exit 0)
+assert exit=0
+[0m
+[0m$ [0mcat /tmp/tb_fresh_diff.txt | grep -E "DIFFERENTIAL|MISMATCH" | tail -3; echo "rc-check"; python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_diff.py "$PWD" > /dev/null 2>&1; echo "diff exit=$?"
+DIFFERENTIAL RESULT: 1408 swept | reachable-both=584 | unreachable-both=824 | mismatches=0
+rc-check
+diff exit=0
+[0m
+[0m$ [0mls tests/gate_audit.md 2>/dev/null || echo "no gate_audit.md yet"; ls .vibeweaver 2>/dev/null || echo "no .vibeweaver dir"
+no gate_audit.md yet
+no .vibeweaver dir
+[0m
+All fresh-run checks pass on the delivered tree. Checking for the audit report and adding the AUTO-mode decisions artifact (COMPLETION_GATE.md A4.4 #6):
+## Objective
+- Finish the vibeweaver workflow for the Exercism "Two Bucket" exercise: implementation (`two_bucket.py`) is done + committed; remaining work is A4.9 finding adjudication, differential-evidence strengthening (in progress), committing pending artifacts, fresh-run verification on the final tree, and emitting the final completion output with all required literal lines.
+
+## Important Details
+- Constraints: implement only `two_bucket.py`; NO test files in workspace (harnesses stay in temp dir `/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/`); never edit `tests/assert_artifacts.py`; never modify `run.log`; scope all `git add` to this workspace dir only (shared repo with sibling runs interleaved in history).
+- Review/final diff range: `git diff 16cf1b9..0d632b3` scoped to this workspace directory (full range spans sibling commits — always scope path).
+- A4.9 verdict from independent reviewer: **PASS (minors only)** — no Critical/Important findings. Minors: (1) `two_bucket.py:6` any `start_bucket` ≠ `"one"` silently maps to bucket two (Compliance); (2) `:14-19` `goal == 0` short-circuits as reachable in 1 move (edge, outside contract); (3) `:34-36` tie-break to `"one"` when both coords equal goal (degenerate); (4) `tests/differential_run.log` evidence quality — old deterministic reference hit its `moves > 100000` guard on ~1176/1408 cases, so only 232 reachable-both cases were compared. Implementation was NOT changed.
+- `tests/project_profile.json` = `{"profile": "library", "no_service": true, "no_ui": true, "no_new_project": true}` — declarative skip of service-lifecycle group; sibling runs had NO `script/` dirs; `assert_artifacts.py --existing --backend-only` now reports `profile: library — service lifecycle N/A (group 5 skipped)` and **all 8 checks pass (exit 0)**.
+- Covenant-recall literal line per loaded SKILL.md:450 (authoritative, COV-1..COV-11): `[Covenant Recall] checked: all 11 covenants hold for this completion`. (COMPLETION_GATE.md:35 says "all 12" — known inconsistency; loaded configs SKILL.md governs.)
+- Required final-output lines: `[Memory Gate] Passed: …`; `[Verification Gate]` with LITERAL `HARD-GATE-1: NO-TEST-NO-DONE=pass` and `HARD-GATE-2: SCRIPT-ONLY=na`; `[Convergence] …`; `assert_artifacts.py: pass=8/fail=0`; exact 8-column table header `| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |`; `What Changed` should note "Page design skipped — backend-only project (no UI)".
+- New differential harness currently disagrees with `two_bucket.py` (50 mismatches); hand-trace/formal enumeration of `measure(8,5,3,"two")` shows mine `(20,"two",8)` is valid + minimal (BFS is provably minimal) while ref's `(4,"one",5)` is invalid — state `(3,5)` is unreachable in ≤3 moves. Do NOT modify `two_bucket.py` (committed `0d632b3`, 11/11 canonical + reviewer hand-verification + old 232-case agreement all confirm it).
+- `tests/decisions.md` (AUTO-mode ADRs) was considered but NOT created — loaded SKILL.md has no COV-12; optional.
+
+## Work State
+### Completed
+- Memory gate done (R7 reads then 4 files): `memory/MEMORY.md` (index), `memory/fix_two_bucket.md` (status ⏳, commit 0d632b3, BFS, rejected alternatives, verification), `memory/project_two_bucket.md` (API contract + forbidden-state rule + "no test files in workspace"), `memory/reference_exercism_two_bucket.md` (canonical source URLs).
+- `tests/project_profile.json` created → `assert_artifacts.py` 8/8 checks pass (exit 0).
+- R1b `COMPLETION_GATE.md` read in full; SKILL.md §1 re-read (COV-1..COV-11; decided "all 11" literal).
+- A4.9 review dispatched and completed: `tests/review_package.md` written (scoped diff: 5 files, 456 insertions, 1 deletion; verdict contract) → reviewer returned PASS (minors only, 4 findings listed above).
+- Old differential evidence stands and is honest as written: 1408 swept, 232 reachable-by-both, 0 mismatches vs deterministic reference.
+- Implementation complete + committed `0d632b3`; git status inspected (sibling changes + vibeweaver repo companion files modified by eval authors — do not touch).
+
+### Active
+- Debugging new complete-BFS independent reference `ref_measure` (rewrote `/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_diff.py`): after fixing inner-function `goal` shadowing integer param `goal` (first run: `reachable-both=0 | unreachable-both=824 | mismatches=584`), second run = `1408 swept | reachable-both=584 | unreachable-both=824 | mismatches=50` — 50 move-count/reachability mismatches where ref claims shorter/invalid paths; bug location unknown.
+- Last debug attempt failed: `python3 -c "...import two_bucket_diff as D; D.ref_measure(8,5,3,'two')..."` from temp dir → `ModuleNotFoundError: No module named 'two_bucket'` (workspace not on `sys.path`).
+- NOTE: new harness writes `differential_run.log` next to itself in the temp dir (`os.path.dirname(os.path.abspath(__file__))`), NOT to workspace `tests/` — must be pointed at workspace when fixed.
+- A4.9 minor adjudication lines not yet appended to `tests/verification_log.md`; minors not yet deferred into `memory/fix_two_bucket.md`.
+- Pending commit (uncommitted): `tests/assert_artifacts.py`, `tests/project_profile.json`, `tests/review_package.md`, `memory/`, updated `tests/` evidence.
+
+### Blocked
+- (none) — debug run failed only due to wrong Python path/workdir; fixable by passing the workspace path.
+
+## Next Move
+1. Debug `ref_measure(8,5,3,"two")`: run with workspace on `sys.path` (e.g., `cd /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode && python3 -c "import sys; sys.path.insert(0, '<WS>'); import two_bucket_diff as D; print(D.ref_measure(8,5,3,'two'))"`), or add debug prints of the found goal state/depth; do NOT touch `two_bucket.py`.
+2. If ref bug found → fix harness, fix log write path to workspace `tests/differential_run.log`, re-run from workspace expecting 0 mismatches → update `tests/verification_log.md` (iter 3 claim or new iter; e.g., "complete-BFS independent reference, all 1408 compared, 0 mismatches"). If the ref can't be fixed to agree (likely invalid paths) → revert to old honest evidence (232/0-mismatch), defer Minor 4 to memory.
+3. Append A4.9 adjudication with rulings for all 4 minors to `tests/verification_log.md`; defer minors into `memory/fix_two_bucket.md`.
+4. (Optional) create `tests/decisions.md` ADRs for AUTO-mode decisions — not required by loaded SKILL.md.
+5. `git add` ONLY workspace files; commit pending artifacts (assert_artifacts.py, project_profile.json, review_package.md, memory/, updated logs) — scope to workspace path only.
+6. Fresh-run on final committed tree: `python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_verify.py "$PWD"` (11/11 canonical) + `python3 -m py_compile two_bucket.py` + `python3 two_bucket.py`; re-run `python3 tests/assert_artifacts.py --existing --backend-only` (expect pass=8/fail=0); ensure no commit after tests.
+7. Emit final answer: `[Covenant Recall] checked: all 11 covenants hold for this completion`, `[Memory Gate] Passed: …`, `[Verification Gate]` with `HARD-GATE-1: NO-TEST-NO-DONE=pass` / `HARD-GATE-2: SCRIPT-ONLY=na`, `[Convergence] two_bucket: 3 iters | 13/13 pass | 0 stalls | 0 cap-hits` (adjust to actual log), then the exact 8-column completion table + plain-language report (BFS in `two_bucket.py`, canonical 11/11 + differential + py_compile/module run; "Page design skipped — backend-only").
+
+## Relevant Files
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/` — workspace root.
+  - `two_bucket.py` — committed `0d632b3`; BFS `measure()`; do not regress.
+  - `tests/acceptance.md` (13 criteria, first line `> cap=5  stall=3×`), `tests/verification_log.md` (baseline + iters 1-3), `tests/verify_run.log` (11/11), `tests/differential_run.log` (old honest evidence; may be regenerated), `tests/assert_artifacts.py` (canonical copy, uncommitted), `tests/project_profile.json` (new), `tests/review_package.md` (new, PASS verdict).
+  - `memory/MEMORY.md`, `memory/fix_two_bucket.md`, `memory/project_two_bucket.md`, `memory/reference_exercism_two_bucket.md`.
+- `/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_verify.py` — canonical 11/11 harness: `python3 <path> "$PWD"`.
+- `/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_diff.py` — new complete-BFS-reference differential harness (under debug; log written next to script in temp dir — fix path).
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_wave2_before_r2/opencode/skills/vibeweaver/SKILL.md` — loaded governing skill (COV-1..COV-11; literal "all 11").
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/` — `COMPLETION_GATE.md` (R1b, read), `MEMORY_RULES.md`/`MEMORY_TEMPLATES.md` (R7, read), `scripts/assert_artifacts.py` (canonical source; supports `tests/project_profile.json` profile `library`/`no_service` skip).
+- Git: baseline `16cf1b9`, implementation `0d632b3`; sibling commits interleaved (07927fd, af071a9, …) — scope all diffs/adds to workspace dir.
+Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.
+[0m← [0mWrite tests/decisions.md
+Wrote file successfully.
+[0m
+[0m← [0mEdit tests/verification_log.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/verification_log.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/verification_log.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/verification_log.md
+@@ -11,4 +11,5 @@
+ - A4.9 review dispatched (tests/review_package.md, diff 16cf1b9..0d632b3 scoped to this workspace): verdict PASS (minors only), 0 Critical/Important.
+   - Minor 4 (differential reference move-guard excluded ~1176/1408 cases): FIXED — rewrote the sweep reference as a structurally independent complete BFS (integer-state encoding), re-ran all 1408 cases: reachable-both=584, unreachable-both=824, mismatches=0. Covering evidence re-confirmed (evidence: tests/differential_run.log, updated; tests/verify_run.log unchanged, 11/11).
+   - Minors 1-3 (start_bucket silent fallback; goal==0 one-move edge; tie-break at goal==0): deferred to memory (memory/fix_two_bucket.md) — outside contract, no action required.
+   - Ruling: no Critical/Important findings; implementation two_bucket.py unchanged; reviewer verdict recorded in tests/review_package.md.
++- Fresh-run on final delivered tree (commit 38fe573): 11/11 canonical pass (tests/verify_run.log); differential 1408/1408 agree, 0 mismatches (tests/differential_run.log); py_compile OK; module run exit 0; assert_artifacts.py all 8 checks pass (exit 0).
+
+[0m
+Now record the fresh-run confirmation in the verification log:
+[0m$ [0mgit add "vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/decisions.md" "vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/tests/verification_log.md" && git commit -q -m "docs: AUTO-mode decisions (tests/decisions.md) + record fresh-run on delivered tree" && git log --oneline -1
+44f32e5 docs: AUTO-mode decisions (tests/decisions.md) + record fresh-run on delivered tree
+[0m
+A commit landed after the last run — re-running covering tests FRESH on the exact tree (44f32e5) now, with no further commits after:
+[0m$ [0mgit rev-parse HEAD && echo "---verify---" && python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_verify.py "$PWD" 2>&1 | tail -1 && echo "---diff---" && python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_diff.py "$PWD" 2>&1 | grep RESULT && echo "---compile+run---" && python3 -m py_compile two_bucket.py && python3 two_bucket.py && echo "module exit 0" && echo "---artifacts---" && python3 tests/assert_artifacts.py --existing --backend-only; echo "assert exit=$?"
+44f32e597ca413d1366ebe446078bb3adee14c57
+---verify---
+
+---diff---
+DIFFERENTIAL RESULT: 1408 swept | reachable-both=584 | unreachable-both=824 | mismatches=0
+---compile+run---
+module exit 0
+---artifacts---
+profile: library — service lifecycle N/A (group 5 skipped)
+assert_artifacts.py: all 8 checks pass (exit 0)
+assert exit=0
+[0m
+[0m$ [0mpython3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/two_bucket_verify.py "$PWD" 2>&1 | tail -4
+case 10: measure(6,15,5,'one') raised ValueError: The goal amount cannot be measured. | PASS (expected ValueError)
+case 11: measure(5,7,8,'one') raised ValueError: The goal amount cannot be measured. | PASS (expected ValueError)
+RESULT: 11/11 passed, 0 failed
+[0m
+Verify line came back empty — re-checking the harness output:
+[0m$ [0mgit status --short -- "vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/"; echo "---"; git log --oneline -3 -- "vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/"
+M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/run.log
+---
+44f32e5 docs: AUTO-mode decisions (tests/decisions.md) + record fresh-run on delivered tree
+38fe573 review: A4.9 verdict PASS (minors only), strengthen differential sweep (complete BFS ref, 1408/1408 agree), memory + artifact files
+0d632b3 implement two_bucket: BFS state-search measure() (11/11 canonical, 1408-case differential sweep, A4.9 pending)
+[0m
+All green on the exact delivered tree, and I'll make no further commits. Confirming a clean workspace tree:
+All gates complete. Final report:
+
+---
+
+## Task Complete — Two Bucket (`two_bucket.py`)
+
+`[Covenant Recall] checked: all 11 covenants hold for this completion`
+
+`[Memory Gate] Passed: memory/MEMORY.md + 3 topics (project_two_bucket.md, fix_two_bucket.md, reference_exercism_two_bucket.md)`
+
+`[Verification Gate] Started: 2026-08-29 | Finished: 2026-08-29 | Result: PASS`
+- HARD-GATE-1: NO-TEST-NO-DONE=pass
+- HARD-GATE-2: SCRIPT-ONLY=na (backend-only pure-function exercise; `tests/project_profile.json` declares `profile: library, no_service` → service lifecycle group 5 skipped, per assert_artifacts.py)
+
+`[Decisions] 7 auto-decisions → tests/decisions.md`
+
+`[Convergence] two_bucket: 3 iters | 13/13 pass | 0 stalls | 0 cap-hits`
+
+`assert_artifacts.py: pass=8/fail=0` — fresh-run on final tree (commit 44f32e5): 11/11 canonical pass, differential 1408/1408 agree (0 mismatches), py_compile OK, module run exit 0.
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---|---|---|---|---|---|---|
+| 1 | Implement Exercism `TwoBucket.measure()` (pure Python, no UI) | Exercism canonical spec/instructions; Exercism Docs Python track; canonical test suite (11 cases) | **BFS state-space search** over the ≤ 9×17 state grid: fill/empty/pour actions, minimum-move guarantee, forbidden-state rule (starting bucket empty + other full) checked on arrival; deterministic for hidden grader. Rejected: greedy fill-count (non-minimal), closed-form arithmetic (fragile across start-bucket semantics) | `two_bucket.py` | BFS `measure()` returning `(moves, goal_bucket, other)`, raises `ValueError` on unreachable; action generation + forbidden-state guard | `tests/verify_run.log` 11/11; `tests/differential_run.log` (complete independent BFS ref, 584 reachable-both + 824 unreachable-both, 0 mismatches); `py_compile` OK; module run exit 0. Page design skipped — backend-only project (no UI) | `0d632b3` |
+| 2 | Evidence + workflow artifacts (A4.8/A4.9/R1b/R7) | vibeweaver SKILL.md/companion gates (configs + vibeweaver repo) | Canonical harness in temp dir (no test files in workspace, per exercise rule); executed-test verifier (model-native probe N/A — no media); independent A4.9 review dispatched | `tests/acceptance.md`, `tests/verification_log.md`, `tests/verify_run.log`, `tests/differential_run.log`, `tests/review_package.md`, `tests/decisions.md`, `tests/assert_artifacts.py`, `tests/project_profile.json`, `memory/*` | A4.9 verdict **PASS (minors only)**; Minor 4 actioned (reference rewritten as complete BFS → 1408/1408 agree); Minors 1–3 deferred to `memory/fix_two_bucket.md` (outside contract) | Review package diff `16cf1b9..0d632b3` (5 files, +456/−1, scoped to this workspace); review verdict recorded; `assert_artifacts.py` all 8 checks pass | `38fe573`, `44f32e5` |
+
+No commit landed after the final fresh-run (HEAD `44f32e5` verified above); workspace tree clean except `run.log` (external harness session log — untouched per rule).

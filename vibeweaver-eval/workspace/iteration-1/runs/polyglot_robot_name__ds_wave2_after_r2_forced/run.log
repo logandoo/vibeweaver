@@ -225,3 +225,284 @@ drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 ..
 -rw-r--r--@ 1 logan  staff  48978 Aug 28 23:53 SKILL.md
 [0m
 The whole run directory is untracked (`?? ./`). I'll do a **scoped** COV-9 baseline commit of only this run's files (not the shared harness repo contents), then baseline-verify the stub imports.
+[0m$ [0mgit add -A . && git commit -m "backup: before changes" --quiet && git log --oneline -1 | cat
+311a653 backup: before changes
+[0m
+Repo-root `vibeweaver/scripts/assert_artifacts.py` exists (canonical) — I'll copy it into `tests/` per A4.4.1. Now the COV-9 baseline: scoped commit of this run's files only, then baseline import check.
+[0m$ [0mpython3 -c "import robot_name; r = robot_name.Robot(); print('stub import OK, name =', r.name)" 2>&1
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+AttributeError: 'Robot' object has no attribute 'name'
+[0m
+[0m← [0mWrite tests/acceptance.md
+Wrote file successfully.
+[0m
+Baseline: stub **imports cleanly** (no syntax/runtime errors — GREEN); `r.name` AttributeError is the stub's unimplemented behavior, which is the deliverable. Recording baseline + writing acceptance criteria and the RED test (test lives in temp dir, per "do not create test files" in the workspace).
+[0m← [0mWrite /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/test_robot_name_vw.py
+Wrote file successfully.
+[0m
+Running the test against the **stub** — expecting RED (TDD §A4.8):
+[0m$ [0mpython3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/test_robot_name_vw.py 2>&1; echo "exit=$?"
+Traceback (most recent call last):
+  File "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/test_robot_name_vw.py", line 19, in <module>
+    results.append(check("c1 format", PATTERN.match(r.name) is not None, f"-> name={r.name!r}"))
+AttributeError: 'Robot' object has no attribute 'name'
+exit=1
+[0m
+[0m← [0mWrite robot_name.py
+Wrote file successfully.
+[0m
+RED confirmed: `AttributeError: 'Robot' object has no attribute 'name'` — the expected failure. Now implementing (GREEN phase).
+[0m$ [0mpython3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/test_robot_name_vw.py 2>&1; echo "exit=$?"
+[PASS] c1 format -> name='IQ619'
+[PASS] c2 consistent -> 'IQ619' == 'IQ619'
+[PASS] c3/c6 unique among 500 -> 500/500 unique
+[PASS] c6 varied -> 500 distinct
+[PASS] c4 reset changes name -> 'IQ619' -> 'DS180'
+[PASS] c5 not reused -> new='DS180' unused previously
+[PASS] c5 reset-unique -> robot0 reset name='SO333'
+[PASS] c5 reset-unique -> robot1 reset name='KN730'
+[PASS] c5 reset-unique -> robot2 reset name='YK800'
+[PASS] c5 reset-unique -> robot3 reset name='UI883'
+[PASS] c5 reset-unique -> robot4 reset name='LI149'
+[PASS] c5 reset-unique -> robot5 reset name='JK311'
+[PASS] c5 reset-unique -> robot6 reset name='WA359'
+[PASS] c5 reset-unique -> robot7 reset name='RA030'
+[PASS] c5 reset-unique -> robot8 reset name='TM386'
+[PASS] c5 reset-unique -> robot9 reset name='LE720'
+[PASS] c5 reset-unique -> robot10 reset name='AG225'
+[PASS] c5 reset-unique -> robot11 reset name='GQ282'
+[PASS] c5 reset-unique -> robot12 reset name='DZ440'
+[PASS] c5 reset-unique -> robot13 reset name='ZY646'
+[PASS] c5 reset-unique -> robot14 reset name='UG222'
+[PASS] c5 reset-unique -> robot15 reset name='GP270'
+[PASS] c5 reset-unique -> robot16 reset name='PH810'
+[PASS] c5 reset-unique -> robot17 reset name='AQ638'
+[PASS] c5 reset-unique -> robot18 reset name='YY016'
+[PASS] c5 reset-unique -> robot19 reset name='VM659'
+
+RESULT: ALL PASS (26/26 checks)
+exit=0
+[0m
+GREEN — 26/26. Now fresh-run evidence on the final tree (no commit after the last test), captured to disk, plus a plain smoke import.
+[0m$ [0mpython3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/test_robot_name_vw.py > tests/fresh_run.log 2>&1; echo "fresh_run_exit=$?" >> tests/fresh_run.log; tail -2 tests/fresh_run.log; echo "---smoke---"; python3 -c "import robot_name; a=robot_name.Robot(); b=robot_name.Robot(); print('import+create OK:', a.name, '|', b.name)" 2>&1
+RESULT: ALL PASS (26/26 checks)
+fresh_run_exit=0
+---smoke---
+import+create OK: RM315 | AQ636
+[0m
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite tests/decisions.md
+Wrote file successfully.
+[0m
+[0m$ [0mcp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py tests/assert_artifacts.py && rg -c "GROUP [0-9]+" tests/assert_artifacts.py
+(no output)
+[0m
+All pass. Now writing evidence artifacts: verification log (baseline entry + iterations with RED evidence), decisions log, and copying the canonical `assert_artifacts.py`.
+[0m$ [0mrg -n "group|GROUP|g[0-9]+|assertion" tests/assert_artifacts.py | rg -i "g(ro|roup|1|2|3|4|5|6|7|8|9)|group" | head -40
+3:Mirrors COMPLETION_GATE.md §A4.4.1 minimum-check table (all 16 groups).
+4:Group 12 enforces the A4.1 diagnosis clause; group 13 is a
+10:(tests/project_profile.json or --profile) declaratively skip groups that
+12:a profile never weakens an applicable group."""
+45:# --- groups 14-16: change-wave content gates (canonical spec:
+127:            nline = int(h.group(1))
+164:    `- secret-approved:` line (anti-abuse pairing, same shape as group 15)."""
+181:            found = bool(m) and (bool(m.group("q")) or
+182:                                 bool(not any(c in m.group("v") for c in ".()")))
+205:    """Group 15 — test-change guard: REMOVED assertion lines in test code
+274:    ap.add_argument("--profile", default="", help="project profile: service|backend-api|web-static|cli|library — skips structurally-N/A groups (overrides tests/project_profile.json)")
+279:    # --- project profile: declarative N/A for groups that are structurally
+281:    # A profile SKIPS a group only; it never weakens an applicable group.
+306:              f"{' — service lifecycle N/A (group 5 skipped)' if no_service else ''}"
+344:    #    Profiles (cli/library/web-static) skip this group — structurally N/A
+435:        print("WARN groups 14-16: a git call timed out — content gates ran "
+[0m
+The `GROUP N` grep pattern didn't match — checking what markers the canonical script actually uses.
+[0m$ [0mrg -n "project_profile" tests/assert_artifacts.py | head; rg -n "def main|argparse|--existing|--backend-only" tests/assert_artifacts.py | head
+10:(tests/project_profile.json or --profile) declaratively skip groups that
+274:    ap.add_argument("--profile", default="", help="project profile: service|backend-api|web-static|cli|library — skips structurally-N/A groups (overrides tests/project_profile.json)")
+282:    # Explicit keys in tests/project_profile.json override the preset.
+285:    pf = root / "tests" / "project_profile.json"
+13:import argparse, json, os, pathlib, re, subprocess, sys
+269:def main():
+271:    ap = argparse.ArgumentParser()
+272:    ap.add_argument("--existing", action="store_true", help="Modify-Existing task: skip new-project §A5 design-doc + git checks")
+273:    ap.add_argument("--backend-only", action="store_true", help="no UI: skip PAGE_DESIGN.html and project_build.sh checks")
+359:            check(bp.exists(), "script/linux/project_build.sh missing (A2; use --backend-only if no UI)")
+373:    # 7) §A5 design docs — new projects (skipped with --existing) (A5 / C1 step 2)
+379:                  "new-project design doc missing: PAGE_DESIGN.html (A5; use --backend-only if no UI)")
+381:    # 8) README + requirements — new projects (skipped with --existing) (C1 step 15)
+[0m
+[0m← [0mWrite tests/project_profile.json
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 tests/assert_artifacts.py --existing 2>&1; echo "exit=$?"
+profile: library — service lifecycle N/A (group 5 skipped) — UI N/A
+ASSERT FAILURES (1):
+  - memory/MEMORY.md missing (A7.10)
+exit=1
+[0m
+[0m← [0mWrite memory/MEMORY.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite memory/robot_name.md
+Wrote file successfully.
+[0m
+Need `memory/MEMORY.md` (A7.10 memory gate). Writing memory index + topic file.
+[0m$ [0mpython3 tests/assert_artifacts.py --existing 2>&1; echo "exit=$?"
+profile: library — service lifecycle N/A (group 5 skipped) — UI N/A
+assert_artifacts.py: all 9 checks pass (exit 0)
+exit=0
+[0m
+`assert_artifacts.py: pass=9/fail=0`. Now A4.9 (COV-8) assessment — checking the diff stat to decide dispatch.
+[0m$ [0mgit diff --stat 311a653 | cat; echo "---"; git diff 311a653 -- robot_name.py | cat
+vibeweaver-eval/harness/run_eval.py                |  26 +-
+ .../run.log                                        |  66 +++
+ .../run.log                                        |  61 +++
+ .../grade_school.py                                |  23 +
+ .../prompt.md                                      |  21 +
+ .../run.log                                        | 250 +++++++++
+ .../run.log                                        | 219 ++++++++
+ .../polyglot_phone_number__ds_forced_after_forced  |   0
+ .../run.log                                        |  56 ++
+ .../robot_name.py                                  |  29 +-
+ .../run.log                                        | 132 +++++
+ .../run.log                                        | 380 ++++++++++++++
+ .../run.log                                        |  37 ++
+ .../run.log                                        |  51 ++
+ ...ench_pallets_flask_4045__ds_forced_after_forced |   0
+ ...nch_pallets_flask_4045__ds_forced_before_forced |   0
+ ...ench_pallets_flask_4992__ds_forced_after_forced |   0
+ ...nch_pallets_flask_4992__ds_forced_before_forced |   0
+ ...bench_psf_requests_3362__ds_forced_after_forced |   0
+ ...ench_psf_requests_3362__ds_forced_before_forced |   0
+ ..._pytest_dev_pytest_6116__ds_forced_after_forced |   0
+ ...pytest_dev_pytest_6116__ds_forced_before_forced |   0
+ ..._pytest_dev_pytest_9359__ds_forced_after_forced |   0
+ ...pytest_dev_pytest_9359__ds_forced_before_forced |   0
+ ...bench_sympy_sympy_21627__ds_forced_after_forced |   0
+ ...ench_sympy_sympy_21627__ds_forced_before_forced |   0
+ vibeweaver/COMPLETION_GATE.md                      |  23 +-
+ vibeweaver/SKILL.md                                | 571 ++++++++++-----------
+ vibeweaver/TESTING_PROTOCOLS.md                    |  53 +-
+ vibeweaver/scripts/assert_artifacts.py             |  96 +++-
+ vibeweaver/vibeweaver-gate.js                      |  18 +-
+ 31 files changed, 1788 insertions(+), 324 deletions(-)
+---
+diff --git a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/robot_name.py b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/robot_name.py
+index 7c7246e..8aaaf31 100644
+--- a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/robot_name.py
++++ b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/robot_name.py
+@@ -1,3 +1,30 @@
++import random
++import string
++
++
+ class Robot:
++    _used_names = set()
++
+     def __init__(self):
+-        pass
++        self._name = None
++
++    @property
++    def name(self):
++        if self._name is None:
++            self._name = self._generate_name()
++        return self._name
++
++    def reset(self):
++        self._name = None
++
++    @classmethod
++    def _generate_name(cls):
++        while True:
++            candidate = (
++                random.choice(string.ascii_uppercase)
++                + random.choice(string.ascii_uppercase)
++                + f"{random.randrange(1000):03d}"
++            )
++            if candidate not in cls._used_names:
++                cls._used_names.add(candidate)
++                return candidate
+[0m
+[0m← [0mWrite tests/review_diff.txt
+Wrote file successfully.
+[0m
+My deliverable is exactly **1 source file** (`robot_name.py`); everything else in the repo diff is unrelated harness noise. Since this implements new functionality, I'll dispatch the A4.9 independent reviewer over the scoped diff.
+[0m• [0mA4.9 review of robot_name.py[90m General Agent[0m
+[0m✓ [0mA4.9 review of robot_name.py[90m General Agent[0m
+[0m
+[0m← [0mWrite tests/review_package.md
+Wrote file successfully.
+[0m
+[0m← [0mEdit memory/robot_name.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/memory/robot_name.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/memory/robot_name.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/memory/robot_name.md
+@@ -27,4 +27,7 @@
+ 
+ ## Pitfalls / notes
+ - Names must never be reused after reset (spec + canonical tests) → used-set is persistent.
+ - Randomness spec: names must not follow a predictable sequence → `random` module, not a counter.
++
++## A4.9 review (2026-08-29)
++APPROVE, 0 Critical/Important. Minors deferred: (1) no exhaustion guard on `_generate_name` `while True` (unreachable at realistic scale, 676k space); (2) `_used_names` unbounded for process lifetime (bounded at 676k; required by no-reuse); (3) Mersenne Twister `random` is deterministic under a fixed seed (acceptable per spec; `secrets` would break seeded determinism).
+
+[0m
+A4.9 verdict: **APPROVE** (0 Critical/Important, 3 Minor — deferred to memory). Recording the adjudication and re-running assert to confirm everything still passes.
+[0m$ [0mpython3 tests/assert_artifacts.py --existing 2>&1; echo "exit=$?"; echo "---final fresh run---"; python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/test_robot_name_vw.py > tests/fresh_run.log 2>&1; echo "fresh_run_exit=$?" >> tests/fresh_run.log; tail -2 tests/fresh_run.log
+profile: library — service lifecycle N/A (group 5 skipped) — UI N/A
+assert_artifacts.py: all 9 checks pass (exit 0)
+exit=0
+---final fresh run---
+RESULT: ALL PASS (26/26 checks)
+fresh_run_exit=0
+[0m
+[0m# [0mTodos
+[✓] ZERO: decompose + research + verifier/mode announcement (done)
+[✓] COV-9 baseline: scoped commit + stub import check GREEN
+[✓] Write acceptance.md + RED test (temp dir), run vs stub → watch fail
+[✓] Implement robot_name.py
+[✓] GREEN: run test → pass; fresh run on final tree
+[✓] Evidence: verification_log.md, decisions.md, memory/, assert_artifacts.py
+[✓] Completion output: convergence + gate lines + 8-column table
+[0m
+All gates pass. Finalizing.
+COV-10 skipped — minor exercise implementation (no design doc per §A5 table). COV-9 tokens: `git add -A . && git commit -m "backup: before changes"` (scoped, commit `311a653`) → stub import check run → `Baseline verified GREEN` (first verification_log entry).
+
+## 9-item self-audit
+1. Tests executed with on-disk evidence (`tests/fresh_run.log`, `tests/verification_log.md`) — ✓
+2. RED evidence logged (stub `AttributeError` pasted) — ✓
+3. Fresh run on final tree after all changes, no commit after — ✓
+4. `assert_artifacts.py` exit 0 (`pass=9/fail=0`) — ✓
+5. acceptance.md first line `> cap=5  stall=3x`, 6 criteria, all pass — ✓
+6. Verifier announced at start (direct read, non-web) — ✓
+7. A4.9 reviewer dispatched, APPROVE, adjudicated in `tests/review_package.md` — ✓
+8. Memory written + gate — ✓
+9. Mode AUTO + ADRs in `tests/decisions.md` — ✓
+
+`[Covenant Recall] checked: all 12 covenants hold for this completion`
+
+`[Decisions] 5 auto-decisions → tests/decisions.md`
+
+`[Convergence] robot_name: 2 iters | 6/6 criteria pass | 0 stalls | 0 cap-hits`
+
+`[Memory Gate] Passed: memory/robot_name.md written (project topic, ✅ Verified tier), MEMORY.md index updated, A4.9 minors recorded — memory_gate: pass`
+
+```
+[Verification Gate] Verifier: direct-read | Loop executed: yes | Media graded externally: 0/0 (video 0 · audio 0 · screenshots 0) | Iterations: 2 | Tests executed with artifacts: yes | E2E depth: unit-only | Script-only build/lifecycle: na | Fresh-run on final tree: yes | TDD RED evidence: yes | Code review: clean | assert_artifacts.py: pass=9/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=na
+```
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|----------------------------------------|------------------------|---------------|--------------|------------------------------------------|--------|
+| 1 | Robot must get a unique random name (2 uppercase letters + 3 digits) on first use; `reset()` wipes it; names never collide/reuse | exa MCP rate-limited (429 ×2, retried) → skip per §0.3; spec fully in prompt.md; canonical Exercism pattern | Class-level `_used_names` set + `random` retry-on-collision; lazy `name` property; `reset()` sets `_name=None`. Rejected: shuffled-permutation of all 676k names (over-engineered, memory cost) | `robot_name.py` | Stub (`pass`) → full implementation: `_generate_name()` format `[A-Z]{2}\d{3}`, uniqueness via used-set, no-reuse across resets, randomness via `random` | `tests/fresh_run.log`: `RESULT: ALL PASS (26/26 checks)` + `fresh_run_exit=0`; RED evidence in `tests/verification_log.md` (AttributeError on stub); smoke: `import+create OK: RM315 \| AQ636` | N/A (no commit after last test) |
+
+Note: 2 code iterations (RED→GREEN + fresh-run confirmation); verification test executed from temp dir (outside workspace) to honor "do not create test files."
+
+**What I implemented:** `Robot` in `robot_name.py` — lazy `name` property generating a unique random name of 2 uppercase letters + 3 digits, cached for consistency; `reset()` clears it so the next read yields a fresh, never-reused name; class-level `_used_names` guarantees global uniqueness (500 robots → 500 unique).
+
+**How I verified:** TDD — wrote behavior tests (format, consistency, uniqueness, reset semantics, no-reuse, randomness) to a temp dir, watched them fail against the stub (RED: `AttributeError`), implemented, then all 26/26 checks passed (GREEN, exit 0), re-run fresh on the final tree with output captured to `tests/fresh_run.log`; `python3 tests/assert_artifacts.py --existing` exit 0 (9/9).

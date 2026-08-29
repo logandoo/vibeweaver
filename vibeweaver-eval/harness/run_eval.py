@@ -52,6 +52,14 @@ ARMS = {
         "XDG_CONFIG_HOME": str(ROOT / "configs" / "ds_forced_after"),
         "XDG_DATA_HOME": str(ROOT / "configs" / "ds_forced_after" / "data"),
     },
+    "ds_wave2_before": {
+        "XDG_CONFIG_HOME": str(ROOT / "configs" / "ds_wave2_before"),
+        "XDG_DATA_HOME": str(ROOT / "configs" / "ds_wave2_before" / "data"),
+    },
+    "ds_wave2_after": {
+        "XDG_CONFIG_HOME": str(ROOT / "configs" / "ds_wave2_after"),
+        "XDG_DATA_HOME": str(ROOT / "configs" / "ds_wave2_after" / "data"),
+    },
     "ds_mini": {
         "XDG_CONFIG_HOME": str(ROOT / "configs" / "ds_mini"),
         "XDG_DATA_HOME": str(ROOT / "configs" / "ds_mini" / "data"),
@@ -228,15 +236,8 @@ def run_one(task_id: str, arm: str, timeout: int, force_skill: bool = False) -> 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arm", choices=["baseline", "with_skill", "with_skill_v2",
-                                      "with_skill_mini", "ds_baseline", "ds_full",
-                                      "ds_forced_before", "ds_forced_after",
-                                      "ds_mini", "with_skill_mini_v2", "ds_mini_v2",
-                                      "with_skill_mini_v1b", "q38_baseline",
-                                      "q38_mini_v2", "q38_v2", "q38_mini_new",
-                                      "a3b_baseline", "a3b_mini_old", "a3b_mini_new",
-                                      "a3b_full",
-                                      "both"], default="both")
+    ap.add_argument("--arm", default="both",
+                    help="registered arm name, or any configs/<NAME> dir with opencode/, or 'both'")
     ap.add_argument("--benchmark", choices=["polyglot", "swebench_lite", "all"], default="all")
     ap.add_argument("--tasks", default="", help="comma separated task ids (override benchmark filter)")
     ap.add_argument("--concurrency", type=int, default=3)
@@ -244,6 +245,13 @@ def main():
     ap.add_argument("--force-skill", action="store_true",
                     help="inject the vibeweaver SKILL.md content into the prompt (forced-load arm)")
     args = ap.parse_args()
+
+    if args.arm != "both" and args.arm not in ARMS:
+        cfg = ROOT / "configs" / args.arm
+        if not (cfg / "opencode").exists():
+            sys.exit(f"unknown arm: {args.arm} (no configs/{args.arm}/opencode)")
+        ARMS[args.arm] = {"XDG_CONFIG_HOME": str(cfg),
+                          "XDG_DATA_HOME": str(cfg / "data")}
 
     tasks = sorted(d.name for d in TASKS.iterdir() if (d / "task.json").exists())
     if args.tasks:

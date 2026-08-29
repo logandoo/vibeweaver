@@ -168,7 +168,7 @@ function stallObservation(root, file) {
 
 function blockMessage(root, result) {
   const lines = [
-    "GATE-BLOCKED (vibeweaver physical gate): the task cannot be declared complete — verification evidence is missing or falsified:",
+    "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED — this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet — verification evidence is missing or falsified:",
     ...result.blocking.map((m) => "- " + m),
   ]
   if (result.warnings.length) {
@@ -186,6 +186,17 @@ function blockMessage(root, result) {
   return lines.join("\n")
 }
 
+function isEvidencePath(root, filePath) {
+  if (typeof filePath !== "string" || !filePath) return false
+  // resolve first (kills `memory/../src/app.js` traversal), then anchor the
+  // exemption to the FIRST path segment under root — a nested `src/tests/`
+  // source file is NOT an evidence path.
+  const rel = path.relative(path.resolve(root), path.resolve(filePath))
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return false
+  const seg = rel.split(path.sep)[0].toLowerCase()
+  return seg === "test" || seg === "tests" || seg === "memory"
+}
+
 export const VibeweaverGate = async ({ client, directory }) => {
   return {
     "tool.execute.after": async (input, output) => {
@@ -194,6 +205,10 @@ export const VibeweaverGate = async ({ client, directory }) => {
       const filePath = input.args && typeof input.args.filePath === "string" ? input.args.filePath : null
       const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
       if (!root) return
+      // evidence-fix path must never be gated (same rule as the audit
+      // plugin): writes under tests/ or memory/ ARE the evidence repair
+      // itself — gating them creates the first-log catch-22 deadlock.
+      if (isEvidencePath(root, filePath)) return
       const result = checkGate(root)
       if (result && result.blocking.length) {
         throw new Error(blockMessage(root, result))

@@ -1,0 +1,29 @@
+[PASS] c1 format -> name='SK085'
+[PASS] c2 consistent -> 'SK085' == 'SK085'
+[PASS] c3/c6 unique among 500 -> 500/500 unique
+[PASS] c6 varied -> 500 distinct
+[PASS] c4 reset changes name -> 'SK085' -> 'CN931'
+[PASS] c5 not reused -> new='CN931' unused previously
+[PASS] c5 reset-unique -> robot0 reset name='PZ056'
+[PASS] c5 reset-unique -> robot1 reset name='YW133'
+[PASS] c5 reset-unique -> robot2 reset name='JA761'
+[PASS] c5 reset-unique -> robot3 reset name='FL913'
+[PASS] c5 reset-unique -> robot4 reset name='ZG404'
+[PASS] c5 reset-unique -> robot5 reset name='WZ315'
+[PASS] c5 reset-unique -> robot6 reset name='XW688'
+[PASS] c5 reset-unique -> robot7 reset name='UP653'
+[PASS] c5 reset-unique -> robot8 reset name='AW434'
+[PASS] c5 reset-unique -> robot9 reset name='ZF608'
+[PASS] c5 reset-unique -> robot10 reset name='NM663'
+[PASS] c5 reset-unique -> robot11 reset name='JO415'
+[PASS] c5 reset-unique -> robot12 reset name='LC293'
+[PASS] c5 reset-unique -> robot13 reset name='LI390'
+[PASS] c5 reset-unique -> robot14 reset name='JJ049'
+[PASS] c5 reset-unique -> robot15 reset name='HB725'
+[PASS] c5 reset-unique -> robot16 reset name='ZN520'
+[PASS] c5 reset-unique -> robot17 reset name='HU575'
+[PASS] c5 reset-unique -> robot18 reset name='WV716'
+[PASS] c5 reset-unique -> robot19 reset name='KI903'
+
+RESULT: ALL PASS (26/26 checks)
+fresh_run_exit=0

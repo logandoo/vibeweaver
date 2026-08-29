@@ -1,0 +1,86 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead robot_name.py
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@  5 logan  staff   160 Aug 29 19:58 .
+drwxr-xr-x@ 85 logan  staff  2720 Aug 29 19:58 ..
+-rw-r--r--@  1 logan  staff   633 Aug  1 01:29 prompt.md
+-rw-r--r--@  1 logan  staff    50 Aug  1 01:29 robot_name.py
+-rw-r--r--@  1 logan  staff    97 Aug 29 19:58 run.log
+[0m
+[0m→ [0mRead run.log
+This is the classic Exercism "Robot Name" exercise. Let me run through the workflow briefly: decompose, research, implement, verify.
+
+**ZERO / Decompose:** Single known requirement — a `Robot` class with `name` (format `[A-Z]{2}[0-9]{3}`), generated randomly on creation, changed by `reset()`, and globally unique among existing robots. No ambiguity, so no clarifying questions needed.
+[0m◈ [0mExa Web Search "Exercism python robot-name Robot class name reset unique solution"
+[0m
+[0m← [0mWrite robot_name.py
+Wrote file successfully.
+[0m
+Research confirms this is the standard Exercism "Robot Name" exercise. Approaches evaluated:
+
+1. **Random generation + class-level used-name set with collision retry** — standard, directly satisfies "random, not a predictable sequence," trivial collision risk (676,000 combos). **Chosen.**
+2. Deterministic shuffled permutation over all name combos — guarantees uniqueness but is needlessly complex for this scope.
+3. Random + free-name scanning — over-engineered.
+
+Note: the task explicitly forbids creating test files, so I'm honoring that over the skill's artifact templates (acceptance.md / verification_log.md), and verifying via inline executed code instead.
+Now let me verify — syntax check plus an executed behavioral test inline (no test files created):
+[0m$ [0mpython3 -m py_compile robot_name.py && echo "SYNTAX OK" && python3 -c "
+import re
+from robot_name import Robot
+
+# 1. Name format matches [A-Z]{2}[0-9]{3}
+r = Robot()
+assert re.fullmatch(r'[A-Z]{2}[0-9]{3}', r.name), r.name
+print('PASS: name format', r.name)
+
+# 2. Name sticks between calls
+first = r.name
+assert r.name == first
+print('PASS: name sticks')
+
+# 3. Unique names across 1000 robots
+names = {Robot().name for _ in range(1000)}
+assert len(names) == 1000, len(names)
+print('PASS: 1000 robots unique')
+
+# 4. reset() wipes and generates a new name
+old = r.name
+r.reset()
+assert r.name != old and re.fullmatch(r'[A-Z]{2}[0-9]{3}', r.name), r.name
+print('PASS: reset gives new name', r.name)
+
+# 5. reset releases the old name (reusable, still unique among existing)
+r2 = Robot()
+names_before = {r.name, r2.name}
+r.reset()
+r3 = Robot()
+assert len({r.name, r2.name, r3.name}) == 3
+print('PASS: reset + new robots remain unique')
+
+print('ALL CHECKS PASSED')
+"
+SYNTAX OK
+PASS: name format OF939
+PASS: name sticks
+PASS: 1000 robots unique
+PASS: reset gives new name ER438
+PASS: reset + new robots remain unique
+ALL CHECKS PASSED
+[0m
+Implemented and verified.
+
+**Implementation** (`robot_name.py`):
+- `Robot.__init__` generates a random name of format 2 uppercase letters + 3 digits (e.g., `RX837`).
+- A class-level `_used_names` set enforces global uniqueness across all robots; collisions retry.
+- `reset()` frees the old name and generates a new one, keeping existing robots unique.
+
+**Verification** (executed, no test files created per your constraint):
+- `python3 -m py_compile robot_name.py` → SYNTAX OK
+- Inline run asserted: name format `[A-Z]{2}[0-9]{3}` ✓ · name sticks between calls ✓ · 1000 robots all unique ✓ · `reset()` yields a new, valid name ✓ · robots remain unique after reset ✓ — all 5 checks passed.
+
+Note: per your instruction not to create test files, I skipped the vibeweaver on-disk artifact files (acceptance.md / verification_log.md) and verified via the inline executed run above instead.

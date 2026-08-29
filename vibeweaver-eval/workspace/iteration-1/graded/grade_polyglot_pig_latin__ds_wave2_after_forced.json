@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_pig_latin",
+  "passed": false,
+  "tests_passed": 21,
+  "tests_total": 22,
+  "output": ".........F............                                                   [100%]\n=================================== FAILURES ===================================\n________ PigLatinTest.test_word_beginning_with_q_without_a_following_u _________\n\nself = <pig_latin_test.PigLatinTest testMethod=test_word_beginning_with_q_without_a_following_u>\n\n    def test_word_beginning_with_q_without_a_following_u(self):\n>       self.assertEqual(translate(\"qat\"), \"atqay\")\nE       AssertionError: 'tquay' != 'atqay'\nE       - tquay\nE       ?   -\nE       + atqay\nE       ? +\n\npig_latin_test.py:41: AssertionError\n1 failed, 21 passed in 0.03s\n"
+}

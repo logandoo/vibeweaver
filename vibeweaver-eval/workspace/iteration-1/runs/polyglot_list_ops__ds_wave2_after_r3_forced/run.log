@@ -396,3 +396,20 @@ Acceptance criteria gate (A4.1 Step 1). This is a C7 non-web library task — cr
 [0m← [0mWrite tests/acceptance.md
 Wrote file successfully.
 [0m
+[0m$ [0mgit add prompt.md list_ops.py run.log && git commit -q -m "backup: before changes" && git log --oneline -1
+c049cf3 backup: before changes
+[0m
+Now COV-9 baseline — scoped commit of this run dir (avoiding the shared eval repo's hundreds of unrelated untracked files) + baseline check, then record verdict as first verification_log entry.
+[0m$ [0mpython3 -m py_compile list_ops.py && echo "BASELINE-COMPILE: exit $? (stub compiles)"
+BASELINE-COMPILE: exit 0 (stub compiles)
+[0m
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite tests/project_profile.json
+Wrote file successfully.
+[0m
+Now the C7 profile and the TDD RED driver. Writing both, then running the driver against the stubs to capture RED evidence.
+[0m← [0mWrite tests/verify_list_ops.py
+Wrote file successfully.
+[0m

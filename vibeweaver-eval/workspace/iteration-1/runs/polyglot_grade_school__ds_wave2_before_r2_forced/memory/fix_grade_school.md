@@ -23,3 +23,9 @@ list of per-call booleans.
 
 Hidden suite `grade_school_test.py` (20 tests): 20 passed. Evidence:
 `tests/hidden_tests_run.log`, `tests/manual_probe.log`.
+
+## A4.9 independent review (2026-08-29)
+
+Verdict: PASS — no Critical/Important findings. Minors deferred:
+- `added()` returns internal list by reference (caller mutation could corrupt state; not exercised by tests) — acceptable for this exercise, revisit if reused.
+- `grade(n)` relies on `.get(..., [])` default arg — correct.

@@ -1,0 +1,42 @@
+# A4.9 review diff — scoped to this task's deliverable
+
+Diff of robot_name.py from baseline commit 311a653 (stub) to working tree:
+
+--- a/robot_name.py
++++ b/robot_name.py
+@@ -1,3 +1,30 @@
++import random
++import string
++
++
+ class Robot:
++    _used_names = set()
++
+     def __init__(self):
+-        pass
++        self._name = None
++
++    @property
++    def name(self):
++        if self._name is None:
++            self._name = self._generate_name()
++        return self._name
++
++    def reset(self):
++        self._name = None
++
++    @classmethod
++    def _generate_name(cls):
++        while True:
++            candidate = (
++                random.choice(string.ascii_uppercase)
++                + random.choice(string.ascii_uppercase)
++                + f"{random.randrange(1000):03d}"
++            )
++            if candidate not in cls._used_names:
++                cls._used_names.add(candidate)
++                return candidate
+
+Requirement (prompt.md): robots get a unique random name of 2 uppercase letters + 3 digits
+on first access; reset() wipes the name and the next access yields a new random name;
+every existing robot has a unique name; names must be random (no predictable sequence).

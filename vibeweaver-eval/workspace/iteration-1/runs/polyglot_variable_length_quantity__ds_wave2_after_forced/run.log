@@ -863,3 +863,54 @@ assert_artifacts.py: all 12 checks pass (exit 0)
 assert_exit=0
 [0m
 All gates green. Final scoped commit:
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git add vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced && git commit -m "implement variable_length_quantity: VLQ encode/decode (26/26 hidden, roundtrip 2000/2000, A4.9 review PASS)" -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced && git log --oneline -1 -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced
+[main e91a154] implement variable_length_quantity: VLQ encode/decode (26/26 hidden, roundtrip 2000/2000, A4.9 review PASS)
+ 18 files changed, 1340 insertions(+), 2 deletions(-)
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/memory/MEMORY.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/memory/fix_variable_length_quantity.md
+ create mode 100755 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/script/linux/project_build.sh
+ create mode 100755 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/script/linux/restart.sh
+ create mode 100755 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/script/linux/start.sh
+ create mode 100755 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/script/linux/stop.sh
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/acceptance.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/assert_artifacts.py
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/canonical_suite.log
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/decisions.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/differential_check.log
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/project_profile.json
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/red_evidence.log
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/review_package.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/verification_log.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/tests/verification_run.log
+e91a154 implement variable_length_quantity: VLQ encode/decode (26/26 hidden, roundtrip 2000/2000, A4.9 review PASS)
+[0m
+[0m# [0mTodos
+[✓] COV-9 baseline: scoped backup commit + RED baseline run of hidden suite against stub
+[✓] Implement encode/decode in variable_length_quantity.py
+[✓] Create skill artifacts: acceptance.md, verification_log.md, decisions.md, assert_artifacts.py, memory/, script/linux, project_profile.json
+[✓] GREEN verification: hidden suite + differential sweep against implemented solution
+[✓] Run python3 tests/assert_artifacts.py --existing --backend-only (exit 0)
+[✓] A4.9 independent review dispatch + adjudicate findings
+[✓] Final fresh-run on delivered tree + scoped commit + completion table
+[0m
+Task complete. Variable Length Quantity implemented, verified, and committed (`e91a154`, pathspec-scoped).
+
+```
+[Convergence] 5 gates: A1 done · A2 done · A3 N/A (no config) · A4 done · A5 N/A (no UI/e2e)
+[Covenant Recall] backup:e91a154 → validate:26/26 → memorize:recorded → review:APPROVE → deliver:e91a154
+[Memory Gate] ✓ (memory/MEMORY.md + fix_variable_length_quantity.md, 2 files)
+[Verification Gate] ✓ (canonical 26/26, roundtrip 2000/2000, differential ALL PASS, ValueError 6/6, assert_artifacts exit 0)
+```
+
+| Gate | Verdict | Evidence |
+|------|---------|----------|
+| COV-9 baseline | RED-as-expected | stub 26 fail → `tests/red_evidence.log`, backup `997c78f` |
+| COV-10 canonical | GREEN | 26/26 `tests/canonical_suite.log` |
+| COV-11 differential | PASS | prompt 12/12, roundtrip 2000/2000 + 20 batches, ValueError 6/6 `tests/differential_check.log` |
+| COV-12 behavior | PASS | `decode([0x80])` → `ValueError("incomplete sequence")` |
+| COV-13 constraint | PASS | no test files created/modified; verified in /tmp scratch |
+| A4.1 verification loop | 2 iters | iter1 FAIL (multi-value order, `insert(0)` global bug) → fixed → iter2 PASS |
+| A4.9 independent review | APPROVE | no Critical/Important; 2 Minor notes |
+| assert_artifacts | exit 0 | 12/12 checks |
+
+One bug was caught and fixed in-loop: `encoded.insert(0, …)` prepended later numbers' chunks to the global list, reversing value order — scoped to a per-number `chunks` list.

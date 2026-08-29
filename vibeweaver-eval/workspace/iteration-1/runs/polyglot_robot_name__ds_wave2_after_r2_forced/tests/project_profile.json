@@ -1,0 +1,5 @@
+{
+  "profile": "library",
+  "kind": "non-web library (Python exercise module)",
+  "skip_groups": ["service-lifecycle"]
+}

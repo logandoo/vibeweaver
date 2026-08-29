@@ -1,0 +1,29 @@
+{
+  "task": "swebench_pytest_dev_pytest_9359",
+  "arm": "ds_wave2_after_forced",
+  "instance_id": "pytest-dev__pytest-9359",
+  "f2p_pass": true,
+  "p2p_regressions": [],
+  "patch_applied": true,
+  "test_patch_applied": true,
+  "notes": [
+    "test_patch applied after restoring agent-touched test files: testing/code/test_source.py"
+  ],
+  "f2p_details": [
+    {
+      "node": "testing/code/test_source.py::test_decorator",
+      "resolved": "testing/code/test_source.py::test_decorator",
+      "ok": true
+    }
+  ],
+  "f2p_output_tail": [
+    ".                                                                        [100%]",
+    "1 passed in 0.03s"
+  ],
+  "p2p_guard": [
+    "testing/code/test_source.py::test_getfuncsource_with_multine_string",
+    "testing/code/test_source.py::test_getstartingblock_singleline",
+    "testing/code/test_source.py::TestTry::test_except_body"
+  ],
+  "p2p_pass": true
+}
