@@ -1,0 +1,36 @@
+[FAIL] C1 append basic — got None
+[FAIL] C1 append empty-second
+[FAIL] C1 append empty-first
+[FAIL] C1 append both-empty
+[PASS] C1 append no-mutation — a=[1, 2] b=[3, 4]
+[FAIL] C2 concat basic
+[FAIL] C2 concat three
+[FAIL] C2 concat empty-series
+[FAIL] C2 concat empty-lists
+[FAIL] C3 filter evens
+[FAIL] C3 filter all-true
+[FAIL] C3 filter none-true
+[FAIL] C3 filter empty
+[FAIL] C4 length basic
+[FAIL] C4 length empty
+[FAIL] C4 length singleton
+[FAIL] C4 length strings
+[FAIL] C5 map double
+[FAIL] C5 map str
+[FAIL] C5 map empty
+[FAIL] C6 foldl sum
+[FAIL] C6 foldl concat
+[FAIL] C6 foldl empty
+[FAIL] C6 foldl sub-order
+[FAIL] C7 foldr concat
+[FAIL] C7 foldr sub-order
+[FAIL] C7 foldr empty
+[FAIL] C7 foldr vs foldl differ
+[FAIL] C8 reverse basic
+[FAIL] C8 reverse empty
+[FAIL] C8 reverse singleton
+[PASS] C8 reverse no-mutation — s=[1, 2, 3]
+[PASS] C9 no-builtin-delegation — clean
+[PASS] C11 no grader test files — none
+
+RESULT: FAILURES PRESENT

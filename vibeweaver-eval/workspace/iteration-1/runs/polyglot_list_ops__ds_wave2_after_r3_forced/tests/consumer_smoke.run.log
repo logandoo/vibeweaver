@@ -1,0 +1,1 @@
+CONSUMER-SMOKE: PASS — pipeline (map→filter→length→foldl→reverse→concat→foldr) OK

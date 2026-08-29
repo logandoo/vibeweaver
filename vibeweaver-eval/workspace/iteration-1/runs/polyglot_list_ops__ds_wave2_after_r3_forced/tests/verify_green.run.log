@@ -1,0 +1,37 @@
+[PASS] C1 append basic — got [1, 2, 3, 4]
+[PASS] C1 append empty-second
+[PASS] C1 append empty-first
+[PASS] C1 append both-empty
+[PASS] C1 append no-mutation — a=[1, 2] b=[3, 4]
+[PASS] C2 concat basic
+[PASS] C2 concat three
+[PASS] C2 concat empty-series
+[PASS] C2 concat empty-lists
+[PASS] C3 filter evens
+[PASS] C3 filter all-true
+[PASS] C3 filter none-true
+[PASS] C3 filter empty
+[PASS] C4 length basic
+[PASS] C4 length empty
+[PASS] C4 length singleton
+[PASS] C4 length strings
+[PASS] C5 map double
+[PASS] C5 map str
+[PASS] C5 map empty
+[PASS] C6 foldl sum
+[PASS] C6 foldl concat
+[PASS] C6 foldl empty
+[PASS] C6 foldl sub-order
+[PASS] C7 foldr concat
+[PASS] C7 foldr sub-order
+[PASS] C7 foldr empty
+[PASS] C7 foldr order-sens
+[PASS] C7 foldl order-sens
+[PASS] C8 reverse basic
+[PASS] C8 reverse empty
+[PASS] C8 reverse singleton
+[PASS] C8 reverse no-mutation — s=[1, 2, 3]
+[PASS] C9 no-builtin-delegation — clean
+[PASS] C11 no grader test files — none
+
+RESULT: ALL PASS

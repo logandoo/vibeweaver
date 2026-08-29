@@ -8,7 +8,10 @@ prints a per-check verdict; exit code 0 = all checks pass.
 Checks map 1:1 to tests/acceptance.md criteria 1-11.
 """
 
+import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import list_ops
 
@@ -77,9 +80,10 @@ def run():
     ok &= check("C7 foldr sub-order",
                 list_ops.foldr(lambda acc, i: acc - i, [10, 20, 30], 100) == 40)
     ok &= check("C7 foldr empty", list_ops.foldr(lambda acc, i: acc, [], "z") == "z")
-    ok &= check("C7 foldr vs foldl differ",
-                list_ops.foldr(lambda acc, i: acc - i, [1, 2, 3], 0)
-                != list_ops.foldl(lambda acc, i: acc - i, [1, 2, 3], 0))
+    ok &= check("C7 foldr order-sens",
+                list_ops.foldr(lambda acc, i: f"{acc}{i}", [1, 2, 3], "") == "321")
+    ok &= check("C7 foldl order-sens",
+                list_ops.foldl(lambda acc, i: f"{acc}{i}", [1, 2, 3], "") == "123")
 
     # C8: reverse — new list, no mutation
     s = [1, 2, 3]
