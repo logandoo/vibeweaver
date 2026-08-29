@@ -1,0 +1,51 @@
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+___________ RobotNameTest.test_different_robots_have_different_names ___________
+
+self = <robot_name_test.RobotNameTest testMethod=test_different_robots_have_different_names>
+
+    def test_different_robots_have_different_names(self):
+        self.assertNotEqual(
+>           Robot().name,
+            Robot().name
+        )
+E       AttributeError: 'Robot' object has no attribute 'name'
+
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_robot_name/hidden_tests/robot_name_test.py:25: AttributeError
+_________________________ RobotNameTest.test_has_name __________________________
+
+self = <robot_name_test.RobotNameTest testMethod=test_has_name>
+
+    def test_has_name(self):
+>       self.assertRegex(Robot().name, self.name_re)
+E       AttributeError: 'Robot' object has no attribute 'name'
+
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_robot_name/hidden_tests/robot_name_test.py:16: AttributeError
+________________________ RobotNameTest.test_name_sticks ________________________
+
+self = <robot_name_test.RobotNameTest testMethod=test_name_sticks>
+
+    def test_name_sticks(self):
+        robot = Robot()
+>       robot.name
+E       AttributeError: 'Robot' object has no attribute 'name'
+
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_robot_name/hidden_tests/robot_name_test.py:20: AttributeError
+________________________ RobotNameTest.test_reset_name _________________________
+
+self = <robot_name_test.RobotNameTest testMethod=test_reset_name>
+
+    def test_reset_name(self):
+        # Set a seed
+        seed = "Totally random."
+    
+        # Initialize RNG using the seed
+        random.seed(seed)
+    
+        # Call the generator
+        robot = Robot()
+>       name = robot.name
+E       AttributeError: 'Robot' object has no attribute 'name'
+
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_robot_name/hidden_tests/robot_name_test.py:38: AttributeError
+4 failed in 0.02s
