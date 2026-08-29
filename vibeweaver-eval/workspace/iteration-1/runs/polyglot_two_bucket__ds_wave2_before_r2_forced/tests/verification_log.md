@@ -12,3 +12,4 @@
   - Minor 4 (differential reference move-guard excluded ~1176/1408 cases): FIXED — rewrote the sweep reference as a structurally independent complete BFS (integer-state encoding), re-ran all 1408 cases: reachable-both=584, unreachable-both=824, mismatches=0. Covering evidence re-confirmed (evidence: tests/differential_run.log, updated; tests/verify_run.log unchanged, 11/11).
   - Minors 1-3 (start_bucket silent fallback; goal==0 one-move edge; tie-break at goal==0): deferred to memory (memory/fix_two_bucket.md) — outside contract, no action required.
   - Ruling: no Critical/Important findings; implementation two_bucket.py unchanged; reviewer verdict recorded in tests/review_package.md.
+- Fresh-run on final delivered tree (commit 38fe573): 11/11 canonical pass (tests/verify_run.log); differential 1408/1408 agree, 0 mismatches (tests/differential_run.log); py_compile OK; module run exit 0; assert_artifacts.py all 8 checks pass (exit 0).
