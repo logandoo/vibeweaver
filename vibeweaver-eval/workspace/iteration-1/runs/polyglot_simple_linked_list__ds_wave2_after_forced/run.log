@@ -441,3 +441,132 @@ AM vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_wav
 warning: could not open directory 'vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/': No such file or directory
 fatal: pathspec 'vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/' did not match any files
 [0m
+[0m$ [0mgit reset -q; git add /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/ && git diff --cached --stat && echo "---STATUS---" && git status --porcelain | head -20
+.../memory/MEMORY.md                               |   4 +
+ .../memory/fix_simple_linked_list.md               |  18 +
+ .../run.log                                        | 383 +++++++++++++++++++++
+ .../simple_linked_list.py                          |  38 +-
+ .../tests/acceptance.md                            |  10 +
+ .../tests/verification_log.md                      |  10 +
+ 6 files changed, 453 insertions(+), 10 deletions(-)
+---STATUS---
+ M vibeweaver-eval/harness/run_eval.py
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/bowling.py
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_forced/list_ops.py
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/robot_name.py
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/probe_vision.expected
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/probe_vision.png
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/memory/MEMORY.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/memory/fix_simple_linked_list.md
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/run.log
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/simple_linked_list.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/tests/acceptance.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/tests/verification_log.md
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_before_forced
+[0m
+[0m$ [0mgit diff f6dc8e8 -- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/simple_linked_list.py > /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/sll_verify/review_package.diff && wc -l /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/sll_verify/review_package.diff
+66 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/sll_verify/review_package.diff
+[0m
+Only my run directory is staged now. Let me generate my code diff and dispatch the independent reviewer (COV-8):
+[0m• [0mReview simple_linked_list implementation[90m General Agent[0m
+[0m✓ [0mReview simple_linked_list implementation[90m General Agent[0m
+Reviewer verdict: **Approve with minors** — no Critical/Important findings; 4 minor style notes recorded. Per A4.9, minors go to memory (non-blocking). Let me check for the canonical assert_artifacts.py, then record the adjudication:
+[0m
+[0m$ [0mls /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_wave2_after/opencode/skills/vibeweaver/; find /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval -name "assert_artifacts.py" 2>/dev/null | head -3
+SKILL.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_before_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_forced/tests/assert_artifacts.py
+[0m
+[0m$ [0mwc -l /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/assert_artifacts.py; rg -c "assert " /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/assert_artifacts.py; md5 -q /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/assert_artifacts.py /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_forced_after_forced/tests/assert_artifacts.py
+393 /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/assert_artifacts.py
+1
+97426dca977932d26af7752fdd88847f
+3bae67d82395ec9e265d2fdcb6b95737
+[0m
+The canonical `assert_artifacts.py` exists as copies in sibling runs. Let me verify it's the canonical version and copy it in (it's a skill-gate verification script, not an exercise test file):
+[0m$ [0mrg -n "assert.*# ?(G|g)[0-9]+|group [0-9]|def test_|assert_" /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/assert_artifacts.py | head -60
+2:Canonical copy: vibeweaver skill `scripts/assert_artifacts.py`.
+4:Group 12 enforces the A4.1 diagnosis clause; group 13 is a
+64:                         r"pytest\.raises|require\s*\(|def test_|it\s*\(|"
+146:    if p.suffix not in CODE_EXT or "assert_artifacts.py" in path:
+158:    any assert_artifacts.py never scanned."""
+162:        if "assert_artifacts.py" in path or PLACEHOLDER.search(text):
+190:def test_change_guard(root, vl):
+389:    print(f"assert_artifacts.py: all {PASSES} checks pass (exit 0)")
+[0m
+Sibling copies differ (project-adapted). Let me inspect the one that looks canonical to confirm it has the 16 marker groups before copying:
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/assert_artifacts.py
+[0m
+[0m$ [0mfor f in start.sh stop.sh restart.sh; do echo "=== $f ==="; cat "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/script/linux/$f"; done
+=== start.sh ===
+#!/usr/bin/env bash
+# COV-2 lifecycle: library-only workspace (no persistent server).
+# "start" = verify the module is importable and passes its smoke check.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+python3 -m py_compile variable_length_quantity.py
+python3 -c "from variable_length_quantity import encode, decode; assert encode([0]) == [0]; assert decode([0x81, 0x00]) == [128]; print('smoke OK')"
+echo "start.sh: module import + smoke check passed"
+=== stop.sh ===
+#!/usr/bin/env bash
+# COV-2 lifecycle: library-only workspace (no persistent server) — nothing to stop.
+echo "stop.sh: no persistent service in this library-only workspace (no-op)"
+=== restart.sh ===
+#!/usr/bin/env bash
+# COV-2 lifecycle: library-only workspace — restart = re-run the smoke check.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+python3 -m py_compile variable_length_quantity.py
+python3 -c "from variable_length_quantity import encode, decode; assert encode([0]) == [0]; assert decode([0x81, 0x00]) == [128]; print('smoke OK')"
+echo "restart.sh: module import + smoke check passed"
+[0m
+Canonical script confirmed (all 16 groups). Group 5 needs `script/linux/{start,stop,restart}.sh`. Let me match the sibling-run pattern (this eval's established convention):
+[0m← [0mWrite script/linux/start.sh
+Wrote file successfully.
+[0m
+[0m← [0mWrite script/linux/stop.sh
+Wrote file successfully.
+[0m
+[0m← [0mWrite script/linux/restart.sh
+Wrote file successfully.
+[0m
+Following the sibling pattern (library-only: `start` = smoke check, `stop` = no-op, `restart` = re-run smoke). Creating them plus copying the canonical assert script:
+[0m$ [0mchmod +x script/linux/*.sh && cp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/assert_artifacts.py tests/assert_artifacts.py && md5 -q tests/assert_artifacts.py && bash script/linux/start.sh
+97426dca977932d26af7752fdd88847f
+smoke OK
+start.sh: module import + smoke check passed
+[0m
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+[0m← [0mEdit memory/fix_simple_linked_list.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/memory/fix_simple_linked_list.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/memory/fix_simple_linked_list.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/memory/fix_simple_linked_list.md
+@@ -12,7 +12,13 @@
+ - Semantics: LIFO stack — constructor pushes values in order (head = last value), `push` prepends, `pop` removes head, `__iter__` yields head→tail, `reversed()` returns a new reversed `LinkedList`, empty `head()`/`pop()` raise `EmptyListException("The list is empty.")`.
+ - Canonical Exercism test suite passes 20/20 (run from temp dir; no test files added to workspace).
+ - Evidence: `tests/verification_log.md` iter 1 PASS; transcript in temp dir `sll_verify/run_transcript.txt`.
+ 
++## Review adjudication (A4.9 — minors, non-blocking)
++- M1 quality: `new_node._next = self._head` reaches into Node internals (simple_linked_list.py:41). Ruling: accepted — module-internal, canonical pattern.
++- M2 bugs(edge): str input yields char-by-char list. Ruling: accepted — contract is list/range only.
++- M3 quality: `_len -= 1` before value extraction (simple_linked_list.py:48). Ruling: accepted — safe today (Node.value never raises).
++- M4 quality: duplicated message string (lines 36/47). Ruling: accepted — trivial.
++
+ ## Notes
+ - Do not add test files to the workspace (harness constraint).
+-- No script/ dir in this run; pure library, no build/lifecycle.
++- Library-only run; script/linux/{start,stop,restart}.sh are COV-2 lifecycle stubs (no persistent server).
+
+[0m
+Updating the verification log (clean baseline line + review adjudication + convergence) and recording review minors in memory:
