@@ -1,0 +1,42 @@
+[2026-08-29 20:47:49,442] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-5.2.3.dev198+ge670ff76c.d20260815, py-1.11.0, pluggy-0.13.1 -- /Library/Developer/CommandLineTools/usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /private/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/bowl_grad.iaPSkO
+plugins: anyio-4.12.1, httpbin-2.1.0
+collecting ... collected 31 items
+
+bowling_test.py::BowlingTest::test_a_roll_cannot_score_more_than_10_points PASSED [  3%]
+bowling_test.py::BowlingTest::test_a_spare_followed_by_zeros_is_worth_ten_points PASSED [  6%]
+bowling_test.py::BowlingTest::test_a_spare_in_the_last_frame_gets_a_one_roll_bonus_that_is_counted_once PASSED [  9%]
+bowling_test.py::BowlingTest::test_a_strike_earns_ten_points_in_a_frame_with_a_single_roll PASSED [ 12%]
+bowling_test.py::BowlingTest::test_a_strike_in_the_last_frame_gets_a_two_roll_bonus_that_is_counted_once PASSED [ 16%]
+bowling_test.py::BowlingTest::test_a_strike_with_the_one_roll_bonus_after_a_spare_in_the_last_frame_does_not_get_a_bonus PASSED [ 19%]
+bowling_test.py::BowlingTest::test_all_strikes_is_a_perfect_game PASSED  [ 22%]
+bowling_test.py::BowlingTest::test_an_incomplete_game_cannot_be_scored PASSED [ 25%]
+bowling_test.py::BowlingTest::test_an_unstarted_game_cannot_be_scored PASSED [ 29%]
+bowling_test.py::BowlingTest::test_bonus_roll_after_a_strike_in_the_last_frame_cannot_score_more_than_10_points PASSED [ 32%]
+bowling_test.py::BowlingTest::test_bonus_roll_for_a_spare_in_the_last_frame_must_be_rolled_before_score_can_be_calculated PASSED [ 35%]
+bowling_test.py::BowlingTest::test_bonus_rolls_for_a_strike_in_the_last_frame_must_be_rolled_before_score_can_be_calculated PASSED [ 38%]
+bowling_test.py::BowlingTest::test_both_bonus_rolls_for_a_strike_in_the_last_frame_must_be_rolled_before_score_can_be_calculated PASSED [ 41%]
+bowling_test.py::BowlingTest::test_cannot_roll_after_bonus_roll_for_spare PASSED [ 45%]
+bowling_test.py::BowlingTest::test_cannot_roll_after_bonus_rolls_for_strike PASSED [ 48%]
+bowling_test.py::BowlingTest::test_cannot_roll_if_game_already_has_ten_frames PASSED [ 51%]
+bowling_test.py::BowlingTest::test_consecutive_spares_each_get_a_one_roll_bonus PASSED [ 54%]
+bowling_test.py::BowlingTest::test_consecutive_strikes_each_get_the_two_roll_bonus PASSED [ 58%]
+bowling_test.py::BowlingTest::test_last_two_strikes_followed_by_only_last_bonus_with_non_strike_points PASSED [ 61%]
+bowling_test.py::BowlingTest::test_points_scored_in_the_roll_after_a_spare_are_counted_twice PASSED [ 64%]
+bowling_test.py::BowlingTest::test_points_scored_in_the_two_rolls_after_a_strike_are_counted_twice_as_a_bonus PASSED [ 67%]
+bowling_test.py::BowlingTest::test_rolling_a_spare_with_the_two_roll_bonus_does_not_get_a_bonus_roll PASSED [ 70%]
+bowling_test.py::BowlingTest::test_rolls_cannot_score_negative_points PASSED [ 74%]
+bowling_test.py::BowlingTest::test_second_bonus_roll_after_a_strike_in_the_last_frame_cannot_score_more_than_10_points PASSED [ 77%]
+bowling_test.py::BowlingTest::test_should_be_able_to_score_a_game_with_all_zeros PASSED [ 80%]
+bowling_test.py::BowlingTest::test_should_be_able_to_score_a_game_with_no_strikes_or_spares PASSED [ 83%]
+bowling_test.py::BowlingTest::test_strikes_with_the_two_roll_bonus_do_not_get_bonus_rolls PASSED [ 87%]
+bowling_test.py::BowlingTest::test_the_second_bonus_rolls_after_a_strike_in_the_last_frame_cannot_be_a_strike_if_the_first_one_is_not_a_strike PASSED [ 90%]
+bowling_test.py::BowlingTest::test_two_bonus_rolls_after_a_strike_in_the_last_frame_can_score_more_than_10_points_if_one_is_a_strike PASSED [ 93%]
+bowling_test.py::BowlingTest::test_two_bonus_rolls_after_a_strike_in_the_last_frame_cannot_score_more_than_10_points PASSED [ 96%]
+bowling_test.py::BowlingTest::test_two_rolls_in_a_frame_cannot_score_more_than_10_points PASSED [100%]
+
+============================== 31 passed in 0.03s ==============================
+pytest exit=0
