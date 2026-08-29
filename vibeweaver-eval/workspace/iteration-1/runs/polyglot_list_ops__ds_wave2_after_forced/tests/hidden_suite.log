@@ -1,0 +1,29 @@
+test_append_empty_list_to_list (list_ops_test.ListOpsTest) ... ok
+test_append_empty_lists (list_ops_test.ListOpsTest) ... ok
+test_append_list_to_empty_list (list_ops_test.ListOpsTest) ... ok
+test_append_non_empty_lists (list_ops_test.ListOpsTest) ... ok
+test_concat_empty_list (list_ops_test.ListOpsTest) ... ok
+test_concat_list_of_lists (list_ops_test.ListOpsTest) ... ok
+test_concat_list_of_nested_lists (list_ops_test.ListOpsTest) ... ok
+test_filter_empty_list (list_ops_test.ListOpsTest) ... ok
+test_filter_non_empty_list (list_ops_test.ListOpsTest) ... ok
+test_foldl_direction_dependent_function_applied_to_non_empty_list (list_ops_test.ListOpsTest) ... ok
+test_foldl_direction_independent_function_applied_to_non_empty_list (list_ops_test.ListOpsTest) ... ok
+test_foldl_empty_list (list_ops_test.ListOpsTest) ... ok
+test_foldr_direction_dependent_function_applied_to_non_empty_list (list_ops_test.ListOpsTest) ... ok
+test_foldr_direction_independent_function_applied_to_non_empty_list (list_ops_test.ListOpsTest) ... ok
+test_foldr_empty_list (list_ops_test.ListOpsTest) ... ok
+test_foldr_foldr_add_string (list_ops_test.ListOpsTest) ... ok
+test_length_empty_list (list_ops_test.ListOpsTest) ... ok
+test_length_non_empty_list (list_ops_test.ListOpsTest) ... ok
+test_map_empty_list (list_ops_test.ListOpsTest) ... ok
+test_map_non_empty_list (list_ops_test.ListOpsTest) ... ok
+test_reverse_empty_list (list_ops_test.ListOpsTest) ... ok
+test_reverse_list_of_lists_is_not_flattened (list_ops_test.ListOpsTest) ... ok
+test_reverse_non_empty_list (list_ops_test.ListOpsTest) ... ok
+test_reverse_reverse_mixed_types (list_ops_test.ListOpsTest) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.000s
+
+OK
