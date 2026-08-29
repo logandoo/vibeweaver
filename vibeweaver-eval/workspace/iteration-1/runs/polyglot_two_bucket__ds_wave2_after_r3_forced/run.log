@@ -667,3 +667,125 @@ Wrote file successfully.
 [0m← [0mWrite memory/fix_two_bucket.md
 Wrote file successfully.
 [0m
+Committing the implementation + artifacts:
+[0m$ [0mgit add . && git commit -m "two_bucket: implement BFS measure() + verification artifacts
+
+- BFS from filled-start state; prune forbidden state (start empty + other full)
+- 11/11 canonical cases pass; 1152-input differential sweep 0 mismatches
+- py_compile + import OK; A4.9 independent review APPROVE
+- artifacts: acceptance.md, verification_log.md, decisions.md, project_profile.json,
+  assert_artifacts.py, review_package.md, run logs, memory/ topic files" 2>&1 | tail -3
+create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/verification_log.md
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/verify_green.run.log
+ create mode 100644 vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/verify_red.run.log
+[0m
+[0m$ [0mgit log --oneline -3; echo "==="; python3 tests/assert_artifacts.py --profile library --existing 2>&1; echo "assert exit=$?"
+1c38825 two_bucket: implement BFS measure() + verification artifacts
+e0fb728 docs: record AUTO-mode decisions (ADR-001..004)
+058ef8e chore: add A4.9 review package + baseline/fresh-run evidence + COV-9 verdict
+===
+profile: library — service lifecycle N/A (group 5 skipped); UI N/A
+ASSERT FAILURES (2):
+  - verification_log.md has no `- iter N PASS/FAIL:` entries (A4.1 Step 4)
+  - verification_log.md line 34: claim without stated coverage — '- adjudication: 1 minor non-blocking note (start_bucket label not validated; spe' (A4.4 claim rule)
+assert exit=1
+[0m
+[0m$ [0mrg -n "iter N PASS|A4.1 Step 4|Step 4" tests/assert_artifacts.py | head; echo "==="; rg -n "claim without stated coverage" tests/assert_artifacts.py
+349:          "verification_log.md has no `- iter N PASS/FAIL:` entries (A4.1 Step 4)")
+438:    #     (A4.1 Step 4 — a retry without its diagnosis is the same attempt again)
+442:                  f"verification_log.md line {i}: FAIL entry lacks `diagnosis:` clause (A4.1 Step 4)")
+===
+448:              f"verification_log.md line {i}: claim without stated coverage — {snippet!r} (A4.4 claim rule)")
+[0m
+Two artifact-check failures — the A4.1 Step 4 iteration marker and an A4.4 claim-coverage phrasing. Let me inspect the rule to fix both precisely:
+[0m→ [0mRead tests/assert_artifacts.py[90m [offset=336, limit=120][0m
+[0m✱ [0mGrep "def claim_without_coverage"[90m in tests/assert_artifacts.py · 1 match[0m
+[0m→ [0mRead tests/assert_artifacts.py[90m [limit=78, offset=259][0m
+[0m
+[0m$ [0mrg -n "CLAIM =|COVER =|STRUCT_LINE =|EXEMPT_LINE =|FENCE =|^CLAIM=|^COVER=" tests/assert_artifacts.py
+24:CLAIM = re.compile(
+30:COVER = re.compile(
+41:STRUCT_LINE = re.compile(r"^(?:#{1,6}\s|>|\|{1,2}\s*-+|\s*$)")
+42:EXEMPT_LINE = re.compile(r"(?:^- iter \d+ (?:PASS|FAIL):|^- Baseline verified GREEN|^- COV-\d+ skipped)")
+43:FENCE = re.compile(r"^\s{0,3}(?:```|~~~)")
+[0m
+[0m→ [0mRead tests/assert_artifacts.py[90m [limit=20, offset=24][0m
+[0m
+[0m← [0mEdit tests/verification_log.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/verification_log.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/verification_log.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/verification_log.md
+@@ -2,8 +2,9 @@
+ 
+ ## Task: implement two_bucket.measure (Exercism two-bucket kata) | 2026-08-29
+ 
+ - Baseline verified GREEN — stub `two_bucket.py` imports cleanly and `measure(3,5,1,'one')` executes (returns `None` placeholder, exit 0); no existing test suite/build to run (no script/, no tests/ at baseline)
++- iter 1 PASS: all 10 acceptance criteria green on first implementation — 11/11 canonical cases, 1152/1152 differential-sweep inputs vs independent reference BFS, consumer smoke, py_compile + import all exit 0 (tests/verify_green.run.log, tests/diff_sweep.run.log, tests/consumer_smoke.run.log, tests/fresh_run.log)
+ 
+ ## Test-first (A4.8) evidence
+ 
+ - probe: Verifier = direct read (non-web) — library task, no UI, no HTTP; evidence = CLI transcripts + exit codes + output diffs under tests/
+
+[0m
+[0m← [0mEdit tests/verification_log.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/verification_log.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/verification_log.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/verification_log.md
+@@ -31,5 +31,5 @@
+ 
+ ## A4.9 review (COV-8 — new feature, behavior-semantic change)
+ - review dispatch: independent reader-opinion over the two_bucket.py diff (tests/review_package.md)
+ - verdict: **APPROVE** — no correctness bugs; all 6 focus points (pour formulas, forbidden-state both starts, 1-action start-goal, BFS minimality/termination/ValueError, edge cases incl. goal==forbidden volume and self-loops, sweep gaps) verified; cross-checked against official canonical-data.json
+-- adjudication: 1 minor non-blocking note (start_bucket label not validated; spec guarantees "one"/"two", no canonical test exercises it) → accepted as-is, no change required; no REQUEST-CHANGES findings
++- adjudication: 1 minor non-blocking note (start_bucket label not validated; spec guarantees "one"/"two" for all canonical inputs, and none of the 1152 sweep inputs nor any canonical case exercises an invalid label) → accepted as-is, no change required; no REQUEST-CHANGES findings
+
+[0m
+Both failures understood: the log needs a `- iter N PASS/FAIL:` entry (A4.1 Step 4), and the adjudication line has "validated" without a coverage term (A4.4). Fixing both:
+[0m$ [0mpython3 tests/assert_artifacts.py --profile library --existing 2>&1; echo "assert exit=$?"
+profile: library — service lifecycle N/A (group 5 skipped); UI N/A
+assert_artifacts.py: all 8 checks pass (exit 0)
+assert exit=0
+[0m
+`assert_artifacts.py: all 8 checks pass (exit 0)`. Now reading R1b `COMPLETION_GATE.md` before the final completion table:
+[0m✱ [0mGlob "vibeweaver/COMPLETION_GATE.md"[90m in /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo · 1 match[0m
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/COMPLETION_GATE.md
+[0m
+[0m$ [0mrg -n -A6 "A7\.10" /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/MEMORY_RULES.md | head -40
+279:## A7.10 Final Memory Gate ★ NON-NEGOTIABLE
+280-
+281-Before outputting the completion table, you MUST pass this gate. If any check fails, return to A7.9 and fix it before declaring the task complete.
+282-
+283-1. **Memory files exist** — At least one new or updated topic file exists in `memory/` for this session (unless the task was purely informational and produced nothing persistable).
+284-2. **Index updated** — `memory/MEMORY.md` contains a pointer to the new topic file(s), and the index is under 200 lines / 25KB.
+285-3. **Fix entries have commit** — Every `type: fix` topic file written this session includes `commit: <short-hash>` in its frontmatter.
+[0m
+COMPLETION_GATE.md read in full (R1b). Working the pre-output checklist now. The gate requires: (1) fresh verification on the exact delivered tree (last commit landed after `fresh_run.log`), (2) fix-memory must carry the commit hash (A4.4.3 chain). Checking the A7.10 memory gate line format first:
+Now closing the gap items: fresh verification run on the exact delivered tree, and the A7.10 commit-hash in fix memory:
+[0m$ [0mecho "== FRESH RE-RUN ON FINAL TREE ($(date +%F\ %T)) ==" >> tests/fresh_run.log; python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/verify_two_bucket.py --green >> tests/fresh_run.log 2>&1; echo "green exit=$?"; python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/verify_two_bucket.py --sweep >> tests/fresh_run.log 2>&1; echo "sweep exit=$?"; tail -5 tests/fresh_run.log
+green exit=0
+sweep exit=0
+  PASS measure(6, 15, 9, 'one')  expected=(10, 'two', 0) got=(10, 'two', 0) None
+  PASS measure(6, 15, 5, 'one')  expected=ValueError got="ValueError(ValueError('No more moves!'))" None
+  PASS measure(5, 7, 8, 'one')  expected=ValueError got="ValueError(ValueError('No more moves!'))" None
+GREEN mode: 11/11 canonical cases pass
+SWEEP: 1152 inputs checked | mismatches: 0
+[0m
+[0m← [0mEdit memory/fix_two_bucket.md
+Index: /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/memory/fix_two_bucket.md
+===================================================================
+--- /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/memory/fix_two_bucket.md
++++ /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/memory/fix_two_bucket.md
+@@ -1,8 +1,9 @@
+ # fix_two_bucket.md
+ 
+ - type: fix
+ - status: ✅ Verified (2026-08-29)
++- commit: 1c38825
+ - problem: Starter `two_bucket.py` stub (`pass`) for the Exercism "Two Bucket" exercise did nothing.
+ - solution: BFS from the filled-start state. `measure()` seeds `(cap_start, 0)` (count=1), generates the 6 successor states (fill/empty both, pour both via `min(source, cap_dest - dest)`), prunes the forbidden state (`(0, cap_two)` when start=="one", `(cap_one, 0)` when start=="two") and visited states (enqueue-time marking), returns `(actions, goal_bucket, other)` on first goal hit, raises `ValueError("No more moves!")` on exhaustion. two_bucket.py.
+ - verification: tests/verify_green.run.log — 11/11 canonical cases pass; tests/diff_sweep.run.log — 1152-input differential sweep vs independent reference BFS, 0 mismatches; `python3 -m py_compile` OK; A4.9 independent review APPROVE.
+ - avoided pitfall: do NOT gcd-pre-check impossibility — the canonical "not possible" cases must fail through BFS exhaustion so reachability (incl. forbidden-state pruning) is decided by the actual state space; keep the ValueError message non-empty (canonical test uses `r".+"`).
+
+[0m

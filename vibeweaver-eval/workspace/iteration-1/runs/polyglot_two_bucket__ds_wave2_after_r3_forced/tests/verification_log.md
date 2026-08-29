@@ -3,6 +3,7 @@
 ## Task: implement two_bucket.measure (Exercism two-bucket kata) | 2026-08-29
 
 - Baseline verified GREEN — stub `two_bucket.py` imports cleanly and `measure(3,5,1,'one')` executes (returns `None` placeholder, exit 0); no existing test suite/build to run (no script/, no tests/ at baseline)
+- iter 1 PASS: all 10 acceptance criteria green on first implementation — 11/11 canonical cases, 1152/1152 differential-sweep inputs vs independent reference BFS, consumer smoke, py_compile + import all exit 0 (tests/verify_green.run.log, tests/diff_sweep.run.log, tests/consumer_smoke.run.log, tests/fresh_run.log)
 
 ## Test-first (A4.8) evidence
 
@@ -31,4 +32,4 @@
 ## A4.9 review (COV-8 — new feature, behavior-semantic change)
 - review dispatch: independent reader-opinion over the two_bucket.py diff (tests/review_package.md)
 - verdict: **APPROVE** — no correctness bugs; all 6 focus points (pour formulas, forbidden-state both starts, 1-action start-goal, BFS minimality/termination/ValueError, edge cases incl. goal==forbidden volume and self-loops, sweep gaps) verified; cross-checked against official canonical-data.json
-- adjudication: 1 minor non-blocking note (start_bucket label not validated; spec guarantees "one"/"two", no canonical test exercises it) → accepted as-is, no change required; no REQUEST-CHANGES findings
+- adjudication: 1 minor non-blocking note (start_bucket label not validated; spec guarantees "one"/"two" for all canonical inputs, and none of the 1152 sweep inputs nor any canonical case exercises an invalid label) → accepted as-is, no change required; no REQUEST-CHANGES findings
