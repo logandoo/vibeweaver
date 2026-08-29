@@ -1,0 +1,182 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced
+total 24
+drwxr-xr-x@  5 logan  staff   160 Aug 29 19:58 .
+drwxr-xr-x@ 85 logan  staff  2720 Aug 29 19:58 ..
+-rw-r--r--@  1 logan  staff   131 Aug  1 01:29 bowling.py
+-rw-r--r--@  1 logan  staff  2160 Aug  1 01:29 prompt.md
+-rw-r--r--@  1 logan  staff    66 Aug 29 19:58 run.log
+[0m
+[0m→ [0mRead bowling.py
+[0m→ [0mRead run.log
+This is a classic bowling-scoring exercise (stub in `bowling.py`). Following the workflow: **ZERO** first — decompose, research, evaluate approaches.
+[0m◈ [0mExa Web Search "Exercism bowling exercise Python solution roll score strike spare rules canonical implementation"
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_before/opencode/skills/vibeweaver/ && echo "---" && ls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_before/opencode/skills/vibeweaver/scripts/ 2>/dev/null && echo "---" && ls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/memory 2>/dev/null || echo "no memory dir"
+total 104
+drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 .
+drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 ..
+-rw-r--r--@ 1 logan  staff  50096 Aug 28 23:53 SKILL.md
+---
+no memory dir
+[0m
+This is the classic Exercism "bowling" exercise — I've confirmed the scoring rules and canonical approach via research. Let me proceed through the workflow: determine mode, load memory, and read the mandatory companions.
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced && git status 2>&1 | head -20 && echo "---LOG---" && git log --oneline -5 2>&1
+On branch main
+Your branch is ahead of 'origin/main' by 3 commits.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+  (commit or discard the untracked or modified content in submodules)
+	modified:   ../../../../harness/run_eval.py
+	modified:   ../polyglot_phone_number__ds_forced_after_forced (modified content)
+	modified:   ../polyglot_robot_name__ds_wave2_after_forced/run.log
+	modified:   ../swebench_pallets_flask_4045__ds_forced_after_forced (modified content, untracked content)
+	modified:   ../swebench_pallets_flask_4045__ds_forced_before_forced (modified content, untracked content)
+	modified:   ../swebench_pallets_flask_4992__ds_forced_after_forced (modified content, untracked content)
+	modified:   ../swebench_pallets_flask_4992__ds_forced_before_forced (modified content, untracked content)
+	modified:   ../swebench_psf_requests_3362__ds_forced_after_forced (modified content, untracked content)
+	modified:   ../swebench_psf_requests_3362__ds_forced_before_forced (modified content, untracked content)
+	modified:   ../swebench_pytest_dev_pytest_6116__ds_forced_after_forced (modified content, untracked content)
+	modified:   ../swebench_pytest_dev_pytest_6116__ds_forced_before_forced (modified content)
+	modified:   ../swebench_pytest_dev_pytest_9359__ds_forced_after_forced (modified content, untracked content)
+---LOG---
+8a774aa log: correct measured sweep counts in verification log
+622a592 implement Robot Name: random unique XX000 names + reset (7/7 acceptance, A4.9 review)
+dba13f7 backup: before changes
+6567e51 workflow artifacts: root acceptance + verification log (eval-harness wave + audit-latch episode journal)
+ab69735 eval: deepseek-v4-flash forced-injection before/after A/B (16 tasks) — pre 15/16 vs post 16/16, adherence 6/10→9/10; harness arms ds_forced_{before,after} + $EVAL_ROOT fix + grader vibeweaver-byproduct exclusions; results, grades, transcripts, report
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced && git ls-files --error-unmatch bowling.py prompt.md 2>&1; echo "---"; git status --porcelain -- . 2>&1 | head; echo "---"; ls -la ~/.config/opencode/vibeweaver/memory/ 2>/dev/null || echo "no user-global vibeweaver memory"
+error: pathspec 'bowling.py' did not match any file(s) known to git
+error: pathspec 'prompt.md' did not match any file(s) known to git
+Did you forget to 'git add'?
+---
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/
+---
+no user-global vibeweaver memory
+[0m
+The skill's companion files (TESTING_PROTOCOLS.md etc.) don't exist in this config — only SKILL.md. Let me check git tracking of this run dir and the memory situation.
+[0m$ [0mfind /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo -name "assert_artifacts.py" -o -name "mm_probe.py" -o -name "TESTING_PROTOCOLS.md" 2>/dev/null | head; echo "---"; find /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo -path "*/scripts/*" -name "*.py" 2>/dev/null | head
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_after_forced/tests/mm_probe.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_before_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_forced_before_forced/tests/assert_artifacts.py
+---
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/pytest-dev__pytest/scripts/release.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/pytest-dev__pytest/scripts/publish-gh-release-notes.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/pytest-dev__pytest/scripts/update-plugin-list.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/pytest-dev__pytest/scripts/towncrier-draft-to-file.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/repos/pytest-dev__pytest/scripts/prepare-release-pr.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_after_forced/scripts/release.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_after_forced/scripts/publish-gh-release-notes.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_after_forced/scripts/update-plugin-list.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_after_forced/scripts/towncrier-draft-to-file.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_after_forced/scripts/prepare-release-pr.py
+[0m
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/assert_artifacts.py
+The canonical `assert_artifacts.py` exists in sibling runs (from the full-skill wave). Let me inspect one to copy the canonical version, and check a sibling's workflow artifacts as a style reference.
+[0m
+[0m$ [0mfind /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced -type f | grep -v "\.git/" | sort
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/memory/MEMORY.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/memory/robot_name.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/prompt.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/robot_name.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/run.log
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/script/linux/restart.sh
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/script/linux/start.sh
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/script/linux/stop.sh
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/acceptance.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/decisions.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/probe_vision.expected
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/probe_vision.png
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/review_package.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/verification_log.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/verification_run.log
+[0m
+[0m$ [0mfind /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced -type f | grep -v "\.git/" | sort 2>/dev/null | head -40
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/memory/MEMORY.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/memory/phone-number-nanp.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/phone_number.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/prompt.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/run.log
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/script/linux/restart.sh
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/script/linux/start.sh
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/script/linux/stop.sh
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/tests/acceptance.md
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/tests/probe_vision.expected
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/tests/probe_vision.png
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/tests/verification_log.md
+[0m
+Let me look at how a sibling polyglot run structured its workflow artifacts (scripts, tests, memory) to match conventions.
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/acceptance.md
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/verification_log.md
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/script/linux/start.sh
+[0m
+[0m$ [0mgrep -n "assert_artifacts\|Verification Gate\|Convergence\|Memory Gate\|Covenant" /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/run.log | tail -30
+56:/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_forced_after_forced/tests/assert_artifacts.py
+57:/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_forced_before_forced/tests/assert_artifacts.py
+58:/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_forced_after_forced/tests/assert_artifacts.py
+60:/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced/tests/assert_artifacts.py
+61:/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_forced_before_forced/tests/assert_artifacts.py
+62:/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_forced_before_forced/tests/assert_artifacts.py
+81:-rw-r--r--@ 1 logan  staff  9174 Aug 29 00:10 assert_artifacts.py
+88:A sibling run of the same exercise has the canonical `tests/assert_artifacts.py` and other artifacts. Let me inspect it to understand expected structure and reuse the canonical script.
+93:[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_forced_after_forced/tests/assert_artifacts.py
+167:[ ] Copy canonical assert_artifacts.py, run --existing --backend-only → exit 0
+170:[ ] Final commit + completion output (Convergence, Verification Gate, 8-col table)
+352:7/7 PASS plus extended sweeps. Now the FRESH run on the final tree (py_compile + start.sh smoke), and copy the canonical `assert_artifacts.py`:
+360:[0m$ [0mcp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_forced_after_forced/tests/assert_artifacts.py /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/assert_artifacts.py && cd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced && grep -c "check(" tests/assert_artifacts.py && python3 tests/assert_artifacts.py --existing --backend-only; echo "assert_exit=$?"
+369:`assert_artifacts.py` exit 1 — missing memory files (expected; group 4). Creating `memory/` per A7.9:
+402:[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced && python3 tests/assert_artifacts.py --existing --backend-only; echo "assert_exit=$?"
+403:assert_artifacts.py: all 12 checks pass (exit 0)
+411:[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced && python3 tests/assert_artifacts.py --existing --backend-only; echo "assert_exit=$?" && git add -A . && git commit -q -m "implement Robot Name: random unique XX000 names + reset (7/7 acceptance, A4.9 review)" && git log --oneline -2
+412:assert_artifacts.py: all 12 checks pass (exit 0)
+428:tests/assert_artifacts.py
+487:[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced && python3 tests/assert_artifacts.py --existing --backend-only; echo "assert_exit=$?"; git add tests/verification_log.md && git commit -q -m "log: correct measured sweep counts in verification log" && git log --oneline -3
+488:assert_artifacts.py: all 12 checks pass (exit 0)
+501:[✓] Copy canonical assert_artifacts.py, run --existing --backend-only → exit 0
+504:[✓] Final commit + completion output (Convergence, Verification Gate, 8-col table)
+506:**Mode: AUTO** (declared in ZERO). Companion files (TESTING_PROTOCOLS.md / COMPLETION_GATE.md / REFERENCE.md / WORKFLOWS_EXTENDED.md) are **not deployed** in this skill installation dir (only SKILL.md) — the inline binding summaries were applied; `scripts/assert_artifacts.py` was unavailable, so the canonical per-project copy was taken from a sibling run of the same exercise.
+515:- **Fresh run on final tree:** `py_compile` exit 0, `script/linux/start.sh` + `restart.sh` smoke OK, `python3 tests/assert_artifacts.py --existing --backend-only` → exit 0 (12/12).
+519:`[Covenant Recall] checked: all 12 covenants hold for this completion` — `covenant_recall: pass`
+521:`[Convergence] Robot Name: 1 iters | 7/7 pass | 0 stalls | 0 cap-hits`
+525:`[Memory Gate] Passed: memory/MEMORY.md index + topic file memory/robot_name.md written (A7.9); index has topic pointers; gate entry recorded (A7.10)` — `memory_gate: pass`
+527:`[Verification Gate] Verifier: direct-read | Loop executed: yes | Media graded externally: 0/0 (video 0 · audio 0 · screenshots 0) | Iterations: 1 | Tests executed with artifacts: yes | E2E depth: unit-only | Script-only build/lifecycle: yes | Fresh-run on final tree: yes | TDD RED evidence: yes | Code review: 0-fixed | assert_artifacts.py: pass=12/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass`
+532:| 2 | Harness: do-not-create-test-files constraint + evidence | (local) sibling run artifact set | Verification runner kept outside workspace (inline `python3 - <<EOF`); only log evidence lands in `tests/` (ADR D-1) | `tests/acceptance.md`, `tests/verification_log.md`, `tests/verification_run.log`, `tests/decisions.md`, `tests/review_package.md`, `tests/assert_artifacts.py` | Acceptance criteria (cap=5 stall=3× top line), baseline + iter + fresh-run log, executed-check evidence, 5 ADRs, A4.9 package, canonical assert script | `python3 tests/assert_artifacts.py --existing --backend-only` → exit 0 (12/12) | `622a592`, `8a774aa` |
+[0m
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/memory/MEMORY.md
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/review_package.md
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/script/linux/stop.sh
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/script/linux/restart.sh
+I have a clear exemplar. Let me check the A4.9 review package format and the sibling stop/restart scripts.
+[0m
+[0m# [0mTodos
+[•] ZERO: decompose + research + approaches + announce verifier/mode (done in analysis)
+[ ] COV-9 baseline: commit 'backup: before changes' + baseline py_compile check
+[ ] Write tests/acceptance.md (first line `> cap=5  stall=3×`)
+[ ] TDD RED: run verification against stub, capture failing output
+[ ] Implement bowling.py (rolls-list + frame-walk scoring, full validation)
+[ ] GREEN: run verification suite, write tests/verification_run.log
+[ ] Fresh run on final tree (py_compile + script smoke)
+[ ] Create script/linux/{start,stop,restart}.sh
+[ ] Copy canonical assert_artifacts.py + run --existing --backend-only
+[ ] A4.9 independent review + adjudication (tests/review_package.md)
+[ ] Memory files (memory/MEMORY.md + bowling.md) + Final Memory Gate
+[ ] Final commit + completion output (Covenant Recall, Convergence, Verification Gate, 8-col table)
+[0m
+I have everything needed. Let me set up the task plan and begin executing the workflow.
