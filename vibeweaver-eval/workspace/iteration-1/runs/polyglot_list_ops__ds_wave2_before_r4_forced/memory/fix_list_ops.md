@@ -3,8 +3,8 @@ name: Fix — list_ops implemented from stubs
 description: 8 list operations (append/concat/filter/length/map/foldl/foldr/reverse) implemented from pass stubs without built-in list-op functions; all canonical behavior verified.
 type: fix
 date: 2026-08-29
-status: ⏳
-commit: 028a717
+status: ✅
+commit: 654e1cd
 ---
 
 # Fix: list_ops implemented from stubs

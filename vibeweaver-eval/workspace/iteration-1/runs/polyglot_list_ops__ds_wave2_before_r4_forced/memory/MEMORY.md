@@ -24,7 +24,7 @@
   `exercism/python` exercises/practice/list-ops/.meta/example.py.
 
 ## Fix Tracking
-- ⏳ [Fix: list_ops implemented from stubs](fix_list_ops.md) — 8 list ops, no
+- ✅ [Fix: list_ops implemented from stubs](fix_list_ops.md) — 8 list ops, no
   built-in list-op functions; 24/24 hidden + 2700/2700 differential pass.
 
 ## Key Dependencies & Conventions
