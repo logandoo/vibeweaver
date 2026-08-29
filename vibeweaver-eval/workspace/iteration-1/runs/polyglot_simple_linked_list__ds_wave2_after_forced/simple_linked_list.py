@@ -4,33 +4,51 @@ class EmptyListException(Exception):
 
 class Node:
     def __init__(self, value):
-        pass
+        self._value = value
+        self._next = None
 
     def value(self):
-        pass
+        return self._value
 
     def next(self):
-        pass
+        return self._next
 
 
 class LinkedList:
     def __init__(self, values=None):
-        pass
+        self._head = None
+        self._len = 0
+        if values is not None:
+            for value in values:
+                self.push(value)
 
     def __iter__(self):
-        pass
+        current = self._head
+        while current is not None:
+            yield current.value()
+            current = current.next()
 
     def __len__(self):
-        pass
+        return self._len
 
     def head(self):
-        pass
+        if self._head is None:
+            raise EmptyListException("The list is empty.")
+        return self._head
 
     def push(self, value):
-        pass
+        new_node = Node(value)
+        new_node._next = self._head
+        self._head = new_node
+        self._len += 1
 
     def pop(self):
-        pass
+        if self._head is None:
+            raise EmptyListException("The list is empty.")
+        self._len -= 1
+        value = self._head.value()
+        self._head = self._head.next()
+        return value
 
     def reversed(self):
-        pass
+        return LinkedList(self)

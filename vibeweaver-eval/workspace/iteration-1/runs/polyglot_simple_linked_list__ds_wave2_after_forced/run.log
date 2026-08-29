@@ -58,3 +58,386 @@ Approaches evaluated: (1) copy canonical `example.py` with separate `LinkedItera
 [0m$ [0mpython3 -c "import simple_linked_list; print('baseline import OK')"
 baseline import OK
 [0m
+Repo is a shared workspace with many unrelated modified files from other eval runs — I'll scope the baseline commit to just this run directory (not `git add -A` on the whole repo).
+[0m$ [0mgit add simple_linked_list.py prompt.md run.log && git commit -m "backup: before changes" --quiet && git log --oneline -1
+f6dc8e8 backup: before changes
+[0m
+[0m← [0mWrite simple_linked_list.py
+Wrote file successfully.
+[0m
+Baseline GREEN (stub imports without errors; no `script/` dir exists — this is a pure library, no build/lifecycle):
+```
+git add -A && git commit -m "backup: before changes"          → done (scoped to run dir, commit f6dc8e8)
+bash script/linux/<existing-build-or-start-script>.sh        → no script/ dir; baseline = python3 -c "import simple_linked_list" (OK)
+Baseline verified GREEN — proceed
+```
+Now implementing the solution:
+[0m$ [0mmkdir -p /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/sll_verify && cp simple_linked_list.py /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/sll_verify/
+(no output)
+[0m
+Now verify: run the canonical Exercism test suite against the implementation, with a transcript saved to disk. The test file goes in the temp dir (not the workspace, honoring "do not create test files").
+[0m← [0mWrite /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/sll_verify/test_simple_linked_list.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 -m unittest test_simple_linked_list -v 2>&1 | tee /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/sll_verify/run_transcript.txt; echo "EXIT=$?"
+test_can_pop_from_non_empty_list (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_can_push_to_non_empty_list (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_empty_linked_list_to_list_is_empty (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_empty_list_has_len_zero (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_error_on_empty_list_head (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_error_on_empty_list_pop (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_non_empty_linked_list_to_list_is_list_with_all_elements (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_non_empty_list_has_correct_head (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_non_empty_list_has_correct_len (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_non_empty_list_traverse (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_pop_from_singleton_list_removes_head (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_push_and_pop (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_pushing_to_empty_list_changes_head (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_reverse_non_empty_list (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_reversed_empty_list_is_empty_list (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_reversed_singleton_list_is_same_list (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_singleton_linked_list_to_list_list_with_singular_element (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_singleton_list_has_head (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_singleton_list_has_len_one (test_simple_linked_list.SimpleLinkedListTest) ... ok
+test_singleton_list_head_has_no_next (test_simple_linked_list.SimpleLinkedListTest) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.000s
+
+OK
+EXIT=0
+[0m
+All 20 canonical tests pass, exit 0. Now a syntax check on the workspace file plus a range-based smoke test (the prompt's scenario):
+[0m$ [0mpython3 -m py_compile simple_linked_list.py && python3 -c "
+from simple_linked_list import LinkedList
+songs = LinkedList(range(1, 6))
+print('playlist:', list(songs))
+print('len:', len(songs))
+songs.push(6)
+print('after push(6):', list(songs))
+print('pop:', songs.pop())
+print('reversed:', list(songs.reversed()))
+print('original intact:', list(songs))
+"
+playlist: [5, 4, 3, 2, 1]
+len: 5
+after push(6): [6, 5, 4, 3, 2, 1]
+pop: 6
+reversed: [1, 2, 3, 4, 5]
+original intact: [5, 4, 3, 2, 1]
+[0m
+[0m← [0mWrite tests/acceptance.md
+Wrote file successfully.
+[0m
+All green. Writing the skill-required evidence files:
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite memory/MEMORY.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite memory/fix_simple_linked_list.md
+Wrote file successfully.
+[0m
+Now the A4.9 review dispatch (COV-8 — new feature). Let me get the diff stat first:
+[0m$ [0mgit add -A && git diff --cached --stat; echo "---"; git status --porcelain
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_forced
+hint: You've added another git repository inside your current repository.
+hint: Clones of the outer repository will not contain the contents of
+hint: the embedded repository and will not know how to obtain it.
+hint: If you meant to add a submodule, use:
+hint:
+hint: 	git submodule add <url> vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_forced
+hint:
+hint: If you added this path by mistake, you can remove it from the
+hint: index with:
+hint:
+hint: 	git rm --cached vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_forced
+hint:
+hint: See "git help submodule" for more information.
+hint: Disable this message with "git config set advice.addEmbeddedRepo false"
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_wave2_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_wave2_after_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_wave2_before_forced
+ .../configs/ds_wave2_after/opencode/opencode.json  |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  814 +++++++++++++++
+ .../configs/ds_wave2_before/opencode/opencode.json |   34 +
+ .../opencode/skills/vibeweaver/SKILL.md            |  815 +++++++++++++++
+ vibeweaver-eval/harness/run_eval.py                |    9 +
+ .../bowling.py                                     |   77 +-
+ .../run.log                                        |   37 +
+ .../tests/acceptance.md                            |   20 +
+ .../run.log                                        |   61 ++
+ .../grade_school.py                                |   26 +
+ .../prompt.md                                      |   21 +
+ .../run.log                                        |  122 +++
+ .../grade_school.py                                |   21 +
+ .../memory/MEMORY.md                               |   24 +
+ .../memory/grade_school.md                         |   25 +
+ .../prompt.md                                      |   21 +
+ .../run.log                                        |  648 ++++++++++++
+ .../script/linux/restart.sh                        |    5 +
+ .../script/linux/start.sh                          |    7 +
+ .../script/linux/stop.sh                           |    3 +
+ .../tests/acceptance.md                            |   19 +
+ .../tests/assert_artifacts.py                      |  393 +++++++
+ .../tests/probe_vision.expected                    |    1 +
+ .../tests/probe_vision.png                         |  Bin 0 -> 935 bytes
+ .../tests/verification_log.md                      |   29 +
+ .../tests/verification_run.log                     |   72 ++
+ .../tests/acceptance.md                            |   33 +
+ .../tests/red_evidence.log                         |  221 ++++
+ .../tests/verification_log.md                      |   16 +
+ .../run.log                                        |  219 ++++
+ .../phone_number.py                                |    3 +
+ .../prompt.md                                      |   34 +
+ .../run.log                                        |  680 +++++++++++++
+ .../polyglot_phone_number__ds_wave2_before_forced  |    1 +
+ .../pig_latin.py                                   |   18 +
+ .../prompt.md                                      |   46 +
+ .../run.log                                        |  205 ++++
+ .../pig_latin.py                                   |   18 +
+ .../prompt.md                                      |   46 +
+ .../run.log                                        |  152 +++
+ .../robot_name.py                                  |   24 +-
+ .../run.log                                        |  748 +++++++-------
+ .../tests/probe_vision.expected                    |    2 +-
+ .../tests/probe_vision.png                         |  Bin 925 -> 860 bytes
+ .../prompt.md                                      |   14 +
+ .../robot_name.py                                  |   23 +
+ .../run.log                                        |   86 ++
+ .../memory/MEMORY.md                               |    4 +
+ .../memory/fix_simple_linked_list.md               |   18 +
+ .../run.log                                        |   82 ++
+ .../simple_linked_list.py                          |   38 +-
+ .../tests/acceptance.md                            |   10 +
+ .../tests/verification_log.md                      |   10 +
+ .../run.log                                        |   37 +
+ .../prompt.md                                      |   61 ++
+ .../run.log                                        |   81 ++
+ .../transpose.py                                   |   18 +
+ .../memory/MEMORY.md                               |   20 +
+ .../memory/transpose_fix_tracking.md               |   62 ++
+ .../prompt.md                                      |   61 ++
+ .../run.log                                        |  535 ++++++++++
+ .../script/linux/restart.sh                        |   10 +
+ .../script/linux/start.sh                          |   16 +
+ .../script/linux/stop.sh                           |   17 +
+ .../tests/acceptance.md                            |   17 +
+ .../tests/assert_artifacts.py                      |  393 +++++++
+ .../tests/verification_log.md                      |   13 +
+ .../tests/verification_run_iter1.log               |   50 +
+ .../transpose.py                                   |    9 +
+ .../prompt.md                                      |   46 +
+ .../run.log                                        |   57 ++
+ .../tests/acceptance.md                            |   12 +
+ .../two_bucket.py                                  |   61 ++
+ .../prompt.md                                      |   46 +
+ .../run.log                                        |  131 +++
+ .../two_bucket.py                                  |   52 +
+ .../prompt.md                                      |   34 +
+ .../run.log                                        |  298 ++++++
+ .../variable_length_quantity.py                    |    6 +
+ .../memory/MEMORY.md                               |   10 +
+ .../memory/verified_vlq.md                         |   54 +
+ .../prompt.md                                      |   34 +
+ .../run.log                                        | 1067 ++++++++++++++++++++
+ .../script/linux/restart.sh                        |    7 +
+ .../script/linux/start.sh                          |    8 +
+ .../script/linux/stop.sh                           |    3 +
+ .../tests/acceptance.md                            |   32 +
+ .../tests/assert_artifacts.py                      |  393 +++++++
+ .../tests/pytest_canonical.log                     |    2 +
+ .../tests/red_pytest_canonical.log                 |    6 +
+ .../tests/review_package.diff                      |   37 +
+ .../tests/review_package.md                        |   77 ++
+ .../tests/roundtrip.log                            |    5 +
+ .../tests/verification_log.md                      |   14 +
+ .../variable_length_quantity.py                    |   32 +
+ ...t_polyglot_bowling__ds_wave2_before_forced.json |    9 +
+ ...lyglot_grade_school__ds_wave2_after_forced.json |    9 +
+ ...yglot_grade_school__ds_wave2_before_forced.json |    9 +
+ ..._polyglot_list_ops__ds_wave2_before_forced.json |    9 +
+ ...yglot_phone_number__ds_wave2_before_forced.json |    9 +
+ ..._polyglot_pig_latin__ds_wave2_after_forced.json |    9 +
+ ...polyglot_pig_latin__ds_wave2_before_forced.json |    9 +
+ ...polyglot_robot_name__ds_wave2_after_forced.json |    9 +
+ ...olyglot_robot_name__ds_wave2_before_forced.json |    9 +
+ ...simple_linked_list__ds_wave2_before_forced.json |    9 +
+ ...polyglot_transpose__ds_wave2_before_forced.json |    9 +
+ ...olyglot_two_bucket__ds_wave2_before_forced.json |    9 +
+ ...le_length_quantity__ds_wave2_before_forced.json |    9 +
+ ...pallets_flask_4045__ds_wave2_before_forced.json |    9 +
+ ...pallets_flask_4992__ds_wave2_before_forced.json |    9 +
+ ..._psf_requests_3362__ds_wave2_before_forced.json |    9 +
+ ...st_dev_pytest_6116__ds_wave2_before_forced.json |    9 +
+ ...st_dev_pytest_9359__ds_wave2_before_forced.json |    9 +
+ ..._sympy_sympy_21627__ds_wave2_before_forced.json |    9 +
+ ...bench_pallets_flask_4045__ds_wave2_after_forced |    1 +
+ ...ench_pallets_flask_4045__ds_wave2_before_forced |    1 +
+ ...bench_pallets_flask_4992__ds_wave2_after_forced |    1 +
+ ...ench_pallets_flask_4992__ds_wave2_before_forced |    1 +
+ ...ebench_psf_requests_3362__ds_wave2_after_forced |    1 +
+ ...bench_psf_requests_3362__ds_wave2_before_forced |    1 +
+ ...h_pytest_dev_pytest_6116__ds_wave2_after_forced |    1 +
+ ..._pytest_dev_pytest_6116__ds_wave2_before_forced |    1 +
+ ...h_pytest_dev_pytest_9359__ds_wave2_after_forced |    1 +
+ ..._pytest_dev_pytest_9359__ds_wave2_before_forced |    1 +
+ ...ebench_sympy_sympy_21627__ds_wave2_after_forced |    1 +
+ ...bench_sympy_sympy_21627__ds_wave2_before_forced |    1 +
+ 126 files changed, 9781 insertions(+), 415 deletions(-)
+---
+A  vibeweaver-eval/configs/ds_wave2_after/opencode/opencode.json
+A  vibeweaver-eval/configs/ds_wave2_after/opencode/skills/vibeweaver/SKILL.md
+A  vibeweaver-eval/configs/ds_wave2_before/opencode/opencode.json
+A  vibeweaver-eval/configs/ds_wave2_before/opencode/skills/vibeweaver/SKILL.md
+M  vibeweaver-eval/harness/run_eval.py
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/bowling.py
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/tests/acceptance.md
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_forced/grade_school.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/grade_school.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/memory/MEMORY.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/memory/grade_school.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/script/linux/restart.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/script/linux/start.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/script/linux/stop.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/tests/acceptance.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/tests/assert_artifacts.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/tests/probe_vision.expected
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/tests/probe_vision.png
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/tests/verification_log.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/tests/verification_run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_forced/tests/acceptance.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_forced/tests/red_evidence.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_forced/tests/verification_log.md
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_after_forced/phone_number.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_after_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_after_forced/run.log
+AM vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_forced
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_after_forced/pig_latin.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_after_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_after_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_before_forced/pig_latin.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_before_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_before_forced/run.log
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/robot_name.py
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/run.log
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/probe_vision.expected
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/tests/probe_vision.png
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_forced/robot_name.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/memory/MEMORY.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/memory/fix_simple_linked_list.md
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/run.log
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/simple_linked_list.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/tests/acceptance.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/tests/verification_log.md
+M  vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_after_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_after_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_after_forced/transpose.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/memory/MEMORY.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/memory/transpose_fix_tracking.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/script/linux/restart.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/script/linux/start.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/script/linux/stop.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/tests/acceptance.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/tests/assert_artifacts.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/tests/verification_log.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/tests/verification_run_iter1.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/transpose.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_forced/tests/acceptance.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_forced/two_bucket.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_forced/two_bucket.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/variable_length_quantity.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/memory/MEMORY.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/memory/verified_vlq.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/prompt.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/run.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/script/linux/restart.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/script/linux/start.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/script/linux/stop.sh
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/acceptance.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/assert_artifacts.py
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/pytest_canonical.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/red_pytest_canonical.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/review_package.diff
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/review_package.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/roundtrip.log
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/verification_log.md
+A  vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/variable_length_quantity.py
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_bowling__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_grade_school__ds_wave2_after_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_grade_school__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_list_ops__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_phone_number__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_pig_latin__ds_wave2_after_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_pig_latin__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_robot_name__ds_wave2_after_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_robot_name__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_simple_linked_list__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_transpose__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_two_bucket__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_variable_length_quantity__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pallets_flask_4045__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pallets_flask_4992__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_swebench_psf_requests_3362__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pytest_dev_pytest_6116__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pytest_dev_pytest_9359__ds_wave2_before_forced.json
+A  vibeweaver-eval/workspace/iteration-1/runs/result_swebench_sympy_sympy_21627__ds_wave2_before_forced.json
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_before_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_after_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_forced_before_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_after_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_forced_before_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_wave2_after_forced
+A  vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_wave2_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_forced_before_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_wave2_after_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_wave2_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_before_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_wave2_after_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_wave2_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_forced_before_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_wave2_after_forced
+AM vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_wave2_before_forced
+[0m
+`git add -A` at repo root staged unrelated files from other eval runs — I need to unstage everything and only stage my run directory.
+[0m$ [0mgit reset -q && git add vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/ && git diff --cached --stat && echo "---STATUS---" && git status --porcelain
+warning: could not open directory 'vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/': No such file or directory
+fatal: pathspec 'vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/' did not match any files
+[0m
