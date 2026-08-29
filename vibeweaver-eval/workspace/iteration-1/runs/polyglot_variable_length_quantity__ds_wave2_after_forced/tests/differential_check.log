@@ -1,0 +1,7 @@
+prompt table: 12/12 OK
+roundtrip: 20 batches / 0 values OK
+roundtrip: 2000/2000 values OK (encoded bytes = 9886)
+empty inputs OK
+incomplete-sequence ValueError: 6/6 OK
+boundary: 0 and 0xFFFFFFFF OK
+ALL DIFFERENTIAL CHECKS PASSED

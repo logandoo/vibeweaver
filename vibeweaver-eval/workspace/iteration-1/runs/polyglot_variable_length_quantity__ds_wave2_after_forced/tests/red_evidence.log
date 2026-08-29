@@ -1,0 +1,282 @@
+[2026-08-29 20:19:57,029] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+FFFFFFFFFFFFFFFFFFFFFFFFFF                                               [100%]
+=================================== FAILURES ===================================
+____________ VariableLengthQuantityTest.test_arbitrary_double_byte _____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_arbitrary_double_byte>
+
+    def test_arbitrary_double_byte(self):
+>       self.assertEqual(encode([0x2000]), [0xC0, 0x0])
+E       AssertionError: None != [192, 0]
+
+variable_length_quantity_test.py:27: AssertionError
+___________ VariableLengthQuantityTest.test_arbitrary_quadruple_byte ___________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_arbitrary_quadruple_byte>
+
+    def test_arbitrary_quadruple_byte(self):
+>       self.assertEqual(encode([0x8000000]), [0xC0, 0x80, 0x80, 0x0])
+E       AssertionError: None != [192, 128, 128, 0]
+
+variable_length_quantity_test.py:45: AssertionError
+___________ VariableLengthQuantityTest.test_arbitrary_quintuple_byte ___________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_arbitrary_quintuple_byte>
+
+    def test_arbitrary_quintuple_byte(self):
+>       self.assertEqual(encode([0xFF000000]), [0x8F, 0xF8, 0x80, 0x80, 0x0])
+E       AssertionError: None != [143, 248, 128, 128, 0]
+
+variable_length_quantity_test.py:54: AssertionError
+____________ VariableLengthQuantityTest.test_arbitrary_single_byte _____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_arbitrary_single_byte>
+
+    def test_arbitrary_single_byte(self):
+>       self.assertEqual(encode([0x40]), [0x40])
+E       AssertionError: None != [64]
+
+variable_length_quantity_test.py:18: AssertionError
+____________ VariableLengthQuantityTest.test_arbitrary_triple_byte _____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_arbitrary_triple_byte>
+
+    def test_arbitrary_triple_byte(self):
+>       self.assertEqual(encode([0x100000]), [0xC0, 0x80, 0x0])
+E       AssertionError: None != [192, 128, 0]
+
+variable_length_quantity_test.py:36: AssertionError
+__________________ VariableLengthQuantityTest.test_four_bytes __________________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_four_bytes>
+
+    def test_four_bytes(self):
+>       self.assertEqual(decode([0x81, 0x80, 0x80, 0x0]), [0x200000])
+E       AssertionError: None != [2097152]
+
+variable_length_quantity_test.py:99: AssertionError
+_______ VariableLengthQuantityTest.test_incomplete_sequence_causes_error _______
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_incomplete_sequence_causes_error>
+
+    def test_incomplete_sequence_causes_error(self):
+        with self.assertRaises(ValueError) as err:
+>           decode([0xFF])
+E           AssertionError: ValueError not raised
+
+variable_length_quantity_test.py:106: AssertionError
+_ VariableLengthQuantityTest.test_incomplete_sequence_causes_error_even_if_value_is_zero _
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_incomplete_sequence_causes_error_even_if_value_is_zero>
+
+    def test_incomplete_sequence_causes_error_even_if_value_is_zero(self):
+        with self.assertRaises(ValueError) as err:
+>           decode([0x80])
+E           AssertionError: ValueError not raised
+
+variable_length_quantity_test.py:112: AssertionError
+_____________ VariableLengthQuantityTest.test_largest_double_byte ______________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_largest_double_byte>
+
+    def test_largest_double_byte(self):
+>       self.assertEqual(encode([0x3FFF]), [0xFF, 0x7F])
+E       AssertionError: None != [255, 127]
+
+variable_length_quantity_test.py:30: AssertionError
+____________ VariableLengthQuantityTest.test_largest_quadruple_byte ____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_largest_quadruple_byte>
+
+    def test_largest_quadruple_byte(self):
+>       self.assertEqual(encode([0xFFFFFFF]), [0xFF, 0xFF, 0xFF, 0x7F])
+E       AssertionError: None != [255, 255, 255, 127]
+
+variable_length_quantity_test.py:48: AssertionError
+_____________ VariableLengthQuantityTest.test_largest_single_byte ______________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_largest_single_byte>
+
+    def test_largest_single_byte(self):
+>       self.assertEqual(encode([0x7F]), [0x7F])
+E       AssertionError: None != [127]
+
+variable_length_quantity_test.py:21: AssertionError
+_____________ VariableLengthQuantityTest.test_largest_triple_byte ______________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_largest_triple_byte>
+
+    def test_largest_triple_byte(self):
+>       self.assertEqual(encode([0x1FFFFF]), [0xFF, 0xFF, 0x7F])
+E       AssertionError: None != [255, 255, 127]
+
+variable_length_quantity_test.py:39: AssertionError
+____________ VariableLengthQuantityTest.test_many_multi_byte_values ____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_many_multi_byte_values>
+
+    def test_many_multi_byte_values(self):
+>       self.assertEqual(
+            encode([0x2000, 0x123456, 0xFFFFFFF, 0x0, 0x3FFF, 0x4000]),
+            [
+                0xC0,
+                0x0,
+                0xC8,
+                0xE8,
+                0x56,
+                0xFF,
+                0xFF,
+                0xFF,
+                0x7F,
+                0x0,
+                0xFF,
+                0x7F,
+                0x81,
+                0x80,
+                0x0,
+            ],
+        )
+E       AssertionError: None != [192, 0, 200, 232, 86, 255, 255, 255, 127, 0, 255, 127, 129, 128, 0]
+
+variable_length_quantity_test.py:68: AssertionError
+____________ VariableLengthQuantityTest.test_maximum_32_bit_integer ____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_maximum_32_bit_integer>
+
+    def test_maximum_32_bit_integer(self):
+>       self.assertEqual(decode([0x8F, 0xFF, 0xFF, 0xFF, 0x7F]), [0xFFFFFFFF])
+E       AssertionError: None != [4294967295]
+
+variable_length_quantity_test.py:102: AssertionError
+_________ VariableLengthQuantityTest.test_maximum_32_bit_integer_input _________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_maximum_32_bit_integer_input>
+
+    def test_maximum_32_bit_integer_input(self):
+>       self.assertEqual(encode([0xFFFFFFFF]), [0x8F, 0xFF, 0xFF, 0xFF, 0x7F])
+E       AssertionError: None != [143, 255, 255, 255, 127]
+
+variable_length_quantity_test.py:57: AssertionError
+_______________ VariableLengthQuantityTest.test_multiple_values ________________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_multiple_values>
+
+    def test_multiple_values(self):
+>       self.assertEqual(
+            decode(
+                [
+                    0xC0,
+                    0x0,
+                    0xC8,
+                    0xE8,
+                    0x56,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0x7F,
+                    0x0,
+                    0xFF,
+                    0x7F,
+                    0x81,
+                    0x80,
+                    0x0,
+                ]
+            ),
+            [0x2000, 0x123456, 0xFFFFFFF, 0x0, 0x3FFF, 0x4000],
+        )
+E       AssertionError: None != [8192, 1193046, 268435455, 0, 16383, 16384]
+
+variable_length_quantity_test.py:117: AssertionError
+___________________ VariableLengthQuantityTest.test_one_byte ___________________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_one_byte>
+
+    def test_one_byte(self):
+>       self.assertEqual(decode([0x7F]), [0x7F])
+E       AssertionError: None != [127]
+
+variable_length_quantity_test.py:90: AssertionError
+_____________ VariableLengthQuantityTest.test_smallest_double_byte _____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_smallest_double_byte>
+
+    def test_smallest_double_byte(self):
+>       self.assertEqual(encode([0x80]), [0x81, 0x0])
+E       AssertionError: None != [129, 0]
+
+variable_length_quantity_test.py:24: AssertionError
+___________ VariableLengthQuantityTest.test_smallest_quadruple_byte ____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_smallest_quadruple_byte>
+
+    def test_smallest_quadruple_byte(self):
+>       self.assertEqual(encode([0x200000]), [0x81, 0x80, 0x80, 0x0])
+E       AssertionError: None != [129, 128, 128, 0]
+
+variable_length_quantity_test.py:42: AssertionError
+___________ VariableLengthQuantityTest.test_smallest_quintuple_byte ____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_smallest_quintuple_byte>
+
+    def test_smallest_quintuple_byte(self):
+>       self.assertEqual(encode([0x10000000]), [0x81, 0x80, 0x80, 0x80, 0x0])
+E       AssertionError: None != [129, 128, 128, 128, 0]
+
+variable_length_quantity_test.py:51: AssertionError
+_____________ VariableLengthQuantityTest.test_smallest_triple_byte _____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_smallest_triple_byte>
+
+    def test_smallest_triple_byte(self):
+>       self.assertEqual(encode([0x4000]), [0x81, 0x80, 0x0])
+E       AssertionError: None != [129, 128, 0]
+
+variable_length_quantity_test.py:33: AssertionError
+_________________ VariableLengthQuantityTest.test_three_bytes __________________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_three_bytes>
+
+    def test_three_bytes(self):
+>       self.assertEqual(decode([0xFF, 0xFF, 0x7F]), [0x1FFFFF])
+E       AssertionError: None != [2097151]
+
+variable_length_quantity_test.py:96: AssertionError
+__________________ VariableLengthQuantityTest.test_two_bytes ___________________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_two_bytes>
+
+    def test_two_bytes(self):
+>       self.assertEqual(decode([0xC0, 0x0]), [0x2000])
+E       AssertionError: None != [8192]
+
+variable_length_quantity_test.py:93: AssertionError
+____________ VariableLengthQuantityTest.test_two_multi_byte_values _____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_two_multi_byte_values>
+
+    def test_two_multi_byte_values(self):
+>       self.assertEqual(
+            encode([0x4000, 0x123456]), [0x81, 0x80, 0x0, 0xC8, 0xE8, 0x56]
+        )
+E       AssertionError: None != [129, 128, 0, 200, 232, 86]
+
+variable_length_quantity_test.py:63: AssertionError
+____________ VariableLengthQuantityTest.test_two_single_byte_values ____________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_two_single_byte_values>
+
+    def test_two_single_byte_values(self):
+>       self.assertEqual(encode([0x40, 0x7F]), [0x40, 0x7F])
+E       AssertionError: None != [64, 127]
+
+variable_length_quantity_test.py:60: AssertionError
+_____________________ VariableLengthQuantityTest.test_zero _____________________
+
+self = <variable_length_quantity_test.VariableLengthQuantityTest testMethod=test_zero>
+
+    def test_zero(self):
+>       self.assertEqual(encode([0x0]), [0x0])
+E       AssertionError: None != [0]
+
+variable_length_quantity_test.py:15: AssertionError
+26 failed in 0.06s

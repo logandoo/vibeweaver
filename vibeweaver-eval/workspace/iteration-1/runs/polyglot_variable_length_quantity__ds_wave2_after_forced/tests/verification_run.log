@@ -1,0 +1,5 @@
+FRESH RUN on delivered tree
+python3 -m pytest -q variable_length_quantity_test.py
+26 passed in 0.01s
+python3 differential_check.py
+ALL DIFFERENTIAL CHECKS PASSED
