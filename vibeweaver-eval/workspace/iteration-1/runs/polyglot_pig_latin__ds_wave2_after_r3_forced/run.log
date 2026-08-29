@@ -603,3 +603,177 @@ drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 ..
 R1 read complete. Now R2 (REFERENCE.md — Modify-Existing C2).
 [0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py
 R1 and R2 read complete. Now let me read the canonical `assert_artifacts.py` to know exactly what artifacts are machine-checked, and survey the baseline state.
+[0m
+[0m$ [0mmkdir -p tests memory
+(no output)
+[0m
+All companions read. Now I have the full picture. Let me set up the task structure.
+
+**Approach decision (≥2 evaluated):**
+- **A — Split-point scan:** walk the word to find the first vowel (with `y` counting as a vowel only after index 0, and a `qu` pair moving together); rule-1 special-cases (`vowel`/`xr`/`yt` start) → no shift. Clean, O(n), matches all 22 canonical vectors. **Chosen.**
+- **B — Regex alternation:** `re.match` over `qu`/`y`/consonant-cluster alternations. Compact but error-prone and unreadable. Rejected.
+- **C — Literal rule-order brute force:** verbose, duplicates logic. Rejected.
+
+This is a **non-web CLI/library task → C7**, so per COV-5 the preset is **`Verifier: direct read (non-web)`** (no UI/media to probe or grade; evidence = CLI transcripts + exit codes). Skip image probe: no screenshots exist in this task.
+
+Let me start the C2 flow: acceptance criteria first, then COV-9 baseline.
+## Objective
+- Implement Exercism's "pig-latin" exercise: replace the `translate(text)` stub in `pig_latin.py` with a working English→Pig Latin translator following the 4 rules in `prompt.md`, without creating/modifying test files, then verify it runs cleanly. The task is governed by the mandatory vibeweaver skill workflow.
+
+## Important Details
+- **Workdir:** `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_after_r3_forced/` — contains only `pig_latin.py` (stub: `def translate(text): pass`), `prompt.md`, `run.log`. No `memory/`, `tests/`, `script/` dirs exist.
+- **Rules (prompt.md):** (1) starts with vowel / `xr` / `yt` → append `ay`; (2) leading consonant cluster moves to end + `ay`; (3) zero+ consonants then `qu` → move consonants+`qu` + `ay`; (4) one+ consonants then `y` → move consonants + `ay`.
+- **Grading:** `harness/grade_polyglot.py` copies workdir into temp dir, injects hidden test, runs `python3 -m pytest -q pig_latin_test.py`; `task.json` declares `hidden_tests: ["pig_latin_test.py"]`, `solution_files: ["pig_latin.py"]`.
+- **Hidden test (read as data):** `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_pig_latin/hidden_tests/pig_latin_test.py` — canonical Exercism cases; known expected pairs: apple→appleay, ear→earay, igloo→iglooay, object→objectay, under→underay, equal→equalay (vowel+qu no shift), pig→igpay, koala→oalakay, xenon→enonxay (**x = consonant** when not `xr`), qat→atqay (q without u), chair→airchay, queen→eenquay, square→aresquay, therapy→erapythay, thrush→ushthray, school→oolschay, yttria→yttriaay, xray→xrayay, yellow→ellowyay (initial y = consonant), rhythm→ythmrhay, my→ymay, phrase "quick fast run"→"ickquay astfay unray".
+- **Mode: AUTO** announced in ZERO. Web research (COV-3) attempted twice via exa MCP → **429 rate-limited**; skip reason documented: behavior fully specified in prompt.md + canonical hidden test, answer unambiguously derivable.
+- **Approach chosen (of 2+ evaluated):** character-scan split-point algorithm (find first vowel index; `y` counts as vowel only at i>0; starts-with vowel/xr/yt → head=""; qu handled naturally since `u` is a vowel so `q` stays in cluster). Rejected: regex alternation (error-prone), explicit rule-order brute force (verbose).
+- **Verifier:** non-web CLI/library task → `Verifier: direct read (non-web)` per COV-5/C7; evidence = CLI transcript + exit codes + output diffs in `tests/` (no Playwright).
+- **"Do NOT create/modify test files" interpretation:** no pytest-collectible `test_*.py`/`*_test.py` in workdir (pytest `-q` would collect them); skill-required artifacts (`tests/acceptance.md`, `tests/verification_log.md`, `tests/decisions.md`, `tests/assert_artifacts.py` copied from canonical) are safe `.md`/helper files. Verification runs (baseline/green) done in `/tmp` replicating the grader — never in workdir.
+- **Skill companions NOT in the skill config dir:** `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_after/opencode/skills/vibeweaver/` contains only `SKILL.md`. Real companions: `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/` (`TESTING_PROTOCOLS.md` 45930B, `REFERENCE.md` 30558B, `COMPLETION_GATE.md` 35356B, `MEMORY_RULES.md` 21429B, `scripts/assert_artifacts.py` 22332B, `scripts/mm_probe.py` 11075B).
+- **Mandatory output requirements (skill):** `tests/acceptance.md` first line verbatim `> cap=5  stall=3×`; `tests/verification_log.md` per-iteration entries with `- iter N FAIL/PASS: ... | diagnosis: <clause> | changed: <file>` (diagnosis mandatory on FAIL); `[Convergence]` line; `[Verification Gate]` line containing literal `HARD-GATE-1: NO-TEST-NO-DONE=pass` and `HARD-GATE-2: SCRIPT-ONLY=pass|na`; `[Memory Gate]` line; exact 8-column completion table header `| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |`; run `python3 tests/assert_artifacts.py --existing --backend-only` (or project profile) exit 0; `[Covenant Recall] checked: all 12 covenants hold for this completion`; `[Decisions]` line + `tests/decisions.md` (AUTO).
+- **COV-9** (Modify-Existing): narration must include the 3 literal lines: `git add -A && git commit -m "backup: before changes"`, a baseline run via script/ or test runner, then `Baseline verified GREEN — proceed` (or pre-existing-failures path). Baseline stub will fail all tests (expected RED state — stub returns None).
+- **COV-8/A4.9 decision pending:** single-file change but arguably "new feature"/behavior-semantic → plan was to dispatch a lightweight independent reviewer over `git diff` after evidence exists (risk-tier regex not matched by `pig_latin.py`; group 16 won't force it).
+- **COV-2:** no `script/` dir and no build/service lifecycle (pure module) → token likely `=na`; not yet resolved.
+- Git: branch `main`, repo has unrelated pre-existing dirty state in parent dirs — do a workdir-scoped commit only.
+
+## Work State
+### Completed
+- ZERO done (decompose, web research attempted → 429 skip documented, ≥2 approaches evaluated, approach chosen).
+- Read hidden canonical test file (data) and extracted all known expected input→output pairs.
+- Read companions in full per Read Contract: **R1** (`TESTING_PROTOCOLS.md` — A4.1 loop, A4.6–A4.10) and **R2** (`REFERENCE.md` — C2 Modify-Existing workflow).
+- Mentally traced the chosen algorithm against every known test (all pass; note the previously-considered `head.endswith("q")` guard is dead code since `u` is a vowel — dropped).
+- Located harness (`harness/grade_polyglot.py`) and `task.json`.
+
+### Active
+- Mid-read of canonical `scripts/assert_artifacts.py` (read truncated at ~line 34, Group 13 CLAIM/COVER regex definitions) — need to finish reading to know the 16 machine-checked groups and correct flags.
+- **Implementation plan (final form, not yet written to disk):**
+  ```python
+  def translate(text):
+      return " ".join(translate_word(w) for w in text.split())
+
+  def translate_word(word):
+      VOWELS = "aeiou"
+      if word[0] in VOWELS or word.startswith(("xr", "yt")):
+          head = ""
+      else:
+          for i, ch in enumerate(word):
+              if ch in VOWELS or (i > 0 and ch == "y"):
+                  head = word[:i]
+                  break
+          else:
+              head = word
+      return word[len(head):] + head + "ay"
+  ```
+
+### Blocked
+- None hard-blocked. Web research unavailable (exa MCP 429 twice) — handled via documented skip.
+- `COMPLETION_GATE.md` (R1b) not yet read — required before final completion output.
+
+## Next Move
+1. Finish reading `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py` (and later read `COMPLETION_GATE.md` per R1b before the completion table).
+2. Execute COV-9 baseline: `git add -A && git commit -m "backup: before changes"` (workdir-scoped), then run a baseline check by replicating the grader in `/tmp` (copy `pig_latin.py` + hidden test → `python3 -m pytest -q`), capture failing output as RED evidence, log verdict as first `tests/verification_log.md` entry.
+3. Write the `translate` implementation into `pig_latin.py`.
+4. Verify: replicate grading in `/tmp` (full hidden suite must pass) + inline `python3 - <<EOF` assertions over all known pairs; log every iteration with `diagnosis:` clauses; produce `tests/acceptance.md` (`> cap=5  stall=3×` first line), `tests/verification_log.md`, `tests/decisions.md` (AUTO ADR), copy canonical `assert_artifacts.py` into `tests/`, create `memory/` topic files + `MEMORY.md` and pass A7.10 memory gate.
+5. Dispatch A4.9 independent review over `git diff` (COV-8, new-feature trigger), adjudicate findings into `tests/review_package.md`.
+6. Run `python3 tests/assert_artifacts.py --existing --backend-only` (exit 0), then output `[Covenant Recall]`, `[Convergence]`, `[Verification Gate]` (literal HARD-GATE tokens), `[Memory Gate]`, `[Decisions]`, and the exact 8-column completion table — stating `Verifier: direct read (non-web)`.
+
+## Relevant Files
+- `pig_latin.py` (workdir): stub to replace; sole solution file.
+- `prompt.md` (workdir): the 4 translation rules + examples.
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_pig_latin/hidden_tests/pig_latin_test.py`: canonical grader test; read for expected behavior (do not write/modify).
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_pig_latin/task.json`: grading metadata.
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/harness/grade_polyglot.py`: grading procedure replicated in /tmp for verification.
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/TESTING_PROTOCOLS.md`, `REFERENCE.md`: companions already read (R1, R2).
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/COMPLETION_GATE.md`: R1b read still pending (required before final output).
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py`: canonical artifact-checker to copy into `tests/`; mid-read, must finish.
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/mm_probe.py`: not needed (non-web verifier).
+- `/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_after/opencode/skills/vibeweaver/SKILL.md`: the binding skill file (comprehensive; covenant/gate/loop rules).
+Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.
+[0m← [0mWrite tests/acceptance.md
+Wrote file successfully.
+[0m
+Continuing. Writing acceptance criteria (A4.1 Step 1 — before acting), then COV-9 baseline.
+Now COV-9 baseline: scoped backup commit, then baseline run in a `/tmp` grader replica.
+[0m$ [0mgit status --short && git log --oneline -5
+M ../polyglot_bowling__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_bowling__ds_wave2_before_r3_forced/bowling.py
+ M ../polyglot_bowling__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_grade_school__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_grade_school__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_list_ops__ds_wave2_after_r3_forced/list_ops.py
+ M ../polyglot_list_ops__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_list_ops__ds_wave2_after_r3_forced/tests/verification_log.md
+ M ../polyglot_list_ops__ds_wave2_after_r3_forced/tests/verify_list_ops.py
+ m ../polyglot_phone_number__ds_forced_after_forced
+ M ../polyglot_phone_number__ds_wave2_after_r3_forced/run.log
+ m ../polyglot_phone_number__ds_wave2_before_forced
+ M ../polyglot_phone_number__ds_wave2_before_r3_forced/run.log
+ M run.log
+ M ../polyglot_pig_latin__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_robot_name__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_transpose__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_transpose__ds_wave2_after_r3_forced/transpose.py
+ M ../polyglot_transpose__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_two_bucket__ds_wave2_after_r3_forced/run.log
+ M ../polyglot_two_bucket__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_two_bucket__ds_wave2_before_r3_forced/two_bucket.py
+ M ../polyglot_variable_length_quantity__ds_wave2_before_r3_forced/run.log
+ M ../polyglot_variable_length_quantity__ds_wave2_before_r3_forced/variable_length_quantity.py
+ m ../swebench_pallets_flask_4045__ds_forced_after_forced
+ m ../swebench_pallets_flask_4045__ds_forced_before_forced
+ m ../swebench_pallets_flask_4045__ds_wave2_after_forced
+ m ../swebench_pallets_flask_4045__ds_wave2_before_forced
+ m ../swebench_pallets_flask_4992__ds_forced_after_forced
+ m ../swebench_pallets_flask_4992__ds_forced_before_forced
+ m ../swebench_pallets_flask_4992__ds_wave2_after_forced
+ m ../swebench_pallets_flask_4992__ds_wave2_before_forced
+ m ../swebench_psf_requests_3362__ds_forced_after_forced
+ m ../swebench_psf_requests_3362__ds_forced_before_forced
+ m ../swebench_psf_requests_3362__ds_wave2_after_forced
+ m ../swebench_psf_requests_3362__ds_wave2_before_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_forced_after_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_forced_before_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_wave2_after_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_wave2_before_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_forced_after_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_forced_before_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_wave2_after_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_wave2_before_forced
+ m ../swebench_sympy_sympy_21627__ds_forced_after_forced
+ m ../swebench_sympy_sympy_21627__ds_forced_before_forced
+ m ../swebench_sympy_sympy_21627__ds_wave2_after_forced
+ m ../swebench_sympy_sympy_21627__ds_wave2_before_forced
+?? ../polyglot_bowling__ds_wave2_before_r3_forced/tests/
+?? ../polyglot_grade_school__ds_wave2_before_r3_forced/memory/
+?? ../polyglot_grade_school__ds_wave2_before_r3_forced/tests/acceptance.md
+?? ../polyglot_grade_school__ds_wave2_before_r3_forced/tests/final_fresh_run.log
+?? ../polyglot_grade_school__ds_wave2_before_r3_forced/tests/verification_log.md
+?? ../polyglot_list_ops__ds_wave2_after_r3_forced/tests/consumer_smoke.py
+?? ../polyglot_list_ops__ds_wave2_after_r3_forced/tests/consumer_smoke.run.log
+?? ../polyglot_list_ops__ds_wave2_after_r3_forced/tests/diff_sweep.py
+?? ../polyglot_list_ops__ds_wave2_after_r3_forced/tests/diff_sweep.run.log
+?? ../polyglot_list_ops__ds_wave2_after_r3_forced/tests/import_check.run.log
+?? ../polyglot_list_ops__ds_wave2_after_r3_forced/tests/verify_green.run.log
+?? ../polyglot_list_ops__ds_wave2_after_r3_forced/tests/verify_red.run.log
+?? ../polyglot_phone_number__ds_wave2_before_r3_forced/tests/fresh_run.log
+?? tests/
+?? ../polyglot_robot_name__ds_wave2_after_r3_forced/tests/
+?? ../polyglot_transpose__ds_wave2_after_r3_forced/tests/
+?? ../polyglot_variable_length_quantity__ds_wave2_before_r3_forced/tests/verification_log.md
+?? ../result_polyglot_grade_school__ds_wave2_before_r3_forced.json
+?? ../result_polyglot_pig_latin__ds_wave2_before_r3_forced.json
+?? ../result_polyglot_two_bucket__ds_wave2_before_r3_forced.json
+b0d73a4 backup: before changes
+c21b47f backup: before changes
+d1dc499 backup: before changes
+813e67c backup: before changes
+984cc1a feat: implement NANP phone number cleaning (PhoneNumber class)
+[0m
+[0m$ [0mgit log -1 --format='%H %ci %s' b0d73a4 && git show --stat --format='' b0d73a4 | head -20 && echo "---DATE OF HEAD---" && git log -1 --format='%ci %s'
+b0d73a4820d3bd6d970719db84dd979965130935 2026-08-29 21:00:10 +0800 backup: before changes
+ .../run.log                                              | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+---DATE OF HEAD---
+2026-08-29 21:00:10 +0800 backup: before changes
+[0m
+The repo is shared with sibling runs; commits are linear. Let me inspect the newest backup commit to understand the wave base.
