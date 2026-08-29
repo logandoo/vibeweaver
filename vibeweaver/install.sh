@@ -24,6 +24,7 @@ FILES=(
     "MEMORY_TEMPLATES.md"
     "MEMORY_RULES.md"
     "TESTING_PROTOCOLS.md"
+    "WORKFLOWS_EXTENDED.md"
 )
 
 if [[ ! -f "${SCRIPT_DIR}/scripts/assert_artifacts.py" ]]; then

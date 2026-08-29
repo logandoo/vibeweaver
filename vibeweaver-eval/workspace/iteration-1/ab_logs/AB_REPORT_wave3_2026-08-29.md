@@ -67,3 +67,40 @@ EVAL_MODEL=deepseek/deepseek-v4-flash python3 harness/run_eval.py --arm ds_wave2
 ```
 
 Raw data: `workspace/iteration-1/runs/result_*__ds_wave2_*` (32) · `graded/grade_*__ds_wave2_*` (32) · `graded/wave2_ab_summary.json`
+
+---
+
+# 补充：polyglot 10 题 × 4 轮平均（2026-08-29，应用户要求复核方差）
+
+单轮 -1 被判定为任务级方差后，polyglot 两臂再各跑 3 轮（r2/r3/r4，每轮 before+after 并行 16 流），与本轮（r1）合并取平均。共 **80 次 polyglot 运行**（40/臂），全部完成、零超时、零冻结。
+
+## 4 轮平均
+
+| Arm | pass-runs | 通过率 | mean test-fraction（细粒度） |
+|---|---|---|---|
+| BEFORE (48,978B) | 35/40 | 87.5% | 0.9552 |
+| AFTER (48,993B) | **37/40** | **92.5%** | **0.9845** |
+
+逐题（pass-runs/4 · 平均得分率）：
+
+| 任务 | BEFORE | AFTER |
+|---|---|---|
+| bowling | 4/4 · 1.000 | 3/4 · 0.919 |
+| grade_school | 4/4 · 1.000 | 3/4 · 0.938 |
+| list_ops | 3/4 · 0.979 | **4/4 · 1.000** |
+| phone_number | 2/4 · 0.655 | **4/4 · 1.000** |
+| pig_latin | 4/4 · 1.000 | 3/4 · 0.989 |
+| robot_name | 3/4 · 0.938 | **4/4 · 1.000** |
+| simple_linked_list | 4/4 · 1.000 | 4/4 · 1.000 |
+| transpose | 4/4 · 1.000 | 4/4 · 1.000 |
+| two_bucket | 4/4 · 1.000 | 4/4 · 1.000 |
+| variable_length_quantity | 3/4 · 0.981 | **4/4 · 1.000** |
+
+## 结论（方差复核后）
+
+1. **单轮 -1 是方差，方向实测反转为 +2**（92.5% vs 87.5%）：r1 中 AFTER 失败的 grade_school/pig_latin 在其它轮通过，r1 中 BEFORE 通过的 phone_number/list_ops/VLQ/robot_name 在其它轮各翻车 1 次。
+2. **phone_number 差异最大**（BEFORE 2/4 vs AFTER 4/4）——该题要求精确匹配 Exercism 规格（ValueError + pretty()），新 skill 的验收标准条款（A4.1 Step 1 + AUTO 决策记录）对此类"规格精确性"任务增益明显。
+3. n=40/臂下 ±5pp 仍在噪声带（二项 se≈5pp），严谨口径维持**非劣、方向为正**；无任何"编码后完成能力下降"的证据（约束 #2 双重确认：单轮 + 4 轮均值）。
+4. mean test-fraction（0.9552 → 0.9845）作为连续指标同样正向。
+
+数据：`graded/grade_*__ds_wave2_*_{r2,r3,r4}_forced.json` (60) + `graded/wave2_ab_avg.json`；评分器沉淀至 `harness/grade_wave2.py`、`harness/grade_wave2_avg.py`。

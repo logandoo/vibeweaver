@@ -28,12 +28,13 @@ MARKERS = [
     "verification_log", "cap=5", "screenshot", "MEMORY.md", "start.sh",
     "git repo needs", "FLOW_DESIGN", "README", "Baseline verified GREEN",
     "workflow trace", "media evidence", "diagnosis:",
-    "claim without stated coverage",
+    "claim without stated coverage", "secret scan", "test-change:",
+    "risk-tier", "secret-approved",
 ]
 PAYLOAD_FILES = [
     "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
-    "TESTING_PROTOCOLS.md",
+    "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md",
     "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
     "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
     "scripts/mm_probe.py",
@@ -42,7 +43,7 @@ PAYLOAD_FILES = [
 INSTALLED_DOCS = [
     "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
-    "TESTING_PROTOCOLS.md",
+    "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md",
 ]
 JS_PAYLOAD = [
     "vibeweaver-gate.js", "vibeweaver-audit.js", "scripts/vibeweaver-audit-core.js",
@@ -143,11 +144,13 @@ def main():
         if mk not in script:
             fail("canonical assert script missing marker: %r" % mk)
 
-    # 7) SKILL.md's marker list matches the script's
-    sk_m = [mk for mk in MARKERS if mk in skill]
-    if len(sk_m) != len(MARKERS):
-        missing = [mk for mk in MARKERS if mk not in skill]
-        fail("SKILL.md no longer lists all 13 markers (missing: %s)" % ", ".join(missing))
+    # 7) the marker list lives in COMPLETION_GATE.md §A4.4.1 (SKILL.md points
+    #    there since the wave3 compression) — doc must mirror the script
+    cg = (PAYLOAD / "COMPLETION_GATE.md").read_text(encoding="utf-8")
+    cg_m = [mk for mk in MARKERS if mk in cg]
+    if len(cg_m) != len(MARKERS):
+        missing = [mk for mk in MARKERS if mk not in cg]
+        fail("COMPLETION_GATE.md no longer lists all %d markers (missing: %s)" % (len(MARKERS), ", ".join(missing)))
 
     # 8) installers carry the full set
     sh = (PAYLOAD / "install.sh").read_text(encoding="utf-8")

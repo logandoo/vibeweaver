@@ -54,3 +54,226 @@ git add -A && git commit -m "backup: before changes"
 python3 -c "import bowling..."  — run-once baseline check (no existing build/start script; import check is the runner)
 Baseline verified GREEN — proceed  (stub imports; score() returns None as expected from stub)
 ```
+[0m$ [0mgit add -A && git commit -m "backup: before changes" -q && git log --oneline -1
+e6b3f14 backup: before changes
+[0m
+[0m← [0mWrite bowling.py
+Wrote file successfully.
+[0m
+Baseline committed (`e6b3f14`). Implementing the solution:
+[0m$ [0mpython3 - <<'PY'
+import bowling
+
+cases = [
+    ("prompt 3-frame example", [10, 5, 5, 9, 0], 48),
+    ("perfect game (12 strikes)", [10]*12, 300),
+    ("gutter game", [0]*20, 0),
+    ("10th X1/ (strike+spare fill)", [0]*18 + [10, 1, 9], 20),
+    ("10th XXX (three strikes)", [0]*18 + [10, 10, 10], 30),
+    ("10th 5/ (spare+fill)", [0]*18 + [5, 5, 7], 17),
+    ("all-spares game (150)", [5, 5]*10 + [5], 150),
+    ("mixed: strike, spare, open", [10, 3, 7, 6, 2] + [0]*15, 10+3+7 + (3+7+6) + (6+2) + 0),
+]
+
+fails = 0
+for name, rolls, expected in cases:
+    g = bowling.BowlingGame()
+    for r in rolls:
+        g.roll(r)
+    got = g.score()
+    ok = got == expected
+    fails += 0 if ok else 1
+    print(f"{'PASS' if ok else 'FAIL'} | {name}: got={got} expected={expected}")
+print(f"\n{len(cases)-fails}/{len(cases)} cases passed")
+raise SystemExit(1 if fails else 0)
+PY
+Traceback (most recent call last):
+  File "<stdin>", line 19, in <module>
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_r4_forced/bowling.py", line 12, in score
+    if self.rolls[i] == 10:
+IndexError: list index out of range
+[0m
+Now verifying with a comprehensive inline test harness (non-web, direct-read verifier):
+[0m$ [0mpython3 - <<'PY'
+import bowling
+
+cases = [
+    ("prompt 3-frame example +7 gutter frames", [10, 5, 5, 9, 0] + [0]*14, 48),
+    ("perfect game (12 strikes)", [10]*12, 300),
+    ("gutter game", [0]*20, 0),
+    ("10th X1/ (strike+spare fill)", [0]*18 + [10, 1, 9], 20),
+    ("10th XXX (three strikes)", [0]*18 + [10, 10, 10], 30),
+    ("10th 5/ (spare+fill)", [0]*18 + [5, 5, 7], 17),
+    ("all-spares game (150)", [5, 5]*10 + [5], 150),
+    ("mixed: strike,spare,open + gutter", [10, 3, 7, 6, 2] + [0]*14, 44),
+    ("two consecutive strikes", [10, 10, 3, 4] + [0]*14, 10+10+3 + (10+3+4) + (3+4)),
+]
+
+fails = 0
+for name, rolls, expected in cases:
+    g = bowling.BowlingGame()
+    for r in rolls:
+        g.roll(r)
+    got = g.score()
+    ok = got == expected
+    fails += 0 if ok else 1
+    print(f"{'PASS' if ok else 'FAIL'} | {name}: got={got} expected={expected}")
+print(f"\n{len(cases)-fails}/{len(cases)} cases passed")
+raise SystemExit(1 if fails else 0)
+PY
+PASS | prompt 3-frame example +7 gutter frames: got=48 expected=48
+PASS | perfect game (12 strikes): got=300 expected=300
+PASS | gutter game: got=0 expected=0
+PASS | 10th X1/ (strike+spare fill): got=20 expected=20
+PASS | 10th XXX (three strikes): got=30 expected=30
+PASS | 10th 5/ (spare+fill): got=17 expected=17
+PASS | all-spares game (150): got=150 expected=150
+PASS | mixed: strike,spare,open + gutter: got=44 expected=44
+PASS | two consecutive strikes: got=47 expected=47
+
+9/9 cases passed
+[0m
+Iteration 1 FAIL — diagnosis: my test harness fed incomplete games (the prompt's 3-frame example is not a full 10-frame game), causing the frame walk to run past the roll list. The code is correct for complete games. Fixing the test data to full 10-frame games:
+All 9/9 pass. Fresh-run syntax/runtime check on the final tree:
+[0m$ [0mpython3 -m py_compile bowling.py && echo "compile OK"; python3 - <<'PY'
+import bowling
+g = bowling.BowlingGame()
+[g.roll(r) for r in [10]*12]
+print("fresh run perfect-game score =", g.score())
+PY
+git diff --stat HEAD
+compile OK
+fresh run perfect-game score = 300
+ .../bowling.py                                     |  18 +++-
+ .../run.log                                        |  81 +++++++++++++++
+ .../grade_school.py                                |  19 +++-
+ .../run.log                                        | 114 +++++++++++++++++++++
+ .../run.log                                        |   8 ++
+ .../run.log                                        |   3 +
+ .../run.log                                        |   2 +
+ .../polyglot_phone_number__ds_forced_after_forced  |   0
+ .../phone_number.py                                |  47 ++++++++-
+ .../run.log                                        | 106 +++++++++++++++++++
+ .../polyglot_phone_number__ds_wave2_before_forced  |   0
+ .../run.log                                        |  92 +++++++++++++++++
+ .../pig_latin.py                                   |  12 ++-
+ .../run.log                                        |  58 +++++++++++
+ .../pig_latin.py                                   |  19 +++-
+ .../run.log                                        |  66 ++++++++++++
+ .../run.log                                        |  24 +++++
+ .../run.log                                        |  22 ++++
+ ...ench_pallets_flask_4045__ds_forced_after_forced |   0
+ ...nch_pallets_flask_4045__ds_forced_before_forced |   0
+ ...bench_pallets_flask_4045__ds_wave2_after_forced |   0
+ ...ench_pallets_flask_4045__ds_wave2_before_forced |   0
+ ...ench_pallets_flask_4992__ds_forced_after_forced |   0
+ ...nch_pallets_flask_4992__ds_forced_before_forced |   0
+ ...bench_pallets_flask_4992__ds_wave2_after_forced |   0
+ ...ench_pallets_flask_4992__ds_wave2_before_forced |   0
+ ...bench_psf_requests_3362__ds_forced_after_forced |   0
+ ...ench_psf_requests_3362__ds_forced_before_forced |   0
+ ...ebench_psf_requests_3362__ds_wave2_after_forced |   0
+ ...bench_psf_requests_3362__ds_wave2_before_forced |   0
+ ..._pytest_dev_pytest_6116__ds_forced_after_forced |   0
+ ...pytest_dev_pytest_6116__ds_forced_before_forced |   0
+ ...h_pytest_dev_pytest_6116__ds_wave2_after_forced |   0
+ ..._pytest_dev_pytest_6116__ds_wave2_before_forced |   0
+ ..._pytest_dev_pytest_9359__ds_forced_after_forced |   0
+ ...pytest_dev_pytest_9359__ds_forced_before_forced |   0
+ ...h_pytest_dev_pytest_9359__ds_wave2_after_forced |   0
+ ..._pytest_dev_pytest_9359__ds_wave2_before_forced |   0
+ ...bench_sympy_sympy_21627__ds_forced_after_forced |   0
+ ...ench_sympy_sympy_21627__ds_forced_before_forced |   0
+ ...ebench_sympy_sympy_21627__ds_wave2_after_forced |   0
+ ...bench_sympy_sympy_21627__ds_wave2_before_forced |   0
+ 42 files changed, 680 insertions(+), 11 deletions(-)
+[0m
+The `git diff` reflects a shared, concurrently-modified repo (other eval runs). My change is isolated to `bowling.py` (1 file). Per COV-8, this is a feature implementation → dispatching an independent read-only reviewer over my diff:
+[0m$ [0mgit diff e6b3f14 -- bowling.py > /tmp/review_bowling.diff; cat /tmp/review_bowling.diff
+diff --git a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_r4_forced/bowling.py b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_r4_forced/bowling.py
+index de2dbb0..d9b3600 100644
+--- a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_r4_forced/bowling.py
++++ b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_r4_forced/bowling.py
+@@ -1,9 +1,21 @@
+ class BowlingGame:
+     def __init__(self):
+-        pass
++        self.rolls = []
+ 
+     def roll(self, pins):
+-        pass
++        self.rolls.append(pins)
+ 
+     def score(self):
+-        pass
++        total = 0
++        i = 0
++        for _ in range(10):
++            if self.rolls[i] == 10:
++                total += 10 + self.rolls[i + 1] + self.rolls[i + 2]
++                i += 1
++            elif self.rolls[i] + self.rolls[i + 1] == 10:
++                total += 10 + self.rolls[i + 2]
++                i += 2
++            else:
++                total += self.rolls[i] + self.rolls[i + 1]
++                i += 2
++        return total
+[0m
+[0m• [0mReview bowling.py implementation[90m General Agent[0m
+[0m✓ [0mReview bowling.py implementation[90m General Agent[0m
+[0m
+[0m← [0mWrite tests/acceptance.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite tests/decisions.md
+Wrote file successfully.
+[0m
+Reviewer **APPROVE** — no Critical/Important findings. Minor findings ruled: (1) type annotations — cosmetic, spec uses illustrative signatures, runtime-identical; (2) incomplete-game `IndexError` — out of scope (spec: `score()` called only at game end); (3) pin validation — not required by spec; (4) frame-10 `rolls[i+2]` — safe for all valid games. All deferred to memory.
+
+Writing the mandatory artifacts:
+[0m← [0mWrite memory/MEMORY.md
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 - <<'PY'
+import bowling, subprocess
+g = bowling.BowlingGame()
+[g.roll(r) for r in [10]*12]
+assert g.score() == 300
+g2 = bowling.BowlingGame()
+[g2.roll(r) for r in [10, 5, 5, 9, 0] + [0]*14]
+assert g2.score() == 48
+print("final-tree fresh run OK: 300, 48")
+PY
+final-tree fresh run OK: 300, 48
+[0m
+Writing the session memory (A7.9) and confirming the final tree is unchanged since last test:
+[Covenant Recall] checked: all 12 covenants hold for this completion
+
+9-item self-audit:
+1. ZERO done first ✓ (decomposed; research attempted — exa MCP 429×2, state-skipped; ≥2 approaches evaluated; chosen record-all + frame-walk)
+2. Mode declared: AUTO ✓ · decisions → `tests/decisions.md` (D-1..D-3)
+3. R1/R1b: companions absent from skill dir — state-skip (D-3); §1 inline
+4. COV-9: `backup: before changes` commit `e6b3f14` + baseline import check → Baseline verified GREEN, logged first in verification_log.md
+5. COV-2: no `script/`, no build/service lifecycle → HARD-GATE-2=na
+6. COV-1: tests EXECUTED with on-disk evidence (9/9 cases, fresh-run, compile) → HARD-GATE-1=pass
+7. acceptance.md first line `> cap=5  stall=3×` ✓ · loop ended ALL PASS (2 iters)
+8. Verifier announced: `direct read (non-web)` ✓ · ≥1 iter entries with `diagnosis:` on the FAIL ✓
+9. `assert_artifacts.py`: canonical file absent from skill install (only SKILL.md) — cannot copy; state-skip per D-3
+
+[Convergence] bowling.py: 2 iters | 9/9 pass | 0 stalls | 0 cap-hits
+
+[Decisions] 3 auto-decisions → tests/decisions.md
+
+[Memory Gate] Passed: MEMORY.md written with ✅/⏳/❌ states, fix-tracking + reviewer rulings deferred (A7.9); index present — memory_gate: pass
+
+[Verification Gate] Verifier: direct-read (non-web) | Loop executed: yes | Media graded externally: 0/0 (non-web) | Iterations: 2 | Tests executed with artifacts: yes | E2E depth: unit-only (single-module class, no runtime service) | Script-only build/lifecycle: na | Fresh-run on final tree: yes | TDD RED evidence: na (UI/spec class, test-after per §A4.1) | Code review: 0-fixed (independent APPROVE, minors deferred) | assert_artifacts.py: na (canonical file absent — D-3) | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=na
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|----------------------------------------|-----------------------|--------------|-------------|------------------------------------------|--------|
+| 1 | Implement ten-pin bowling scoring (`roll`/`score`) per prompt.md | exa MCP unavailable (HTTP 429 ×2, state-skip); spec self-contained | Record-all-rolls + frame-walk at score(): strike→+next 2 rolls, spare→+next roll, 2-roll pointer advance; simplest, standard, handles 10th-frame fill balls. Rejected: incremental frame-state machine (complexity/off-by-one risk), deque lookahead (over-engineered) | `bowling.py`; `tests/acceptance.md`, `tests/verification_log.md`, `tests/decisions.md`, `memory/MEMORY.md` | Filled stubs: `rolls=[]`, `roll()` appends, `score()` walks 10 frames computing bonuses | `tests/verification_log.md` (iter 2 PASS); CLI transcripts: prompt example=48, perfect=300, gutter=0, 10th X1/=20, XXX=30, 5/7=17, all-spares=150, two-strikes=47, mixed=44 (9/9); `py_compile` OK; fresh-run 300/48 on final tree | `e6b3f14` (baseline), working tree uncommitted |
+
+**Report:** Implemented `BowlingGame` in `bowling.py` — `roll(pins)` records each throw; `score()` walks the 10 frames from the recorded rolls, adding strike (10 + next 2) and spare (10 + next 1) bonuses, which naturally handles consecutive strikes and the 10th-frame fill balls. Verified by executing 9 hand-built games covering the prompt example (48), perfect (300), gutter (0), all 10th-frame cases, and consecutive strikes — 9/9 pass on the final tree, plus a clean `py_compile` and fresh-run re-check. No test files created; evidence in `tests/verification_log.md`.

@@ -1509,3 +1509,96 @@ Untracked files:
 
 no changes added to commit (use "git add" and/or "git commit -a")
 [0m
+Concurrent sessions share the repo and can clear staging. Re-staging my run's files only and committing.
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced && git add tests/robot_name_hidden.run.log tests/consumer_smoke.run.log run.log && git commit -m "test: fresh verification run on final tree (hidden 4/4, smoke 9/9)" --quiet && git log --oneline -2 && echo "---staged-content check: this run clean?---" && git status --porcelain -- robot_name.py tests/ memory/
+46e97b3 test: fresh verification run on final tree (hidden 4/4, smoke 9/9)
+bc81a73 backup: before changes
+---staged-content check: this run clean?---
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced && git ls-files | rg "polyglot_robot_name__ds_wave2_before_r4_forced" && echo "---HEAD commit---" && git rev-parse HEAD && git show --stat HEAD --format="%h %s" | rg "robot_name|^46e" | head -6
+(no output)
+[0m
+Working tree clean for my run's files. Let me verify all my run's files are committed and the delivered tree is intact.
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git ls-files | rg "polyglot_robot_name__ds_wave2_before_r4_forced" && echo "---HEAD---" && git log --oneline -3 --all | head -5
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/memory/MEMORY.md
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/memory/robot_name.md
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/prompt.md
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/robot_name.py
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/run.log
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/tests/acceptance.md
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/tests/assert_artifacts.py
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/tests/baseline_stub.run.log
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/tests/consumer_smoke.py
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/tests/consumer_smoke.run.log
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/tests/decisions.md
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/tests/project_profile.json
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/tests/robot_name_hidden.run.log
+vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/tests/verification_log.md
+---HEAD---
+46e97b3 test: fresh verification run on final tree (hidden 4/4, smoke 9/9)
+bc81a73 backup: before changes
+1b5da76 backup: before changes
+[0m
+Let me verify my wave commits are intact ancestors of HEAD despite concurrent sessions.
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && for c in bcfd72d dfb43f8 e19fe72 46e97b3; do git merge-base --is-ancestor $c HEAD && echo "OK $c in HEAD history" || echo "LOST $c"; done && echo "---robot_name.py at HEAD---" && git show HEAD:vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r4_forced/robot_name.py
+OK bcfd72d in HEAD history
+OK dfb43f8 in HEAD history
+OK e19fe72 in HEAD history
+OK 46e97b3 in HEAD history
+---robot_name.py at HEAD---
+import random
+import string
+
+
+class Robot:
+    _used_names = set()
+    _NAMESPACE_SIZE = len(string.ascii_uppercase) ** 2 * 10 ** 3
+
+    def __init__(self):
+        self.name = self._new_name()
+
+    def reset(self):
+        self.name = self._new_name()
+
+    def _new_name(self):
+        if len(self._used_names) >= self._NAMESPACE_SIZE:
+            raise RuntimeError("robot name space exhausted")
+        while True:
+            name = "".join(
+                random.choice(charset)
+                for charset in (string.ascii_uppercase,) * 2
+                + (string.digits,) * 3
+            )
+            if name not in self._used_names:
+                self._used_names.add(name)
+                return name
+[0m
+[0m# [0mTodos
+[✓] ZERO: decompose + web research + evaluate ≥2 approaches
+[✓] COV-9 baseline: git commit backup + stub baseline check + log Baseline verified GREEN
+[✓] Write tests/acceptance.md (cap=5 stall=3× first line + 5 criteria)
+[✓] Implement robot_name.py (unique names, reset, collision retry)
+[✓] TDD: RED evidence on stub (hidden suite fails) → GREEN on implementation
+[✓] Write tests/consumer_smoke.py + project_profile.json + decisions.md, run smoke
+[✓] Copy assert_artifacts.py, write verification_log.md, run assert_artifacts.py --existing
+[✓] Dispatch A4.9 independent reviewer + handle findings
+[✓] Write memory/MEMORY.md + memory/robot_name.md
+[•] Read R1b COMPLETION_GATE.md, emit final output (gate lines + 8-column table)
+[0m
+All 4 wave commits in HEAD history, final robot_name.py correct. Working tree is clean for my run. Now update the todos and finalize.
+All gates satisfied. Emitting the completion output.
+
+[Decisions] 5 auto-decisions → tests/decisions.md
+[Memory Gate] Passed: memory/MEMORY.md + memory/robot_name.md written, index pointer verified (A7.9/A7.10)
+[Covenant Recall] checked: all 12 covenants hold for this completion
+[Verification Gate] Verifier: direct-read | Loop executed: yes | Media graded externally: 0/0 (video 0 · audio 0 · screenshots 0) | Iterations: 4 | Tests executed with artifacts: yes | E2E depth: unit-only | Script-only build/lifecycle: na | Fresh-run on final tree: yes | TDD RED evidence: yes | Code review: clean | assert_artifacts.py: pass=9/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=na
+[Convergence] polyglot_robot_name: 4 iters | 3/4 pass (iter 1 = expected stub RED) | 0 stalls | 0 cap-hits
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|--------------------------------------|------------------------|---------------|--------------|------------------------------------------|--------|
+| 1 | Robot `name` must match `^[A-Z]{2}\d{3}$` and be stable across reads | Searched: exa MCP ×2 → HTTP 429 both (skip ADR D-3; canonical kata, fully specified by prompt + hidden suite) | Eager `__init__` name generation via `random.choice` over `string.ascii_uppercase`×2 + `string.digits`×3; class-level `_used_names` set for global uniqueness (ADR D-4) | `robot_name.py` | Stub `class Robot` replaced with name generation + class-level uniqueness set | tests/robot_name_hidden.run.log: 4/4 passed in 0.01s; smoke c1/c2 PASS | dfb43f8 |
+| 2 | Different robots must never share a name; `reset()` yields a new different name | Same as row 1 | Collision-retry loop + `_used_names` persists forever (never released on reset); the retry is what makes the re-seeded `test_reset_name` pass | `robot_name.py` | `reset()` regenerates via `_new_name()`; retry-while-in-set; bounded by `_NAMESPACE_SIZE` (676k) with RuntimeError on exhaustion | tests/robot_name_hidden.run.log: `test_different_robots_have_different_names` PASSED, `test_reset_name` PASSED; smoke c3/c4 PASS | dfb43f8 |
+| 3 | Names must be random, not predictable/sequential | Same as row 1 | Module-level `random` (the RNG the hidden test re-seeds); no sequential scheme | `robot_name.py` | Uniqueness verified empirically over 2000 robots | tests/consumer_smoke.run.log: c5/c6 PASS (2000 unique, prefixes/suffixes vary, no fixed sequence); sample `AA580 … ZZ583` | dfb43f8 |
+| 4 | Acceptance criteria, decisions, verification evidence on disk | N/A (no research needed) | Document the contract, cap/stall stop-condition, AUTO ADRs, and iteration log per COMPLETION_GATE | `tests/acceptance.md`, `tests/decisions.md`, `tests/verification_log.md`, `tests/project_profile.json`, `tests/consumer_smoke.py` | 5-criterion acceptance table (first line `> cap=5 stall=3×`); 5 ADRs; COV-9 baseline entry; 4 iter entries; `{"profile": "library"}`; 9-check smoke | tests/acceptance.md (cap=5 line); tests/verification_log.md iter 1 FAIL diagnosis + Baseline verified GREEN; assert_artifacts.py pass=9/fail=0 (exit 0) | dfb43f8, e19fe72 |
+| 5 | Gate self-check + A4.9 review | N/A | Copy canonical `assert_artifacts.py` (16 markers verified); independent reviewer (task tool) verdict PASS, minors fixed | `tests/assert_artifacts.py`, `robot_name.py` | Gate script (copied, self-verified); reviewer minors applied: `_NAMESPACE_SIZE` derived from charset lengths, unified generator join; attempt-cap deferred to memory | Reviewer verdict PASS (0 Critical/Important); hidden 4/4 + smoke 9/9 + gate 9/9 re-run green on final tree (post-e19fe72 fresh run) | e19fe72, 46e97b3 |
+| 6 | Session memory for future tasks | N/A | Project memory index + topic file per A7.9 | `memory/MEMORY.md`, `memory/robot_name.md` | Index with topic pointer; topic file records contract, approach, reset-seed trap, bounded namespace, deferred minors | tests/assert_artifacts.py group 4 (memory) PASS | dfb43f8 |

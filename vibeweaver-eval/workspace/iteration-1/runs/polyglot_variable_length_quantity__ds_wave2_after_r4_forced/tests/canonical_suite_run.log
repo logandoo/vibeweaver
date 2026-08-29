@@ -1,0 +1,52 @@
+== ENCODE canonical table ==
+encode([0x00000000]) = ['00']  expected ['00']  PASS
+encode([0x00000040]) = ['40']  expected ['40']  PASS
+encode([0x0000007f]) = ['7F']  expected ['7F']  PASS
+encode([0x00000080]) = ['81', '00']  expected ['81', '00']  PASS
+encode([0x00002000]) = ['C0', '00']  expected ['C0', '00']  PASS
+encode([0x00003fff]) = ['FF', '7F']  expected ['FF', '7F']  PASS
+encode([0x00004000]) = ['81', '80', '00']  expected ['81', '80', '00']  PASS
+encode([0x00100000]) = ['C0', '80', '00']  expected ['C0', '80', '00']  PASS
+encode([0x001fffff]) = ['FF', 'FF', '7F']  expected ['FF', 'FF', '7F']  PASS
+encode([0x00200000]) = ['81', '80', '80', '00']  expected ['81', '80', '80', '00']  PASS
+encode([0x08000000]) = ['C0', '80', '80', '00']  expected ['C0', '80', '80', '00']  PASS
+encode([0x0fffffff]) = ['FF', 'FF', 'FF', '7F']  expected ['FF', 'FF', 'FF', '7F']  PASS
+encode([0xffffffff]) = ['8F', 'FF', 'FF', 'FF', '7F']  expected ['8F', 'FF', 'FF', 'FF', '7F']  PASS
+
+== ENCODE multi-value / empty ==
+encode(...) = ['00', '00', '00']  expected ['00', '00', '00']  PASS
+encode(...) = ['8F', 'FF', 'FF', 'FF', '7F', '00', 'BF', 'FF', '7F']  expected ['8F', 'FF', 'FF', 'FF', '7F', '00', 'BF', 'FF', '7F']  PASS
+encode(...) = ['81', '80', '00', 'C8', 'E8', '56']  expected ['81', '80', '00', 'C8', 'E8', '56']  PASS
+encode(...) = []  expected []  PASS
+
+== ENCODE error cases ==
+encode([-1]) -> ValueError(ValueError('negative integer'))  PASS
+encode([4294967296]) -> ValueError(ValueError('integer too large'))  PASS
+
+== DECODE canonical table ==
+decode(['00']) = [0]  expected [0]  PASS
+decode(['40']) = [64]  expected [64]  PASS
+decode(['7F']) = [127]  expected [127]  PASS
+decode(['81', '00']) = [128]  expected [128]  PASS
+decode(['C0', '00']) = [8192]  expected [8192]  PASS
+decode(['FF', '7F']) = [16383]  expected [16383]  PASS
+decode(['81', '80', '00']) = [16384]  expected [16384]  PASS
+decode(['C0', '80', '00']) = [1048576]  expected [1048576]  PASS
+decode(['FF', 'FF', '7F']) = [2097151]  expected [2097151]  PASS
+decode(['81', '80', '80', '00']) = [2097152]  expected [2097152]  PASS
+decode(['C0', '80', '80', '00']) = [134217728]  expected [134217728]  PASS
+decode(['FF', 'FF', 'FF', '7F']) = [268435455]  expected [268435455]  PASS
+decode(['8F', 'FF', 'FF', 'FF', '7F']) = [4294967295]  expected [4294967295]  PASS
+
+== DECODE multi-value / empty ==
+decode(...) = [0, 0, 0]  expected [0, 0, 0]  PASS
+decode(...) = [4294967295, 0, 1048575]  expected [4294967295, 0, 1048575]  PASS
+decode(...) = [8192, 1193046, 268435455, 0, 16383, 16384]  expected [8192, 1193046, 268435455, 0, 16383, 16384]  PASS
+decode(...) = []  expected []  PASS
+
+== DECODE error cases ==
+decode(['FF']) (incomplete single continuation) -> ValueError(ValueError('incomplete sequence'))  PASS
+decode(['80']) (incomplete zero-value) -> ValueError(ValueError('incomplete sequence'))  PASS
+decode(['81', '80']) (incomplete two-byte) -> ValueError(ValueError('incomplete sequence'))  PASS
+
+TOTAL FAILS: 0

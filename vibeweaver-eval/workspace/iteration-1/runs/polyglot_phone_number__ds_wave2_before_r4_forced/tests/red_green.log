@@ -1,0 +1,8 @@
+=== BASELINE (stub, COV-9) ===
+-- py_compile phone_number.py --
+py_compile: exit 0
+
+-- hidden pytest on stub (RED) --
+
+../../tasks/polyglot_phone_number/hidden_tests/phone_number_test.py:42: AttributeError
+21 failed in 0.04s

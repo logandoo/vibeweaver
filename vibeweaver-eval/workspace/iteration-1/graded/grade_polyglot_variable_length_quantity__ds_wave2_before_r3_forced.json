@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_variable_length_quantity",
+  "passed": true,
+  "tests_passed": 26,
+  "tests_total": 26,
+  "output": "..........................                                               [100%]\n26 passed in 0.02s\n"
+}

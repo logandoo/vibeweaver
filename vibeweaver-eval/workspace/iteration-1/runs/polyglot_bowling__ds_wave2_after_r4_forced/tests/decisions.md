@@ -1,0 +1,5 @@
+# Decisions (AUTO mode ADRs) — bowling.py
+
+D-1 | trigger: web research (exa MCP) rate-limited (HTTP 429, twice) at §2 Step 0.2 | options: (a) wait/retry, (b) proceed from spec-only domain knowledge | chosen: (b) proceed — prompt.md is a fully self-contained ten-pin bowling spec (Exercism-style); algorithm standard and derivable | why: no external dependency; retry wasted effort | revisit-if: an edge case later fails
+D-2 | trigger: acceptance criterion scope — score() called only on complete games per spec | options: (a) guard incomplete games, (b) assume complete-game contract | chosen: (b) assume contract per spec | why: spec explicitly states "score() is called only at the very end of the game"; adding guards is YAGNI | revisit-if: grader tests call score() mid-game
+D-3 | trigger: companion files (TESTING_PROTOCOLS.md, COMPLETION_GATE.md) and scripts/assert_artifacts.py absent from skill installation directory | options: (a) halt, (b) proceed with state-skip | chosen: (b) proceed — core §1 covenants + §2 inline; assert_artifacts.py cannot be copied from a nonexistent canonical file | why: skill directory contains only SKILL.md | revisit-if: files appear

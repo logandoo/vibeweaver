@@ -1,0 +1,502 @@
+{
+  "polyglot_bowling": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          31,
+          31
+        ],
+        [
+          31,
+          31
+        ],
+        [
+          31,
+          31
+        ],
+        [
+          31,
+          31
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 3,
+      "scores": [
+        [
+          31,
+          31
+        ],
+        [
+          31,
+          31
+        ],
+        [
+          31,
+          31
+        ],
+        [
+          21,
+          31
+        ]
+      ],
+      "pass_rate": 0.75,
+      "mean_frac": 0.9193548387096774
+    }
+  },
+  "polyglot_grade_school": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 3,
+      "scores": [
+        [
+          15,
+          20
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ]
+      ],
+      "pass_rate": 0.75,
+      "mean_frac": 0.9375
+    }
+  },
+  "polyglot_list_ops": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 3,
+      "scores": [
+        [
+          24,
+          24
+        ],
+        [
+          24,
+          24
+        ],
+        [
+          22,
+          24
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "pass_rate": 0.75,
+      "mean_frac": 0.9791666666666666
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          24,
+          24
+        ],
+        [
+          24,
+          24
+        ],
+        [
+          24,
+          24
+        ],
+        [
+          24,
+          24
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    }
+  },
+  "polyglot_phone_number": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 2,
+      "scores": [
+        [
+          21,
+          21
+        ],
+        [
+          7,
+          21
+        ],
+        [
+          6,
+          21
+        ],
+        [
+          21,
+          21
+        ]
+      ],
+      "pass_rate": 0.5,
+      "mean_frac": 0.6547619047619048
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          21,
+          21
+        ],
+        [
+          21,
+          21
+        ],
+        [
+          21,
+          21
+        ],
+        [
+          21,
+          21
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    }
+  },
+  "polyglot_pig_latin": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          22,
+          22
+        ],
+        [
+          22,
+          22
+        ],
+        [
+          22,
+          22
+        ],
+        [
+          22,
+          22
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 3,
+      "scores": [
+        [
+          21,
+          22
+        ],
+        [
+          22,
+          22
+        ],
+        [
+          22,
+          22
+        ],
+        [
+          22,
+          22
+        ]
+      ],
+      "pass_rate": 0.75,
+      "mean_frac": 0.9886363636363636
+    }
+  },
+  "polyglot_robot_name": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 3,
+      "scores": [
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "pass_rate": 0.75,
+      "mean_frac": 0.9375
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    }
+  },
+  "polyglot_simple_linked_list": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ],
+        [
+          20,
+          20
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    }
+  },
+  "polyglot_transpose": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          12,
+          12
+        ],
+        [
+          12,
+          12
+        ],
+        [
+          12,
+          12
+        ],
+        [
+          12,
+          12
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          12,
+          12
+        ],
+        [
+          12,
+          12
+        ],
+        [
+          12,
+          12
+        ],
+        [
+          12,
+          12
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    }
+  },
+  "polyglot_two_bucket": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          9,
+          9
+        ],
+        [
+          9,
+          9
+        ],
+        [
+          9,
+          9
+        ],
+        [
+          9,
+          9
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          9,
+          9
+        ],
+        [
+          9,
+          9
+        ],
+        [
+          9,
+          9
+        ],
+        [
+          9,
+          9
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    }
+  },
+  "polyglot_variable_length_quantity": {
+    "BEFORE": {
+      "runs": 4,
+      "pass_runs": 3,
+      "scores": [
+        [
+          26,
+          26
+        ],
+        [
+          26,
+          26
+        ],
+        [
+          26,
+          26
+        ],
+        [
+          24,
+          26
+        ]
+      ],
+      "pass_rate": 0.75,
+      "mean_frac": 0.9807692307692308
+    },
+    "AFTER": {
+      "runs": 4,
+      "pass_runs": 4,
+      "scores": [
+        [
+          26,
+          26
+        ],
+        [
+          26,
+          26
+        ],
+        [
+          26,
+          26
+        ],
+        [
+          26,
+          26
+        ]
+      ],
+      "pass_rate": 1.0,
+      "mean_frac": 1.0
+    }
+  }
+}

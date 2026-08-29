@@ -8,7 +8,7 @@ set SCRIPT_DIR=%~dp0
 set SKILLS_DIR=%USERPROFILE%\.config\opencode\skills\%SKILL_NAME%
 
 REM Files to install (flat companions + canonical assertion script)
-set FILES=SKILL.md COMPLETION_GATE.md CODING_PRINCIPLES.md ENGINEERING_STD.md REFERENCE.md APPENDIX.md MEMORY_TEMPLATES.md MEMORY_RULES.md TESTING_PROTOCOLS.md scripts\assert_artifacts.py scripts\vibeweaver-audit-core.js scripts\mm_probe.py
+set FILES=SKILL.md COMPLETION_GATE.md CODING_PRINCIPLES.md ENGINEERING_STD.md REFERENCE.md APPENDIX.md MEMORY_TEMPLATES.md MEMORY_RULES.md TESTING_PROTOCOLS.md WORKFLOWS_EXTENDED.md scripts\assert_artifacts.py scripts\vibeweaver-audit-core.js scripts\mm_probe.py
 
 REM Check source files exist
 for %%F in (%FILES%) do (

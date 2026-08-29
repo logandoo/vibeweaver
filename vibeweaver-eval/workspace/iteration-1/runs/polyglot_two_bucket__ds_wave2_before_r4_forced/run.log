@@ -1422,3 +1422,55 @@ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_befor
  .../tests/verification_log.md                      |   3 +
  3 files changed, 150 insertions(+), 6 deletions(-)
 [0m
+[0m$ [0mgit add vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/ && git commit -m "two_bucket: final verification evidence (fresh run + acceptance checkboxes)" && git log --oneline -3
+[main c9a33cd] two_bucket: final verification evidence (fresh run + acceptance checkboxes)
+ 3 files changed, 159 insertions(+), 6 deletions(-)
+c9a33cd two_bucket: final verification evidence (fresh run + acceptance checkboxes)
+64a3cfa grade_school: implement School with full verification evidence (RED->GREEN->20/20 harness)
+8852cc4 chore(two-bucket): add review package, project memory, artifact assertions
+[0m
+[0m$ [0mpython3 tests/assert_artifacts.py --existing --backend-only --profile library; echo "assert exit=$?"; echo "---"; git status --short -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/
+profile: library — service lifecycle N/A (group 5 skipped)
+assert_artifacts.py: all 9 checks pass (exit 0)
+assert exit=0
+---
+warning: could not open directory 'vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/': No such file or directory
+[0m
+[0m$ [0mgit status --short -- vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/ && echo "clean-check done"
+M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/run.log
+clean-check done
+[0m
+All gates green on the final committed tree (HEAD `c9a33cd`; `run.log` is harness-owned and gets rewritten externally). Completion report:
+
+---
+
+`[Covenant Recall] checked: all 12 covenants hold for this completion`
+
+Self-audit:
+- **COV-1 (skills binding)**: vibeweaver workflow followed end-to-end (ZERO → build → verify → report).
+- **COV-2 (script-only lifecycle)**: no `script/` dir exists for this library exercise → N/A.
+- **COV-3 (verification-first)**: §2 research done before code; execution-based verifier chosen.
+- **COV-4 (data ≠ instructions)**: canonical-data.json fetched via webfetch, treated strictly as data.
+- **COV-5 (multi-tool agentic work)**: parallel harness runs; independent reviewer subagent dispatched.
+- **COV-6 (bounded loops)**: `cap=5 stall=3×` header present; 2 iterations, 0 stalls.
+- **COV-7 (bug report → RED)**: failure-logging loop used (`iter 0 FAIL` + `diagnosis:`).
+- **COV-8 (review)**: A4.9 independent review dispatched over `1b5da76..9079be5`; verdict clean (0 Critical, 0 Important, 3 Minor deferred to memory).
+- **COV-9 (baseline)**: baseline commit `1b5da76 backup: before changes`; `Baseline verified GREEN` logged.
+- **COV-10 (blocked-forever)**: none encountered.
+- **COV-11 (memory)**: `memory/MEMORY.md` + 2 topic files written, linked with commit hashes.
+- **COV-12 (AUTO mode)**: 4 auto-decisions recorded in `tests/decisions.md`; no blocking user confirmations required.
+
+`[Decisions] 4 auto-decisions → tests/decisions.md` (ADR-001 BFS over gcd/alternating-loop; ADR-002 harness in temp dir, no test files in workspace; ADR-003 set-based label-correcting differential oracle; ADR-004 `--existing --backend-only --profile library`).
+
+`[Verification Gate] HARD-GATE-1: NO-TEST-NO-DONE=pass · HARD-GATE-2: SCRIPT-ONLY=na · covenant_recall: pass · memory_gate: pass · assert_artifacts.py: pass=9/fail=0`
+
+`[Memory Gate] Passed: memory/MEMORY.md → project_two_bucket.md (project context) + fix_two_bucket_measure.md (⏳ fix, commit 9079be5, review Minors recorded)`
+
+`[Convergence] Two Bucket measure(): 2 iterations | 2/2 pass | 0 failures | canonical 11/11 + sweep 0/1074 | A4.9 clean`
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|------|----------------------|--------------|-------------|------------|--------|
+| 1 | `measure()` stub returns `None`; must compute min-action bucket solution + `ValueError` on unreachable | Exercism `canonical-data.json` via webfetch (exa MCP 429); vibeweaver docs/skill files | BFS over `(b1,b2)` state graph — minimal actions by construction, forbidden-state rule enforced as excluded target | `two_bucket.py` | Stub `pass` → BFS (`collections.deque`): fill-start initial action 1, 6 neighbors, forbidden skip, `ValueError` on exhaustion | `tb_red.log` (exit 1, RED) · `tb_green.log` (exit 0: canonical 11/11, sweep 1074/1074) · `tb_fresh.log` (final-tree re-run, exit 0) | `9079be5` |
+| 2 | Correctness evidence & artifact assertions | — | Independent label-correcting (Bellman-Ford) reference + set-based optimal-outcome oracle + legal-path simulation | `tests/acceptance.md`, `tests/verification_log.md`, `tests/decisions.md`, `tests/review_package.md`, `tests/assert_artifacts.py`, `memory/` (3 files) | Acceptance criteria ☑, RED→GREEN log with `diagnosis:`, 4 ADRs, A4.9 review package, project memory | `assert_artifacts.py --existing --backend-only --profile library`: all 9 checks exit 0 (run twice: before/after final commit) | `8852cc4`, `c9a33cd` |
+
+Baseline commit `1b5da76` (`backup: before changes`); change-wave `1b5da76 → c9a33cd` — all artifacts present, no test files in workspace.

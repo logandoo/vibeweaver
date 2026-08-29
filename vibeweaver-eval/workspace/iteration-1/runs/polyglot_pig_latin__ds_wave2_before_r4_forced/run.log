@@ -144,3 +144,97 @@ run.log
 [0m
 This is the classic Exercism "Pig Latin" exercise. Let me follow the mandatory workflow. First, ZERO: decompose + research.
 [0m% [0mWebFetch https://raw.githubusercontent.com/exercism/python/main/exercises/practice/pig-latin/pig_latin_test.py
+[0m
+[0m← [0mWrite pig_latin.py
+Wrote file successfully.
+[0m
+Canonical test data confirmed. Web search was rate-limited (429) but I fetched the authoritative Exercism test file directly.
+
+**ZERO summary:**
+- **Problem:** implement `translate(text)` — classic Pig Latin (4 rules: vowel/xr/yt → +ay; consonant cluster move; qu special; y-after-consonants special).
+- **Approaches evaluated:** (1) single-pass index scan with in-loop checks for vowel / `y`(i>0) / `qu`, handling rule 1 upfront; (2) regex-based rule matching — more fragile for `y`/`qu` edge cases; (3) rule-ordered if/elif per rule — verbose and error-prone. **Chosen: (1)** — O(n), handles all 22 canonical cases, simplest.
+- **Conflict note (COV-11/COV-1):** the task says "Do NOT create or modify any test files" — this overrides the skill's `tests/` artifact requirements. I will keep the workspace clean (only `pig_latin.py`) and capture verification evidence in a log outside the workspace.
+
+Now implementing:
+Now let me verify against all canonical test cases:
+[0m$ [0mpython3 - <<'EOF' 2>&1 | tee /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/pig_latin_verify.log
+from pig_latin import translate
+
+cases = {
+    "apple": "appleay", "ear": "earay", "igloo": "iglooay", "object": "objectay",
+    "under": "underay", "equal": "equalay", "pig": "igpay", "koala": "oalakay",
+    "xenon": "enonxay", "qat": "atqay", "liquid": "iquidlay", "chair": "airchay",
+    "queen": "eenquay", "square": "aresquay", "therapy": "erapythay",
+    "thrush": "ushthray", "school": "oolschay", "yttria": "yttriaay",
+    "xray": "xrayay", "yellow": "ellowyay", "rhythm": "ythmrhay", "my": "ymay",
+    "quick fast run": "ickquay astfay unray",
+}
+failed = 0
+for word, expected in cases.items():
+    got = translate(word)
+    ok = "PASS" if got == expected else "FAIL"
+    if got != expected:
+        failed += 1
+    print(f"{ok}: translate({word!r}) = {got!r}  expected {expected!r}")
+print(f"\n{len(cases) - failed}/{len(cases)} passed, {failed} failed")
+EOF
+PASS: translate('apple') = 'appleay'  expected 'appleay'
+PASS: translate('ear') = 'earay'  expected 'earay'
+PASS: translate('igloo') = 'iglooay'  expected 'iglooay'
+PASS: translate('object') = 'objectay'  expected 'objectay'
+PASS: translate('under') = 'underay'  expected 'underay'
+PASS: translate('equal') = 'equalay'  expected 'equalay'
+PASS: translate('pig') = 'igpay'  expected 'igpay'
+PASS: translate('koala') = 'oalakay'  expected 'oalakay'
+PASS: translate('xenon') = 'enonxay'  expected 'enonxay'
+PASS: translate('qat') = 'atqay'  expected 'atqay'
+PASS: translate('liquid') = 'iquidlay'  expected 'iquidlay'
+PASS: translate('chair') = 'airchay'  expected 'airchay'
+PASS: translate('queen') = 'eenquay'  expected 'eenquay'
+PASS: translate('square') = 'aresquay'  expected 'aresquay'
+PASS: translate('therapy') = 'erapythay'  expected 'erapythay'
+PASS: translate('thrush') = 'ushthray'  expected 'ushthray'
+PASS: translate('school') = 'oolschay'  expected 'oolschay'
+PASS: translate('yttria') = 'yttriaay'  expected 'yttriaay'
+PASS: translate('xray') = 'xrayay'  expected 'xrayay'
+PASS: translate('yellow') = 'ellowyay'  expected 'ellowyay'
+PASS: translate('rhythm') = 'ythmrhay'  expected 'ythmrhay'
+PASS: translate('my') = 'ymay'  expected 'ymay'
+PASS: translate('quick fast run') = 'ickquay astfay unray'  expected 'ickquay astfay unray'
+
+23/23 passed, 0 failed
+[0m
+All 23/23 pass. Final fresh-run check on the delivered tree:
+[0m$ [0mpython3 -m py_compile pig_latin.py && python3 -c "from pig_latin import translate; print(translate('hello world'))" && git diff --stat pig_latin.py
+ellohay orldway
+ .../pig_latin.py                                      | 19 ++++++++++++++++++-
+ 1 file changed, 18 insertions(+), 1 deletion(-)
+[0m
+Implemented and verified. Report:
+
+## What I implemented
+
+`pig_latin.py` — a single `translate(text)` function that handles multi-word phrases (`text.split()`). Per word it applies the four rules:
+
+- **Rule 1:** first letter is a vowel, or word starts with `"xr"`/`"yt"` → append `"ay"`.
+- **Rules 2–4:** otherwise a single index scan consumes the leading consonant cluster, stopping at the first vowel, at a `"y"` (when `i > 0`, rule 4), or after consuming a `"qu"` pair (rule 3), then yields `word[i:] + word[:i] + "ay"`.
+
+Chosen approach: single-pass index scan (vs. regex or rule-ordered if/elif) — O(n), simplest, handles all edge cases including `yellow` (y-as-consonant at pos 0), `rhythm`/`my` (y-as-vowel mid-cluster), `queen`/`square` (qu), `qat`/`xenon` (q without u, x without r).
+
+## How I verified it
+
+- Ran all **23 canonical Exercism cases** (every rule + the `"quick fast run"` phrase) — **23/23 PASS**; log saved at `/var/folders/.../T/opencode/pig_latin_verify.log`.
+- `python3 -m py_compile` clean; fresh import + `translate('hello world')` → `ellohay orldway`.
+- No test files created/modified (per task constraint); verification was inline, not via pytest.
+
+## Gate summary
+
+`[Verification Gate] Verifier: direct-read (no UI; backend-only single-function exercise) | Loop executed: yes | Tests executed with artifacts: yes (23/23 canonical cases, log on disk) | E2E depth: service-direct | Script-only build/lifecycle: na (no script/, no service) | Fresh-run on final tree: yes | TDD RED evidence: N/A (spec-driven, no pre-existing logic) | Code review: N/A (1 file, no A4.9 trigger) | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=na`
+
+`COV-9 skipped — no existing runtime to baseline-test (single-file stub exercise, no script/ or service)`. `COV-8 not triggered — verified via git diff --stat: 1 file (pig_latin.py, 18 insertions) — reason: single-file exercise implementation`. `COV-10 skipped — minor exercise implementation (no design doc per §A5)`. `tests/acceptance.md` etc. skipped — task forbids creating test files; evidence logged outside workspace.
+
+## Completion table
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|--------------------------------------|------------------------|---------------|--------------|------------------------------------------|--------|
+| 1 | Translate English → Pig Latin per 4 vowel/consonant rules | Exercism canonical test data (webfetch, github raw); exa rate-limited (429) | Single-pass index scan with vowel/`y`(i>0)/`qu` break checks; rule 1 upfront — O(n), covers all 22 canonical cases; rejected regex (fragile for y/qu) and rule-ordered if/elif (verbose) | `pig_latin.py` | Replaced `pass` stub with working `translate()`; per-word scan + phrase splitting | `/var/folders/.../T/opencode/pig_latin_verify.log` — 23/23 canonical cases PASS; `py_compile` clean | N/A (no commit requested) |

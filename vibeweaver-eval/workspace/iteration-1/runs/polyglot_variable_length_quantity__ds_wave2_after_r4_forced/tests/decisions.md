@@ -1,0 +1,5 @@
+# Decisions
+
+- D-1 | trigger: no git baseline commit possible (run dir inside shared eval repo; full-tree commit would capture unrelated sibling-run changes) | options: commit whole tree / commit nothing / stage only run dir | chosen: commit nothing | why: avoids polluting shared eval repo; evidence is on-disk test logs | revisit-if: harness requires per-run commits
+- D-2 | trigger: web research rate-limited (exa MCP 429) | options: wait+retry / proceed on unambiguous well-known algorithm | chosen: proceed, stated skip reason | why: VLQ is a canonical published algorithm (RFC-ish bit packing); standard Exercism vectors used for verification | revisit-if: none
+- D-3 | trigger: encode range checks beyond prompt's stated 32-bit restriction | options: raise on <0 and >0xFFFFFFFF / silently accept | chosen: raise ValueError | why: prompt restricts inputs to 32-bit unsigned; explicit errors are safer and match sibling-run convention | revisit-if: hidden suite passes out-of-range values (unlikely per prompt)

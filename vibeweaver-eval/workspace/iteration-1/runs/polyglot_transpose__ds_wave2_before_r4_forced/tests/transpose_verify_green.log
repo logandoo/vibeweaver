@@ -1,0 +1,14 @@
+PASS empty string
+PASS two characters in a row
+PASS two characters in a column
+PASS simple
+PASS single line
+PASS first line longer than second line
+PASS second line longer than first line
+PASS mixed line length
+PASS square
+PASS rectangle
+PASS triangle
+PASS jagged triangle
+
+RESULT: 12/12 passed, 0 failed

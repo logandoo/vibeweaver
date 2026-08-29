@@ -1,0 +1,5 @@
+round-trip decode(encode(v))==v over 20000 random 32-bit values: PASS (0 mismatches)
+round-trip over boundary values [0, 1, 127, 128, 32767, 16383, 16384, 2097151, 2097152, 268435455, 268435456, 4294967295]: PASS
+decode(encode(x))==x over 20000 random values: PASS (0 mismatches)
+multi-value concatenated round-trip over 3000 sequences: PASS (0 mismatches)
+TOTAL FAILS: 0
