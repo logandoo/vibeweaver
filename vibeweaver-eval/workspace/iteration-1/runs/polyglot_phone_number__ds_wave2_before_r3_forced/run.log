@@ -1,0 +1,268 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff   160 Aug 29 20:56 .
+drwxr-xr-x@ 187 logan  staff  5984 Aug 29 20:56 ..
+-rw-r--r--@   1 logan  staff    64 Aug  1 01:29 phone_number.py
+-rw-r--r--@   1 logan  staff  1253 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff    39 Aug 29 20:56 run.log
+[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead phone_number.py
+[0m→ [0mRead run.log
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_before/opencode/skills/vibeweaver/ && echo "---wc---" && wc -c /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_before/opencode/skills/vibeweaver/*.md
+total 104
+drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 .
+drwxr-xr-x@ 3 logan  staff     96 Aug 28 23:53 ..
+-rw-r--r--@ 1 logan  staff  50096 Aug 28 23:53 SKILL.md
+---wc---
+   50096 /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_before/opencode/skills/vibeweaver/SKILL.md
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo && git rev-parse --is-inside-work-tree 2>/dev/null; git log --oneline -3 2>/dev/null; echo "---"; ls /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced/; echo "---memory---"; ls /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced/memory 2>/dev/null || echo "no memory dir"
+true
+44f32e5 docs: AUTO-mode decisions (tests/decisions.md) + record fresh-run on delivered tree
+14965e4 docs: link fix memory to feat commit hash (artifact chain)
+38fe573 review: A4.9 verdict PASS (minors only), strengthen differential sweep (complete BFS ref, 1408/1408 agree), memory + artifact files
+---
+phone_number.py
+prompt.md
+run.log
+---memory---
+no memory dir
+[0m
+I'll start with the ZERO step (decompose + research) before touching code. Let me survey the environment, skill companions, and search for the canonical exercise details in parallel.
+[0m✗ [0mExa Web Search "exercism python phone-number exercise test suite PhoneNumber class ValueError cases area code exchange code" failed
+[91m[1mError: [0mStatusCode: non 2xx status code (429 POST https://mcp.exa.ai/mcp)
+[0m✗ [0mExa Web Search "PhoneNumber NANP normalize ValueError area code starts with 0 1 python exercism clean phone number" failed
+[91m[1mError: [0mStatusCode: non 2xx status code (429 POST https://mcp.exa.ai/mcp)
+Skill companions aren't shipped in this installation (only SKILL.md), so I'll apply the inline binding content. Websearch was rate-limited (429). Let me retry once and survey git state.
+[0m
+[0m$ [0mcd /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced && git status --porcelain && echo "---tracked?---" && git ls-files && echo "---python---" && python3 --version
+M vibeweaver-eval/harness/run_eval.py
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_r2_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_r2_forced/memory/fix_grade_school.md
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_r2_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_r2_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/robot_name.py
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r2_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_after_r2_forced/run.log
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_forced_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_forced_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_forced_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_before_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_forced_after_forced
+ M vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_forced_before_forced
+ M vibeweaver/COMPLETION_GATE.md
+ M vibeweaver/SKILL.md
+ M vibeweaver/TESTING_PROTOCOLS.md
+ M vibeweaver/scripts/assert_artifacts.py
+ M vibeweaver/vibeweaver-gate.js
+?? tests/review_diff.txt
+?? vibeweaver-eval/configs/ds_wave2_after/
+?? vibeweaver-eval/configs/ds_wave2_after_r2/
+?? vibeweaver-eval/configs/ds_wave2_after_r3/
+?? vibeweaver-eval/configs/ds_wave2_after_r4/
+?? vibeweaver-eval/configs/ds_wave2_before/
+?? vibeweaver-eval/configs/ds_wave2_before_r2/
+?? vibeweaver-eval/configs/ds_wave2_before_r3/
+?? vibeweaver-eval/configs/ds_wave2_before_r4/
+?? vibeweaver-eval/workspace/iteration-1/ab_logs/AB_REPORT_wave3_2026-08-29.md
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_bowling__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_bowling__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_grade_school__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_grade_school__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_list_ops__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_list_ops__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_phone_number__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_phone_number__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_pig_latin__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_pig_latin__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_robot_name__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_robot_name__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_simple_linked_list__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_simple_linked_list__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_transpose__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_transpose__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_two_bucket__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_two_bucket__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_variable_length_quantity__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_polyglot_variable_length_quantity__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_pallets_flask_4045__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_pallets_flask_4045__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_pallets_flask_4992__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_pallets_flask_4992__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_psf_requests_3362__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_psf_requests_3362__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_pytest_dev_pytest_6116__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_pytest_dev_pytest_6116__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_pytest_dev_pytest_9359__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_pytest_dev_pytest_9359__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_sympy_sympy_21627__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/grade_swebench_sympy_sympy_21627__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/graded/wave2_ab_summary.json
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_forced/tests/fresh_run.log
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_after_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_r2_forced/tests/probe_vision.expected
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_r2_forced/tests/probe_vision.png
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_after_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_after_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_after_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_after_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_before_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_pig_latin__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/memory/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r2_forced/tests/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_after_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_after_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_after_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_transpose__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r2_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_r3_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_bowling__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_bowling__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_bowling__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_bowling__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_grade_school__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_grade_school__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_grade_school__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_grade_school__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_list_ops__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_list_ops__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_list_ops__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_list_ops__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_phone_number__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_phone_number__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_phone_number__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_phone_number__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_pig_latin__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_pig_latin__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_pig_latin__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_pig_latin__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_robot_name__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_robot_name__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_robot_name__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_robot_name__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_robot_name__ds_wave2_before_r3_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_simple_linked_list__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_simple_linked_list__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_simple_linked_list__ds_wave2_after_r3_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_simple_linked_list__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_simple_linked_list__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_simple_linked_list__ds_wave2_before_r3_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_transpose__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_transpose__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_transpose__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_transpose__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_two_bucket__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_two_bucket__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_two_bucket__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_two_bucket__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_variable_length_quantity__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_variable_length_quantity__ds_wave2_after_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_variable_length_quantity__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_polyglot_variable_length_quantity__ds_wave2_before_r2_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pallets_flask_4045__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pallets_flask_4045__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pallets_flask_4992__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pallets_flask_4992__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_psf_requests_3362__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_psf_requests_3362__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pytest_dev_pytest_6116__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pytest_dev_pytest_6116__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pytest_dev_pytest_9359__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_pytest_dev_pytest_9359__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_sympy_sympy_21627__ds_wave2_after_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/result_swebench_sympy_sympy_21627__ds_wave2_before_forced.json
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_wave2_before_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_wave2_after_forced/
+?? vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__ds_wave2_before_forced/
+?? vibeweaver/WORKFLOWS_EXTENDED.md
+---tracked?---
+---python---
+Python 3.9.6
+[0m
+[0m$ [0mls /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/ 2>/dev/null; echo "---global memory---"; ls ~/.config/opencode/vibeweaver/memory/ 2>/dev/null || echo "no global memory"; echo "---configs skill scripts---"; ls /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/ds_forced_before/opencode/skills/vibeweaver/scripts 2>/dev/null || echo "none"
+assert_artifacts.py
+audit_selftest.mjs
+mm_probe.py
+mutation_sweep.mjs
+tests
+vibeweaver-audit-core.js
+---global memory---
+no global memory
+---configs skill scripts---
+none
+[0m
+[0m→ [0mRead /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py
+The run dir is untracked within a large repo. Let me check the canonical assert script (to understand artifact checks) and the global memory, then proceed.
+[0m
+[0m# [0mTodos
+[✓] ZERO: decompose + research (done: canonical exercise, 2 approaches evaluated, websearch rate-limited)
+[•] COV-9 baseline: commit backup, run baseline import check
+[ ] RED: run assertion battery against stub, capture failing evidence
+[ ] Implement PhoneNumber in phone_number.py
+[ ] GREEN: run assertion battery, all pass, log evidence
+[ ] Write tests/acceptance.md + tests/verification_log.md + memory/
+[ ] Copy + run tests/assert_artifacts.py (exit 0)
+[ ] Commit implementation + completion output (table, gates)
+[0m
+Now I have the full picture. This is a pure-logic Python exercise (the canonical Exercism "Phone Number" task). No UI, no service, no script/ — so the Playwright loop, mm-probe, and service lifecycle don't apply; the logic-bearing path (A4.8 TDD RED→GREEN) with direct-read verification is the right fit. Let me set up tracking and execute.
