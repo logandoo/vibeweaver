@@ -1,4 +1,4 @@
-[2026-08-29 21:11:59,889] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+[2026-08-29 21:13:31,879] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
 ============================= test session starts ==============================
 platform darwin -- Python 3.9.6, pytest-5.2.3.dev198+ge670ff76c.d20260815, py-1.11.0, pluggy-0.13.1 -- /Library/Developer/CommandLineTools/usr/bin/python3
 cachedir: .pytest_cache
