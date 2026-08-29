@@ -12,15 +12,18 @@ Vibe-coding 的普及正在重塑开发者的角色：当模型写码能力不�
 
 至于 Codex 和 Claude Code，我没用过，也没打算用，不知道。如果有人感兴趣可以自行 fork。
 
-## 2026-08-29：wave3 —— 双模式（AUTO/GUIDED）+ 暂停恢复协议 + 项目画像 + 任务类型扩展
+## 2026-08-29：wave3 —— 让 agent 真正接管，把"等人点"收干净
 
-针对交互式使用中暴露的两类问题（部分卡点等人工发"继续"才走；审计/部署/运维类任务没有工作流）补齐，约束是主 skill 不膨胀（48,993 B，T11 <49KB 达标）且编码完成能力不回退：
+这套规则跑起来之后有两个尴尬场面。一是有些卡点天生要停：需求模糊要问、设计门要确认、基线带旧伤要裁决——停没错，但一停就得等人敲"继续"，而且"继续"到底是批准还是重新计划，没人说得清。二是规矩自己有盲区：写库、写 CLI 的人被要求交 `start.sh`（库哪来的服务？）；凭据明明是用户点名要写的，门一律拦；审计、部署、运维这类不改代码的活，干脆整个没有工作流，硬套 C2 会逼着 agent 给一份审计报告编验收循环。
 
-- **死锁三修（机械层）**。① 项目画像：`tests/project_profile.json`（或 `--profile service|backend-api|web-static|cli|library`）声明式跳过结构性不适用的断言组——库/CLI 项目不再被 `script/linux/start.sh` 永久锁死在 exit 1（画像只跳组、绝不弱化适用组，跳过行为打印为门禁证据）；顺带修了 start.sh 缺失时 stat() 崩溃出 traceback 的潜伏 bug。② 组 14 凭据豁免配对：用户明确要求写入的凭据用行内 `vw-approved` 标记豁免，但必须配对 `- secret-approved: <path> — <reason>` 日志行（纯提及不算标记、按路径计数、前缀兄弟路径不顶替）。③ gate 插件：`tests/`/`memory/` 写入不再触发 GATE-BLOCKED（证据修复路径永不死锁，首写 catch-22 消除），BLOCKED 消息首行声明"写入已成功——这是完成门不是执行停止"，路径先 resolve 再按首段锚定（堵 `memory/../src/…` 穿越）。
-- **COV-12 双模式。** 每任务 ZERO 声明 `Mode: AUTO`（默认，全程接管）或 `Mode: GUIDED`（用户要求多介入）。模式只改"人工确认点"（需求模糊/验收标准/设计门/基线失败/中loop改判据/cap-stall 上报）：AUTO 下转成追加到 `tests/decisions.md` 的 ADR（trigger/options/chosen 最保守/why/revisit-if）后自主继续；**证据门（COV-1/2/5/7、assert exit-0、A4.9、Memory Gate）两模式完全一致**——模式买的是自主权，不是把 FAIL 改成 PASS。Class-E 硬停（COV-11 冲突·生产部署·破坏性操作·凭据暴露·assert 无合法修复路径）两模式相同。AUTO 有失控界：同一子问题 ≥3 条 ADR 后再停必须发暂停包。
-- **§A4.11/§3.4 暂停-恢复协议。** 任何停（两模式）必写 `tests/paused_state.md` + 回复末行 `[PAUSED] gate=… | question=… | options=… | default-if-continue=… | state=…`；用户"继续"= 批准 default 选项（不是重新计划），重入只读暂停包 + acceptance + 日志尾部——压缩后重入的上下文抖动随之消失。
-- **任务类型补全（路由不膨胀）。** 主 SKILL 只加四段骨架，全文进新 companion `WORKFLOWS_EXTENDED.md`（payload 第 10 个 md）：**C4 审计**（只读任务模式：finding 必带 severity+dimension+file:line+PoC，Critical/Important 由独立 subagent 复验，COV-1=na）；**C5 部署**（预部署清单→回滚脚本先行→部署动作=Class-E→部署后 A4.7b real-HTTP 冒烟→回滚演练一次）；**C6 运维/事故**（先取证后动手，postmortem 闭环到永久回归用例，维护波 ≤5 依赖升级/波）；**C7 非Web运行时**（CLI/库/批处理：project profile + CLI transcript/退出码/golden diff 为证据，替代 Playwright）。
-- **A/B 回归（deepseek-v4-flash 强制注入，16 并发）**：16 题 BEFORE 15/16 vs AFTER 14/16（±1 方差）；polyglot 10 题 × 4 轮均值 **BEFORE 87.5% vs AFTER 92.5%（非劣 +2）**，SWE-bench 6/6=6/6；32+80 次运行零超时零冻结。质量闭环：A4.9 独立评审抓出 Critical（组 14 误伤纯提及行）+2 Important 并全部修复，复评 ready；断言单测 14→16 场景全绿。
+这波就是收拾这三件事的：
+
+- **AUTO / GUIDED 双模式（COV-12）。** 默认 AUTO：该问的不再问，把判断写进 `tests/decisions.md`（当时的选项、选了哪条、为什么、什么情况回头），然后挑最保守的一条接着干。GUIDED 是老行为，一字未动。要分清的是：模式只动"问不问你"，动不了证据——测试照跑、截图照截、assert 照样 exit 0，任何模式都不许把 FAIL 说成 PASS。生产部署、删数据、注入冲突这类不可逆的事，两个模式都得停下来问。
+- **暂停有了协议。** 谁要停，都得留下 `[PAUSED] gate=… | default-if-continue=… | state=…` 这一行。你回一句"继续"，就是批准 default 那个选项，agent 从 state 写的位置接着干——不重新理解上下文，也不把问过的事再问一遍。顺带把压缩后重入的"全文重读"降成读日志尾部，长任务不会再读着读着把上下文读爆。
+- **门不再跟项目类型打架。** 新增 project profile：库/CLI 项目声明一声，start/stop/restart 那组检查跳过（是跳，不是放水，跳了什么打印在门禁输出里）。用户点名要写的凭据，行内标 `vw-approved`、日志配一行 `- secret-approved: <路径>`，机器对得上就放行。gate 插件也不再拿报错吓人：改 `tests/`、`memory/` 不触发 GATE-BLOCKED，BLOCKED 消息第一句就是"写入已成功，这是完成门不是执行停止"。
+- **四类任务有了自己的走法。** 审计是只读的，产出报告，每条发现必须带 file:line 和复现命令，重点发现由另一个 subagent 复核；部署动作本身永远是人确认，回滚脚本要先写好、还得真演练一次；线上事故先取证再动手，修完必须留一条永久回归用例；CLI/库这类没页面没 HTTP 的活，证据改成命令行 transcript + 退出码 + 输出 diff。骨架在 SKILL.md，全文在新 companion `WORKFLOWS_EXTENDED.md`——主文件只长了 15 字节。
+
+效果还是用老办法验的：deepseek-v4-flash 强制注入跑 16 题，改前 15/16、改后 14/16，看着像回退；把 polyglot 10 题复测 4 轮取均值，实际是改前 87.5% vs 改后 92.5%——方向反了过来，单轮那 1 题就是掷硬币。SWE-bench 两边都 6/6。16 并发跑了 112 次没冻过一次。另外这波自己也被独立评审抓了个 Critical（组 14 会把注释里提到 `vw-approved` 的普通代码行误杀），修完复评才是 ready——门连写门的人都照拦。
 
 ## 2026-08-28：AI-native SDLC 加固 —— 完工门内容检查 + 结构化评审
 
