@@ -4,7 +4,7 @@ description: Canonical variable-length-quantity encode/decode for a 32-bit-unsig
 type: fix
 date: 2026-08-29
 status: ⏳
-commit: TBD
+commit: 444a7ac
 file_refs:
   - path: variable_length_quantity.py
     range: "1-32"
