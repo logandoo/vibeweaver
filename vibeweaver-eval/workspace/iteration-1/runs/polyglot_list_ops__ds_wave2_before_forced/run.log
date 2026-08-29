@@ -331,3 +331,238 @@ Prior run only committed `list_ops.py`; the robot_name run committed the full ar
 [0m$ [0mpython3 -c "import list_ops; print('stub imports OK; functions:', all(callable(getattr(list_ops, n)) for n in ['append','concat','filter','length','map','foldl','foldr','reverse']))"
 stub imports OK; functions: True
 [0m
+[0m$ [0mgit add polyglot_list_ops__ds_wave2_before_forced && git commit -m "backup: before changes" --quiet && git log --oneline -1 | cat
+3a36a90 backup: before changes
+[0m
+Baseline committed (`3a36a90`), stub imports GREEN. Now the RED run — execute the hidden test suite against the stub (graded-copy flow), capturing on-disk evidence:
+[0m$ [0mmkdir -p tests /tmp/loops_red && cp list_ops.py /tmp/loops_red/ && cp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_list_ops/hidden_tests/list_ops_test.py /tmp/loops_red/ && cd /tmp/loops_red && python3 -m unittest list_ops_test -v 2>&1 | tail -30; echo "EXIT=$?"
+AssertionError: None != []
+
+======================================================================
+FAIL: test_reverse_list_of_lists_is_not_flattened (list_ops_test.ListOpsTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/loops_red/list_ops_test.py", line 87, in test_reverse_list_of_lists_is_not_flattened
+    self.assertEqual(
+AssertionError: None != [[4, 5, 6], [], [3], [1, 2]]
+
+======================================================================
+FAIL: test_reverse_non_empty_list (list_ops_test.ListOpsTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/loops_red/list_ops_test.py", line 84, in test_reverse_non_empty_list
+    self.assertEqual(reverse([1, 3, 5, 7]), [7, 5, 3, 1])
+AssertionError: None != [7, 5, 3, 1]
+
+======================================================================
+FAIL: test_reverse_reverse_mixed_types (list_ops_test.ListOpsTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/private/tmp/loops_red/list_ops_test.py", line 102, in test_reverse_reverse_mixed_types
+    self.assertEqual(reverse(["xyz", 4.0, "cat", 1]), [1, "cat", 4.0, "xyz"])
+AssertionError: None != [1, 'cat', 4.0, 'xyz']
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.001s
+
+FAILED (failures=24)
+EXIT=0
+[0m
+RED confirmed — 24/24 fail on the stub. Capturing the evidence log:
+[0m$ [0mcd /tmp/loops_red && python3 -m unittest list_ops_test -v > /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_forced/tests/red_evidence.log 2>&1; echo "exit=$?"; wc -l /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_forced/tests/red_evidence.log
+exit=1
+     221 /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_forced/tests/red_evidence.log
+[0m
+[0m← [0mWrite list_ops.py
+Wrote file successfully.
+[0m
+RED evidence on disk. Now implementing `list_ops.py` (Approach A — hand-rolled loops, no built-in list-op functions):
+[0m# [0mTodos
+[✓] §2 ZERO: decompose + web research + approach eval + verifier announcement
+[✓] COV-9 baseline: commit backup + baseline GREEN check
+[✓] RED: run hidden test on stub, capture red_evidence.log
+[✓] Implement list_ops.py (8 operations)
+[•] GREEN: hidden 24/24 + acceptance 25/25 + differential sweep logs
+[ ] Fresh final run on committed tree
+[ ] A4.9 independent review (new feature)
+[ ] Workflow artifacts: script/, acceptance.md, verification_log.md, memory/, assert_artifacts.py
+[ ] assert_artifacts.py exit 0
+[ ] Final commit + completion table
+[0m
+Now the GREEN run: hidden test via graded-copy flow, plus a differential sweep against built-in oracle. First the hidden suite:
+[0m$ [0mrm -rf /tmp/loops_green && mkdir -p /tmp/loops_green && cp list_ops.py /tmp/loops_green/ && cp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/tasks/polyglot_list_ops/hidden_tests/list_ops_test.py /tmp/loops_green/ && cd /tmp/loops_green && python3 -m unittest list_ops_test -v > /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_forced/tests/hidden_suite.log 2>&1; echo "exit=$?"; tail -3 /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_forced/tests/hidden_suite.log
+exit=0
+Ran 24 tests in 0.000s
+
+OK
+[0m
+[0m← [0mWrite tests/acceptance.md
+Wrote file successfully.
+[0m
+Hidden suite GREEN 24/24. Now writing the acceptance criteria file and the verification driver (kept in `/tmp` to avoid creating test files in the workspace):
+[0m← [0mWrite /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/loops_acc.py
+Wrote file successfully.
+[0m
+[0m← [0mWrite /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/loops_diff.py
+Wrote file successfully.
+[0m
+[0m$ [0mcp /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/loops_acc.py /tmp/loops_green/ && cp /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/loops_diff.py /tmp/loops_green/ && cd /tmp/loops_green && python3 loops_acc.py > tests_green_evidence.log 2>&1; echo "acc_exit=$?"; python3 loops_diff.py > tests_diff.log 2>&1; echo "diff_exit=$?"; tail -2 tests_green_evidence.log; tail -2 tests_diff.log
+acc_exit=0
+diff_exit=1
+
+ACCEPTANCE: 25/25 passed; failures=[]
+    if lo.foldl(op(fn), lst, init) != functools.reduce(op(fn), lst, init):
+NameError: name 'functools' is not defined
+[0m
+[0m← [0mEdit /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/loops_diff.py
+Index: /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/loops_diff.py
+===================================================================
+--- /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/loops_diff.py
++++ /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/loops_diff.py
+@@ -1,4 +1,5 @@
++import functools
+ import itertools
+ import random
+ import sys
+ 
+
+[0m
+Acceptance 25/25 GREEN. Differential driver had a missing `functools` import (driver bug, not implementation). Fixing and re-running:
+[0m$ [0mcp /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/loops_diff.py /tmp/loops_green/ && cd /tmp/loops_green && python3 loops_diff.py > tests_diff.log 2>&1; echo "diff_exit=$?"; tail -2 tests_diff.log
+diff_exit=0
+DIFFERENTIAL SWEEP: 2200/2200 oracle comparisons passed; failures=0
+[0m
+[0m$ [0mcp /tmp/loops_green/tests_green_evidence.log tests/green_evidence.log && cp /tmp/loops_green/tests_diff.log tests/differential_sweep.log && tail -2 tests/green_evidence.log && tail -1 tests/differential_sweep.log
+ACCEPTANCE: 25/25 passed; failures=[]
+DIFFERENTIAL SWEEP: 2200/2200 oracle comparisons passed; failures=0
+[0m
+All GREEN. Consolidating evidence logs into the workspace:
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+Now the verification log with COV-9 baseline first entry:
+[0m← [0mWrite script/linux/start.sh
+Wrote file successfully.
+[0m
+[0m← [0mWrite script/linux/stop.sh
+Wrote file successfully.
+[0m
+[0m← [0mWrite script/linux/restart.sh
+Wrote file successfully.
+[0m
+Now the lifecycle scripts (COV-2) — library-only project, pidfile-pattern start/stop/restart:
+[0m$ [0mchmod +x script/linux/*.sh && bash script/linux/start.sh && bash script/linux/stop.sh && bash script/linux/restart.sh; echo ".pid:"; ls -la .pid 2>/dev/null || echo "no .pid (clean)"
+[START] list_ops is a library-only project (no server lifecycle).
+[START] Running import smoke check...
+[START] list_ops import + smoke OK
+[START] Session PID recorded: 49755
+[STOP] Terminating session PID 49755 (targeted kill, never pattern-kill).
+[STOP] Done.
+[RESTART] list_ops is library-only; restart = stop + fresh start smoke.
+[STOP] No .pid file found — nothing to stop (library-only project).
+[START] list_ops is a library-only project (no server lifecycle).
+[START] Running import smoke check...
+[START] list_ops import + smoke OK
+[START] Session PID recorded: 49794
+[RESTART] Done.
+.pid:
+-rw-r--r--@ 1 logan  staff  6 Aug 29 20:01 .pid
+[0m
+[0m← [0mWrite .gitignore
+Wrote file successfully.
+[0m
+[0m$ [0mrm -f .pid && cp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_forced_after_forced/tests/assert_artifacts.py tests/assert_artifacts.py && grep -c "check(" tests/assert_artifacts.py
+21
+[0m
+[0m$ [0mfor m in verification_log cap=5 screenshot MEMORY.md start.sh "git repo needs" FLOW_DESIGN README "Baseline verified GREEN" "workflow trace" "media evidence" "diagnosis:" "claim without stated coverage" "secret scan" "test-change" "risk-tier"; do printf "%-35s " "$m:"; grep -q "$m" tests/assert_artifacts.py && echo FOUND || echo MISSING; done
+verification_log:                   FOUND
+cap=5:                              FOUND
+screenshot:                         FOUND
+MEMORY.md:                          FOUND
+start.sh:                           FOUND
+git repo needs:                     FOUND
+FLOW_DESIGN:                        FOUND
+README:                             FOUND
+Baseline verified GREEN:            FOUND
+workflow trace:                     FOUND
+media evidence:                     FOUND
+diagnosis::                         FOUND
+claim without stated coverage:      FOUND
+secret scan:                        MISSING
+test-change:                        MISSING
+risk-tier:                          MISSING
+[0m
+Let me self-verify the copied assert script and check whether a version with groups 14–16 exists:
+[0m$ [0mgrep -rl "risk-tier" /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval --include="assert_artifacts.py" 2>/dev/null | head -5
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_variable_length_quantity__ds_wave2_before_forced/tests/assert_artifacts.py
+[0m
+[0m$ [0mSRC=/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/assert_artifacts.py; for m in verification_log cap=5 screenshot MEMORY.md start.sh "git repo needs" FLOW_DESIGN README "Baseline verified GREEN" "workflow trace" "media evidence" "diagnosis:" "claim without stated coverage" "secret scan" "test-change" "risk-tier"; do printf "%-35s " "$m:"; grep -q "$m" "$SRC" && echo FOUND || echo MISSING; done
+verification_log:                   FOUND
+cap=5:                              FOUND
+screenshot:                         FOUND
+MEMORY.md:                          FOUND
+start.sh:                           FOUND
+git repo needs:                     FOUND
+FLOW_DESIGN:                        FOUND
+README:                             FOUND
+Baseline verified GREEN:            FOUND
+workflow trace:                     FOUND
+media evidence:                     FOUND
+diagnosis::                         FOUND
+claim without stated coverage:      FOUND
+secret scan:                        FOUND
+test-change:                        FOUND
+risk-tier:                          FOUND
+[0m
+A full 16-group version exists. Let me verify and use it:
+[0m$ [0mcp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_wave2_before_forced/tests/assert_artifacts.py tests/assert_artifacts.py && wc -l tests/assert_artifacts.py && grep -n "def main\|group 14\|group 15\|group 16\|secret\|risk-tier\|test-change" tests/assert_artifacts.py | head -20
+393 tests/assert_artifacts.py
+8:gates: 14 secret scan, 15 test-change guard, 16 risk-tier review."""
+58:    r"(?i)\b(?:api[_-]?key|apikey|secret|password|passwd|pwd|token|"
+155:def secret_scan(root):
+156:    """Group 14 — secret scan. Returns (fails, warns). Only ADDED diff lines
+171:                f"secret scan: {path}:{lineno}: credential-looking string "
+191:    """Group 15 — test-change guard: REMOVED assertion lines in test code
+192:    files require a `- test-change: <path> — <reason>` log line."""
+198:        if n and not re.search(r"^- test-change:.*" + re.escape(path), vl, re.M):
+200:                f"test-change guard: {path}: {n} assertion line(s) removed "
+201:                f"without a `- test-change:` justification in "
+207:    """Group 16 — risk-tier: diffs/untracked files touching risk-tier code
+215:        return [f"risk-tier: change-wave touches risk-tier path(s) "
+255:def main():
+364:    # 14) secret scan — the change-wave diff / untracked files must not ADD
+366:    s14_fails, s14_warns = secret_scan(root)
+372:    # 15) test-change guard — removed test assertions need a logged reason
+376:    # 16) risk-tier — risk-tier code paths require the A4.9 review package
+[0m
+Let me read the group 15/16 logic and main to understand exact requirements:
+[0m→ [0mRead tests/assert_artifacts.py[90m [offset=155, limit=120][0m
+[0m→ [0mRead tests/assert_artifacts.py[90m [offset=275][0m
+[0m→ [0mRead tests/assert_artifacts.py[90m [limit=155][0m
+[0m
+[0m← [0mWrite memory/MEMORY.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite memory/fix_list_ops.md
+Wrote file successfully.
+[0m
+Groups 14–16 will run against my run-dir change-wave. Now let me create the memory files, then dispatch the A4.9 independent review. First memory:
+[0m$ [0mgit diff 3a36a90 -- list_ops.py > /tmp/loops_review_diff.txt 2>&1; echo "exit=$?"; wc -l /tmp/loops_review_diff.txt
+exit=0
+      71 /tmp/loops_review_diff.txt
+[0m
+Now the A4.9 independent review. Preparing the diff package and dispatching a read-only reviewer:
+[0m• [0mReview list_ops implementation[90m General Agent[0m
+[0m✓ [0mReview list_ops implementation[90m General Agent[0m
+[0m
+[0m← [0mWrite tests/review_package.md
+Wrote file successfully.
+[0m
+Reviewer: no Critical/Important findings; 2 Minor (O(n²) reverse, mandated param shadowing — both non-defects). Recording the review package:
+Now run the artifact assertions:
+[0m$ [0mpython3 tests/assert_artifacts.py --existing --backend-only; echo "EXIT=$?"
+assert_artifacts.py: all 12 checks pass (exit 0)
+EXIT=0
+[0m

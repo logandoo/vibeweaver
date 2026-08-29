@@ -1,0 +1,27 @@
+PASS 1 append([],[])==[]
+PASS 2 append([],[1,2,3,4])==[1,2,3,4]
+PASS 3 append([1,2,3,4],[])==[1,2,3,4]
+PASS 4 append([1,2],[2,3,4,5])==[1,2,2,3,4,5]
+PASS 5 concat([])==[]
+PASS 6 concat flat 1-level
+PASS 7 concat one-level only
+PASS 8 filter empty
+PASS 9 filter odd
+PASS 10 length([])==0
+PASS 11 length([1,2,3,4])==4
+PASS 12 map empty
+PASS 13 map +1
+PASS 14 foldl empty
+PASS 15 foldl +
+PASS 16 foldl direction
+PASS 17 foldr empty
+PASS 18 foldr +
+PASS 19 foldr direction
+PASS 20 reverse([])==[]
+PASS 21 reverse
+PASS 22 reverse no flatten
+PASS 23 foldr strings
+PASS 24 reverse mixed
+PASS 25 module imports + 8 signatures
+
+ACCEPTANCE: 25/25 passed; failures=[]
