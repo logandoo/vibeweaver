@@ -1,0 +1,7 @@
+added after Jim: [True]
+grade 2: ['Jim']
+roster: ['Jim']
+added: [True, True, True, True, True, True, True, False]
+roster: ['Anna', 'Barb', 'Charlie', 'Alex', 'Jim', 'Peter', 'Zoe']
+grade 2: ['Alex', 'Jim', 'Peter', 'Zoe']
+grade 5: []
