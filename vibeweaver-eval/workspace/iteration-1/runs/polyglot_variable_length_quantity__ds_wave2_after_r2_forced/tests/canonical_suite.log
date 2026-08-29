@@ -1,0 +1,12 @@
+# GREEN verification — canonical hidden suite vs implementation
+# 2026-08-29T12:47:40Z
+# command: python3 -m pytest -q (PYTEST_DISABLE_PLUGIN_AUTOLOAD=1)
+..........................                                               [100%]
+26 passed in 0.02s
+pytest exit code: 0
+# GREEN verification — final fresh-run on delivered tree (post artifact writes, pre-commit)
+# 2026-08-29T12:50:48Z
+# command: python3 -m pytest -q (PYTEST_DISABLE_PLUGIN_AUTOLOAD=1) — scratch copy, grader hidden suite untouched
+..........................                                               [100%]
+26 passed in 0.02s
+pytest exit code: 0

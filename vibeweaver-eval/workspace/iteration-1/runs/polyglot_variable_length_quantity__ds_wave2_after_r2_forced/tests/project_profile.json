@@ -1,0 +1,7 @@
+{
+  "project_kind": "library",
+  "description": "Variable Length Quantity encode/decode library (no UI, no HTTP service, no config)",
+  "verifier": "direct read (non-web)",
+  "skip_groups": ["start_stop_restart", "page_design", "e2e_workflows"],
+  "test_command": "python3 -m pytest -q"
+}

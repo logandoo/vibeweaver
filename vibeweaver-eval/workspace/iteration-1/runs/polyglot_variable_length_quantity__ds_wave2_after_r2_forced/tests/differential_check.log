@@ -1,0 +1,36 @@
+# Differential + property verification (independent reference: prompt.md spec table)
+# 2026-08-29T12:47:52Z
+# reference does not share candidate assumptions: expected outputs derived manually from the spec bit layout
+PASS prompt_encode 0x00000000 got=[0] expected=[0]
+PASS prompt_encode 0x00000040 got=[64] expected=[64]
+PASS prompt_encode 0x0000007F got=[127] expected=[127]
+PASS prompt_encode 0x00000080 got=[129, 0] expected=[129, 0]
+PASS prompt_encode 0x00002000 got=[192, 0] expected=[192, 0]
+PASS prompt_encode 0x00003FFF got=[255, 127] expected=[255, 127]
+PASS prompt_encode 0x00004000 got=[129, 128, 0] expected=[129, 128, 0]
+PASS prompt_encode 0x00100000 got=[192, 128, 0] expected=[192, 128, 0]
+PASS prompt_encode 0x001FFFFF got=[255, 255, 127] expected=[255, 255, 127]
+PASS prompt_encode 0x00200000 got=[129, 128, 128, 0] expected=[129, 128, 128, 0]
+PASS prompt_encode 0x08000000 got=[192, 128, 128, 0] expected=[192, 128, 128, 0]
+PASS prompt_encode 0x0FFFFFFF got=[255, 255, 255, 127] expected=[255, 255, 255, 127]
+PASS encode 0
+PASS encode 0xFFFFFFFF
+PASS encode []
+PASS decode []
+PASS encode two singles
+PASS encode two multi
+PASS encode many multi
+PASS decode [127] got=[127] expected=[127]
+PASS decode [192, 0] got=[8192] expected=[8192]
+PASS decode [255, 255, 127] got=[2097151] expected=[2097151]
+PASS decode [129, 128, 128, 0] got=[2097152] expected=[2097152]
+PASS decode [143, 255, 255, 255, 127] got=[4294967295] expected=[4294967295]
+PASS decode multiple
+PASS decode incomplete [255] msg=ValueError('incomplete sequence')
+PASS decode incomplete [128] msg=ValueError('incomplete sequence')
+PASS roundtrip 2000 random 32-bit
+PASS roundtrip 20 small batches
+PASS prompt-table invert
+
+RESULT: 30 passed, 0 failed
+exit code: 0
