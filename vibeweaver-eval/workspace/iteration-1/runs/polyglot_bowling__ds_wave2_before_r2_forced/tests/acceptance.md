@@ -8,5 +8,5 @@
 4. Consecutive strikes apply two-roll bonuses correctly (10,10,10,5,3,...) scores 81; a perfect game (12 strikes) scores 300.
 5. A 10th-frame spare gets one fill ball counted once (...,7,3,7) scores 17.
 6. A 10th-frame strike gets two fill balls counted once (...,10,7,1) scores 18; X1/ scores 20; XXX scores 30; ...,10,10,6 scores 26.
-7. roll() raises an exception for negative pins, pins > 10, a frame whose two balls exceed 10, and rolling after the game is over.
+7. roll() raises an exception for negative pins, pins > 10, a frame whose two balls exceed 10, and rolling after the game is over; in the 10th frame, a second bonus roll that would exceed the pins left standing when the first bonus roll was not a strike is also rejected (e.g. [0,0]x9 + [10,6] then roll 10).
 8. score() raises an exception when the game is unstarted or incomplete (including missing fill balls).

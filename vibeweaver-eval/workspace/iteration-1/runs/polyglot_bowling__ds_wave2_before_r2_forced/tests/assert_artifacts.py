@@ -201,7 +201,7 @@ def secret_scan(root, vl=""):
             hit(rel, i, l)
     for mpath, cnt in sorted(marker_paths.items()):
         approvals = len(re.findall(
-            r"^- secret-approved:\s*" + re.escape(mpath) + r"\b", vl, re.M))
+            r"^- secret-approved:\s*" + re.escape(mpath) + r"(?![\w.\-])", vl, re.M))
         if approvals < cnt:
             fails.append(
                 f"secret scan: {mpath}: {cnt} `vw-approved` marker line(s) but "
