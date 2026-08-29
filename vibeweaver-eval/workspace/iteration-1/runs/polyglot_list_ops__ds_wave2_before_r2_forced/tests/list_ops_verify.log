@@ -1,0 +1,26 @@
+PASS append-empty-lists
+PASS append-list-to-empty
+PASS append-empty-to-list
+PASS append-non-empty
+PASS concat-empty
+PASS concat-list-of-lists
+PASS concat-nested
+PASS filter-empty
+PASS filter-non-empty
+PASS length-empty
+PASS length-non-empty
+PASS map-empty
+PASS map-non-empty
+PASS foldl-empty
+PASS foldl-direction-independent
+PASS foldl-direction-dependent
+PASS foldr-empty
+PASS foldr-direction-independent
+PASS foldr-direction-dependent
+PASS reverse-empty
+PASS reverse-non-empty
+PASS reverse-list-of-lists-not-flattened
+PASS foldr-add-string
+PASS reverse-mixed-types
+
+TOTAL: 24 passed, 0 failed
