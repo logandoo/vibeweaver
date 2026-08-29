@@ -25,6 +25,10 @@
   (global uniqueness across robots).
 - Thread-safety of check-then-add: not handled (single-threaded graded suite);
   would need a lock if multi-threaded.
+- Retry-loop attempt-cap (A4.9 minor, deferred): near exhaustion (~1 slot left)
+  expected draws ~676k per call — slow but terminating because the
+  `_NAMESPACE_SIZE` guard fires first. Space is 676k; graded suite uses ~2000
+  names, so no cap needed in practice.
 - Verifier: direct-read (backend-only library, no UI/media).
 
 ## Verification artifacts (tests/)

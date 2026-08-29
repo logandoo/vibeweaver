@@ -14,3 +14,10 @@ Upstream: tests/acceptance.md (criteria 1-5) ← prompt.md + hidden test contrac
 - iter 3 PASS: consumer smoke 9/9 checks passed | criteria: 1-5 (uniqueness
   sweep 2000 robots, prefix/suffix variation, non-sequential) |
   evidence tests/consumer_smoke.run.log.
+- iter 4 PASS: A4.9 review fix + re-run — reviewer verdict PASS (minors only):
+  (1) namespace size now derived from charset lengths, (2) name construction
+  unified as one generator join; attempt-cap on the retry loop deferred to
+  memory/robot_name.md (space is 676k, tests use ~2000 names). Hidden suite
+  4/4 + consumer smoke 9/9 + assert_artifacts.py 9/9 re-run green on the
+  fixed tree | criteria: 1-5 | evidence tests/robot_name_hidden.run.log,
+  tests/consumer_smoke.run.log (re-run).

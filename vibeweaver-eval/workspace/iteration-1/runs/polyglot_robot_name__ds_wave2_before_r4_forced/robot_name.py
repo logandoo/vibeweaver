@@ -4,7 +4,7 @@ import string
 
 class Robot:
     _used_names = set()
-    _NAMESPACE_SIZE = 26 * 26 * 10 * 10 * 10
+    _NAMESPACE_SIZE = len(string.ascii_uppercase) ** 2 * 10 ** 3
 
     def __init__(self):
         self.name = self._new_name()
@@ -16,10 +16,10 @@ class Robot:
         if len(self._used_names) >= self._NAMESPACE_SIZE:
             raise RuntimeError("robot name space exhausted")
         while True:
-            name = (
-                random.choice(string.ascii_uppercase)
-                + random.choice(string.ascii_uppercase)
-                + "".join(random.choice(string.digits) for _ in range(3))
+            name = "".join(
+                random.choice(charset)
+                for charset in (string.ascii_uppercase,) * 2
+                + (string.digits,) * 3
             )
             if name not in self._used_names:
                 self._used_names.add(name)
