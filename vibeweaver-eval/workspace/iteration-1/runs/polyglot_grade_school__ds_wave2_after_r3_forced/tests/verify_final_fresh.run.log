@@ -1,0 +1,25 @@
+[PASS] C1 roster empty
+[PASS] C2 added True on first add
+[PASS] C3 student in roster
+[PASS] C4 added three Trues
+[PASS] C4 three in roster
+[PASS] C5 same-grade dup added
+[PASS] C5 same-grade dup roster
+[PASS] C5 same-grade dup grade-list
+[PASS] C6 cross-grade dup added
+[PASS] C6 cross-grade keeps first
+[PASS] C6 cross-grade other
+[PASS] C7 sorted by grade
+[PASS] C8 sorted by name
+[PASS] C8 grade+name full sort
+[PASS] C9 grade empty-roster
+[PASS] C9 grade missing-grade
+[PASS] C9 grade list sorted
+[PASS] C9 grade sorted-by-name
+[PASS] C10 added multi-grade
+[PASS] C10 roster multi-grade
+[PASS] C11 fresh roster empty
+[PASS] C11 fresh grade empty
+[PASS] C12 no grader test files — none
+
+RESULT: ALL PASS

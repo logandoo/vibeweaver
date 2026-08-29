@@ -1,0 +1,33 @@
+diff --git a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/grade_school.py b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/grade_school.py
+index b57208f..e86c57a 100644
+--- a/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/grade_school.py
++++ b/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/grade_school.py
+@@ -1,15 +1,23 @@
+ class School:
+     def __init__(self):
+-        pass
++        self._students = {}
++        self._added = []
+ 
+     def add_student(self, name, grade):
+-        pass
++        for names in self._students.values():
++            if name in names:
++                self._added.append(False)
++                return False
++        self._students.setdefault(grade, set()).add(name)
++        self._added.append(True)
++        return True
+ 
+     def roster(self):
+-        pass
++        return [name for grade in sorted(self._students)
++                for name in sorted(self._students[grade])]
+ 
+     def grade(self, grade_number):
+-        pass
++        return sorted(self._students.get(grade_number, set()))
+ 
+     def added(self):
+-        pass
++        return self._added

@@ -1,0 +1,9 @@
+# Verification Log — grade_school exercise | 2026-08-29
+
+## Task: grade_school (School roster) — C2/C7 Modify-Existing, non-web library
+
+- Baseline verified GREEN — baseline commit c0d8505 ("backup: before changes"); `python3 -m py_compile grade_school.py` on the stub tree exits 0 and `from grade_school import School` imports cleanly. No pre-existing test suite or script/ lifecycle exists in this workspace (only prompt.md + stub grade_school.py), so COV-9 baseline = compile-green on the provided stubs. No pre-existing failures.
+- iter 1 RED (TDD §A4.8): tests/verify_grade_school.py run against stubs — 22 FAIL / 23 checks, exit 1. Failure reason = feature missing (every stub method is `pass` returning None; each assertion compares against None, e.g. `[FAIL] C1 roster empty`). RED evidence: tests/verify_red.run.log. diagnosis: stubs are `pass` placeholders returning None, so all behavioral assertions fail.
+- iter 2 PASS: implementation of School in grade_school.py — dict {grade → set(names)} + recorded per-add boolean list. Verify driver 23/23 PASS (tests/verify_green.run.log, exit 0). diagnosis: none (all pass). scope: empty roster/grade, same-grade duplicate rejection, cross-grade duplicate rejection, sorting by grade then name, per-grade sorted lists, added() insertion order, no grader test files created.
+- iter 3 PASS (independent oracle): canonical Exercism grade_school_test.py (fetched raw from exercism/python main) run via unittest discovery against the implementation — 20/20 tests OK, exit 0 (tests/canonical_exercism.run.log). scope: all 20 canonical cases incl. the full 7-student grade+name sort and cross-grade duplicate scenarios. This is an independent reference: the canonical test was fetched from the upstream repo, not written by this session.
+- Convergence: 1 logical change, 3 iterations (1 RED + 1 GREEN + 1 canonical oracle), no stalls, no cap-hits.

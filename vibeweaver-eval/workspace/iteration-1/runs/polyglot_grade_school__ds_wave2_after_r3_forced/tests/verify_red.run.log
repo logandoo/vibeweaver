@@ -1,0 +1,25 @@
+[FAIL] C1 roster empty
+[FAIL] C2 added True on first add
+[FAIL] C3 student in roster
+[FAIL] C4 added three Trues
+[FAIL] C4 three in roster
+[FAIL] C5 same-grade dup added
+[FAIL] C5 same-grade dup roster
+[FAIL] C5 same-grade dup grade-list
+[FAIL] C6 cross-grade dup added
+[FAIL] C6 cross-grade keeps first
+[FAIL] C6 cross-grade other
+[FAIL] C7 sorted by grade
+[FAIL] C8 sorted by name
+[FAIL] C8 grade+name full sort
+[FAIL] C9 grade empty-roster
+[FAIL] C9 grade missing-grade
+[FAIL] C9 grade list sorted
+[FAIL] C9 grade sorted-by-name
+[FAIL] C10 added multi-grade
+[FAIL] C10 roster multi-grade
+[FAIL] C11 fresh roster empty
+[FAIL] C11 fresh grade empty
+[PASS] C12 no grader test files — none
+
+RESULT: FAILURES PRESENT
