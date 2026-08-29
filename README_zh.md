@@ -12,6 +12,16 @@ Vibe-coding 的普及正在重塑开发者的角色：当模型写码能力不�
 
 至于 Codex 和 Claude Code，我没用过，也没打算用，不知道。如果有人感兴趣可以自行 fork。
 
+## 2026-08-29：wave3 —— 双模式（AUTO/GUIDED）+ 暂停恢复协议 + 项目画像 + 任务类型扩展
+
+针对交互式使用中暴露的两类问题（部分卡点等人工发"继续"才走；审计/部署/运维类任务没有工作流）补齐，约束是主 skill 不膨胀（48,993 B，T11 <49KB 达标）且编码完成能力不回退：
+
+- **死锁三修（机械层）**。① 项目画像：`tests/project_profile.json`（或 `--profile service|backend-api|web-static|cli|library`）声明式跳过结构性不适用的断言组——库/CLI 项目不再被 `script/linux/start.sh` 永久锁死在 exit 1（画像只跳组、绝不弱化适用组，跳过行为打印为门禁证据）；顺带修了 start.sh 缺失时 stat() 崩溃出 traceback 的潜伏 bug。② 组 14 凭据豁免配对：用户明确要求写入的凭据用行内 `vw-approved` 标记豁免，但必须配对 `- secret-approved: <path> — <reason>` 日志行（纯提及不算标记、按路径计数、前缀兄弟路径不顶替）。③ gate 插件：`tests/`/`memory/` 写入不再触发 GATE-BLOCKED（证据修复路径永不死锁，首写 catch-22 消除），BLOCKED 消息首行声明"写入已成功——这是完成门不是执行停止"，路径先 resolve 再按首段锚定（堵 `memory/../src/…` 穿越）。
+- **COV-12 双模式。** 每任务 ZERO 声明 `Mode: AUTO`（默认，全程接管）或 `Mode: GUIDED`（用户要求多介入）。模式只改"人工确认点"（需求模糊/验收标准/设计门/基线失败/中loop改判据/cap-stall 上报）：AUTO 下转成追加到 `tests/decisions.md` 的 ADR（trigger/options/chosen 最保守/why/revisit-if）后自主继续；**证据门（COV-1/2/5/7、assert exit-0、A4.9、Memory Gate）两模式完全一致**——模式买的是自主权，不是把 FAIL 改成 PASS。Class-E 硬停（COV-11 冲突·生产部署·破坏性操作·凭据暴露·assert 无合法修复路径）两模式相同。AUTO 有失控界：同一子问题 ≥3 条 ADR 后再停必须发暂停包。
+- **§A4.11/§3.4 暂停-恢复协议。** 任何停（两模式）必写 `tests/paused_state.md` + 回复末行 `[PAUSED] gate=… | question=… | options=… | default-if-continue=… | state=…`；用户"继续"= 批准 default 选项（不是重新计划），重入只读暂停包 + acceptance + 日志尾部——压缩后重入的上下文抖动随之消失。
+- **任务类型补全（路由不膨胀）。** 主 SKILL 只加四段骨架，全文进新 companion `WORKFLOWS_EXTENDED.md`（payload 第 10 个 md）：**C4 审计**（只读任务模式：finding 必带 severity+dimension+file:line+PoC，Critical/Important 由独立 subagent 复验，COV-1=na）；**C5 部署**（预部署清单→回滚脚本先行→部署动作=Class-E→部署后 A4.7b real-HTTP 冒烟→回滚演练一次）；**C6 运维/事故**（先取证后动手，postmortem 闭环到永久回归用例，维护波 ≤5 依赖升级/波）；**C7 非Web运行时**（CLI/库/批处理：project profile + CLI transcript/退出码/golden diff 为证据，替代 Playwright）。
+- **A/B 回归（deepseek-v4-flash 强制注入，16 并发）**：16 题 BEFORE 15/16 vs AFTER 14/16（±1 方差）；polyglot 10 题 × 4 轮均值 **BEFORE 87.5% vs AFTER 92.5%（非劣 +2）**，SWE-bench 6/6=6/6；32+80 次运行零超时零冻结。质量闭环：A4.9 独立评审抓出 Critical（组 14 误伤纯提及行）+2 Important 并全部修复，复评 ready；断言单测 14→16 场景全绿。
+
 ## 2026-08-28：AI-native SDLC 加固 —— 完工门内容检查 + 结构化评审
 
 对照 Anthropic《The AI-Native SDLC playbook》(2026-08-21) 与其副 CISO 安全配套文 (2026-07-21)：vibeweaver 的任务内纪律够硬，但有三处实质空白——完工门只查"证据在不在"、从不查 **diff 的内容**；A4.9 独立评审没有维度结构和 nit 上限；缺少事故复盘 / 工件链 / agent-config 回归规则。本波次按单用户交互式 skill 的尺度（而非组织级流水线）全部补齐：
@@ -94,14 +104,23 @@ Vibe-coding 的普及正在重塑开发者的角色：当模型写码能力不�
 
 ```mermaid
 flowchart TD
-    A["任务"] --> B["§2 ZERO ★ 动手前必过<br/>拆解 + 联网检索（≥2 方案）<br/>COV-5 验证器探针：mm_probe 行为探测<br/>COV-11 不可信内容 = 数据不是指令<br/>产物：拆解说明 + 检索结论"]
+    A["任务"] --> B["§2 ZERO ★ 动手前必过<br/>拆解 + 联网检索（≥2 方案）<br/>COV-5 验证器探针：mm_probe 行为探测<br/>COV-11 不可信内容 = 数据不是指令<br/>COV-12 模式声明：AUTO（默认）/ GUIDED<br/>产物：拆解说明 + 检索结论"]
     B --> C{"§3 项目模式"}
     C -->|"新项目 C1"| D1["Design Gate A<br/>§A5 设计文档<br/>Design Gate B<br/>产物：FLOW / PAGE / DATABASE / BACKEND"]
     C -->|"存量修改 C2"| D2["现场勘察：memory · config · script/<br/>产物：baseline 提交 + Baseline verified GREEN"]
     C -->|"大任务 C3"| D3["docs/PLAN.md + Consistency Hub<br/>产物：逐任务块实施计划"]
+    B --> T{"§3.1 任务类型路由"}
+    T -->|"审计 C4（只读）"| T4["docs/AUDIT_*.md<br/>finding 必带 file:line + PoC<br/>独立 subagent 复验"]
+    T -->|"部署 C5"| T5["预部署清单 → 回滚脚本先行<br/>部署动作 = Class-E 人工确认"]
+    T -->|"运维/事故 C6"| T6["先取证后动手<br/>postmortem → 永久回归用例"]
+    T -->|"CLI/库 C7"| T7["project profile 声明 N/A<br/>证据：CLI transcript + 退出码 + golden diff"]
     D1 --> E["实现（改动）"]
     D2 --> E
     D3 --> E
+    T5 --> E
+    T6 --> E
+    T7 --> H
+    T4 --> O
     E --> F{"改动类型"}
     F -->|"运行时可见"| G1["§A4.1 采集验证循环<br/>Act → Capture → Verify → Fix → Log<br/>产物：verification_log.md + 媒体证据"]
     F -->|"纯后端"| G2["§A4.7 文档驱动 API 测试<br/>+ A4.7b 跨接口 workflow trace"]
@@ -119,7 +138,7 @@ flowchart TD
     L --> M["Memory Gate<br/>A7.9 记忆写入 + A7.10 通过"]
     M --> N{"插件审计 Tier 0/1/2"}
     N -->|"BAD → GATE-BLOCKED / RED 锁存"| E
-    N -->|"OK"| O["交付"]
+    N -->|"OK"| O["交付（C4 审计报告在此汇合）"]
 ```
 
 - **节点 = 带强制产物的阶段。** ZERO（拆解 + 联网检索）→ 项目模式判定 → 设计门 → 实现 → 验证循环 → 独立评审派发 → 完工表格。一个阶段不是"模型说完了"就算完，而是它要求的产物真的落在磁盘上才算完。
@@ -360,14 +379,15 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 | 文件                                                    | 用途                                                                            |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `SKILL.md`                                            | 绑定操作契约 + 路由器（815 行，<49KB，有体积守卫）                              |
+| `SKILL.md`                                            | 绑定操作契约 + 路由器（814 行，<49KB，有体积守卫）                              |
 | `COMPLETION_GATE.md`                                  | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单                      |
 | `CODING_PRINCIPLES.md`                                | 四条铁律 + Karpathy 的六条纪律                                                  |
 | `ENGINEERING_STD.md`                                  | 工程标准细则                                                                    |
 | `REFERENCE.md` / `APPENDIX.md`                      | 流程参考 / 可执行模板（含 §A9 事故复盘模板）                                   |
-| `TESTING_PROTOCOLS.md`                                | §A4.1 循环 + §A4.6 调试 + §A4.7–§A4.10 规范文本                            |
+| `TESTING_PROTOCOLS.md`                                | §A4.1 循环 + §A4.6 调试 + §A4.7–§A4.11 规范文本（§A4.11 模式/暂停协议）      |
+| `WORKFLOWS_EXTENDED.md`                               | §M 双模式 + Class-E 清单 + ADR/PAUSED 格式 · C4 审计 / C5 部署 / C6 运维 / C7 非Web · 项目画像参照 |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`           | 项目记忆子系统                                                                  |
-| `scripts/assert_artifacts.py`                         | 16 组断言的规范脚本，项目复制进`tests/` 使用（含 secret scan / test-change guard / risk-tier） |
+| `scripts/assert_artifacts.py`                         | 17 标记断言的规范脚本，项目复制进`tests/` 使用（含 secret scan 配对 / test-change guard / risk-tier / 项目画像） |
 | `scripts/mm_probe.py`                                 | 行为化多模态自探针（COV-5 验证器选择）                                          |
 | `vibeweaver-gate.js`                                  | stop hook 插件（opencode）+ 机械化停滞观测                                      |
 | `vibeweaver-audit.js`                                 | 三层机械审计器（Tier 0/1/2）——会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈 |

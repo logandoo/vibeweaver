@@ -12,6 +12,16 @@ For now the project is optimized for Opencode only; a DeepSeek Harness port is o
 
 As for Codex and Claude Code — never used them, no plans to, no idea. Anyone interested is welcome to fork.
 
+## 2026-08-29: wave3 — dual modes (AUTO/GUIDED) + pause-resume contract + project profiles + task-type expansion
+
+Fixes two classes of problems observed in interactive use (some gates idled waiting for a human "continue"; audit/deploy/ops tasks had no workflow) under two constraints: the main skill does not balloon (48,993 B, T11 <49 KB) and coding completion ability does not regress:
+
+- **Three deadlock fixes (mechanical layer).** 1) Project profiles: `tests/project_profile.json` (or `--profile service|backend-api|web-static|cli|library`) declaratively skips structurally-N/A assert groups — a library/CLI project is no longer permanently locked at exit 1 by `script/linux/start.sh` (a profile only SKIPS a group, never weakens an applicable one, and the skip is printed as gate evidence); also fixed a latent bug where a missing start.sh crashed with a traceback instead of a clean assertion. 2) Group-14 credential approval pairing: a credential the user explicitly requested is exempted via an inline `vw-approved` marker, but ONLY with the paired `- secret-approved: <path> — <reason>` log line (prose mentions are no-ops, per-path counting, prefix-sibling paths don't substitute). 3) Gate plugin: writes under `tests/`/`memory/` no longer trigger GATE-BLOCKED (the evidence-fix path can never deadlock — first-write catch-22 eliminated), the BLOCKED message now opens with "write SUCCEEDED — completion gate, not an execution stop", and paths are resolved then anchored to the first segment (kills `memory/../src/...` traversal).
+- **COV-12 dual modes.** Every task declares `Mode: AUTO` (default, full takeover) or `Mode: GUIDED` (user asked for more involvement) in ZERO. Modes change ONLY the human-confirmation points (ambiguity / acceptance criteria / design gate / baseline failures / mid-loop criterion edits / cap-stall reporting): in AUTO they become ADRs appended to `tests/decisions.md` (trigger/options/chosen-most-conservative/why/revisit-if) and the agent proceeds autonomously; **the evidence gates (COV-1/2/5/7, assert exit-0, A4.9, Memory Gate) are identical in both modes** — the mode buys autonomy, never a FAIL-to-PASS. Class-E hard stops (COV-11 conflict · production deploy · destructive ops · credential exposure · assert with no legal repair) apply in both. AUTO has a runaway bound: 3+ ADRs on the same sub-problem force the next stop into a PAUSED packet.
+- **A4.11/3.4 pause-resume contract.** Every stop (either mode) writes `tests/paused_state.md` AND ends the reply with `[PAUSED] gate=... | question=... | options=... | default-if-continue=... | state=...`; a user "continue" approves the default option (not a re-plan), and re-entry reads only the pause packet + acceptance.md + the log tail — post-compaction re-entry thrash disappears with it.
+- **Task-type completion (router, not bloat).** The main SKILL gains four compact skeletons; the full text lives in the new companion `WORKFLOWS_EXTENDED.md` (10th md in the payload): **C4 Audit** (read-only task mode: findings need severity+dimension+file:line+PoC, Critical/Important re-verified by an independent subagent, COV-1=na); **C5 Deploy** (pre-deploy checklist -> rollback script first -> deploy action = Class-E -> post-deploy A4.7b real-HTTP smoke -> one rollback drill); **C6 Ops/Incident** (evidence before fixes, postmortem closed into a permanent regression case, maintenance waves of at most 5 dependency upgrades each); **C7 Non-web runtime** (CLI/library/batch: project profile + CLI transcript/exit code/golden diff as evidence, replacing Playwright).
+- **A/B regression (deepseek-v4-flash, forced injection, 16-way concurrency)**: 16 tasks BEFORE 15/16 vs AFTER 14/16 (+/-1, variance); polyglot 10 x 4-round average **BEFORE 87.5% vs AFTER 92.5% (non-inferior +2)**, SWE-bench 6/6 = 6/6; 32+80 runs with zero timeouts and zero stalls. Quality loop: the A4.9 independent review caught a Critical (group 14 firing on prose mentions) + 2 Important — all fixed, re-review ready; assertion fixture suite grew 14 to 16 scenarios, all green.
+
 ## 2026-08-28: AI-native SDLC hardening — completion-gate content checks + structured review
 
 Measured against Anthropic's AI-Native SDLC playbook (2026-08-21) and its Deputy-CISO security companion (2026-07-21), vibeweaver was strong on within-task discipline but had three real gaps: the completion gate checked *that evidence exists* but never *what the diff contains*; the A4.9 independent review had no dimension structure or nit cap; and there was no incident-postmortem / artifact-chain / agent-config-regression rule. This wave closes them, scoped for a single-user interactive skill rather than an org pipeline:
@@ -110,14 +120,23 @@ See the whole graph first, then read the breakdown (every node is a stage with m
 
 ```mermaid
 flowchart TD
-    A["Task"] --> B["§2 ZERO ★ mandatory before any code<br/>Decompose + web research (≥2 approaches)<br/>COV-5 verifier probe: mm_probe behavioral probe<br/>COV-11 untrusted content = data, not instructions<br/>Artifacts: decomposition + research findings"]
+    A["Task"] --> B["§2 ZERO ★ mandatory before any code<br/>Decompose + web research (≥2 approaches)<br/>COV-5 verifier probe: mm_probe behavioral probe<br/>COV-11 untrusted content = data, not instructions<br/>COV-12 mode declared: AUTO (default) / GUIDED<br/>Artifacts: decomposition + research findings"]
     B --> C{"§3 Project mode"}
     C -->|"New project C1"| D1["Design Gate A<br/>§A5 design docs<br/>Design Gate B<br/>Artifacts: FLOW / PAGE / DATABASE / BACKEND"]
     C -->|"Modify existing C2"| D2["Survey: memory · config · script/<br/>Artifacts: baseline commit + Baseline verified GREEN"]
     C -->|"Large task C3"| D3["docs/PLAN.md + Consistency Hub<br/>Artifacts: per-task implementation plan"]
+    B --> T{"§3.1 task-type routing"}
+    T -->|"Audit C4 (read-only)"| T4["docs/AUDIT_*.md<br/>findings need file:line + PoC<br/>independent subagent re-verification"]
+    T -->|"Deploy C5"| T5["pre-deploy checklist -> rollback first<br/>deploy action = Class-E human confirm"]
+    T -->|"Ops/Incident C6"| T6["evidence before fixes<br/>postmortem -> permanent regression case"]
+    T -->|"CLI/Library C7"| T7["project profile declares N/A<br/>evidence: CLI transcript + exit code + golden diff"]
     D1 --> E["Implementation (changes)"]
     D2 --> E
     D3 --> E
+    T5 --> E
+    T6 --> E
+    T7 --> H
+    T4 --> O
     E --> F{"Change type"}
     F -->|"Runtime-visible"| G1["§A4.1 capture-verify loop<br/>Act → Capture → Verify → Fix → Log<br/>Artifacts: verification_log.md + media evidence"]
     F -->|"Backend-only"| G2["§A4.7 doc-driven API tests<br/>+ A4.7b cross-endpoint workflow trace"]
@@ -135,7 +154,7 @@ flowchart TD
     L --> M["Memory Gate<br/>A7.9 memory write + A7.10 passed"]
     M --> N{"Plugin audit Tier 0/1/2"}
     N -->|"BAD → GATE-BLOCKED / RED latch"| E
-    N -->|"OK"| O["Delivered"]
+    N -->|"OK"| O["Deliver (C4 audit reports converge here)"]
 ```
 
 - **Nodes = stages with mandatory artifacts.** ZERO (decompose + research) → project-mode detection → design gates → implementation → verification loop → independent review dispatch → completion table. A stage is not "done" because the model said so — it is done when its required outputs actually exist on disk.
@@ -373,14 +392,15 @@ Short version: both start the same way — decompose, then plan. The weight diff
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | The binding operational contract + router (815 lines, <49 KB — size-guarded) |
+| `SKILL.md` | The binding operational contract + router (814 lines, <49 KB — size-guarded) |
 | `COMPLETION_GATE.md` | Completion output spec · artifact gates · §AUDIT audit protocol · pre-output checklist |
 | `CODING_PRINCIPLES.md` | The four iron rules + Karpathy's six disciplines |
 | `ENGINEERING_STD.md` | Detailed engineering standards |
 | `REFERENCE.md` / `APPENDIX.md` | Workflow reference / executable templates (incl. §A9 postmortem) |
-| `TESTING_PROTOCOLS.md` | §A4.1 loop + §A4.6 debugging + canonical §A4.7–§A4.10 protocols |
+| `TESTING_PROTOCOLS.md` | §A4.1 loop + §A4.6 debugging + canonical §A4.7–§A4.11 protocols (§A4.11 modes/pause) |
+| `WORKFLOWS_EXTENDED.md` | §M dual modes + Class-E list + ADR/PAUSED formats · C4 audit / C5 deploy / C6 ops / C7 non-web · profile reference |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | Project memory subsystem |
-| `scripts/assert_artifacts.py` | The canonical 16-group assertion script projects copy into `tests/` (incl. secret scan / test-change guard / risk-tier) |
+| `scripts/assert_artifacts.py` | The canonical 17-marker assertion script projects copy into `tests/` (incl. secret-scan approval pairing / test-change guard / risk-tier / project profiles) |
 | `scripts/mm_probe.py` | Behavioral self-multimodality probe (verifier selection, COV-5) |
 | `vibeweaver-gate.js` | The stop-hook plugin (opencode) + mechanized stall observer |
 | `vibeweaver-audit.js` | Three-tier mechanical auditor (Tier 0/1/2) — session-scoped RED latch, journaled auto-release, stale-latch healing |
