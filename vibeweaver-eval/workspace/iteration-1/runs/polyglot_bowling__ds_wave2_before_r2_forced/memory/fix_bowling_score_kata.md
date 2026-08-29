@@ -4,7 +4,7 @@ description: Bowling scoring kata — roll-log plus end-of-game frame walk scori
 type: fix
 date: 2026-08-29
 status: ⏳
-commit: N/A
+commit: 53f772a
 ---
 
 # Fix: Implement BowlingGame roll/score
