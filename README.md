@@ -75,6 +75,7 @@ flowchart TD
     T -->|"Deploy C5"| T5["pre-deploy checklist -> rollback first<br/>deploy action = Class-E human confirm"]
     T -->|"Ops/Incident C6"| T6["evidence before fixes<br/>postmortem -> permanent regression case"]
     T -->|"CLI/Library C7"| T7["project profile declares N/A<br/>evidence: CLI transcript + exit code + golden diff"]
+    T -->|"Spike S1 (feasibility)"| T8["deliverable is an answer, not code — 2-3 sentence probe plan, cheapest correct probe<br/>code stays throwaway; keeping it = new request + own baseline"]
     D1 --> E["Implementation (changes)"]
     D2 --> E
     D3 --> E
@@ -127,7 +128,7 @@ It is also skill-agnostic: the gate fires on any project that has `tests/verific
 
 The gate has a companion: `vibeweaver-audit` is a mechanical Tier-0/1/2 auditor of completion claims. At session idle it re-runs the project's `tests/assert_artifacts.py` (the same assertion script the gate runs), grades the final output against its own claim checks, and re-checks the on-disk evidence; a BAD grade latches a **session-scoped** RED state that blocks the agent's writes until the evidence is actually fixed. Because the latch is session-scoped, a truncated session can never brick a project again: it self-releases on session change, on TTL expiry, or via legacy-state migration, and every release is journaled and surfaced in the audit report (see the 2026-08-21 entry in [CHANGELOG.md](CHANGELOG.md)).
 
-One honest caveat: this plugin speaks opencode's plugin API (`tool.execute.after`, `session.idle`, `client.app.log`). Whether Claude Code or Codex have an equivalent mechanism, I haven't verified it, so honestly no idea. Forks welcome. DeepSeek Harness's plugin mechanism looks quite nice; I'm researching it and will add a matching stop-hook plugin when I get to it.
+One honest caveat: this plugin speaks opencode's plugin API (`tool.execute.after`, `session.idle`, `client.app.log`). Whether Claude Code or Codex have an equivalent mechanism, I haven't verified it, so honestly no idea. Forks welcome. The DeepSeek Harness port exists and is open-sourced as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh) — covenant card, mechanical gate (the same `assert_artifacts.py` evidence checks), and round guard included.
 
 ## The cognitive overlay: state management beyond the tools
 
@@ -140,7 +141,7 @@ The evidence rules solve "the model lied about what it did". They don't solve "t
 - **Re-entry after gaps.** After a compaction / session boundary / long idle, the agent re-reads `verification_log.md` in full, re-reads the goal line by line, re-reads the covenants, and names the first action back, in that order, before touching the work (§3.3).
 - **Mechanized stall observation.** The plugin now keeps `.vibeweaver/state.json` (atomic writes): the same file edited 3× with no new PASS entry in between triggers a `GATE-WARNING` stall note pointing at the escape protocol. `stall=3×` used to be a bound the model counted for itself; now the plugin counts too.
 
-And while touching this, I applied to the skill the progressive-disclosure discipline it preaches: the ~120-line embedded assertion script became the canonical `scripts/assert_artifacts.py`, and the four backend / TDD / review protocols moved to `TESTING_PROTOCOLS.md`; the entry file got ~180 lines lighter then, and later splits took it down to today's ~814 lines, with every new rule above costing one compact covenant line plus a pointer.
+And while touching this, I applied to the skill the progressive-disclosure discipline it preaches: the ~120-line embedded assertion script became the canonical `scripts/assert_artifacts.py`, and the four backend / TDD / review protocols moved to `TESTING_PROTOCOLS.md`; the entry file got ~180 lines lighter then, and later splits took it down to today's ~813 lines, with every new rule above costing one compact covenant line plus a pointer.
 
 ## The memory system: opencode forgets, the files don't
 
@@ -293,8 +294,10 @@ Two ways to get a different stack:
 | Verification | Self-starting capture loop graded by an independent multimodal verifier; evidence is byte-checked by `assert_artifacts.py` | Manual/self-review before declaring done |
 | Project memory | Built-in memory subsystem with trust tiers | Not a core feature |
 | Model requirements | Engineered for small models too (mini variant, benchmarked down to ~3B-active) | Assumes strong models — long specs, subagent delegation |
-| Harness support | opencode (with a plugin gate; Claude Code / Codex unknown, forks welcome; DeepSeek harness under research) | Claude Code, Codex, Cursor, Gemini CLI, Copilot, opencode, etc. |
+| Harness support | opencode (with a plugin gate; DeepSeek Harness port released as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh); Claude Code / Codex unknown, forks welcome) | Claude Code, Codex, Cursor, Gemini CLI, Copilot, opencode, etc. |
 | Public benchmark | Published A/B vs no-skill baseline, multiple models | None |
+
+**2026-08-30 full-repo re-read** (all fourteen superpowers skills, cover to cover): most of it was already here — the plan format, four-phase debugging, TDD rules and the spec self-review share the same ancestry, so the pass was mostly a coverage audit. Two ideas were adopted — **spike routing** (a feasibility question now delivers an answer, not code; anything built stays throwaway, and keeping it is a new request with its own baseline) and the **task right-sizing test** (split a planned task only where a reviewer could reject it while approving its neighbor). Eight were rejected on the record (subagent-per-task execution, universal approval gates, per-section design approval, git worktrees, and friends — they conflict with AUTO mode, one-batched confirmation, and the in-session evidence loop). Full verdict list in [CHANGELOG.md](CHANGELOG.md).
 
 Short version: both start the same way, decompose then plan. The weight differs: superpowers invests in the plan; vibeweaver makes the research step near-mandatory (nothing new under the sun) and gates completion on evidence. They're not enemies; you could run both, if you have that kind of token budget. Honestly, I don't know whether running both makes the agent's context explode and it just gives up, untested, feedback welcome.
 
@@ -302,13 +305,13 @@ Short version: both start the same way, decompose then plan. The weight differs:
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | The binding operational contract + router (814 lines, <49 KB — size-guarded) |
+| `SKILL.md` | The binding operational contract + router (813 lines, <49 KB — size-guarded) |
 | `COMPLETION_GATE.md` | Completion output spec · artifact gates · §AUDIT audit protocol · pre-output checklist |
-| `CODING_PRINCIPLES.md` | The four iron rules + Karpathy's six disciplines |
+| `CODING_PRINCIPLES.md` | The four iron rules + Karpathy's six disciplines + reviewer smell baseline |
 | `ENGINEERING_STD.md` | Detailed engineering standards |
 | `REFERENCE.md` / `APPENDIX.md` | Workflow reference / executable templates (incl. §A9 postmortem) |
 | `TESTING_PROTOCOLS.md` | §A4.1 loop + §A4.6 debugging + canonical §A4.7–§A4.11 protocols (§A4.11 modes/pause) |
-| `WORKFLOWS_EXTENDED.md` | §M dual modes + Class-E list + ADR/PAUSED formats · C4 audit / C5 deploy / C6 ops / C7 non-web · profile reference |
+| `WORKFLOWS_EXTENDED.md` | §M dual modes + Class-E list + ADR/PAUSED formats · C4 audit / C5 deploy / C6 ops / C7 non-web / S1 spike · profile reference |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | Project memory subsystem |
 | `scripts/assert_artifacts.py` | The canonical 17-marker assertion script projects copy into `tests/` (incl. secret-scan approval pairing / test-change guard / risk-tier / project profiles) |
 | `scripts/mm_probe.py` | Behavioral self-multimodality probe (verifier selection, COV-5) |
@@ -328,6 +331,8 @@ Short version: both start the same way, decompose then plan. The weight differs:
 `CODING_PRINCIPLES.md` is adapted (near-verbatim) from [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) ("Karpathy-Inspired Claude Code Guidelines", MIT License, by multica-ai / forrestchang), itself derived from [Andrej Karpathy's observations](https://x.com/karpathy) on how LLMs fail at coding.
 
 The **cognitive overlay** mechanisms descend from [J-Space Cognition Suite V3.6](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6) by [Tiger3807861189](https://github.com/Tiger3807861189): the claim-without-scope lint (assert group 13) is modeled on their `ship` check, and stall parameterization, differential testing against an independent reference, the two-route reconcile, the write-once consistency hub, the asymmetry rule for untrusted input, the post-gap re-entry protocol, and the mechanized stall observation in the plugin all trace back to that project's modules and controller. Its single-entry + on-demand-module architecture also informed this skill's progressive-disclosure layout. The credit is at the idea level: every implementation here is our own.
+
+The 2026-08-30 waves (wave4/5) adapted ideas from [mattpocock/skills](https://github.com/mattpocock/skills) (test seams, the spec-fidelity triad, the reviewer smell baseline, grilling's frontier rounds, the ADR admission test) and [obra/superpowers](https://github.com/obra/superpowers) (spike routing, task right-sizing) — both MIT; see the wave entries in [CHANGELOG.md](CHANGELOG.md) for what was adopted and what was rejected.
 
 Benchmark methodology and raw data: `vibeweaver-eval`.
 

@@ -75,6 +75,7 @@ flowchart TD
     T -->|"部署 C5"| T5["预部署清单 → 回滚脚本先行<br/>部署动作 = Class-E 人工确认"]
     T -->|"运维/事故 C6"| T6["先取证后动手<br/>postmortem → 永久回归用例"]
     T -->|"CLI/库 C7"| T7["project profile 声明 N/A<br/>证据：CLI transcript + 退出码 + golden diff"]
+    T -->|"可行性 S1（spike）"| T8["交付物是答案不是代码：探针计划 2-3 句、最便宜求证<br/>代码 throwaway；要留 = 新请求 + 自带基线"]
     D1 --> E["实现（改动）"]
     D2 --> E
     D3 --> E
@@ -127,7 +128,7 @@ vibeweaver 附带的配套插件 `vibeweaver-gate`，在**工具层**机械地�
 
 这个插件有个搭档：`vibeweaver-audit` 是完工声明的机械审计器（Tier-0/1/2）。会话空闲时它重跑项目的 `tests/assert_artifacts.py`（和 stop hook 用的是同一份断言脚本），再用自己的声明检查组给最终输出打分、复核磁盘证据；打出 BAD 就落下一个**会话级**的 RED 锁存，拦住 agent 的写入，直到证据真的补齐。正因为锁存是会话级的，一个被截断的会话永远不会把项目锁死：换会话、TTL 到期、旧格式状态迁移，三条路都会自动释放；而且每次释放都会记进 `.vibeweaver/audit-state.json` 并出现在审计报告里（机制详见 [CHANGELOG_zh.md](CHANGELOG_zh.md) 的 2026-08-21 一节）。
 
-一句实话：这个插件说的是 opencode 的插件 API（`tool.execute.after`、`session.idle`、`client.app.log`）。至于 Claude Code 或 Codex 有没有类似的机制，没验证过，真不知道，欢迎 fork。另外 DeepSeek Harness 的插件机制看起来很不错，正在研究，过段时间会把对应的 stop hook 插件也补上。
+一句实话：这个插件说的是 opencode 的插件 API（`tool.execute.after`、`session.idle`、`client.app.log`）。至于 Claude Code 或 Codex 有没有类似的机制，没验证过，真不知道，欢迎 fork。DeepSeek Harness 版已经落地并开源为 [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh)——契约卡、机械门禁（同一份 `assert_artifacts.py` 证据检查）、回合守卫都在里面了。
 
 ## 认知层：工具之上的状态管理
 
@@ -140,7 +141,7 @@ vibeweaver 附带的配套插件 `vibeweaver-gate`，在**工具层**机械地�
 - **长间隔后的重入。** compaction / 跨 session / 长时间中断之后，agent 先全量重读 `verification_log.md`、逐行重读目标、重读契约，然后说出恢复后的第一步动作，按这个顺序，然后再碰工作（§3.3）。
 - **停滞观测机械化。** 插件现在维护 `.vibeweaver/state.json`（原子写）：同一文件被改 3 次、中间没有新增 PASS 条目 → 触发一条指向逃生协议的 `GATE-WARNING`。`stall=3×` 以前是模型自己数的上限，现在插件也数。
 
-顺便把 skill 自己宣讲的渐进披露纪律用到了它身上：约 120 行的内嵌断言脚本变成规范的 `scripts/assert_artifacts.py`，四个 后端/TDD/评审 协议移入 `TESTING_PROTOCOLS.md`；那次入口文件瘦身约 180 行，后续几轮拆分把入口进一步做到今天的约 814 行；上面每条新规则的成本是一行紧凑契约 + 一个指针。
+顺便把 skill 自己宣讲的渐进披露纪律用到了它身上：约 120 行的内嵌断言脚本变成规范的 `scripts/assert_artifacts.py`，四个 后端/TDD/评审 协议移入 `TESTING_PROTOCOLS.md`；那次入口文件瘦身约 180 行，后续几轮拆分把入口进一步做到今天的约 813 行；上面每条新规则的成本是一行紧凑契约 + 一个指针。
 
 ## 记忆系统：opencode 会忘，文件不会
 
@@ -294,8 +295,10 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | 验证 | 自动启动的采集循环，独立多模态验证器评分，`assert_artifacts.py` 逐字节核对证据 | 宣布完工前人工/自查 |
 | 项目记忆 | 内置记忆子系统，带信任分级 | 非核心功能 |
 | 模型要求 | 也为小模型优化（mini 版，实测到 ~3B 激活档） | 默认强模型——长规格、长计划、子 agent 委派 |
-| 工具支持 | opencode（带插件拦截；Claude Code / Codex 有无类似机制未知，欢迎 fork；DeepSeek harness 研究中） | Claude Code、Codex、Cursor、Gemini CLI、Copilot、opencode 等 |
+| 工具支持 | opencode（带插件拦截；DeepSeek Harness 版已开源为 [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh)；Claude Code / Codex 有无类似机制未知，欢迎 fork） | Claude Code、Codex、Cursor、Gemini CLI、Copilot、opencode 等 |
 | 公开评测 | 与裸模型对照的 A/B 数据，多模型多轮 | 无公开基线数据 |
+
+**2026-08-30 全仓库重读**（superpowers 全部 14 个技能逐读）：大半内容本 skill 早已覆盖——计划格式、调试四阶段、TDD 规则、spec 自审清单同源，这趟主要是覆盖确认。两条想法被采纳——**spike 路由**（可行性问题的交付物是答案不是代码；产出标记 throwaway，要留 = 新请求并自带基线）和**任务切分测试**（仅当 reviewer 能否决一个任务而通过其邻任务时才拆分）。八条在案拒绝（子代理逐任务执行、全路径批准门、逐节设计批准、git worktree 等——与 AUTO 模式、一次性确认、会话内证据环冲突）。完整裁决清单见 [CHANGELOG_zh.md](CHANGELOG_zh.md)。
 
 两者开头一样，先拆解再计划。重心不同：superpowers 把投入放在规划上，vibeweaver 把「先搜索」提到几乎强制的级别（太阳底下没有新鲜事），完工则卡在证据上。两者并不互斥；token 预算管够的话，一起上也没问题。
 
@@ -305,13 +308,13 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 | 文件 | 用途 |
 | --- | --- |
-| `SKILL.md` | 绑定操作契约 + 路由器（814 行，<49KB，有体积守卫） |
+| `SKILL.md` | 绑定操作契约 + 路由器（813 行，<49KB，有体积守卫） |
 | `COMPLETION_GATE.md` | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单 |
-| `CODING_PRINCIPLES.md` | 四条铁律 + Karpathy 的六条纪律 |
+| `CODING_PRINCIPLES.md` | 四条铁律 + Karpathy 的六条纪律 + 评审 smell 基线 |
 | `ENGINEERING_STD.md` | 工程标准细则 |
 | `REFERENCE.md` / `APPENDIX.md` | 流程参考 / 可执行模板（含 §A9 事故复盘模板） |
 | `TESTING_PROTOCOLS.md` | §A4.1 循环 + §A4.6 调试 + §A4.7–§A4.11 规范文本（§A4.11 模式/暂停协议） |
-| `WORKFLOWS_EXTENDED.md` | §M 双模式 + Class-E 清单 + ADR/PAUSED 格式 · C4 审计 / C5 部署 / C6 运维 / C7 非Web · 项目画像参照 |
+| `WORKFLOWS_EXTENDED.md` | §M 双模式 + Class-E 清单 + ADR/PAUSED 格式 · C4 审计 / C5 部署 / C6 运维 / C7 非Web / S1 spike · 项目画像参照 |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | 项目记忆子系统 |
 | `scripts/assert_artifacts.py` | 17 标记断言的规范脚本，项目复制进 `tests/` 使用（含 secret scan 配对 / test-change guard / risk-tier / 项目画像） |
 | `scripts/mm_probe.py` | 行为化多模态自探针（COV-5 验证器选择） |
@@ -331,6 +334,8 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 `CODING_PRINCIPLES.md` 改编自 [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)（"Karpathy-Inspired Claude Code Guidelines"，MIT 协议，作者 multica-ai / forrestchang），其源头是 [Andrej Karpathy 对 LLM 写码翻车模式的观察](https://x.com/karpathy)。
 
 **认知层**各机制的出处是 [Tiger3807861189](https://github.com/Tiger3807861189) 的 [J-Space Cognition Suite V3.6](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6)：「无覆盖范围的验证声明」检查（assert 第 13 组）仿照其 `ship` 检查而来；停滞参数化、独立参考实现的差分验证、双路对账、写一次读多次的一致性枢纽、不可信内容不对称规则、长间隔重入协议，以及插件里的机械化停滞观测，都可追溯到该项目的模块与控制器；其「单入口 + 按需加载模块」的结构也影响了本 skill 的渐进披露组织方式。致谢落在思想层面，此处的实现均为本项目原创。
+
+2026-08-30 两波（wave4/5）借鉴了 [mattpocock/skills](https://github.com/mattpocock/skills)（测试缝、spec 保真三元组、评审 smell 基线、grilling 分轮访谈、ADR 准入三判据）与 [obra/superpowers](https://github.com/obra/superpowers)（spike 路由、任务切分测试）的想法——两者均为 MIT；采纳与拒绝的完整清单见 [CHANGELOG_zh.md](CHANGELOG_zh.md) 各波次条目。
 
 评测方法与原始数据：`vibeweaver-eval`。
 
