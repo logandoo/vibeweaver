@@ -289,17 +289,17 @@ Two ways to get a different stack:
 
 | Dimension | vibeweaver | superpowers |
 |---|---|---|
-| Workflow | Decompose → **web research (near-mandatory)** → design docs / plan (when scoped) → test-first → evidence gates | Brainstorm → spec → detailed plan → subagent execution |
-| Core bet | **Research-first + evidence-gated completion** — near-mandatory web search before code (nothing new under the sun), tests must run and leave artifacts, enforced by a tool-level plugin gate | **Planning-first process** — brainstorm → spec → detailed plan → subagent execution |
-| Verification | Self-starting capture loop graded by an independent multimodal verifier; evidence is byte-checked by `assert_artifacts.py` | Manual/self-review before declaring done |
+| Workflow | Decompose → **web research (near-mandatory)** → task-type routing (build / audit / deploy / ops / non-web / spike) → design docs / plan (when scoped) → test-first → evidence gates | Classify the request (spike / bounded / architectural) → design approval → spec + bite-sized plan (architectural path) → subagent-per-task execution |
+| Core bet | **Research-first + evidence-gated completion** — near-mandatory web search before code (nothing new under the sun), tests must run and leave artifacts, enforced by a tool-level plugin gate | **Planning-first + approval-first** — no implementation before the human approves the intent; the ceremony scales with the task, the approval gate never does |
+| Human involvement | AUTO by default: the agent settles defined interaction points itself and logs an ADR; GUIDED (more checkpoints) on request | Approval is the hard gate on every path — a spike gets a nod, a bounded task gets a yes to an in-chat design, an architectural one approves section by section |
+| Execution model | Same session — verifier continuity, memory and evidence accumulate across the task; subagents are read-only reviewers | Fresh subagent per task — context isolation; the coordinator reviews between tasks |
+| Verification | Self-starting capture loop graded by an independent multimodal verifier; evidence is byte-checked by `assert_artifacts.py`; major changes get an independent review with a spec-fidelity triad | Evidence-before-claims iron law (fresh run, read the output) — process-enforced, no tool gate |
 | Project memory | Built-in memory subsystem with trust tiers | Not a core feature |
 | Model requirements | Engineered for small models too (mini variant, benchmarked down to ~3B-active) | Assumes strong models — long specs, subagent delegation |
 | Harness support | opencode (with a plugin gate; DeepSeek Harness port released as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh); Claude Code / Codex unknown, forks welcome) | Claude Code, Codex, Cursor, Gemini CLI, Copilot, opencode, etc. |
 | Public benchmark | Published A/B vs no-skill baseline, multiple models | None |
 
-**2026-08-30 full-repo re-read** (all fourteen superpowers skills, cover to cover): most of it was already here — the plan format, four-phase debugging, TDD rules and the spec self-review share the same ancestry, so the pass was mostly a coverage audit. Two ideas were adopted — **spike routing** (a feasibility question now delivers an answer, not code; anything built stays throwaway, and keeping it is a new request with its own baseline) and the **task right-sizing test** (split a planned task only where a reviewer could reject it while approving its neighbor). Eight were rejected on the record (subagent-per-task execution, universal approval gates, per-section design approval, git worktrees, and friends — they conflict with AUTO mode, one-batched confirmation, and the in-session evidence loop). Full verdict list in [CHANGELOG.md](CHANGELOG.md).
-
-Short version: both start the same way, decompose then plan. The weight differs: superpowers invests in the plan; vibeweaver makes the research step near-mandatory (nothing new under the sun) and gates completion on evidence. They're not enemies; you could run both, if you have that kind of token budget. Honestly, I don't know whether running both makes the agent's context explode and it just gives up, untested, feedback welcome.
+Short version: both start the same way, decompose then plan. The weight differs: superpowers invests in the plan and keeps a human gate on every path; vibeweaver makes the research step near-mandatory, lets the agent proceed by default (AUTO), and gates completion on evidence. They're not enemies; you could run both, if you have that kind of token budget. Honestly, I don't know whether running both makes the agent's context explode and it just gives up, untested, feedback welcome.
 
 ## Files
 
