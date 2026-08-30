@@ -562,6 +562,11 @@ assuming the executor has zero project context. Per task block:
 - **Steps:** one action each (2-5 min), each with its verification command.
   Logic-bearing steps are test-first per §A4.8.
 
+**Task right-sizing:** fold setup, config, scaffolding, and docs into the
+task whose deliverable needs them; split only where a reviewer could
+meaningfully reject one task while approving its neighbor. Each task ends
+with an independently testable deliverable.
+
 **Consistency Hub (broadcast — write once, read many):** before Step 1, add a
 `## Consistency Hub` table to the plan — one row for every shared entity:
 names, config keys, port/URL values, type shapes, interface signatures,

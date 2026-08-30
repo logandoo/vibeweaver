@@ -2,6 +2,15 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-08-30: wave5 — a feasibility question is now a first-class route, plus one plan-writing test
+
+Full-repo comparison against obra/superpowers (all fourteen skills, read cover to cover). The honest headline first: most of it was already here — this skill's plan format, four-phase debugging, TDD rules and spec self-review descend from superpowers' own, so the pass was mostly a coverage audit. Two things still earned their way in; eight were rejected in writing (universal approval gates, per-section design approval, subagent-per-task execution, git worktrees, branch-finishing menus, parallel fix agents, the skill-authoring guide, condition-based waiting — each conflicts with a deliberate choice here: AUTO mode, one-batched confirmation, in-session evidence loops, the baseline-commit model).
+
+- **Spike routing (from brainstorming).** A feasibility question — "can we…?", "is it possible…?" — no longer gets force-fit into a build workflow. Its deliverable is an answer: announce a 2-3 sentence probe plan, find out as cheaply as correctness allows, report a recommendation. Anything built is labeled throwaway, and keeping it is a new request that gets its own classification and its own green-baseline check. Probe code never drifts into production ungated.
+- **Task right-sizing (from writing-plans).** The plan format gains a boundary test: setup, config, scaffolding and docs fold into the task whose deliverable needs them; split only where a reviewer could meaningfully reject one task while approving its neighbor.
+
+The spike row cost negative 35 bytes — five redundant phrases across SKILL.md paid for it (48,955 B under the 49 KB cap). Verified per copy: self-test 35/36 (the one failure is the known environmental calibration case), mutation sweep 27/27.
+
 ## 2026-08-30: wave4 — five contracts borrowed from mattpocock/skills, four rejected on the record
 
 A read-only pass over mattpocock/skills (engineering + productivity: to-spec, code-review, grill-me, grill-with-docs, grilling, domain-modeling) asked one question: what do they enforce that this skill doesn't? Five ideas earned their way in; four were evaluated and rejected in writing (issue-tracker publishing, pathless specs, dual-axis parallel reviewers, CONTEXT.md glossaries — external dependencies, an opposite planning philosophy, or double the review cost).

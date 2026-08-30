@@ -154,6 +154,28 @@ unchanged (ADRs, no frontier).
 
 ---
 
+## S1. Spike (Feasibility Probe)
+
+**Trigger:** the request is a feasibility question ("can we…?", "is it
+possible…?", "quick and dirty is fine") whose deliverable is an ANSWER, not
+code you keep. Classified at §3.1; route here instead of C1/C2.
+
+1. Present the question + probe plan in 2-3 sentences (what you will try and
+   how you will judge it). GUIDED: get a nod first. AUTO: write the probe's
+   pass/fail question into `tests/acceptance.md` as the criteria.
+2. Investigate as cheaply as correctness allows. No design docs, no plan
+   document, no §A4.8 TDD — the probe is throwaway by definition. §2 ZERO
+   research still applies (a spike is not a license to guess).
+3. Report findings as a recommendation (feasible / not / under-what-
+   conditions), probe evidence (logs, transcripts) under `tests/`.
+4. **Anything built stays labeled throwaway. Keeping spike code = a new
+   request:** reclassify at §3.1 (usually C2) with its own COV-9 baseline —
+   probe code never drifts into production ungated.
+5. Completion: the A4.4 table + gate line as usual; evidence is the probe
+   log. `HARD-GATE-2=na` when nothing was built or started (state why).
+
+---
+
 ## C4. Audit (Read-Only Task)
 
 **Trigger:** the primary deliverable is a review/report of an existing

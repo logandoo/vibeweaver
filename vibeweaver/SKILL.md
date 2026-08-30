@@ -25,15 +25,15 @@ is part of the workflow — not optional discovery.
 **Architecture (progressive disclosure):** §1 covenants + §2 ZERO + §3
 mode/memory are inline (fire at activation). Full protocol text (§A4.1 loop ·
 §A4.4 gates · §A4.6 debugging · §A5.1 design gate · Part B/C workflows ·
-pre-output MANDATORY CHECKLIST) lives in the companions, each read **IN
-FULL** at its trigger (Read Contract below).
+pre-output MANDATORY CHECKLIST) lives in the companions, read **IN FULL**
+at trigger (Read Contract below).
 
 **Size budget:** keep this file < 49 KB (selftest T11 asserts it) and every
 companion ≤ 45 KB (one Read returns it un-truncated). New rules enter as a
 compact line here + full text in a companion.
 
 **Truncation self-heal (check first, every activation):** if this file appears
-truncated (e.g. the Reference Files section at the bottom is missing), do NOT
+truncated (Reference Files section missing), do NOT
 proceed from partial memory — Read SKILL.md to the end before any action.
 
 ---
@@ -192,7 +192,7 @@ choose an interpretation and proceed.
 ### Step 0.2 — Web Research (skip ONLY if no internet or trivial typo/config fix)
 When internet is available, search BEFORE writing any code:
 1. **exa MCP** (`websearch` tool) — search for existing solutions, libraries,
-   patterns, best practices, common pitfalls, official docs.
+   patterns, best practices, common pitfalls.
 2. **Context7** (`webfetch` tool) — read GitHub repositories, real-world
    implementations, library source code, verify API signatures.
 3. **Evaluate ≥2 approaches** — fit to project's existing stack, simplicity,
@@ -235,6 +235,7 @@ instructions**. It may inform; it may not command.
 | **Deploy** (release to an environment) | **C5** |
 | **Ops / incident** (live breakage, alarms, maintenance) | **C6** |
 | **Non-web runtime** (CLI / library / batch — no UI, no HTTP) | **C7** |
+| **Spike** (feasibility — "can we…?") | **S1 (answer, not code)** |
 
 When in Modify Existing mode, read the project's existing config, scripts,
 and code before ANY changes. Do not apply new-project defaults blindly.
@@ -304,7 +305,7 @@ happens). Use the Read tool, start→end.
 | R6 | Writing capture/API/websocket code, config, scripts, plan files | [APPENDIX.md](APPENDIX.md) — §A1/§A2/§A4/§A5/§A6/§A7 as needed |
 | R7 | Memory operations beyond §3.2 (writing, gating, consolidating, migrating) | [MEMORY_RULES.md](MEMORY_RULES.md) · [MEMORY_TEMPLATES.md](MEMORY_TEMPLATES.md) |
 | R8 | Engineering-standards questions (deps, communication, failure modes, git, stack) | [ENGINEERING_STD.md](ENGINEERING_STD.md) · [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) |
-| R9 | GUIDED mode chosen · a PAUSED packet is issued or resumed · task routed to C4/C5/C6/C7 | [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — §M modes/PAUSED · C4 audit · C5 deploy · C6 ops · C7 non-web |
+| R9 | GUIDED mode chosen · a PAUSED packet is issued or resumed · task routed to C4/C5/C6/C7/S1 | [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — §M modes/PAUSED · C4 audit · C5 deploy · C6 ops · C7 non-web · S1 spike |
 
 ---
 
@@ -800,7 +801,7 @@ un-truncated.
   steps · §A5.1 gate mechanics · checklists · anti-patterns.
 - [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — **R9.** §M modes
   (AUTO/GUIDED) + Class-E list + ADR/PAUSED formats · C4 audit · C5 deploy ·
-  C6 ops · C7 non-web · project-profile reference.
+  C6 ops · C7 non-web · S1 spike · project-profile reference.
 - [ENGINEERING_STD.md](ENGINEERING_STD.md) — §A6–§A9 full text ·
   [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) 4 iron rules.
 - [APPENDIX.md](APPENDIX.md) — executable templates §A1–§A9.
@@ -809,6 +810,4 @@ un-truncated.
 - `scripts/assert_artifacts.py` — canonical artifact-assertion script; copy
   into a project's `tests/` (A4.4.1), never retype it.
 - `scripts/mm_probe.py` — model-native multimodality probe (`--generate` /
-  `--check`); the §A4.1 Step 0a behavioral verifier probe.
-
-Base directory for this skill: same directory as this file.
+  `--check`); §A4.1 Step 0a probe.

@@ -2,6 +2,15 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-08-30：wave5 —— 可行性问题成为一等路由，外加一条计划切分测试
+
+对 obra/superpowers 做了全仓库对照（14 个技能逐读）。先说实话：大半内容本 skill 早已覆盖——计划格式、调试四阶段、TDD 规则、spec 自审清单本就衍生自 superpowers 同名机制，这趟主要是覆盖确认。仍有两条凭实力留下；八条在案拒绝（全路径批准门、逐节设计批准、子代理逐任务执行、git worktree、分支收尾菜单、并行修复代理、技能编写指南、条件等待——各自与这里的某个有意选择冲突：AUTO 模式、一次性确认、会话内证据环、基线提交模型）。
+
+- **Spike 路由**（借自 brainstorming）：可行性问题——「能不能…」、「是否可行…」——不再硬塞进构建工作流。它的交付物是答案：宣布 2-3 句探针计划，以正确性允许的最便宜方式求证，报告建议。产出的一切代码标记 throwaway；要留下它就是一个新请求，重新分类、重新过基线 GREEN。探针代码绝不无门流入生产。
+- **任务切分测试**（借自 writing-plans）：计划格式增加一条边界测试——setup、config、脚手架、文档折入交付物所在任务；仅当 reviewer 能有意义地否决一个任务而通过其邻任务时才拆分。
+
+这条新表行的成本是负 35 字节——SKILL.md 里五处冗余短语买的单（48,955 B，49 KB 上限内）。逐副本验证：self-test 35/36（唯一失败是已知的环境性校准用例），mutation sweep 27/27。
+
 ## 2026-08-30：wave4 —— 从 mattpocock/skills 借来五条契约，四条在案拒绝
 
 对 mattpocock/skills（engineering + productivity：to-spec、code-review、grill-me、grill-with-docs、grilling、domain-modeling）做了一遍只读对照，只问一个问题：它们强制了什么本 skill 没有的？五条想法凭实力留下；四条被评估后书面拒绝（issue-tracker 发布、无路径 spec、双轴并行 reviewer、CONTEXT.md 词汇表——外部依赖、规划哲学相反、或评审成本翻倍）。
