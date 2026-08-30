@@ -561,8 +561,7 @@ Canonical text of COV-8 — **full protocol: §A4.9 in
 [TESTING_PROTOCOLS.md](TESTING_PROTOCOLS.md)**. Binding summary: trigger
 ANY of — new feature · ≥3 files changed (EVERY path in
 `git diff --stat`, tests/docs/config included) · schema/API-surface change ·
-security-sensitive area · **risk-tier code paths** (non-skippable; regex in
-§A4.9; assert group 16 checks `tests/review_package.md`) ·
+security-sensitive area · **risk-tier code paths** (non-skippable) ·
 **behavior-semantic change**. BEFORE the A4.4 completion table (and after
 Gate-1 evidence): write log/diff to ONE file, dispatch a READ-ONLY
 reviewer subagent with the verdict contract (Strengths ·
@@ -701,19 +700,20 @@ cross-module). **Skip:** single-file fixes, trivial changes (decompose
 mentally). **R4 read (REFERENCE.md → Part C: C3, full text) before writing
 the plan.**
 
-Write the plan BEFORE implementing (`docs/PLAN.md`), assuming the executor
-has zero project context. Per task block: **Files** (exact create/modify/
-test paths) · **Interfaces** (Consumes earlier-task outputs with exact
+Write the plan BEFORE implementing (`docs/PLAN.md`) for a zero-context
+executor. Per task block: **Files** (exact create/modify/
+test paths) · **Interfaces** (Consumes upstream outputs with exact
 signatures; Produces what later tasks rely on — exact names, param/return
-types; this is how multi-step work avoids interface drift) · **Steps** (one
-action each, 2-5 min, each with its verification command; logic-bearing
-steps test-first per §A4.8).
+types; how multi-step work avoids interface drift) · **Test seam** (where
+the block's behavior is verified — existing seams preferred · highest ·
+fewest) · **Steps** (one action each, 2-5 min, each with its verification
+command; logic-bearing steps test-first per §A4.8).
 
 **Consistency Hub (broadcast):** before Step 1, a `## Consistency Hub` table
 — one row per shared entity ≥2 tasks/files reuse (names, config keys,
 ports/URLs, type shapes, signatures, style anchors): `entity | canonical
 spelling/value/type | source of truth (design doc/file:line)`. Write once,
-reference always (later steps cite the hub row, never re-derive) · a rename
+reference always (cite the hub row, never re-derive) · a rename
 changes the hub row first, then grep the old spelling across the tree —
 **zero hits is the verification** (output goes in the completion table's
 evidence column) · re-read the hub at every seam.

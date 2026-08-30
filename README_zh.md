@@ -12,6 +12,20 @@ Vibe-coding 的普及正在重塑开发者的角色：当模型写码能力不�
 
 至于 Codex 和 Claude Code，我没用过，也没打算用，不知道。如果有人感兴趣可以自行 fork。
 
+## 2026-08-30：wave4 —— 从 mattpocock/skills 借来五条契约，四条在案拒绝
+
+对 mattpocock/skills（engineering + productivity：to-spec、code-review、grill-me、grill-with-docs、grilling、domain-modeling）做了一遍只读对照，只问一个问题：它们强制了什么本 skill 没有的？五条想法凭实力留下；四条被评估后书面拒绝（issue-tracker 发布、无路径 spec、双轴并行 reviewer、CONTEXT.md 词汇表——外部依赖、规划哲学相反、或评审成本翻倍）。
+
+落地的五条：
+
+- **计划中的测试缝**（借自 to-spec）：C3 任务块现在必须写明行为在哪条缝上验证——优先已有缝，在仍能隔离行为的最高缝上测，缝越少越好（全代码库理想是一条，因为每条缝都是测试与内部实现之间的永久耦合）。这是本 skill 一直缺的那条规划规则：它只说过测什么，从没说过在哪测。
+- **评审中的 spec 保真三元组**（借自 code-review）：A4.9 reviewer 的 Compliance 维度不再是自由文本判断——必报 requirements missing/partial、scope creep、looks-implemented-but-wrong，每条引用其违反的判据原文。
+- **评审 smell 基线**（借自 code-review，Fowler 十二味）：CODING_PRINCIPLES.md 新增逐 diff 检查清单，两条常驻约束——repo 文档标准永远覆盖基线；每条 smell 都是 judgement call，绝非硬性违规。派发评审时随包交给 reviewer。
+- **多问题暂停的分轮访谈**（借自 grilling）：GUIDED 下携带多个待决问题的暂停包变成一轮按依赖排序的访谈——每题编号并附推荐答案，被未决答案阻塞的问题留到后轮，事实绝不询问（agent 自查），只有决策才问用户。frontier 为空意味着没有任何东西被静默假设。AUTO 不受影响。
+- **proactive ADR 的准入测试**（借自 domain-modeling）：仅当决策难以逆转、缺上下文则令人意外、且是真实权衡的结果时才记录——三者俱全。强制 Class-I ADR 不受影响。
+
+入场费是字节：SKILL.md 在 49 KB 自检上限下只剩 7 字节余量，所以测试缝那行以字节为负的方式进入（§A4.9 摘要里一个冗余括号买的单，48,990 B），三元组在 TESTING_PROTOCOLS.md 里的 110 字节由同段三处修剪补偿。逐副本验证：self-test 35/36（唯一失败是已知的环境性校准用例），mutation sweep 27/27，四个副本全部一致。
+
 ## 2026-08-29：wave3 —— 让 agent 真正接管，把"等人点"收干净
 
 这套规则跑起来之后有两个尴尬场面。一是有些卡点天生要停：需求模糊要问、设计门要确认、基线带旧伤要裁决——停没错，但一停就得等人敲"继续"，而且"继续"到底是批准还是重新计划，没人说得清。二是规矩自己有盲区：写库、写 CLI 的人被要求交 `start.sh`（库哪来的服务？）；凭据明明是用户点名要写的，门一律拦；审计、部署、运维这类不改代码的活，干脆整个没有工作流，硬套 C2 会逼着 agent 给一份审计报告编验收循环。

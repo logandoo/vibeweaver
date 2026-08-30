@@ -12,6 +12,20 @@ For now the project is optimized for Opencode only; a DeepSeek Harness port is o
 
 As for Codex and Claude Code — never used them, no plans to, no idea. Anyone interested is welcome to fork.
 
+## 2026-08-30: wave4 — five contracts borrowed from mattpocock/skills, four rejected on the record
+
+A read-only pass over mattpocock/skills (engineering + productivity: to-spec, code-review, grill-me, grill-with-docs, grilling, domain-modeling) asked one question: what do they enforce that this skill doesn't? Five ideas earned their way in; four were evaluated and rejected in writing (issue-tracker publishing, pathless specs, dual-axis parallel reviewers, CONTEXT.md glossaries — external dependencies, an opposite planning philosophy, or double the review cost).
+
+What landed:
+
+- **Test seams in the plan (from to-spec).** Every C3 task block now names where its behavior is verified: prefer existing seams, test at the highest seam that still isolates the behavior, and keep seams few — the ideal across a codebase is one, because every seam is permanent coupling between tests and internals. The planning rule the skill never had: it said what to test, never where.
+- **Spec-fidelity triad in review (from code-review).** The A4.9 reviewer's Compliance dimension is no longer a free-text judgment: report requirements missing/partial, scope creep, and looks-implemented-but-wrong, each quoting the criterion line it violates.
+- **A smell baseline for reviews (from code-review, Fowler's twelve).** CODING_PRINCIPLES.md gains a per-diff checklist of the classic smells, under two standing rules — a documented repo standard always overrides the baseline, and every smell is a judgement call, never a hard violation. The reviewer gets it in the dispatch package.
+- **Frontier rounds for multi-question pauses (from grilling).** In GUIDED, a pause carrying several pending questions becomes one dependency-ordered round: each question numbered with its own recommended answer, questions blocked on still-open answers wait for the next round, and facts are never asked — the agent looks them up; only decisions go to the user. An empty frontier means nothing is left silently assumed. AUTO is untouched.
+- **An admission test for proactive ADRs (from domain-modeling).** Record one only when the decision is hard to reverse, surprising without context, and the result of a real trade-off — all three. Mandatory Class-I ADRs are unaffected.
+
+The price of admission was bytes: SKILL.md had 7 bytes of headroom under its 49 KB self-test cap, so the test-seam line went in byte-negative (a redundant parenthetical in the A4.9 summary paid for it, 48,990 B), and the triad's 110 bytes in TESTING_PROTOCOLS.md were compensated by three trims in the same section. Verified per copy: self-test 35/36 (the one failure is the known environmental calibration case) and mutation sweep 27/27 across all four copies.
+
 ## 2026-08-29: wave3 — let the agent actually take over, clean up the "wait for a human" points
 
 Two awkward scenes kept coming up. First, some gates stop by design: vague requirements, design gates, baselines with old wounds — stopping is right, but every stop meant waiting for a human to type "continue", and nobody could say whether "continue" meant approval or a re-plan. Second, the rules had blind spots: if you write a library or a CLI, the gate still demands `start.sh` (what service would a library even start?); a credential the user explicitly asked for gets blocked all the same; and audit / deploy / ops work had no workflow at all — force-fitting C2 would have the agent invent an acceptance loop for a report.

@@ -83,6 +83,11 @@ names an observable condition · never rewrite an old ADR (append a new one
 superseding it). The completion output adds `[Decisions] N auto-decisions →
 tests/decisions.md` before the 8-column table.
 
+**Proactive ADRs** (no Class-I stop fired — e.g. a design-doc decision):
+record one only when ALL three hold — hard to reverse · surprising without
+context · the result of a real trade-off; skip otherwise (obvious or
+reversible choices need no ADR).
+
 **User veto path:** the user may veto any ADR post-hoc (it is in the repo
 history). A veto is recorded as feedback memory (A7.9), the affected work is
 redone in the next change-wave (own COV-9 baseline), and the veto reason
@@ -129,6 +134,23 @@ read only if <200 lines or inconsistent) → §1 covenant recall. Name the pass
 **Batching:** ONE packet per pause, never a drip of questions. In GUIDED,
 all pending Class-I questions of the current phase collapse into the single
 packet's `options:`.
+
+**Frontier rounds (GUIDED, ≥2 pending Class-I questions):** the single
+packet is one *frontier round*:
+1. Number each question; each carries its own recommended answer (its
+   `default-if-continue`).
+2. Order by dependency — a question whose answer depends on a still-open
+   question belongs to the NEXT round, not this one.
+3. **Facts vs decisions:** never ask the user for a fact discoverable from
+   the environment (files, git, config, tools) — look it up or dispatch a
+   subagent. A running lookup is an unsettled prerequisite: questions
+   downstream of it wait; ask the rest of the frontier now. Only *decisions*
+   go to the user.
+4. Termination: frontier empty = nothing left silently assumed → proceed.
+
+This refines the per-phase collapse above; single-ambiguity clarification
+(I1 · REFERENCE.md §A5.1 Gate A) stays one-question-at-a-time. AUTO is
+unchanged (ADRs, no frontier).
 
 ---
 

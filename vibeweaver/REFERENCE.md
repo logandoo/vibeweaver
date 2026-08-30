@@ -554,6 +554,11 @@ assuming the executor has zero project context. Per task block:
 - **Interfaces:** *Consumes* — earlier-task outputs (exact signatures);
   *Produces* — what later tasks rely on (exact names, parameter/return types).
   This block is how multi-step work avoids interface drift.
+- **Test seam:** where this block's behavior is verified. Prefer existing
+  seams to new ones; test at the highest seam that still isolates the
+  behavior; propose any new seam at the highest point you can. The fewer
+  seams across the codebase the better (ideal: one) — every seam is
+  permanent coupling between tests and internals.
 - **Steps:** one action each (2-5 min), each with its verification command.
   Logic-bearing steps are test-first per §A4.8.
 

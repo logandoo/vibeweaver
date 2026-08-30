@@ -598,11 +598,11 @@ line and proceed.
 
 **Trigger ANY of:** new feature · ≥3 files changed · schema/API-surface change ·
 security-sensitive area · **behavior-semantic change** (a runtime pipeline /
-write-path / type-distinction semantic is altered — e.g. the v1/v2 dream
-dual-write split; a one-line diff can still be a behavior change).
+write-path / type-distinction semantic is altered — a one-line diff can
+still be a behavior change).
 **"Files changed" counts EVERY path in `git diff --stat $BASE..$HEAD`** —
 tests, docs, and config included; "only core logic files changed" is NOT a
-valid reduction (observed rationalization). **Skip for:** mechanical
+valid reduction. **Skip for:** mechanical
 single-file bugfixes with NO behavior-semantic change, copy/style tweaks,
 config edits — each `A4.9 not triggered` reason in the gate line must cite
 `git diff --stat` output, not self-recollection. **Risk-tier paths —
@@ -618,13 +618,16 @@ group 16 machine-checks `tests/review_package.md` exists on disk.
    `git diff -U10 $BASE..$HEAD` to ONE file (e.g. `tests/review_package.md`) —
    hand the reviewer the FILE, keeping the diff out of your own context.
 2. Dispatch a reviewer subagent (opencode `task` tool) with: the file path,
-   the acceptance criteria / requirements (or `tests/acceptance.md` path), and
+   the acceptance criteria / requirements (or `tests/acceptance.md` path), the
+   CODING_PRINCIPLES.md §Reviewer Smell Baseline, and
    this verdict contract — **Strengths · Issues (Critical / Important / Minor,
    each tagged with its dimension — `Bugs` (logic/edge cases) · `Security`
    (injection/authz/secrets/attacker-controlled input) · `Compliance`
-   (matches acceptance criteria / plan / design principles) — with file:line +
-   why it matters) · Assessment (ready / ready-with-fixes / not ready)**.
-   Findings come back ranked by severity; **Minor findings are itemized at
+   (matches acceptance criteria / plan / design principles — reported as the
+   spec-fidelity triad: requirements missing/partial · scope creep ·
+   looks-implemented-but-wrong, each quoting the criterion/spec line) — with
+   file:line + why it matters) · Assessment (ready / ready-with-fixes / not ready)**.
+   **Minor findings are itemized at
    most 5, the rest summarized as a count** (nit cap — review must not become
    noise); generated paths and anything already mechanically enforced (hooks,
    assert groups) are out of scope for findings. The reviewer is READ-ONLY:
