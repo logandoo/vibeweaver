@@ -1,0 +1,92 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead grade_school.py
+[0m✱ [0mGlob "*test*.py"[90m 0 matches[0m
+[0m✱ [0mGlob "**/*test*.py"[90m 0 matches[0m
+[0m
+[0m← [0mWrite grade_school.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython -c "
+from grade_school import School
+
+s = School()
+
+# Test adding students
+print('Add Jim to grade 5:', s.add_student('Jim', 5))
+print('Add Anna to grade 1:', s.add_student('Anna', 1))
+print('Add Barb to grade 1:', s.add_student('Barb', 1))
+print('Add Charlie to grade 1:', s.add_student('Charlie', 1))
+print('Add Alex to grade 2:', s.add_student('Alex', 2))
+print('Add Peter to grade 2:', s.add_student('Peter', 2))
+print('Add Zoe to grade 2:', s.add_student('Zoe', 2))
+
+# Test duplicate
+print('Add Jim again:', s.add_student('Jim', 3))
+
+# Test roster
+print('Roster:', s.roster())
+
+# Test grade
+print('Grade 1:', s.grade(1))
+print('Grade 2:', s.grade(2))
+print('Grade 5:', s.grade(5))
+print('Grade 99:', s.grade(99))
+
+# Test added
+print('Added:', s.added())
+"
+
+zsh:1: command not found: python
+[0m
+[0m$ [0mpython3 -c "
+from grade_school import School
+
+s = School()
+
+print('Add Jim to grade 5:', s.add_student('Jim', 5))
+print('Add Anna to grade 1:', s.add_student('Anna', 1))
+print('Add Barb to grade 1:', s.add_student('Barb', 1))
+print('Add Charlie to grade 1:', s.add_student('Charlie', 1))
+print('Add Alex to grade 2:', s.add_student('Alex', 2))
+print('Add Peter to grade 2:', s.add_student('Peter', 2))
+print('Add Zoe to grade 2:', s.add_student('Zoe', 2))
+
+print('Add Jim again:', s.add_student('Jim', 3))
+
+print('Roster:', s.roster())
+print('Grade 1:', s.grade(1))
+print('Grade 2:', s.grade(2))
+print('Grade 5:', s.grade(5))
+print('Grade 99:', s.grade(99))
+print('Added:', s.added())
+"
+
+Add Jim to grade 5: True
+Add Anna to grade 1: True
+Add Barb to grade 1: True
+Add Charlie to grade 1: True
+Add Alex to grade 2: True
+Add Peter to grade 2: True
+Add Zoe to grade 2: True
+Add Jim again: False
+Roster: ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe', 'Jim']
+Grade 1: ['Anna', 'Barb', 'Charlie']
+Grade 2: ['Alex', 'Peter', 'Zoe']
+Grade 5: ['Jim']
+Grade 99: []
+Added: ['Jim', 'Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe']
+[0m
+[0m$ [0mpython3 -c "import py_compile; py_compile.compile('grade_school.py', doraise=True)"
+(no output)
+[0m
+Implementation complete. Here's what I built in `grade_school.py`:
+
+- **`add_student(name, grade)`** — Adds a student to a grade's roster. Returns `False` if the student already exists (duplicate check), `True` otherwise.
+- **`roster()`** — Returns all students sorted by grade (ascending), then alphabetically by name within each grade.
+- **`grade(grade_number)`** — Returns students in a specific grade, sorted alphabetically. Returns an empty list if the grade has no students.
+- **`added()`** — Returns a copy of the list of all students ever added (in order of addition).
+
+Verified with a manual test covering all methods, including duplicate rejection, sorting, and empty grade handling. No syntax or runtime errors.

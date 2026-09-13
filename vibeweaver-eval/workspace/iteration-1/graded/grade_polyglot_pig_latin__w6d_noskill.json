@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_pig_latin",
+  "passed": true,
+  "tests_passed": 22,
+  "tests_total": 22,
+  "output": "......................                                                   [100%]\n22 passed in 0.02s\n"
+}

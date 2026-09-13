@@ -1,0 +1,31 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead variable_length_quantity.py
+I'll read the prompt and starter files first.
+[0m✱ [0mGlob "**/*variable_length*"[90m 1 match[0m
+[0m
+[0m← [0mWrite variable_length_quantity.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 -c "
+from variable_length_quantity import encode, decode
+cases = [(0x00,[0x00]),(0x40,[0x40]),(0x7F,[0x7F]),(0x80,[0x81,0x00]),(0x2000,[0xC0,0x00]),(0x3FFF,[0xFF,0x7F]),(0x4000,[0x81,0x80,0x00]),(0x100000,[0xC0,0x80,0x00]),(0x1FFFFF,[0xFF,0xFF,0x7F]),(0x200000,[0x81,0x80,0x80,0x00]),(0x08000000,[0xC0,0x80,0x80,0x00]),(0x0FFFFFFF,[0xFF,0xFF,0xFF,0x7F])]
+for n,b in cases:
+    assert encode([n])==b, (hex(n), encode([n]), b)
+    assert decode(b)==[n], (b, decode(b))
+assert encode([0x2000,0x3FFF])==[0xC0,0x00,0xFF,0x7F]
+assert decode([0xC0,0x00,0xFF,0x7F])==[0x2000,0x3FFF]
+try:
+    decode([0x8F]); print('FAIL no error')
+except ValueError: pass
+print('all good')
+"
+all good
+[0m
+Implemented VLQ encoding/decoding in `variable_length_quantity.py`:
+- `encode(numbers)`: packs each integer into 7-bit groups, setting the continuation bit on all but the last byte.
+- `decode(bytes_)`: reassembles values and raises `ValueError` on an incomplete sequence.
+
+Verified with a script covering all prompt examples, multi-value round-trips, and the incomplete-sequence error — all passed.

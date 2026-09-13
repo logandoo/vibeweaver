@@ -1,0 +1,43 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff    160 Sep 14 07:26 .
+drwxr-xr-x@ 365 logan  staff  11680 Sep 14 07:26 ..
+-rw-r--r--@   1 logan  staff    873 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff     66 Sep 14 07:26 run.log
+-rw-r--r--@   1 logan  staff    464 Aug  1 01:29 simple_linked_list.py
+[0m
+[0m→ [0mRead simple_linked_list.py
+[0m→ [0mRead run.log
+[0m
+[0m← [0mWrite simple_linked_list.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 -c "
+from simple_linked_list import LinkedList, EmptyListException
+l = LinkedList([1,2,3])
+assert list(l) == [1,2,3], list(l)
+assert len(l) == 3
+assert l.head().value() == 1
+l.push(0); assert list(l) == [0,1,2,3]
+assert l.pop() == 0
+r = l.reversed(); assert list(r) == [3,2,1], list(r)
+e = LinkedList()
+assert len(e) == 0
+for fn in (e.head, e.pop):
+    try: fn(); assert False
+    except EmptyListException: pass
+print('OK')
+"
+OK
+[0m
+Implemented the Exercism simple linked list in `simple_linked_list.py`:
+
+- `Node` with `value()`/`next()`
+- `LinkedList` supporting construction from values, `__iter__`, `__len__`, `head()`, `push()`, `pop()` (raising `EmptyListException` when empty), and `reversed()`
+
+Verified via a `python3` script exercising construction, iteration, length, push/pop, reversal, and empty-list exceptions — all passed (`OK`).

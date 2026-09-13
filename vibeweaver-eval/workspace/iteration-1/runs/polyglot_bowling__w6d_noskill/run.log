@@ -1,0 +1,40 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__w6d_noskill
+total 24
+drwxr-xr-x@   5 logan  staff    160 Sep 14 07:26 .
+drwxr-xr-x@ 355 logan  staff  11360 Sep 14 07:26 ..
+-rw-r--r--@   1 logan  staff    131 Aug  1 01:29 bowling.py
+-rw-r--r--@   1 logan  staff   2160 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff     66 Sep 14 07:26 run.log
+[0m
+[0m→ [0mRead bowling.py
+[0m→ [0mRead run.log
+[0m
+[0m← [0mWrite bowling.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 -c "
+from bowling import BowlingGame
+
+def game(rolls):
+    g = BowlingGame()
+    for r in rolls:
+        g.roll(r)
+    return g.score()
+
+assert game([0]*20) == 0
+assert game([1]*20) == 20
+assert game([10]*12) == 300
+assert game([5,5]*10 + [5]) == 150
+assert game([10,5,5] + [0]*17) == 20 + 10
+print('all passed')
+"
+all passed
+[0m
+Implemented `BowlingGame` in `bowling.py` with `roll(pins)` and `score()` using standard ten-frame scoring: open frames, spares (+next roll), strikes (+next two rolls), and the 10th-frame fill-ball logic.
+
+Verified with `python3`: all-zero (0), all-ones (20), perfect game (300), all-spares (150), and a strike+spare example (30) — all passed.

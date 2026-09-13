@@ -1,0 +1,9 @@
+{
+  "task": "polyglot_list_ops",
+  "arm": "w6q_noskill",
+  "exit_code": 0,
+  "wall_seconds": 34.5,
+  "timed_out": false,
+  "log": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__w6q_noskill/run.log",
+  "workdir": "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__w6q_noskill"
+}

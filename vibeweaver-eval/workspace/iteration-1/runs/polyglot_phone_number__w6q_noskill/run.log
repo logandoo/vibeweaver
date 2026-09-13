@@ -1,0 +1,175 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead phone_number.py
+[0m✱ [0mGlob "**/*test*"[90m in . · 0 matches[0m
+[0m→ [0mRead .
+[0m
+[0m← [0mWrite phone_number.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython -c "
+from phone_number import PhoneNumber
+
+# Test basic cases
+tests = [
+    ('+1 (613)-995-0253', '6139950253'),
+    ('613-995-0253', '6139950253'),
+    ('1 613 995 0253', '6139950253'),
+    ('613.995.0253', '6139950253'),
+    ('1234567890', '1234567890'),
+]
+
+for number, expected in tests:
+    result = PhoneNumber(number).number
+    status = 'PASS' if result == expected else 'FAIL'
+    print(f'{status}: {number!r} -> {result!r} (expected {expected!r})')
+
+# Test error cases
+error_tests = [
+    ('ab1234567890', 'letters'),
+    ('123-abc-7890', 'letters'),
+    ('123-@:!-7890', 'punctuation'),
+    ('223456789', '10 digits'),
+    ('123456789012', '12 digits'),
+    ('22345678901', '11 digits no leading 1'),
+    ('0234567890', 'area code 0'),
+    ('1234567890', 'area code 1'),
+    ('2230567890', 'exchange 0'),
+    ('2231567890', 'exchange 1'),
+]
+
+for number, desc in error_tests:
+    try:
+        PhoneNumber(number)
+        print(f'FAIL: {number!r} ({desc}) should have raised ValueError')
+    except ValueError as e:
+        print(f'PASS: {number!r} ({desc}) -> ValueError: {e}')
+    except Exception as e:
+        print(f'FAIL: {number!r} ({desc}) -> {type(e).__name__}: {e}')
+"
+
+zsh:1: command not found: python
+[0m
+[0m$ [0mpython3 -c "
+from phone_number import PhoneNumber
+
+# Test basic cases
+tests = [
+    ('+1 (613)-995-0253', '6139950253'),
+    ('613-995-0253', '6139950253'),
+    ('1 613 995 0253', '6139950253'),
+    ('613.995.0253', '6139950253'),
+    ('1234567890', '1234567890'),
+]
+
+for number, expected in tests:
+    result = PhoneNumber(number).number
+    status = 'PASS' if result == expected else 'FAIL'
+    print(f'{status}: {number!r} -> {result!r} (expected {expected!r})')
+
+# Test error cases
+error_tests = [
+    ('ab1234567890', 'letters'),
+    ('123-abc-7890', 'letters'),
+    ('123-@:!-7890', 'punctuation'),
+    ('223456789', '10 digits'),
+    ('123456789012', '12 digits'),
+    ('22345678901', '11 digits no leading 1'),
+    ('0234567890', 'area code 0'),
+    ('1234567890', 'area code 1'),
+    ('2230567890', 'exchange 0'),
+    ('2231567890', 'exchange 1'),
+]
+
+for number, desc in error_tests:
+    try:
+        PhoneNumber(number)
+        print(f'FAIL: {number!r} ({desc}) should have raised ValueError')
+    except ValueError as e:
+        print(f'PASS: {number!r} ({desc}) -> ValueError: {e}')
+    except Exception as e:
+        print(f'FAIL: {number!r} ({desc}) -> {type(e).__name__}: {e}')
+"
+
+Traceback (most recent call last):
+  File "<string>", line 14, in <module>
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__w6q_noskill/phone_number.py", line 34, in __init__
+    raise ValueError("area code cannot start with one")
+ValueError: area code cannot start with one
+PASS: '+1 (613)-995-0253' -> '6139950253' (expected '6139950253')
+PASS: '613-995-0253' -> '6139950253' (expected '6139950253')
+PASS: '1 613 995 0253' -> '6139950253' (expected '6139950253')
+PASS: '613.995.0253' -> '6139950253' (expected '6139950253')
+[0m
+[0m$ [0mpython3 -c "
+from phone_number import PhoneNumber
+
+# Test basic cases
+tests = [
+    ('+1 (613)-995-0253', '6139950253'),
+    ('613-995-0253', '6139950253'),
+    ('1 613 995 0253', '6139950253'),
+    ('613.995.0253', '6139950253'),
+    ('2234567890', '2234567890'),
+]
+
+for number, expected in tests:
+    result = PhoneNumber(number).number
+    status = 'PASS' if result == expected else 'FAIL'
+    print(f'{status}: {number!r} -> {result!r} (expected {expected!r})')
+
+# Test error cases
+error_tests = [
+    ('ab1234567890', 'letters'),
+    ('123-abc-7890', 'letters'),
+    ('123-@:!-7890', 'punctuation'),
+    ('223456789', 'too few digits'),
+    ('123456789012', 'too many digits'),
+    ('22345678901', '11 digits no leading 1'),
+    ('0234567890', 'area code starts with 0'),
+    ('1234567890', 'area code starts with 1'),
+    ('2230567890', 'exchange code starts with 0'),
+    ('2231567890', 'exchange code starts with 1'),
+]
+
+for number, desc in error_tests:
+    try:
+        PhoneNumber(number)
+        print(f'FAIL: {number!r} ({desc}) should have raised ValueError')
+    except ValueError as e:
+        print(f'PASS: {number!r} ({desc}) -> ValueError: {e}')
+    except Exception as e:
+        print(f'FAIL: {number!r} ({desc}) -> {type(e).__name__}: {e}')
+"
+
+PASS: '+1 (613)-995-0253' -> '6139950253' (expected '6139950253')
+PASS: '613-995-0253' -> '6139950253' (expected '6139950253')
+PASS: '1 613 995 0253' -> '6139950253' (expected '6139950253')
+PASS: '613.995.0253' -> '6139950253' (expected '6139950253')
+PASS: '2234567890' -> '2234567890' (expected '2234567890')
+PASS: 'ab1234567890' (letters) -> ValueError: phone number cannot contain letters
+PASS: '123-abc-7890' (letters) -> ValueError: phone number cannot contain letters
+PASS: '123-@:!-7890' (punctuation) -> ValueError: phone number cannot contain punctuation
+PASS: '223456789' (too few digits) -> ValueError: incorrect number of digits
+PASS: '123456789012' (too many digits) -> ValueError: incorrect number of digits
+PASS: '22345678901' (11 digits no leading 1) -> ValueError: 11-digit number must start with 1
+PASS: '0234567890' (area code starts with 0) -> ValueError: area code cannot start with zero
+PASS: '1234567890' (area code starts with 1) -> ValueError: area code cannot start with one
+PASS: '2230567890' (exchange code starts with 0) -> ValueError: exchange code cannot start with zero
+PASS: '2231567890' (exchange code starts with 1) -> ValueError: exchange code cannot start with one
+[0m
+The test `'1234567890'` has area code `1` which should be invalid — the test case was wrong. Let me fix the test:
+All 15 tests pass. Here's what I implemented:
+
+**`PhoneNumber` class** in `phone_number.py` that:
+
+1. **Rejects letters** — raises `ValueError` if any alphabetic characters are present
+2. **Rejects invalid punctuation** — only allows `+`, `.`, `(`, `)`, `-`, and spaces
+3. **Strips non-digit characters** to extract raw digits
+4. **Handles country code** — removes leading `1` for 11-digit numbers; rejects 11-digit numbers not starting with `1`
+5. **Validates digit count** — must be exactly 10 digits after cleaning
+6. **Validates area code** — first digit must be 2-9 (not 0 or 1)
+7. **Validates exchange code** — fourth digit must be 2-9 (not 0 or 1)
+8. **Stores** the cleaned 10-digit number and exposes `number` and `area_code` properties

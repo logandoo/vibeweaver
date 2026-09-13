@@ -1,0 +1,95 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__w6d_noskill
+total 24
+drwxr-xr-x@   5 logan  staff    160 Sep 14 07:26 .
+drwxr-xr-x@ 361 logan  staff  11552 Sep 14 07:26 ..
+-rw-r--r--@   1 logan  staff    633 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff     50 Aug  1 01:29 robot_name.py
+-rw-r--r--@   1 logan  staff     66 Sep 14 07:26 run.log
+[0m
+[0m→ [0mRead robot_name.py
+[0m→ [0mRead run.log
+[0m
+[0m← [0mWrite robot_name.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 -c "
+import re
+from robot_name import Robot
+
+r = Robot()
+assert r.name is None or True
+n1 = r.name
+assert re.fullmatch(r'[A-Z]{2}[0-9]{3}', n1), n1
+r.reset()
+n2 = r.name
+assert re.fullmatch(r'[A-Z]{2}[0-9]{3}', n2), n2
+
+names = set()
+robots = [Robot() for _ in range(10000)]
+for rb in robots:
+    names.add(rb.name)
+assert len(names) == 10000, len(names)
+assert len(Robot._used_names) == 10000
+print('OK', n1, n2)
+"
+Traceback (most recent call last):
+  File "<string>", line 18, in <module>
+AssertionError
+[0m
+[0m$ [0mpython3 -c "
+import re
+from robot_name import Robot
+
+r = Robot()
+n1 = r.name
+assert re.fullmatch(r'[A-Z]{2}[0-9]{3}', n1), n1
+r.reset()
+n2 = r.name
+assert re.fullmatch(r'[A-Z]{2}[0-9]{3}', n2), n2
+
+names = set()
+robots = [Robot() for _ in range(10000)]
+for rb in robots:
+    names.add(rb.name)
+assert len(names) == 10000, len(names)
+assert len(Robot._used_names) == 10000, len(Robot._used_names)
+print('OK', n1, n2)
+"
+Traceback (most recent call last):
+  File "<string>", line 17, in <module>
+AssertionError: 10001
+[0m
+[0m$ [0mpython3 -c "
+import re
+from robot_name import Robot
+
+names = set()
+robots = [Robot() for _ in range(10000)]
+for rb in robots:
+    names.add(rb.name)
+assert len(names) == 10000, len(names)
+assert len(Robot._used_names) == 10000
+assert all(re.fullmatch(r'[A-Z]{2}[0-9]{3}', n) for n in names)
+
+r = Robot()
+n1 = r.name
+assert re.fullmatch(r'[A-Z]{2}[0-9]{3}', n1)
+r.reset()
+n2 = r.name
+assert re.fullmatch(r'[A-Z]{2}[0-9]{3}', n2)
+assert n2 not in names
+print('OK', n1, n2)
+"
+OK ZC359 TA095
+[0m
+Implemented `Robot` in `robot_name.py`:
+- `name` property lazily generates a unique `[A-Z]{2}[0-9]{3}` name on first access.
+- `reset()` wipes the name and frees it for reuse.
+- Class-level `_used_names` set guarantees all live robots have distinct names.
+
+Verified via a Python script: format regex, uniqueness across 10,000 robots, and reset producing a fresh unused name. All passed.
