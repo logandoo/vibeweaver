@@ -2,6 +2,18 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-09-14：wave6 —— 一致性修复 + A/B 门控的根文件瘦身（−15.1%）
+
+本轮的规则来自用户：不凭信仰改任何东西——先强制注入 A/B，只在帕累托改进时落地（被测模型：qwen3.6-35B @ biklimax.cn:18002 与 deepseek-v4-flash）。WP1–WP6 计划中，本轮交付 WP4（机械一致性）与 WP2 根文件瘦身（内容变更，走 A/B 门）；WP1（哈希钉扎/CI）、WP3（任务级 eval 扩展）、WP5（`vw` CLI）、WP6（遥测）排队后续。
+
+- **WP4 一致性。** `COMPLETION_GATE.md` 里 "all 11 covenants"（COV-12 引入时遗留的漂移）改为 12，出货的 selftest / mutation-sweep 夹具同步。T6 改为缺校准即 SKIP：`--calib <dir>` 现在真正到达 T6 守卫，只有目录而没有会话文件不再崩溃（SKIP + summary 计数），不可解析/非会话 JSON 跳过而非致命。
+- **WP2 根文件瘦身（A/B 门控）。** `tests/w6/make_candidate.py` 确定性生成候选 `SKILL.md`（41,554B vs 48,955B，−15.1%）：未触碰块逐字节复制，门线模板与 8 列表头从源文件抽取，cap/recall 字面量对源断言。移出的是：A4 流程细节（完整文本本就在强制必读的 R1/R1b 配套里）、Part B/C 骨架、MANDATORY CHECKLIST 核心化、更紧的 intro。留下的是：§1 每一条 covenant 原文、Read Contract、全部机器 token。
+- **A/B（强制注入，判据先于结果固定）。** deepseek-v4-flash 16 题：before 15/16 → after 15/16（Δ0，零超时）。qwen3.6-35B 8 题配对子集：3/8 → 3/8（Δ0，一退一进，零超时）。协议缩减记入 D-1（`tests/decisions.md`）：单槽 llama.cpp 上并发 3 排队把单题墙钟放大到 792-1018s、逼近 2400s 超时，qwen 臂改为并发 1 的固定配对子集。字节更小 + 两模型非劣 → 帕累托 → 落地。报告：`tests/w6/AB_REPORT_wave6_2026-09-14.md`。
+- **新增 dev-only 工具。** `tests/w6/doc_lint.mjs`（跨文件一致性：covenant 计数含 `scripts/`、cap 字面量、尺寸预算、死链）、`grade_w6.py`、`pareto_report.py`（复现 IMPLEMENT 判定，含字节条款）。
+- **两轮独立评审（A4.9）。** 首轮 ready-with-fixes（2 Important + 5 Minor 全修）；scoped re-review 全部 ADDRESSED，新增 1 Minor（`--calib` 无值崩溃）已修，并加固校准块对非会话 JSON 的处理。
+
+验证：dev selftest exit 0（36 checks / 0 fail / 1 skip）、sweep 27/27、doc_lint OK、assert 17/17；19 文件 × 3 副本 `cmp` 字节一致；repo `verify_skill.py` 9 checks + unittest 13/13；各副本 selftest 36/0/1 + sweep 27/27；dsh 无契约增量（covenant 文本未变），unit 35/35。
+
 ## 2026-08-30：wave5 —— 可行性问题成为一等路由，外加一条计划切分测试
 
 对 obra/superpowers 做了全仓库对照（14 个技能逐读）。先说实话：大半内容本 skill 早已覆盖——计划格式、调试四阶段、TDD 规则、spec 自审清单本就衍生自 superpowers 同名机制，这趟主要是覆盖确认。仍有两条凭实力留下；八条在案拒绝（全路径批准门、逐节设计批准、子代理逐任务执行、git worktree、分支收尾菜单、并行修复代理、技能编写指南、条件等待——各自与这里的某个有意选择冲突：AUTO 模式、一次性确认、会话内证据环、基线提交模型）。

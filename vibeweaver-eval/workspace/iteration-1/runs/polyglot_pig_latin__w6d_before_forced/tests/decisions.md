@@ -1,0 +1,5 @@
+# Decisions (AUTO mode)
+
+D-1 | trigger: acceptance criteria for a fully-specified exercise | options: (a) invent broad criteria, (b) derive criteria from canonical problem-specification data | chosen: (b) | why: canonical-data.json is the authoritative stop condition; conservative and falsifiable | revisit-if: exercise spec changes
+D-2 | trigger: baseline commit required by COV-9 | options: (a) `git add -A` commit, (b) scoped commit, (c) skip | chosen: (c) skip | why: base policy forbids unsolicited commits; workspace is an untracked subtree of a shared monorepo where `git add -A` stages unrelated paths | revisit-if: user asks for commits
+D-3 | trigger: test artifacts requested by skill vs "do NOT create test files" instruction | options: (a) create executable tests, (b) create evidence logs only, (c) create nothing | chosen: (b) | why: satisfies both — on-disk evidence without authoring test code; verification done via direct `python3 -c` execution | revisit-if: user permits test files

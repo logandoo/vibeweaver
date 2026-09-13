@@ -1,0 +1,84 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+I'll start by reading the task files.
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff   160 Sep 14 01:36 .
+drwxr-xr-x@ 261 logan  staff  8352 Sep 14 01:36 ..
+-rw-r--r--@   1 logan  staff   131 Aug  1 01:29 bowling.py
+-rw-r--r--@   1 logan  staff  2160 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff   104 Sep 14 01:36 run.log
+[0m
+[0m→ [0mRead bowling.py
+[0m→ [0mRead run.log
+[0m◈ [0mExa Web Search "bowling game score kata Python implementation strike spare tenth frame"
+Research done. Two approaches: (1) index-scan in `score()` (classic, simplest), (2) accumulate frames in `roll()`. Choosing (1) — least state, naturally handles 10th-frame fill balls. Note: a popular SO snippet had a spare-bonus bug (`rolls[i+1]` instead of `rolls[i+2]`); I'll use the correct index.
+[0m
+[0m← [0mWrite bowling.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 -c '
+from bowling import BowlingGame
+
+def play(rolls):
+    g = BowlingGame()
+    for r in rolls:
+        g.roll(r)
+    return g.score()
+
+cases = [
+    ("gutter game", [0]*20, 0),
+    ("all ones", [1]*20, 20),
+    ("one spare", [6,4,3,0]+[0]*16, 16),
+    ("one strike", [10,3,4]+[0]*16, 24),
+    ("perfect game", [10]*12, 300),
+    ("all spares", [5]*21, 150),
+    ("10th spare fill", [0]*18+[7,3,5], 15),
+    ("10th strike fill", [0]*18+[10,10,10], 30),
+    ("example X 5/ 90", [10,5,5,9,0]+[0]*15, 48),
+    ("all open 9/0", [9,0]*10, 90),
+]
+ok = True
+for name, rolls, expected in cases:
+    got = play(rolls)
+    status = "PASS" if got == expected else "FAIL"
+    if got != expected:
+        ok = False
+    print(f"{status}: {name} -> got {got}, expected {expected}")
+print("ALL PASS" if ok else "FAILURES PRESENT")
+'
+PASS: gutter game -> got 0, expected 0
+PASS: all ones -> got 20, expected 20
+PASS: one spare -> got 16, expected 16
+PASS: one strike -> got 24, expected 24
+PASS: perfect game -> got 300, expected 300
+PASS: all spares -> got 150, expected 150
+PASS: 10th spare fill -> got 15, expected 15
+PASS: 10th strike fill -> got 30, expected 30
+PASS: example X 5/ 90 -> got 48, expected 48
+PASS: all open 9/0 -> got 90, expected 90
+ALL PASS
+[0m
+Now verify with an inline harness (no test files created, per instructions).
+[0m$ [0mpython3 -m py_compile bowling.py && echo "SYNTAX OK"
+SYNTAX OK
+[0m
+Implemented the bowling scorer in `bowling.py` — a `BowlingGame` class with `roll(pins)` accumulating throws and `score()` doing a 10-frame index scan: strike = 10 + next two rolls, spare = 10 + next roll, open = frame pins. Tenth-frame fill balls fall out naturally from the same index walk.
+
+**How I verified it** (no test files created, per instruction — ran inline):
+- `python3 -m py_compile bowling.py` → SYNTAX OK
+- Inline harness, 10 cases, all PASS: gutter 0, all-ones 20, single spare 16, single strike 24, perfect game 300, all-spares 150, 10th-frame spare fill 15, 10th-frame triple 30, the prompt's `X 5/ 90` example = 48, all-open 90.
+
+```
+Mode: AUTO | Verifier: direct read (non-web)
+[Convergence] bowling scorer: 1 iter | 10/10 pass | 0 stalls | 0 cap-hits
+```
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|--------------------------------------|-----------------------|---------------|--------------|-------------------------------------------|--------|
+| 1 | Score a 10-frame bowling game (strikes/spares/fill balls) | websearch: Exercism bowling kata, Coding-Cuddles kata, StackOverflow bowling-kata thread | Index-scan in `score()` over the roll list — fewest moving parts, no per-roll state, 10th-frame fill balls handled by the same loop. Rejected: frame-accumulation in `roll()` (more state, easier to mis-handle 10th); noted+avoided the SO spare-bonus bug `rolls[i+1]`→ used `rolls[i+2]`. | `bowling.py` | Stub class → working `__init__`/`roll`/`score` | `python3 -m py_compile` OK; inline harness 10/10 cases PASS (incl. perfect 300, all-spares 150, 10th-frame fills) | N/A |
+
+Notes on skill gates: `COV-1` pass (tests executed, output shown above) · `COV-2=na` (no `script/` dir) · `COV-9` skipped — new single-file exercise, no existing runner to baseline · test artifacts deliberately not written because the task forbids creating test files.

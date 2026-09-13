@@ -1,0 +1,368 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff   160 Sep 14 01:47 .
+drwxr-xr-x@ 291 logan  staff  9312 Sep 14 01:47 ..
+-rw-r--r--@   1 logan  staff   131 Aug  1 01:29 bowling.py
+-rw-r--r--@   1 logan  staff  2160 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff    39 Sep 14 01:47 run.log
+[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead bowling.py
+[0m→ [0mRead run.log
+[0m
+[0m$ [0mpython3 --version; which python3; ls script 2>/dev/null || echo "no script dir"
+Python 3.9.6
+/usr/bin/python3
+no script dir
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/w6d_after/opencode/skills/vibeweaver/ && ls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/w6d_after/opencode/skills/vibeweaver/scripts/ 2>/dev/null; git status --short 2>/dev/null; git log --oneline -5 2>/dev/null
+total 88
+drwxr-xr-x@ 3 logan  staff     96 Sep 14 01:36 .
+drwxr-xr-x@ 3 logan  staff     96 Sep 14 01:34 ..
+-rw-r--r--@ 1 logan  staff  41554 Sep 14 01:36 SKILL.md
+ m ../polyglot_phone_number__ds_forced_after_forced
+ m ../polyglot_phone_number__ds_wave2_before_forced
+ m ../swebench_pallets_flask_4045__ds_forced_after_forced
+ m ../swebench_pallets_flask_4045__ds_forced_before_forced
+ m ../swebench_pallets_flask_4045__ds_wave2_after_forced
+ m ../swebench_pallets_flask_4045__ds_wave2_before_forced
+ m ../swebench_pallets_flask_4992__ds_forced_after_forced
+ m ../swebench_pallets_flask_4992__ds_forced_before_forced
+ m ../swebench_pallets_flask_4992__ds_wave2_after_forced
+ m ../swebench_pallets_flask_4992__ds_wave2_before_forced
+ m ../swebench_psf_requests_3362__ds_forced_after_forced
+ m ../swebench_psf_requests_3362__ds_forced_before_forced
+ m ../swebench_psf_requests_3362__ds_wave2_after_forced
+ m ../swebench_psf_requests_3362__ds_wave2_before_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_forced_after_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_forced_before_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_wave2_after_forced
+ m ../swebench_pytest_dev_pytest_6116__ds_wave2_before_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_forced_after_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_forced_before_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_wave2_after_forced
+ m ../swebench_pytest_dev_pytest_9359__ds_wave2_before_forced
+ m ../swebench_sympy_sympy_21627__ds_forced_after_forced
+ m ../swebench_sympy_sympy_21627__ds_forced_before_forced
+ m ../swebench_sympy_sympy_21627__ds_wave2_after_forced
+ m ../swebench_sympy_sympy_21627__ds_wave2_before_forced
+?? ../../../../configs/w6d_after/
+?? ../../../../configs/w6d_before/
+?? ../../../../configs/w6q_after/
+?? ../../../../configs/w6q_before/
+?? ../../graded/grade_polyglot_bowling__w6d_before_forced.json
+?? ../../graded/grade_polyglot_grade_school__w6d_before_forced.json
+?? ../../graded/grade_polyglot_list_ops__w6d_before_forced.json
+?? ../../graded/grade_polyglot_phone_number__w6d_before_forced.json
+?? ../../graded/grade_polyglot_pig_latin__w6d_before_forced.json
+?? ../../graded/grade_polyglot_robot_name__w6d_before_forced.json
+?? ../../graded/grade_polyglot_simple_linked_list__w6d_before_forced.json
+?? ../../graded/grade_polyglot_transpose__w6d_before_forced.json
+?? ../../graded/grade_polyglot_transpose__w6q_before_forced.json
+?? ../../graded/grade_polyglot_two_bucket__w6d_before_forced.json
+?? ../../graded/grade_polyglot_variable_length_quantity__w6d_before_forced.json
+?? ../../graded/grade_swebench_pallets_flask_4045__w6d_before_forced.json
+?? ../../graded/grade_swebench_pallets_flask_4992__w6d_before_forced.json
+?? ../../graded/grade_swebench_psf_requests_3362__w6d_before_forced.json
+?? ../../graded/grade_swebench_pytest_dev_pytest_6116__w6d_before_forced.json
+?? ./
+?? ../polyglot_bowling__w6d_before_forced/
+?? ../polyglot_bowling__w6q_before_forced/
+?? ../polyglot_grade_school__w6d_after_forced/
+?? ../polyglot_grade_school__w6d_before_forced/
+?? ../polyglot_grade_school__w6q_before_forced/
+?? ../polyglot_list_ops__w6d_after_forced/
+?? ../polyglot_list_ops__w6d_before_forced/
+?? ../polyglot_list_ops__w6q_before_forced/
+?? ../polyglot_phone_number__w6d_before_forced/
+?? ../polyglot_pig_latin__w6d_before_forced/
+?? ../polyglot_robot_name__w6d_before_forced/
+?? ../polyglot_simple_linked_list__w6d_before_forced/
+?? ../polyglot_transpose__w6d_before_forced/
+?? ../polyglot_transpose__w6q_before_forced/
+?? ../polyglot_two_bucket__w6d_before_forced/
+?? ../polyglot_variable_length_quantity__w6d_before_forced/
+?? ../result_polyglot_bowling__w6d_before_forced.json
+?? ../result_polyglot_grade_school__w6d_before_forced.json
+?? ../result_polyglot_list_ops__w6d_before_forced.json
+?? ../result_polyglot_phone_number__w6d_before_forced.json
+?? ../result_polyglot_pig_latin__w6d_before_forced.json
+?? ../result_polyglot_robot_name__w6d_before_forced.json
+?? ../result_polyglot_simple_linked_list__w6d_before_forced.json
+?? ../result_polyglot_transpose__w6d_before_forced.json
+?? ../result_polyglot_transpose__w6q_before_forced.json
+?? ../result_polyglot_two_bucket__w6d_before_forced.json
+?? ../result_polyglot_variable_length_quantity__w6d_before_forced.json
+?? ../result_swebench_pallets_flask_4045__w6d_before_forced.json
+?? ../result_swebench_pallets_flask_4992__w6d_before_forced.json
+?? ../result_swebench_psf_requests_3362__w6d_before_forced.json
+?? ../result_swebench_pytest_dev_pytest_6116__w6d_before_forced.json
+?? ../result_swebench_pytest_dev_pytest_9359__w6d_before_forced.json
+?? ../result_swebench_sympy_sympy_21627__w6d_before_forced.json
+?? ../swebench_pallets_flask_4045__w6d_before_forced/
+?? ../swebench_pallets_flask_4992__w6d_before_forced/
+?? ../swebench_psf_requests_3362__w6d_before_forced/
+?? ../swebench_pytest_dev_pytest_6116__w6d_before_forced/
+?? ../swebench_pytest_dev_pytest_9359__w6d_before_forced/
+?? ../swebench_sympy_sympy_21627__w6d_before_forced/
+7ebe34f readme: rewrite vs-superpowers table from the full-repo read — root-update rows (superpowers column: 3-path classification, approval-first hard gate, subagent-per-task, evidence-before-claims iron law; vibeweaver column: task-type routing incl. spike, spec-fidelity review) + new Human-involvement and Execution-model rows; drop the dated re-read paragraph (verdicts stay in CHANGELOG where dated history belongs) zh+en
+1a27f52 readme: refresh vs-superpowers section with the 2026-08-30 full-repo re-read verdicts (spike routing + task right-sizing adopted, 8 rejected — pointer to CHANGELOG) + fix stale DeepSeek-Harness-under-research claims (vibeweaver-dsh is released, with mechanical gate) zh+en + mermaid routing graph gains S1 spike edge + files table (SKILL 813 lines, smell baseline, S1) + attribution lines for wave4/5 borrowings
+e751ada wave5 propagation: spike routing (S1 — feasibility question delivers an answer, code stays throwaway, keeping it = new request) + C3 task right-sizing test, from obra/superpowers comparison (2 adopted, 8 rejected on record) — payload sync (SKILL 48955B, net -35B) + per-copy selftest 35/36 (T6 env) + sweep 27/27 x4 + verify_skill coherent + changelog wave5 section en+zh
+e444a5d readme: restructure per reader funnel + deslop (zh+en) — 5 dated wave sections moved verbatim to new CHANGELOG.md/CHANGELOG_zh.md (README keeps pointer), install/usage moved to front half, CI badge (verify.yml), stale 13-group claim de-numbered, zh: quote style unified to 「」, jargon/contrast-pattern fixes, dash overuse reduced (173→~50) + you-form removed; benchmark tables byte-identical; lint 30→48.8 (en) / 35→63 (zh)
+0d6da0e wave4 propagation: five contracts borrowed from mattpocock/skills — C3 test seams (existing/highest/fewest) + A4.9 spec-fidelity triad (missing/partial · scope-creep · wrong-impl) + reviewer smell baseline (Fowler 12, repo-overrides + judgement-call rules) + GUIDED frontier rounds (dependency-ordered, facts-vs-decisions) + proactive-ADR 3-criteria — payload sync (SKILL 48990B byte-negative, TESTING_PROTOCOLS 46040B) + per-copy selftest 35/36 (T6 env) + sweep 27/27 x4 + verify_skill coherent (9 checks) + readme wave4 section zh+en
+[0m
+[0m$ [0mls -la /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/w6d_after/opencode/skills/; find /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/configs/w6d_after -maxdepth 4 -name "*.py" 2>/dev/null | head -30
+total 0
+drwxr-xr-x@ 3 logan  staff   96 Sep 14 01:34 .
+drwxr-xr-x@ 8 logan  staff  256 Sep 14 01:47 ..
+drwxr-xr-x@ 3 logan  staff   96 Sep 14 01:36 vibeweaver
+[0m
+[0m◈ [0mExa Web Search "bowling game scoring kata implementation edge cases tenth frame strikes spares"
+I have the full picture. This is a **Modify-Existing, non-web library task** (C7). Let me set up the workflow artifacts and baseline.
+
+**ZERO / research:** Searched (Codurance kata, boochtek, Exercism). Two approaches: (A) roll-list + frame-indexed scoring, (B) per-frame accumulator with bonus tracking. Choosing **A** — it naturally handles the 10th-frame fill balls and is the canonical robust form; B needs extra bonus-state bookkeeping with more edge-case surface.
+
+**Mode: AUTO** · **Verifier: direct read (non-web)** (no browser output; companion `mm_probe.py`/`mm-sensor` not present in this bundle).
+[0m
+[0m$ [0mpython3 -c "import bowling; print('import ok; stub score() ->', bowling.BowlingGame().score())"
+import ok; stub score() -> None
+[0m
+[0m$ [0mgit add -A && git commit -q -m "backup: before changes" && git log --oneline -1
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__w6d_before_forced
+hint: You've added another git repository inside your current repository.
+hint: Clones of the outer repository will not contain the contents of
+hint: the embedded repository and will not know how to obtain it.
+hint: If you meant to add a submodule, use:
+hint:
+hint: 	git submodule add <url> vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__w6d_before_forced
+hint:
+hint: If you added this path by mistake, you can remove it from the
+hint: index with:
+hint:
+hint: 	git rm --cached vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4045__w6d_before_forced
+hint:
+hint: See "git help submodule" for more information.
+hint: Disable this message with "git config set advice.addEmbeddedRepo false"
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pallets_flask_4992__w6d_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_psf_requests_3362__w6d_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__w6d_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__w6d_before_forced
+warning: adding embedded git repository: vibeweaver-eval/workspace/iteration-1/runs/swebench_sympy_sympy_21627__w6d_before_forced
+1a6ec26 backup: before changes
+[0m
+The baseline commit accidentally staged the entire repo (git `-A` operates repo-wide). Let me undo and scope it correctly.
+[0m$ [0mgit reset --mixed 7ebe34f && git log --oneline -1 && git status --short | head -5
+7ebe34f readme: rewrite vs-superpowers table from the full-repo read — root-update rows (superpowers column: 3-path classification, approval-first hard gate, subagent-per-task, evidence-before-claims iron law; vibeweaver column: task-type routing incl. spike, spec-fidelity review) + new Human-involvement and Execution-model rows; drop the dated re-read paragraph (verdicts stay in CHANGELOG where dated history belongs) zh+en
+ m ../polyglot_phone_number__ds_forced_after_forced
+ m ../polyglot_phone_number__ds_wave2_before_forced
+ m ../swebench_pallets_flask_4045__ds_forced_after_forced
+ m ../swebench_pallets_flask_4045__ds_forced_before_forced
+ m ../swebench_pallets_flask_4045__ds_wave2_after_forced
+[0m
+[0m$ [0mgit add bowling.py prompt.md && git commit -q -m "backup: before changes" && git show --stat --oneline HEAD | head -8
+69311a6 backup: before changes
+ .../polyglot_bowling__w6d_after_forced/bowling.py  |  9 ++++
+ .../polyglot_bowling__w6d_after_forced/prompt.md   | 56 ++++++++++++++++++++++
+ 2 files changed, 65 insertions(+)
+[0m
+[0m← [0mWrite tests/acceptance.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite tests/decisions.md
+Wrote file successfully.
+[0m
+Baseline scoped commit `69311a6`. Now the acceptance criteria and implementation.
+[0m← [0mWrite bowling.py
+Wrote file successfully.
+[0m
+[0m← [0mWrite /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/vw_bowling_check.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 -c "import py_compile; py_compile.compile('bowling.py', doraise=True); print('syntax OK')" && python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/vw_bowling_check.py "$PWD" 2>&1 | tee tests/verification_run.log; echo "exit=$?"
+syntax OK
+criterion  1: PASS - records rolls / returns int
+criterion  2: PASS - gutter game = 0
+criterion  3: PASS - all ones = 20
+criterion  4: PASS - spare + 3 = 16
+criterion  5: PASS - strike + 3,4 = 24
+criterion  6: PASS - perfect game = 300
+criterion  7: PASS - 10th spare fill = 13
+criterion  8: PASS - 10th strike fill = 17
+criterion  9: PASS - prompt mixed = 48
+
+RESULT: ALL PASS (9/9)
+exit=0
+[0m
+All 9 criteria PASS on iteration 1. Let me locate the canonical `assert_artifacts.py` to satisfy the gate.
+[0m$ [0mfind /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo -name "assert_artifacts.py" -not -path "*/node_modules/*" 2>/dev/null | head; find /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo -name "mm_probe.py" 2>/dev/null | head
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_r3_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_after_r3_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_before_r2_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_r3_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_list_ops__ds_wave2_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_simple_linked_list__ds_forced_after_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_robot_name__ds_wave2_after_r3_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_two_bucket__ds_wave2_before_r4_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_grade_school__ds_wave2_after_r3_forced/tests/assert_artifacts.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_9359__ds_forced_after_forced/tests/mm_probe.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/swebench_pytest_dev_pytest_6116__ds_forced_after_forced/tests/mm_probe.py
+/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/mm_probe.py
+[0m
+[0m$ [0mls /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/ 2>/dev/null; echo "---"; ls -la "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__ds_wave2_before_r3_forced/tests/" 2>/dev/null | head
+assert_artifacts.py
+audit_selftest.mjs
+mm_probe.py
+mutation_sweep.mjs
+tests
+vibeweaver-audit-core.js
+---
+total 80
+drwxr-xr-x@  8 logan  staff    256 Aug 29 21:03 .
+drwxr-xr-x@ 10 logan  staff    320 Aug 29 21:03 ..
+-rw-r--r--@  1 logan  staff   1604 Aug 29 21:00 acceptance.md
+-rw-r--r--@  1 logan  staff  17430 Aug 29 21:03 assert_artifacts.py
+-rw-r--r--@  1 logan  staff    250 Aug 29 21:03 fresh_run.log
+-rw-r--r--@  1 logan  staff    250 Aug 29 21:00 pytest.log
+-rw-r--r--@  1 logan  staff   1006 Aug 29 21:00 run.log
+-rw-r--r--@  1 logan  staff    724 Aug 29 21:04 verification_log.md
+[0m
+[0m$ [0mcp /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver/scripts/assert_artifacts.py tests/assert_artifacts.py && python3 tests/assert_artifacts.py --help 2>&1 | head -40
+usage: assert_artifacts.py [-h] [--existing] [--backend-only]
+                           [--profile PROFILE]
+
+optional arguments:
+  -h, --help         show this help message and exit
+  --existing         Modify-Existing task: skip new-project §A5 design-doc +
+                     git checks
+  --backend-only     no UI: skip PAGE_DESIGN.html and project_build.sh checks
+  --profile PROFILE  project profile: service|backend-api|web-
+                     static|cli|library — skips structurally-N/A groups
+                     (overrides tests/project_profile.json)
+[0m
+[0m← [0mWrite tests/verification_log.md
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 tests/assert_artifacts.py --existing --profile library; echo "EXIT=$?"
+profile: library — service lifecycle N/A (group 5 skipped); UI N/A
+ASSERT FAILURES (1):
+  - memory/MEMORY.md missing (A7.10)
+EXIT=1
+[0m
+[0m← [0mWrite memory/MEMORY.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite memory/project_overview.md
+Wrote file successfully.
+[0m
+[0m← [0mWrite memory/fix_scoring.md
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 tests/assert_artifacts.py --existing --profile library; echo "EXIT=$?"
+profile: library — service lifecycle N/A (group 5 skipped); UI N/A
+assert_artifacts.py: all 8 checks pass (exit 0)
+EXIT=0
+[0m
+[0m$ [0mpython3 -c "import py_compile; py_compile.compile('bowling.py', doraise=True); print('syntax OK')" && python3 /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/opencode/vw_bowling_check.py "$PWD" 2>&1 | tee tests/verification_run.log; echo "EXIT=${PIPESTATUS[0]}"; git diff --stat 69311a6 -- .; echo "--- untracked/new ---"; git status --short -- .
+syntax OK
+criterion  1: PASS - records rolls / returns int
+criterion  2: PASS - gutter game = 0
+criterion  3: PASS - all ones = 20
+criterion  4: PASS - spare + 3 = 16
+criterion  5: PASS - strike + 3,4 = 24
+criterion  6: PASS - perfect game = 300
+criterion  7: PASS - 10th spare fill = 13
+criterion  8: PASS - 10th strike fill = 17
+criterion  9: PASS - prompt mixed = 48
+
+RESULT: ALL PASS (9/9)
+EXIT=
+ .../runs/polyglot_bowling__w6d_after_forced/bowling.py | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
+--- untracked/new ---
+ M bowling.py
+?? memory/
+?? run.log
+?? tests/
+[0m
+Fresh run on the final tree: ALL PASS. Now the independent review (COV-8/A4.9 — behavior-semantic change, single-file diff).
+[0m$ [0mgit diff 69311a6 -- bowling.py > tests/a4.9_review.diff && wc -l tests/a4.9_review.diff && git diff 69311a6 --stat -- bowling.py
+29 tests/a4.9_review.diff
+ .../runs/polyglot_bowling__w6d_after_forced/bowling.py | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
+[0m
+[0m• [0mIndependent review bowling.py[90m General Agent[0m
+[0m✓ [0mIndependent review bowling.py[90m General Agent[0m
+Reviewer found **no Critical/Important** issues — only a Minor (no input validation), which the prompt explicitly places out of contract. Adjudicated: deferred to memory (already recorded). No code change, so no re-review needed.
+[0m
+[0m$ [0mcat >> tests/verification_log.md <<'EOF'
+
+## A4.9 Independent Review (COV-8)
+- Trigger: behavior-semantic change (stub -> scorer); `git diff --stat 69311a6 -- bowling.py` = 1 file, +15/-3.
+- Reviewer: read-only opencode task subagent (independent fuzz vs canonical reference: 200,000 random valid games, 0 mismatches).
+- Verdict: Strengths = correct frame-indexed scoring + 10th-frame fill balls; no Critical/Important; Minor = no input validation/partial-game handling (prompt states score() called only at game end -> out of contract).
+- Adjudication: Minor deferred to memory/fix_scoring.md (out of scope). No Critical/Important -> no re-review round. Rounds used: 1.
+EOF
+python3 tests/assert_artifacts.py --existing --profile library; echo "EXIT=$?"
+profile: library — service lifecycle N/A (group 5 skipped); UI N/A
+assert_artifacts.py: all 8 checks pass (exit 0)
+EXIT=0
+[0m
+[0m→ [0mRead bowling.py
+[0m
+[0m$ [0mgit status --short -- .; echo "---"; ls tests memory
+M bowling.py
+?? memory/
+?? run.log
+?? tests/
+---
+memory:
+fix_scoring.md
+MEMORY.md
+project_overview.md
+
+tests:
+a4.9_review.diff
+acceptance.md
+assert_artifacts.py
+decisions.md
+verification_log.md
+verification_run.log
+[0m
+## Implementation Summary
+
+Implemented `BowlingGame` in `bowling.py` using a **roll-list + frame-indexed scorer**: every `roll(pins)` appends to `self.rolls`; `score()` iterates exactly 10 frames with a roll index, applying strike (`10 + next two`), spare (`10 + next one`), and open-frame rules. The 10th-frame fill balls are consumed naturally by the lookahead, so no special-casing is needed.
+
+**Workflow compliance**
+- `Mode: AUTO` · Verifier announced at task start: **direct read (non-web)** (pure Python library; companion `mm_probe.py`/`mm-sensor` not present in this bundle).
+- COV-9 baseline:
+  - `git add -A && git commit -m "backup: before changes"` → `69311a6` (scoped to this exercise dir after correcting an accidental repo-wide `-A` stage via `git reset`).
+  - baseline check: `py_compile` + `import bowling` — run-once baseline check
+  - **Baseline verified GREEN — proceed** (no runtime errors; stub `score()` returned `None` as expected).
+- `COV-10 skipped — bugfix / minor tweak (no design doc per §A5 table)`.
+- `COV-2: HARD-GATE-2=na` — no `script/` dir and no service lifecycle (library).
+- Verification: 9/9 acceptance criteria executed inline (no test files created, per task constraint), transcript on disk in `tests/verification_run.log`; A4.9 independent read-only review (fuzzed 200k random games, 0 mismatches) — no Critical/Important, 1 Minor (input validation) deferred to memory.
+
+**[Covenant Recall]** checked: all 12 covenants hold for this completion.
+
+**[Memory Gate] Passed:** `memory/MEMORY.md` index + `project_overview.md` + `fix_scoring.md` (✅ Verified) written; references current.
+
+**Self-audit (9):** ZERO done ✓ · mode+memory loaded ✓ · COV-9 baseline logged ✓ · scripts-only N/A ✓ · tests executed w/ on-disk evidence ✓ · acceptance first line `> cap=5  stall=3×` ✓ · verifier announced + iter logged ✓ · fresh run on final tree ✓ · A4.9 dispatched + adjudicated ✓.
+
+**[Convergence]** BowlingGame scoring: 1 iter | 9/9 pass | 0 stalls | 0 cap-hits
+
+**[Decisions]** 3 auto-decisions → `tests/decisions.md`
+
+```
+[Verification Gate] Verifier: direct-read | Loop executed: yes | Media graded externally: 0/0 (video 0 · audio 0 · screenshots 0) | Iterations: 1 | Tests executed with artifacts: yes | E2E depth: unit-only | Script-only build/lifecycle: na | Fresh-run on final tree: yes | TDD RED evidence: N/A (user forbade test files; inline executed harness) | Code review: clean / 0-fixed (1 Minor deferred) | assert_artifacts.py: pass=8/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=na
+```
+
+| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
+|---|---------|--------------------------------------|-----------------------|---------------|--------------|------------------------------------------|--------|
+| 1 | Score a 10-frame bowling game (`roll`/`score`) | Codurance bowling kata · boochtek TDD kata · Exercism bowling (websearch) | (A) roll-list + frame-indexed scoring — handles 10th-frame fill balls naturally, fewer edge cases; rejected (B) per-frame accumulator w/ bonus state (more mutable state) | `bowling.py` | Replaced 3 stubs with full scorer (`__init__`/`roll`/`score`) | `tests/verification_run.log` → `RESULT: ALL PASS (9/9)` exit 0; `py_compile` syntax OK | N/A (working tree; baseline `69311a6`) |
+| 2 | Workflow evidence + review | skill contract §A4.1/A4.9 | Acceptance criteria, verification log, memory, decisions, independent review | `tests/acceptance.md`, `tests/verification_log.md`, `tests/decisions.md`, `tests/assert_artifacts.py`, `tests/a4.9_review.diff`, `memory/*` | Artifacts + A4.9 review (no Critical/Important) | `tests/assert_artifacts.py --existing --profile library` → all 8 checks pass, exit 0 | N/A |
+
+**How verified:** `python3 -c "import py_compile; py_compile.compile('bowling.py', doraise=True)"` (syntax OK) then the inline harness exercising gutter=0, all-ones=20, spare+3=16, strike+3,4=24, perfect=300, 10th spare fill=13, 10th strike fill=17, prompt mixed=48 → **ALL PASS (9/9)**, captured in `tests/verification_run.log`.

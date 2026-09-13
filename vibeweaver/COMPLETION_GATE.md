@@ -523,7 +523,7 @@ Before declaring any task complete, explicitly list and confirm:
       entries cite criterion #s, review_package records its diff range, fix
       memory carries commit hashes
 - [ ] ★ Covenant Recall Checkpoints performed (§A4.1 Step 4 · §A4.4 · §A10 —
-      §1 re-read) and the LITERAL line `[Covenant Recall] checked: all 11
+      §1 re-read) and the LITERAL line `[Covenant Recall] checked: all 12
       covenants hold for this completion` output before the [Verification
       Gate] audit line, with `covenant_recall: pass` in the [Verification
       Gate] line — no covenant silently dropped mid-session

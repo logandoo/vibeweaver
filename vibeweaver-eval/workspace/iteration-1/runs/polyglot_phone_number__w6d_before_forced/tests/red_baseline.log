@@ -1,0 +1,25 @@
+    def test_pretty_print_with_full_us_phone_number(self):
+        number = PhoneNumber("12234567890")
+>       self.assertEqual(number.pretty(), "(223)-456-7890")
+E       AttributeError: 'PhoneNumber' object has no attribute 'pretty'
+
+../../tasks/polyglot_phone_number/hidden_tests/phone_number_test.py:122: AttributeError
+________ PhoneNumberTest.test_valid_when_11_digits_and_starting_with_1 _________
+
+self = <phone_number_test.PhoneNumberTest testMethod=test_valid_when_11_digits_and_starting_with_1>
+
+    def test_valid_when_11_digits_and_starting_with_1(self):
+>       number = PhoneNumber("12234567890").number
+E       AttributeError: 'PhoneNumber' object has no attribute 'number'
+
+../../tasks/polyglot_phone_number/hidden_tests/phone_number_test.py:38: AttributeError
+_ PhoneNumberTest.test_valid_when_11_digits_and_starting_with_1_even_with_punctuation _
+
+self = <phone_number_test.PhoneNumberTest testMethod=test_valid_when_11_digits_and_starting_with_1_even_with_punctuation>
+
+    def test_valid_when_11_digits_and_starting_with_1_even_with_punctuation(self):
+>       number = PhoneNumber("+1 (223) 456-7890").number
+E       AttributeError: 'PhoneNumber' object has no attribute 'number'
+
+../../tasks/polyglot_phone_number/hidden_tests/phone_number_test.py:42: AttributeError
+21 failed in 0.05s

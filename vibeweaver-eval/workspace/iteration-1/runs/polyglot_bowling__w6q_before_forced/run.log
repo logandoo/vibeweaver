@@ -1,0 +1,315 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+I'll start by reading the prompt.md file to understand the exercise, then implement the solution following the vibeweaver workflow.
+[0m→ [0mRead bowling.py
+[0m✱ [0mGlob "*"[90m in . · 3 matches[0m
+[0m→ [0mRead run.log
+[0m
+[0m← [0mWrite bowling.py
+Wrote file successfully.
+[0m
+Now I understand the task. This is the classic Bowling Game kata. Let me implement the solution.
+
+**Problem:** Implement a `BowlingGame` class with `roll(pins)` and `score()` methods following standard bowling scoring rules.
+
+**Approach:** Track rolls as an array, validate inputs, and compute score by iterating through frames.
+[0m$ [0mpython3 -c "
+from bowling import BowlingGame
+
+# Test 1: All zeros - open game
+g = BowlingGame()
+for _ in range(20):
+    g.roll(0)
+assert g.score() == 0, f'Expected 0, got {g.score()}'
+print('Test 1 passed: All zeros = 0')
+
+# Test 2: The example from the prompt: X 5/ 9 0 ...
+g = BowlingGame()
+g.roll(10)   # Frame 1: strike
+g.roll(5)
+g.roll(5)    # Frame 2: spare
+g.roll(9)
+g.roll(0)    # Frame 3: open
+# Need 7 more frames of zeros
+for _ in range(14):
+    g.roll(0)
+s = g.score()
+assert s == 48, f'Expected 48, got {s}'
+print('Test 2 passed: Example from prompt = 48')
+
+# Test 3: All strikes
+g = BowlingGame()
+for _ in range(12):
+    g.roll(10)
+assert g.score() == 300, f'Expected 300, got {g.score()}'
+print('Test 3 passed: All strikes = 300')
+
+# Test 4: All spares
+g = BowlingGame()
+for i in range(21):
+    g.roll(5)
+assert g.score() == 190, f'Expected 190, got {g.score()}'
+print('Test 4 passed: All spares = 190')
+
+# Test 5: 10th frame strike + spare fill
+g = BowlingGame()
+for _ in range(18):
+    g.roll(0)
+g.roll(10)   # 10th frame strike
+g.roll(5)
+g.roll(5)
+assert g.score() == 20, f'Expected 20, got {g.score()}'
+print('Test 5 passed: 10th frame X 5/ = 20')
+
+# Test 6: 10th frame three strikes
+g = BowlingGame()
+for _ in range(18):
+    g.roll(0)
+g.roll(10)
+g.roll(10)
+g.roll(10)
+assert g.score() == 30, f'Expected 30, got {g.score()}'
+print('Test 6 passed: 10th frame XXX = 30')
+
+# Test 7: Game not complete raises error
+g = BowlingGame()
+g.roll(5)
+try:
+    g.score()
+    assert False, 'Should have raised ValueError'
+except ValueError:
+    print('Test 7 passed: Incomplete game raises ValueError')
+
+# Test 8: Invalid pins
+g = BowlingGame()
+try:
+    g.roll(-1)
+    assert False, 'Should have raised ValueError'
+except ValueError:
+    print('Test 8 passed: Negative pins raises ValueError')
+
+g = BowlingGame()
+try:
+    g.roll(11)
+    assert False, 'Should have raised ValueError'
+except ValueError:
+    print('Test 9 passed: Pins > 10 raises ValueError')
+
+# Test 10: Too many pins in a frame
+g = BowlingGame()
+for _ in range(18):
+    g.roll(0)
+g.roll(3)
+try:
+    g.roll(8)  # 3 + 8 = 11 > 10
+    assert False, 'Should have raised ValueError'
+except ValueError:
+    print('Test 10 passed: Too many pins in frame raises ValueError')
+
+print()
+print('All tests passed!')
+"
+
+Traceback (most recent call last):
+  File "<string>", line 36, in <module>
+AssertionError: Expected 190, got 150
+Test 1 passed: All zeros = 0
+Test 2 passed: Example from prompt = 48
+Test 3 passed: All strikes = 300
+[0m
+[0m$ [0mpython3 -c "
+# All spares: 21 rolls of 5
+# Frames 1-9: each is a spare (5+5), bonus is next throw (5)
+# Frame 1: 10+5=15, Frame 2: 10+5=15, ..., Frame 9: 10+5=15 => 9*15=135
+# Frame 10: 5+5+5=15
+# Total: 135+15=150
+print('All spares 21 rolls = 150')
+
+# The correct expected value for all spares is 190 only if we have 21 rolls
+# Wait: 21 rolls means 10 spare frames + 1 fill? No.
+# 21 rolls: frames 1-9 use 2 rolls each = 18 rolls, frame 10 uses 3 rolls = 21 total
+# So 9 spares + 10th frame spare (5/5) + 1 fill (5)
+# Frames 1-9: each = 10 + next_throw(5) = 15, so 9*15=135
+# Frame 10: 5+5+5 = 15
+# Total = 135+15 = 150
+# 
+# For score 190: 10 frames of spare, each frame score = 10 + bonus
+# Frame 1-9: 10+5=15 each = 135
+# Frame 10: 5+5+5=15
+# 135+15=150
+# 
+# Actually 190 = 20*9 + 10? No. Let me think again.
+# 190 = 10 frames, each average 19
+# All spares with first ball = 5, second ball = 5
+# Frame 1: 5+5+next(5) = 15
+# ...
+# Frame 9: 5+5+next(5) = 15
+# Frame 10: 5+5+fill(5) = 15
+# Total = 15*10 = 150. Correct!
+# 
+# The classic 'all spares' score of 190 uses first ball = 4, second = 6
+# Frame 1: 10+4=14, Frame 2: 10+4=14, ..., Frame 9: 10+4=14 => 9*14=126
+# Frame 10: 4+6+4=14
+# Total = 126+14 = 140? No...
+# 
+# Actually standard all-spares test: 4/ 4/ 4/ ... 4/ 4/4/4
+# Each frame = 10+4=14, 10 frames = 140? No, frame 10 = 4+6+4=14
+# 9*14 + 14 = 140
+# 
+# Hmm, 190 comes from: spare with bonus of 10 (strike next)
+# e.g. 9/ 9/ ... 9/ 9/9/9 => each frame=10+9=19, 10*19=190
+print('190 = all nines with strike bonus')
+print('My test expected wrong value')
+"
+
+All spares 21 rolls = 150
+190 = all nines with strike bonus
+My test expected wrong value
+[0m
+The all-spares test is failing. Let me check: 21 rolls of 5 means 9 frames of spare (5+5) + 3 fill balls (5+5+5). Let me trace through: 9 spare frames = 9*10+5 = 95, then 10th frame has 5+5+5=15. Total should be 95+15=110... No wait. Let me recalculate.
+[0m$ [0mpython3 -c "
+from bowling import BowlingGame
+
+# Test 1: All zeros
+g = BowlingGame()
+for _ in range(20):
+    g.roll(0)
+assert g.score() == 0
+print('Test 1 passed: All zeros = 0')
+
+# Test 2: Example from prompt: X 5/ 9 0 ...
+g = BowlingGame()
+g.roll(10)   # Strike
+g.roll(5); g.roll(5)   # Spare
+g.roll(9); g.roll(0)   # Open
+for _ in range(14):
+    g.roll(0)
+assert g.score() == 48, f'Expected 48, got {g.score()}'
+print('Test 2 passed: Example = 48')
+
+# Test 3: All strikes (12 rolls)
+g = BowlingGame()
+for _ in range(12):
+    g.roll(10)
+assert g.score() == 300, f'Expected 300, got {g.score()}'
+print('Test 3 passed: All strikes = 300')
+
+# Test 4: All spares (21 rolls of 5)
+g = BowlingGame()
+for _ in range(21):
+    g.roll(5)
+assert g.score() == 150, f'Expected 150, got {g.score()}'
+print('Test 4 passed: All spares = 150')
+
+# Test 5: 10th frame X 5/
+g = BowlingGame()
+for _ in range(18):
+    g.roll(0)
+g.roll(10); g.roll(5); g.roll(5)
+assert g.score() == 20, f'Expected 20, got {g.score()}'
+print('Test 5 passed: 10th X 5/ = 20')
+
+# Test 6: 10th frame XXX
+g = BowlingGame()
+for _ in range(18):
+    g.roll(0)
+g.roll(10); g.roll(10); g.roll(10)
+assert g.score() == 30, f'Expected 30, got {g.score()}'
+print('Test 6 passed: 10th XXX = 30')
+
+# Test 7: Incomplete game
+g = BowlingGame()
+g.roll(5)
+try:
+    g.score()
+    assert False
+except ValueError:
+    print('Test 7 passed: Incomplete game raises ValueError')
+
+# Test 8: Negative pins
+g = BowlingGame()
+try:
+    g.roll(-1)
+    assert False
+except ValueError:
+    print('Test 8 passed: Negative pins raises ValueError')
+
+# Test 9: Pins > 10
+g = BowlingGame()
+try:
+    g.roll(11)
+    assert False
+except ValueError:
+    print('Test 9 passed: Pins > 10 raises ValueError')
+
+# Test 10: Too many pins in frame
+g = BowlingGame()
+for _ in range(18):
+    g.roll(0)
+g.roll(3)
+try:
+    g.roll(8)  # 3+8=11 > 10
+    assert False
+except ValueError:
+    print('Test 10 passed: Too many pins in frame raises ValueError')
+
+# Test 11: Mixed game
+g = BowlingGame()
+g.roll(1)  # Frame 1: 1
+g.roll(4)  # 1+4=5
+g.roll(5)  # Frame 2: 5
+g.roll(5)  # 5+5=10 spare
+g.roll(3)  # spare bonus
+g.roll(4)  # Frame 3: 4
+g.roll(4)  # 4+4=8
+for _ in range(14):
+    g.roll(0)
+assert g.score() == 67, f'Expected 67, got {g.score()}'
+print('Test 11 passed: Mixed game = 67')
+
+# Test 12: 10th frame open (no fill)
+g = BowlingGame()
+for _ in range(18):
+    g.roll(0)
+g.roll(3); g.roll(6)
+assert g.score() == 6, f'Expected 6, got {g.score()}'
+print('Test 12 passed: 10th frame open = 6')
+
+# Test 13: 10th frame X X (strike then 2 strikes = XXX)
+g = BowlingGame()
+for _ in range(18):
+    g.roll(0)
+g.roll(10); g.roll(10); g.roll(10)
+assert g.score() == 30
+print('Test 13 passed: 10th XXX = 30')
+
+# Test 14: 10th frame X 9/ (strike, spare fill)
+g = BowlingGame()
+for _ in range(18):
+    g.roll(0)
+g.roll(10); g.roll(9); g.roll(1)
+assert g.score() == 20, f'Expected 20, got {g.score()}'
+print('Test 14 passed: 10th X 9/ = 20')
+
+print()
+print('All tests passed!')
+"
+
+Traceback (most recent call last):
+  File "<string>", line 55, in <module>
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__w6q_before_forced/bowling.py", line 21, in score
+    if not self._is_game_complete():
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__w6q_before_forced/bowling.py", line 60, in _is_game_complete
+    elif self._is_spare(roll_index):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_bowling__w6q_before_forced/bowling.py", line 44, in _is_spare
+    return (self._rolls[roll_index] + self._rolls[roll_index + 1] == 10)
+IndexError: list index out of range
+Test 1 passed: All zeros = 0
+Test 2 passed: Example = 48
+Test 3 passed: All strikes = 300
+Test 4 passed: All spares = 150
+Test 5 passed: 10th X 5/ = 20
+Test 6 passed: 10th XXX = 30
+[0m

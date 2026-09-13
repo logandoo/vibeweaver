@@ -1,0 +1,148 @@
+[2026-09-14 01:39:56,100] WARNING in core: flasgger is not installed; serving the static landing page at / and skipping the Swagger UI and /spec.json.
+FFFFFFFFFFFF                                                             [100%]
+=================================== FAILURES ===================================
+_______________________ TransposeTest.test_empty_string ________________________
+
+self = <transpose_test.TransposeTest testMethod=test_empty_string>
+
+    def test_empty_string(self):
+        text = ""
+        expected = ""
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != ''
+
+transpose_test.py:17: AssertionError
+____________ TransposeTest.test_first_line_longer_than_second_line _____________
+
+self = <transpose_test.TransposeTest testMethod=test_first_line_longer_than_second_line>
+
+    def test_first_line_longer_than_second_line(self):
+        text = "The fourth line.\nThe fifth line."
+        expected = "TT\nhh\nee\n  \nff\noi\nuf\nrt\nth\nh \n l\nli\nin\nne\ne.\n."
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'TT\nhh\nee\n  \nff\noi\nuf\nrt\nth\nh \n l\nli\nin\nne\ne.\n.'
+
+transpose_test.py:47: AssertionError
+______________________ TransposeTest.test_jagged_triangle ______________________
+
+self = <transpose_test.TransposeTest testMethod=test_jagged_triangle>
+
+    def test_jagged_triangle(self):
+        text = "11\n2\n3333\n444\n555555\n66666"
+        expected = "123456\n1 3456\n  3456\n  3 56\n    56\n    5"
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != '123456\n1 3456\n  3456\n  3 56\n    56\n    5'
+
+transpose_test.py:83: AssertionError
+_____________________ TransposeTest.test_mixed_line_length _____________________
+
+self = <transpose_test.TransposeTest testMethod=test_mixed_line_length>
+
+    def test_mixed_line_length(self):
+        text = "The longest line.\nA long line.\nA longer line.\nA line."
+        expected = "TAAA\nh   \nelll\n ooi\nlnnn\nogge\nn e.\nglr\nei \nsnl\ntei\n .n\nl e\ni .\nn\ne\n."
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'TAAA\nh   \nelll\n ooi\nlnnn\nogge\nn e.[40 chars]e\n.'
+
+transpose_test.py:59: AssertionError
+_________________________ TransposeTest.test_rectangle _________________________
+
+self = <transpose_test.TransposeTest testMethod=test_rectangle>
+
+    def test_rectangle(self):
+        text = "FRACTURE\nOUTLINED\nBLOOMING\nSEPTETTE"
+        expected = "FOBS\nRULE\nATOP\nCLOT\nTIME\nUNIT\nRENT\nEDGE"
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'FOBS\nRULE\nATOP\nCLOT\nTIME\nUNIT\nRENT\nEDGE'
+
+transpose_test.py:71: AssertionError
+____________ TransposeTest.test_second_line_longer_than_first_line _____________
+
+self = <transpose_test.TransposeTest testMethod=test_second_line_longer_than_first_line>
+
+    def test_second_line_longer_than_first_line(self):
+        text = "The first line.\nThe second line."
+        expected = "TT\nhh\nee\n  \nfs\nie\nrc\nso\ntn\n d\nl \nil\nni\nen\n.e\n ."
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'TT\nhh\nee\n  \nfs\nie\nrc\nso\ntn\n d\nl \nil\nni\nen\n.e\n .'
+
+transpose_test.py:53: AssertionError
+__________________________ TransposeTest.test_simple ___________________________
+
+self = <transpose_test.TransposeTest testMethod=test_simple>
+
+    def test_simple(self):
+        text = "ABC\n123"
+        expected = "A1\nB2\nC3"
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'A1\nB2\nC3'
+
+transpose_test.py:35: AssertionError
+________________________ TransposeTest.test_single_line ________________________
+
+self = <transpose_test.TransposeTest testMethod=test_single_line>
+
+    def test_single_line(self):
+        text = "Single line."
+        expected = "S\ni\nn\ng\nl\ne\n \nl\ni\nn\ne\n."
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'S\ni\nn\ng\nl\ne\n \nl\ni\nn\ne\n.'
+
+transpose_test.py:41: AssertionError
+__________________________ TransposeTest.test_square ___________________________
+
+self = <transpose_test.TransposeTest testMethod=test_square>
+
+    def test_square(self):
+        text = "HEART\nEMBER\nABUSE\nRESIN\nTREND"
+        expected = "HEART\nEMBER\nABUSE\nRESIN\nTREND"
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'HEART\nEMBER\nABUSE\nRESIN\nTREND'
+
+transpose_test.py:65: AssertionError
+_________________________ TransposeTest.test_triangle __________________________
+
+self = <transpose_test.TransposeTest testMethod=test_triangle>
+
+    def test_triangle(self):
+        text = "T\nEE\nAAA\nSSSS\nEEEEE\nRRRRRR"
+        expected = "TEASER\n EASER\n  ASER\n   SER\n    ER\n     R"
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'TEASER\n EASER\n  ASER\n   SER\n    ER\n     R'
+
+transpose_test.py:77: AssertionError
+________________ TransposeTest.test_two_characters_in_a_column _________________
+
+self = <transpose_test.TransposeTest testMethod=test_two_characters_in_a_column>
+
+    def test_two_characters_in_a_column(self):
+        text = "A\n1"
+        expected = "A1"
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'A1'
+
+transpose_test.py:29: AssertionError
+__________________ TransposeTest.test_two_characters_in_a_row __________________
+
+self = <transpose_test.TransposeTest testMethod=test_two_characters_in_a_row>
+
+    def test_two_characters_in_a_row(self):
+        text = "A1"
+        expected = "A\n1"
+    
+>       self.assertEqual(transpose(text), expected)
+E       AssertionError: None != 'A\n1'
+
+transpose_test.py:23: AssertionError
+12 failed in 0.03s

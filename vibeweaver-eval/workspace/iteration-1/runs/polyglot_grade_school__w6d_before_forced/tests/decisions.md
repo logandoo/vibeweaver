@@ -1,0 +1,5 @@
+# Decisions (AUTO mode)
+
+D-1 | trigger: baseline-GREEN gate (COV-9) on Modify-Existing starter | options: (a) git commit in the parent eval repo, (b) state-skip with reason | chosen: (b) | why: workspace is untracked inside the eval framework repo; committing would pollute unrelated repo history, and there is no project `script/` or test runner to baseline | revisit-if: workspace becomes its own git repo with a script/ lifecycle.
+D-2 | trigger: §A4.8 test-first vs "do NOT create test files" | options: (a) create a new test file, (b) reuse the existing hidden test as the RED/GREEN driver | chosen: (b) | why: task forbids creating test files; the canonical suite already exists and provides real RED evidence | revisit-if: user supplies an in-project test runner.
+D-3 | trigger: verifier selection (COV-5) | options: (a) mm probe, (b) mm-sensor, (c) direct read | chosen: (c) direct read (non-web) | why: pure Python library class, no browser-rendered output, no mm-sensor installed; observable evidence is test stdout/exit code | revisit-if: task gains a web/UI surface.

@@ -1,0 +1,53 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead .
+I'll start by reading the prompt and understanding the workspace structure.
+[0m→ [0mRead prompt.md
+[0m→ [0mRead pig_latin.py
+[0m
+[0m← [0mWrite pig_latin.py
+Wrote file successfully.
+[0m
+Now I understand the task. Let me implement the Pig Latin translator following the four rules.
+Now let me verify by running the examples from the prompt:
+[0m$ [0mpython3 -c "
+from pig_latin import translate
+
+# Rule 1
+assert translate('apple') == 'appleay', f'apple: {translate(\"apple\")}'
+assert translate('xray') == 'xrayay', f'xray: {translate(\"xray\")}'
+assert translate('yttria') == 'yttriaay', f'yttria: {translate(\"yttria\")}'
+
+# Rule 2
+assert translate('pig') == 'igpay', f'pig: {translate(\"pig\")}'
+assert translate('chair') == 'airchay', f'chair: {translate(\"chair\")}'
+assert translate('thrush') == 'ushthray', f'thrush: {translate(\"thrush\")}'
+
+# Rule 3
+assert translate('quick') == 'ickquay', f'quick: {translate(\"quick\")}'
+assert translate('square') == 'aresquay', f'square: {translate(\"square\")}'
+
+# Rule 4
+assert translate('my') == 'ymay', f'my: {translate(\"my\")}'
+assert translate('rhythm') == 'ythmrhay', f'rhythm: {translate(\"rhythm\")}'
+
+# Multi-word
+assert translate('quick fast run') == 'ickquay astfay unray'
+
+print('All tests passed.')
+"
+
+All tests passed.
+[0m
+All examples from the prompt pass. Here's what I implemented:
+
+**`translate(text)`** — splits input into words, translates each, joins with spaces.
+
+**`translate_word(word)`** — applies the four rules in order:
+1. Rule 1: word starts with a vowel, `"xr"`, or `"yt"` → append `"ay"`
+2. Rule 3: consonant cluster + `"qu"` → move the whole cluster (including `qu`) to end + `"ay"`
+3. Rule 4: consonant cluster + `"y"` (after position 0) → move preceding consonants to end + `"ay"`
+4. Rule 2: default — move consonant cluster to end + `"ay"`
+
+The loop finds the split point by scanning left-to-right, treating `a,e,i,o,u` as vowels, `qu` as a unit, and `y` as a vowel only when not at position 0.

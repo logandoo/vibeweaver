@@ -1,0 +1,11 @@
+criterion  1: PASS - records rolls / returns int
+criterion  2: PASS - gutter game = 0
+criterion  3: PASS - all ones = 20
+criterion  4: PASS - spare + 3 = 16
+criterion  5: PASS - strike + 3,4 = 24
+criterion  6: PASS - perfect game = 300
+criterion  7: PASS - 10th spare fill = 13
+criterion  8: PASS - 10th strike fill = 17
+criterion  9: PASS - prompt mixed = 48
+
+RESULT: ALL PASS (9/9)

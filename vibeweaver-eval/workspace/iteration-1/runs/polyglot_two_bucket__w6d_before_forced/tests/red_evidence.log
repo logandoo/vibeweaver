@@ -1,0 +1,4 @@
+Baseline stub behavior (byte-identical to original two_bucket.py):
+  measure(3,5,1,'one') -> None  (expected (4,'one',5))  FAIL
+  measure(6,15,5,'one') -> returned (expected ValueError)  FAIL
+RESULT 0/13 criteria satisfied by stub (RED)

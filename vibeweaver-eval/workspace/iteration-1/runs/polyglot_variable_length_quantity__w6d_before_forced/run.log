@@ -1,0 +1,169 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m$ [0mls -la && echo "---" && cat prompt.md 2>/dev/null
+total 24
+drwxr-xr-x@   5 logan  staff   160 Sep 14 01:39 .
+drwxr-xr-x@ 274 logan  staff  8768 Sep 14 01:39 ..
+-rw-r--r--@   1 logan  staff  1403 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff    39 Sep 14 01:39 run.log
+-rw-r--r--@   1 logan  staff    61 Aug  1 01:29 variable_length_quantity.py
+---
+# Instructions
+
+Implement variable length quantity encoding and decoding.
+
+The goal of this exercise is to implement [VLQ][vlq] encoding/decoding.
+
+In short, the goal of this encoding is to encode integer values in a way that would save bytes.
+Only the first 7 bits of each byte are significant (right-justified; sort of like an ASCII byte).
+So, if you have a 32-bit value, you have to unpack it into a series of 7-bit bytes.
+Of course, you will have a variable number of bytes depending upon your integer.
+To indicate which is the last byte of the series, you leave bit #7 clear.
+In all of the preceding bytes, you set bit #7.
+
+So, if an integer is between `0-127`, it can be represented as one byte.
+Although VLQ can deal with numbers of arbitrary sizes, for this exercise we will restrict ourselves to only numbers that fit in a 32-bit unsigned integer.
+Here are examples of integers as 32-bit values, and the variable length quantities that they translate to:
+
+```text
+ NUMBER        VARIABLE QUANTITY
+00000000              00
+00000040              40
+0000007F              7F
+00000080             81 00
+00002000             C0 00
+00003FFF             FF 7F
+00004000           81 80 00
+00100000           C0 80 00
+001FFFFF           FF FF 7F
+00200000          81 80 80 00
+08000000          C0 80 80 00
+0FFFFFFF          FF FF FF 7F
+```
+
+[vlq]: https://en.wikipedia.org/wiki/Variable-length_quantity
+[0m
+[0m$ [0mls -R . | head -100
+prompt.md
+run.log
+variable_length_quantity.py
+[0m
+[0m→ [0mRead variable_length_quantity.py
+[0m
+[0m$ [0mcat run.log
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m$ [0mls -la && echo "---" && cat prompt.md 2>/dev/null
+total 24
+drwxr-xr-x@   5 logan  staff   160 Sep 14 01:39 .
+drwxr-xr-x@ 274 logan  staff  8768 Sep 14 01:39 ..
+-rw-r--r--@   1 logan  staff  1403 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff    39 Sep 14 01:39 run.log
+-rw-r--r--@   1 logan  staff    61 Aug  1 01:29 variable_length_quantity.py
+---
+# Instructions
+
+Implement variable length quantity encoding and decoding.
+
+The goal of this exercise is to implement [VLQ][vlq] encoding/decoding.
+
+In short, the goal of this encoding is to encode integer values in a way that would save bytes.
+Only the first 7 bits of each byte are significant (right-justified; sort of like an ASCII byte).
+So, if you have a 32-bit value, you have to unpack it into a series of 7-bit bytes.
+Of course, you will have a variable number of bytes depending upon your integer.
+To indicate which is the last byte of the series, you leave bit #7 clear.
+In all of the preceding bytes, you set bit #7.
+
+So, if an integer is between `0-127`, it can be represented as one byte.
+Although VLQ can deal with numbers of arbitrary sizes, for this exercise we will restrict ourselves to only numbers that fit in a 32-bit unsigned integer.
+Here are examples of integers as 32-bit values, and the variable length quantities that they translate to:
+
+```text
+ NUMBER        VARIABLE QUANTITY
+00000000              00
+00000040              40
+0000007F              7F
+00000080             81 00
+00002000             C0 00
+00003FFF             FF 7F
+00004000           81 80 00
+00100000           C0 80 00
+001FFFFF           FF FF 7F
+00200000          81 80 80 00
+08000000          C0 80 80 00
+0FFFFFFF          FF FF FF 7F
+```
+
+[vlq]: https://en.wikipedia.org/wiki/Variable-length_quantity
+[0m
+[0m$ [0mls -R . | head -100
+prompt.md
+run.log
+variable_length_quantity.py
+[0m
+[0m→ [0mRead variable_length_quantity.py
+[0m
+[0m← [0mWrite variable_length_quantity.py
+Wrote file successfully.
+[0m
+Simple single-file exercise. Let me implement VLQ encode/decode.
+[0m$ [0mpython3 - <<'PY'
+from variable_length_quantity import encode, decode
+
+cases = {
+    0x0: [0x00],
+    0x40: [0x40],
+    0x7F: [0x7F],
+    0x80: [0x81, 0x00],
+    0x2000: [0xC0, 0x00],
+    0x3FFF: [0xFF, 0x7F],
+    0x4000: [0x81, 0x80, 0x00],
+    0x100000: [0xC0, 0x80, 0x00],
+    0x1FFFFF: [0xFF, 0xFF, 0x7F],
+    0x200000: [0x81, 0x80, 0x80, 0x00],
+    0x8000000: [0xC0, 0x80, 0x80, 0x00],
+    0xFFFFFFF: [0xFF, 0xFF, 0xFF, 0x7F],
+}
+
+for n, expected in cases.items():
+    got = encode([n])
+    assert got == expected, f"encode({n:#x}) = {got}, expected {expected}"
+    back = decode(expected)
+    assert back == [n], f"decode({expected}) = {back}, expected {[n]}"
+
+assert encode([]) == []
+assert decode([]) == []
+assert encode([0x7F, 0x2000]) == [0x7F, 0xC0, 0x00]
+assert decode([0x7F, 0xC0, 0x00]) == [0x7F, 0x2000]
+assert encode([0xFFFFFFFF]) == [0x8F, 0xFF, 0xFF, 0xFF, 0x7F]
+assert decode([0x8F, 0xFF, 0xFF, 0xFF, 0x7F]) == [0xFFFFFFFF]
+
+for bad in ([0xFF], [0x80], [0xC0], [0x81, 0x80]):
+    try:
+        decode(bad)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(f"decode({bad}) should raise ValueError")
+
+for n in range(0, 1 << 20):
+    assert decode(encode([n])) == [n], n
+
+print("ALL CHECKS PASSED")
+PY
+ALL CHECKS PASSED
+[0m
+Implemented `encode`/`decode` in `variable_length_quantity.py:1`.
+
+- `encode(numbers)`: splits each integer into 7-bit groups, high bit set on all but the final byte.
+- `decode(bytes_)`: reassembles 7-bit groups and raises `ValueError` on an incomplete trailing sequence (last byte's high bit still set).
+
+Verified by running inline Python assertions (no test files created):
+- All 12 prompt examples round-trip correctly.
+- Edge cases: empty input, multi-number lists, `0xFFFFFFFF`.
+- Error cases: `[0xFF]`, `[0x80]`, `[0xC0]`, `[0x81, 0x80]` all raise `ValueError`.
+- Exhaustive round-trip for every value `0..2^20-1`.
+
+Result: `ALL CHECKS PASSED`.

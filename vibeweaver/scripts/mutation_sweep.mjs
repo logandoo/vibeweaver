@@ -20,7 +20,7 @@ const TEXT = [
   "Verifier: mm-sensor [image]",
   "A4.9 not triggered — verified via git diff --stat: 1 file, config edit — reason: config edit",
   GATE,
-  "[Covenant Recall] checked: all 11 covenants hold for this completion",
+  "[Covenant Recall] checked: all 12 covenants hold for this completion",
   "[Memory Gate] Passed: ok",
   "[Convergence] x: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
   "| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |",

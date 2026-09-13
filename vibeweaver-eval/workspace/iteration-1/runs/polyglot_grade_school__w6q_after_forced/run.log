@@ -1,0 +1,98 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+I'll start by reading the prompt.md file to understand the exercise, then follow the vibeweaver workflow.
+[0m→ [0mRead grade_school.py
+[0m✱ [0mGlob "*"[90m in . · 3 matches[0m
+[0m→ [0mRead run.log
+[0m
+[0m← [0mWrite grade_school.py
+Wrote file successfully.
+[0m
+Now I understand the task. This is the classic "Grade School" (School Roster) exercise. Let me implement the solution.
+Now let me verify by running the code:
+[0m$ [0mpython3 -c "
+from grade_school import School
+
+s = School()
+
+# Test add_student
+s.add_student('Jim', 2)
+s.add_student('Anna', 1)
+s.add_student('Barb', 1)
+s.add_student('Charlie', 1)
+s.add_student('Alex', 2)
+s.add_student('Peter', 2)
+s.add_student('Zoe', 2)
+s.add_student('Jim', 5)
+
+# Test duplicate detection
+s.add_student('Jim', 2)
+
+# Test grade()
+print('Grade 1:', s.grade(1))
+print('Grade 2:', s.grade(2))
+print('Grade 5:', s.grade(5))
+print('Grade 99:', s.grade(99))
+
+# Test roster()
+print('Roster:', s.roster())
+
+# Verify expected output from prompt
+expected = ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe', 'Jim']
+print('Expected:', expected)
+print('Match:', s.roster() == expected)
+"
+
+Grade 1: ['Anna', 'Barb', 'Charlie']
+Grade 2: ['Alex', 'Jim', 'Peter', 'Zoe']
+Grade 5: []
+Grade 99: []
+Roster: ['Anna', 'Barb', 'Charlie', 'Alex', 'Jim', 'Peter', 'Zoe']
+Expected: ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe', 'Jim']
+Match: False
+[0m
+The roster is correct (sorted by grade then alphabetically within each grade). The "expected" in my test was wrong — the prompt's example lists them grouped by grade which happens to match. Let me verify the exact expected output:
+[0m$ [0mpython3 -c "
+from grade_school import School
+
+s = School()
+s.add_student('Anna', 1)
+s.add_student('Barb', 1)
+s.add_student('Charlie', 1)
+s.add_student('Alex', 2)
+s.add_student('Peter', 2)
+s.add_student('Zoe', 2)
+s.add_student('Jim', 5)
+
+# Verify roster: sorted by grade, then alphabetically within grade
+print('Roster:', s.roster())
+# Expected from prompt: Anna, Barb, Charlie (grade 1), Alex, Peter, Zoe (grade 2), Jim (grade 5)
+expected = ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe', 'Jim']
+print('Match:', s.roster() == expected)
+
+# Verify duplicate detection doesn't add
+s.add_student('Jim', 1)
+print('After duplicate add, grade 1:', s.grade(1))
+print('Roster length:', len(s.roster()))
+
+# Syntax check passed
+print('All tests passed!')
+"
+
+Roster: ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe', 'Jim']
+Match: True
+After duplicate add, grade 1: ['Anna', 'Barb', 'Charlie']
+Roster length: 7
+All tests passed!
+[0m
+The implementation is correct:
+
+- **`add_student(name, grade)`** — adds a student to a grade; silently ignores duplicates (same name already in any grade)
+- **`roster()`** — returns all students sorted by grade, then alphabetically within each grade
+- **`grade(grade_number)`** — returns students in a specific grade, sorted alphabetically
+- **`added()`** — returns the internal roster dict
+- **`all_students()`** — helper to check for duplicates across all grades
+
+Verified with the exact example from the prompt: Anna, Barb, Charlie (grade 1), Alex, Peter, Zoe (grade 2), Jim (grade 5) — matches expected output. Duplicate adds are correctly rejected.
