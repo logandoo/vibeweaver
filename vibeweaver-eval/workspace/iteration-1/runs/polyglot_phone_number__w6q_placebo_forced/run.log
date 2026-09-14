@@ -1,0 +1,268 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead phone_number.py
+[0m✱ [0mGlob "**/*test*"[90m in . · 0 matches[0m
+[0m→ [0mRead .
+[0m
+[0m← [0mWrite phone_number.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython -c "
+from phone_number import PhoneNumber
+
+# Basic tests
+tests = [
+    ('+1 (613)-995-0253', '6139950253'),
+    ('613-995-0253', '6139950253'),
+    ('1 613 995 0253', '6139950253'),
+    ('613.995.0253', '6139950253'),
+    ('1234567890', '1234567890'),
+    ('2234567890', '2234567890'),
+]
+
+for inp, expected in tests:
+    p = PhoneNumber(inp)
+    assert p.number == expected, f'FAIL: {inp} -> {p.number} (expected {expected})'
+    print(f'PASS: {inp} -> {p.number}')
+
+# Error cases
+import traceback
+errors = [
+    ('0234567890', 'area code cannot start with zero'),
+    ('1234567890', 'area code cannot start with one'),
+    ('2230567890', 'exchange code cannot start with zero'),
+    ('2231567890', 'exchange code cannot start with one'),
+]
+
+for inp, msg in errors:
+    try:
+        PhoneNumber(inp)
+        print(f'FAIL: {inp} should have raised ValueError')
+    except ValueError as e:
+        assert msg in str(e), f'FAIL: wrong error for {inp}: {e}'
+        print(f'PASS: {inp} -> ValueError: {e}')
+
+# Letters
+try:
+    PhoneNumber('123-abc-7890')
+    print('FAIL: letters should raise')
+except ValueError as e:
+    print(f'PASS: letters -> ValueError: {e}')
+
+# Too few digits
+try:
+    PhoneNumber('123456789')
+    print('FAIL: too few digits should raise')
+except ValueError as e:
+    print(f'PASS: too few -> ValueError: {e}')
+
+# Too many digits
+try:
+    PhoneNumber('123456789012')
+    print('FAIL: too many digits should raise')
+except ValueError as e:
+    print(f'PASS: too many -> ValueError: {e}')
+
+# 11 digits not starting with 1
+try:
+    PhoneNumber('22345678901')
+    print('FAIL: 11 digits not starting with 1 should raise')
+except ValueError as e:
+    print(f'PASS: 11 no 1 -> ValueError: {e}')
+
+print()
+print('All tests passed!')
+"
+
+zsh:1: command not found: python
+[0m
+[0m$ [0mpython3 -c "
+from phone_number import PhoneNumber
+
+# Basic tests
+tests = [
+    ('+1 (613)-995-0253', '6139950253'),
+    ('613-995-0253', '6139950253'),
+    ('1 613 995 0253', '6139950253'),
+    ('613.995.0253', '6139950253'),
+    ('1234567890', '1234567890'),
+    ('2234567890', '2234567890'),
+]
+
+for inp, expected in tests:
+    p = PhoneNumber(inp)
+    assert p.number == expected, f'FAIL: {inp} -> {p.number} (expected {expected})'
+    print(f'PASS: {inp} -> {p.number}')
+
+# Error cases
+errors = [
+    ('0234567890', 'area code cannot start with zero'),
+    ('1234567890', 'area code cannot start with one'),
+    ('2230567890', 'exchange code cannot start with zero'),
+    ('2231567890', 'exchange code cannot start with one'),
+]
+
+for inp, msg in errors:
+    try:
+        PhoneNumber(inp)
+        print(f'FAIL: {inp} should have raised ValueError')
+    except ValueError as e:
+        assert msg in str(e), f'FAIL: wrong error for {inp}: {e}'
+        print(f'PASS: {inp} -> ValueError: {e}')
+
+# Letters
+try:
+    PhoneNumber('123-abc-7890')
+    print('FAIL: letters should raise')
+except ValueError as e:
+    print(f'PASS: letters -> ValueError: {e}')
+
+# Too few digits
+try:
+    PhoneNumber('123456789')
+    print('FAIL: too few digits should raise')
+except ValueError as e:
+    print(f'PASS: too few -> ValueError: {e}')
+
+# Too many digits
+try:
+    PhoneNumber('123456789012')
+    print('FAIL: too many digits should raise')
+except ValueError as e:
+    print(f'PASS: too many -> ValueError: {e}')
+
+# 11 digits not starting with 1
+try:
+    PhoneNumber('22345678901')
+    print('FAIL: 11 digits not starting with 1 should raise')
+except ValueError as e:
+    print(f'PASS: 11 no 1 -> ValueError: {e}')
+
+print()
+print('All tests passed!')
+"
+
+Traceback (most recent call last):
+  File "<string>", line 15, in <module>
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__w6q_placebo_forced/phone_number.py", line 3, in __init__
+    self.clean(number)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-eval/workspace/iteration-1/runs/polyglot_phone_number__w6q_placebo_forced/phone_number.py", line 42, in clean
+    raise ValueError("area code cannot start with one")
+ValueError: area code cannot start with one
+PASS: +1 (613)-995-0253 -> 6139950253
+PASS: 613-995-0253 -> 6139950253
+PASS: 1 613 995 0253 -> 6139950253
+PASS: 613.995.0253 -> 6139950253
+[0m
+[0m$ [0mpython3 -c "
+from phone_number import PhoneNumber
+
+# Basic valid tests
+tests = [
+    ('+1 (613)-995-0253', '6139950253'),
+    ('613-995-0253', '6139950253'),
+    ('1 613 995 0253', '6139950253'),
+    ('613.995.0253', '6139950253'),
+    ('2234567890', '2234567890'),
+    ('3234567890', '3234567890'),
+    ('2232234567', '2232234567'),
+]
+
+for inp, expected in tests:
+    p = PhoneNumber(inp)
+    assert p.number == expected, f'FAIL: {inp} -> {p.number} (expected {expected})'
+    print(f'PASS: {inp} -> {p.number}')
+
+# Error cases
+errors = [
+    ('0234567890', 'area code cannot start with zero'),
+    ('1234567890', 'area code cannot start with one'),
+    ('2230567890', 'exchange code cannot start with zero'),
+    ('2231567890', 'exchange code cannot start with one'),
+]
+
+for inp, msg in errors:
+    try:
+        PhoneNumber(inp)
+        print(f'FAIL: {inp} should have raised ValueError')
+    except ValueError as e:
+        assert msg in str(e), f'FAIL: wrong error for {inp}: {e}'
+        print(f'PASS: {inp} -> ValueError: {e}')
+
+# Letters
+try:
+    PhoneNumber('123-abc-7890')
+    print('FAIL: letters should raise')
+except ValueError as e:
+    print(f'PASS: letters -> ValueError: {e}')
+
+# Punctuation
+try:
+    PhoneNumber('123-@-7890')
+    print('FAIL: @ should raise')
+except ValueError as e:
+    print(f'PASS: @ punctuation -> ValueError: {e}')
+
+# Too few digits
+try:
+    PhoneNumber('123456789')
+    print('FAIL: too few digits should raise')
+except ValueError as e:
+    print(f'PASS: too few -> ValueError: {e}')
+
+# Too many digits
+try:
+    PhoneNumber('123456789012')
+    print('FAIL: too many digits should raise')
+except ValueError as e:
+    print(f'PASS: too many -> ValueError: {e}')
+
+# 11 digits not starting with 1
+try:
+    PhoneNumber('22345678901')
+    print('FAIL: 11 digits not starting with 1 should raise')
+except ValueError as e:
+    print(f'PASS: 11 no 1 -> ValueError: {e}')
+
+# 11 digits with country code 1
+p = PhoneNumber('12234567890')
+assert p.number == '2234567890', f'FAIL: {p.number}'
+print(f'PASS: 12234567890 -> {p.number}')
+
+print()
+print('All tests passed!')
+"
+
+PASS: +1 (613)-995-0253 -> 6139950253
+PASS: 613-995-0253 -> 6139950253
+PASS: 1 613 995 0253 -> 6139950253
+PASS: 613.995.0253 -> 6139950253
+PASS: 2234567890 -> 2234567890
+PASS: 3234567890 -> 3234567890
+PASS: 2232234567 -> 2232234567
+PASS: 0234567890 -> ValueError: area code cannot start with zero
+PASS: 1234567890 -> ValueError: area code cannot start with one
+PASS: 2230567890 -> ValueError: exchange code cannot start with zero
+PASS: 2231567890 -> ValueError: exchange code cannot start with one
+PASS: letters -> ValueError: phone number cannot contain letters
+PASS: @ punctuation -> ValueError: phone number cannot contain punctuation
+PASS: too few -> ValueError: must not be fewer than 10 digits
+PASS: too many -> ValueError: must not be greater than 11 digits
+PASS: 11 no 1 -> ValueError: 11 digits must start with 1
+PASS: 12234567890 -> 2234567890
+
+All tests passed!
+[0m
+The test `1234567890` fails because area code starts with `1`. Let me fix the test case — that's expected behavior per NANP rules.
+All tests pass. Here's what I implemented:
+
+**`phone_number.py`** — A `PhoneNumber` class that cleans and validates NANP phone numbers:
+
+- Strips allowed punctuation (`+`, `-`, `.`, `(`, `)`, spaces) and extracts digits
+- Rejects letters with `ValueError`
+- Rejects invalid punctuation with `ValueError`
+- Validates digit count: must be 10 (or 11 if starting with country code `1`)
+- Validates NANP rules: area code and exchange code first digits must be `2-9`
+- Stores the cleaned 10-digit number in `self.number`

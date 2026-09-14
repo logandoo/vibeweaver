@@ -1,0 +1,59 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m→ [0mRead prompt.md
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff    160 Sep 14 08:00 .
+drwxr-xr-x@ 409 logan  staff  13088 Sep 14 08:00 ..
+-rw-r--r--@   1 logan  staff    633 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff     50 Aug  1 01:29 robot_name.py
+-rw-r--r--@   1 logan  staff     66 Sep 14 08:00 run.log
+[0m
+[0m→ [0mRead robot_name.py
+[0m→ [0mRead run.log
+This is the classic Exercism "Robot Name" exercise. Let me implement it.
+[0m
+[0m← [0mWrite robot_name.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 -c "
+import re, random
+from robot_name import Robot
+
+random.seed(0)
+# lazy naming + format
+r = Robot()
+assert r._name is None, 'name should be empty before first access'
+n = r.name
+assert re.fullmatch(r'[A-Z]{2}[0-9]{3}', n), n
+assert r.name == n, 'name should be stable once set'
+
+# uniqueness across many robots
+robots = [Robot() for _ in range(20000)]
+names = [b.name for b in robots]
+assert len(names) == len(set(names)), 'duplicate names!'
+
+# reset wipes and regenerates
+old = robots[0].name
+robots[0].reset()
+assert robots[0]._name is None
+new = robots[0].name
+assert re.fullmatch(r'[A-Z]{2}[0-9]{3}', new), new
+
+# freed name is reusable / still globally unique at any instant
+all_current = [b.name for b in robots]
+assert len(all_current) == len(set(all_current)), 'duplicate after reset!'
+
+print('all checks passed; sample:', names[:3], 'reset produced:', old, '->', new)
+"
+all checks passed; sample: ['QP647', 'LS382', 'JE194'] reset produced: QP647 -> GR075
+[0m
+Implemented `Robot` in robot_name.py:
+
+- `name` — lazy property; generates a random `[A-Z]{2}[0-9]{3}` name on first access and caches it.
+- `reset()` — wipes the name (returns it to the pool) so the next access generates a fresh one.
+- `_used_names` class-level set guarantees every currently-named robot is unique; generation retries on collision.
+
+Verified with an inline script (no test files created): name starts unset, matches the required format, is stable across accesses, 20,000 robots all have unique names, and reset wipes + regenerates correctly while preserving global uniqueness. All checks passed.

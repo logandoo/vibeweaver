@@ -1,0 +1,68 @@
+[0m
+> build · deepseek-v4-flash
+[0m
+[0m$ [0mls -la
+total 24
+drwxr-xr-x@   5 logan  staff    160 Sep 14 08:01 .
+drwxr-xr-x@ 417 logan  staff  13344 Sep 14 08:01 ..
+-rw-r--r--@   1 logan  staff   1403 Aug  1 01:29 prompt.md
+-rw-r--r--@   1 logan  staff     39 Sep 14 08:01 run.log
+-rw-r--r--@   1 logan  staff     61 Aug  1 01:29 variable_length_quantity.py
+[0m
+[0m✱ [0mGlob "**/*.py"[90m 1 match[0m
+[0m→ [0mRead prompt.md
+[0m→ [0mRead variable_length_quantity.py
+[0m→ [0mRead run.log
+[0m
+[0m← [0mWrite variable_length_quantity.py
+Wrote file successfully.
+[0m
+[0m$ [0mpython3 -c "
+from variable_length_quantity import encode, decode
+
+cases = {
+    0x0: [0x00],
+    0x40: [0x40],
+    0x7F: [0x7F],
+    0x80: [0x81, 0x00],
+    0x2000: [0xC0, 0x00],
+    0x3FFF: [0xFF, 0x7F],
+    0x4000: [0x81, 0x80, 0x00],
+    0x100000: [0xC0, 0x80, 0x00],
+    0x1FFFFF: [0xFF, 0xFF, 0x7F],
+    0x200000: [0x81, 0x80, 0x80, 0x00],
+    0x08000000: [0xC0, 0x80, 0x80, 0x00],
+    0x0FFFFFFF: [0xFF, 0xFF, 0xFF, 0x7F],
+}
+for n, expected in cases.items():
+    got = encode([n])
+    assert got == expected, (hex(n), got, expected)
+    assert decode(got) == [n], (hex(n), decode(got))
+print('encode/decode cases OK')
+
+assert encode([0x2000, 0x3FFF]) == [0xC0, 0x00, 0xFF, 0x7F]
+assert decode([0xC0, 0x00, 0xFF, 0x7F]) == [0x2000, 0x3FFF]
+assert encode([0xFFFFFFFF]) == [0x8F, 0xFF, 0xFF, 0xFF, 0x7F]
+assert decode([0x8F, 0xFF, 0xFF, 0xFF, 0x7F]) == [0xFFFFFFFF]
+print('multi-value and max-uint32 OK')
+
+try:
+    decode([0xFF])
+except ValueError as e:
+    assert str(e) == 'Incomplete sequence', str(e)
+    print('incomplete raises:', e)
+else:
+    raise AssertionError('expected ValueError')
+print('ALL OK')
+"
+encode/decode cases OK
+multi-value and max-uint32 OK
+incomplete raises: Incomplete sequence
+ALL OK
+[0m
+Implemented VLQ encode/decode in `variable_length_quantity.py`.
+
+- `encode(numbers)`: packs each unsigned integer into 7-bit groups, MSB-first, setting bit 7 on all but the final byte.
+- `decode(bytes_)`: reverses the process; raises `ValueError("Incomplete sequence")` when the input ends mid-sequence.
+
+Verified by running all 12 examples from `prompt.md`, multi-value round-trips, max uint32 (`0xFFFFFFFF`), and the incomplete-sequence error case — all passed. No test files created or modified.
