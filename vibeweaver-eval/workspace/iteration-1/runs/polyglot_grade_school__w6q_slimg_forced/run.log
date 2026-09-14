@@ -1,0 +1,29 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+I'll start by reading the prompt and understanding the task.
+[0m→ [0mRead grade_school.py
+[0m→ [0mRead vw_check.py
+[0m✱ [0mGlob "*_test.py"[90m 1 match[0m
+[0m→ [0mRead grade_school_test.py
+[0m
+[0m← [0mWrite grade_school.py
+Wrote file successfully.
+[0m
+Now I understand the full picture. Let me implement the solution.
+[0m$ [0mpython3 vw_check.py
+.........s                                                               [100%]
+9 passed, 1 skipped in 0.02s
+
+ALL CHECKS PASS
+[0m
+All 9 tests pass (1 skipped — the `added()` test is marked `skip` in the test file per the spec).
+
+**What I implemented:**
+
+- `School` class with a dict `_students` mapping grade numbers to lists of student names
+- `add_student(name, grade)` — adds a student to a grade, returns `False` if the student already exists in any grade, `True` otherwise
+- `roster()` — returns all students sorted by grade then alphabetically by name
+- `grade(grade_number)` — returns students in that grade, sorted alphabetically
+- `added()` — returns the set of all added student names

@@ -1,0 +1,30 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+I'll start by reading the prompt and understanding the workspace structure.
+[0m→ [0mRead phone_number.py
+[0m✱ [0mGlob "*"[90m in . · 5 matches[0m
+[0m→ [0mRead phone_number_test.py
+[0m→ [0mRead vw_check.py
+[0m
+[0m← [0mWrite phone_number.py
+Wrote file successfully.
+[0m
+Now I understand the task. Let me implement the `PhoneNumber` class.
+[0m$ [0mpython3 vw_check.py
+.............................                                            [100%]
+29 passed in 0.04s
+
+ALL CHECKS PASS
+[0m
+All 29 tests pass. Here's what I implemented:
+
+**`PhoneNumber` class** in `phone_number.py`:
+- Strips all allowed punctuation (`+`, `-`, `.`, `(`, `)`, spaces) from the input
+- Extracts only digits
+- Handles 11-digit numbers by stripping the leading `1` country code (rejects non-`1` 11-digit numbers)
+- Rejects numbers that aren't exactly 10 or 11 digits
+- Validates NANP rules: area code and exchange code must start with digit 2-9
+- Raises `ValueError` for any invalid input (letters, punctuation, wrong length, invalid codes)
+- Stores the cleaned 10-digit number as `self.number`
