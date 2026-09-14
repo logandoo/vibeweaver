@@ -2,24 +2,25 @@
 
 [![verify](https://github.com/logandoo/vibeweaver/actions/workflows/verify.yml/badge.svg)](https://github.com/logandoo/vibeweaver/actions/workflows/verify.yml)
 
-Vibeweaver is less a skill than a coding discipline for vibe-coding, packaged for opencode.
+A coding discipline for opencode that makes "done" mean "proven": research before code, tests that actually ran, evidence on disk, enforced by a tool-level gate, not by asking the model nicely.
 
-When model coding ability stops being the bottleneck, the developer's core job shifts from writing code yourself to organizing the development process. Benchmark scores keep climbing, yet real-world experience on medium-to-large projects stays unsatisfying. The problem is not model capability; it is the two things left undefined in the development process: the process and the standards. The agent is not incapable — it just doesn't know what "done" means. Vibeweaver is a binding contract that constrains the coding agent's development process, turning model capability into stable, trustworthy delivery on exactly those projects.
+Vibeweaver is a binding contract for the coding agent's development process, packaged as an opencode skill. It targets the failure mode benchmark scores hide: on medium-to-large projects the agent doesn't know what "done" means, so it declares victory without proof. The contract fixes the process (decompose, research, plan, test-first, verify, review) and the standards (what evidence counts), turning model capability into delivery you can trust.
 
-For now the project is optimized for opencode only; a DeepSeek Harness port is open-sourced separately as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh). As for Codex and Claude Code — never used them, no plans to, no idea. Anyone interested is welcome to fork.
+The project is opencode-only for now. A DeepSeek Harness port is open-sourced separately as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh). Codex and Claude Code: never used them, no plans to, no idea, forks welcome.
 
 ## What it actually does
 
-Vibeweaver is a contract, not a methodology. It takes the single worst habit of coding agents, saying "done" without proof, and makes it structurally impossible to get away with:
+Vibeweaver is a contract, not a methodology. It takes the single worst habit of coding agents, saying "done" without proof, and makes it structurally hard to get away with:
 
 - **NO TEST, NO DONE**: every code change must be followed by executed tests with on-disk evidence (log files, screenshots, operation video, page audio). "It builds" is not evidence.
-- **Test-first, always**: logic-bearing code is written RED→GREEN: write the failing test first, *watch it fail* (the output gets pasted into `tests/verification_log.md`), then write the minimal code to make it pass. A test that passes on the first run proves nothing, it might be testing the wrong thing entirely. Regression tests must complete the full revert-and-fail cycle before they count.
-- **API-doc-driven backend tests**: for backend-only changes, the loop is: update the API doc → audit doc↔code consistency exactly once → write test cases *from the doc, not from the implementation* → run the httpx test→fix→test loop until everything passes. Cross-endpoint changes additionally require real-HTTP workflow scenarios with on-disk traces (`tests/workflows/*.trace.log`); direct service-layer calls are not E2E and don't count.
-- **Self-starting verification loop**: the moment a change touches runtime behavior, the agent enters `Act → Capture → Verify → Fix → Log` on its own. Screenshots are graded by the verifier selected at task start by the three-stage probe (see the mm-sensor hookup below): model-native self-reads must follow the §A4.1.1 protocol, and with [mm-sensor](https://github.com/logandoo/mm-sensor) installed the maker/checker split means the model doesn't grade its own homework; video/audio are included when the verifier model supports them, and the mode is decided by a capability probe.
-- **Script-only lifecycle**: frontend builds and service start/stop/restart go through `script/` scripts. Raw `npm run build`, `vite`, `npm start`, `uvicorn` are forbidden. Stop scripts must use the `.pid`-file pattern; `pkill -f "uvicorn"` on a shared box kills your coworker's service.
-- **Research before code**: the first action on any task is decomposing the problem (stop and ask when anything is unclear, one question at a time, no guessing) and searching the web (exa MCP + Context7) for existing solutions, evaluating at least two approaches before writing anything. This step is mandatory unless there's no internet or the fix is a trivial typo/config change. The philosophy behind it: **there is nothing new under the sun**. Your problem has almost certainly been solved before; if a genuine search turns up no precedent, the thing is too novel to be our job.
-- **Project memory**: arguably the most important piece, because opencode has *no native memory system*: every session starts with a fresh brain. vibeweaver builds one from files and rules: an index + topic files, trust tiers (⛔ Forbidden / ❌ Failed / ✅ Verified / ⏳ Unverified), and a fix state machine. Full mechanism below.
-- **Bounded loops**: every verification loop is capped: `cap=5` iterations per sub-problem, `stall=3×` (same criterion failing three times in a row means stop, change direction, and record the dead end).
+- **Test-first, always**: logic-bearing code is written RED→GREEN. Write the failing test first, watch it fail (the output gets pasted into `tests/verification_log.md`), then write the minimal code to pass. A test that passes on the first run proves nothing. Regression tests must complete the full revert-and-fail cycle before they count.
+- Trusted oracle, not self-certification: only project or external tests (or executable acceptance criteria) can certify a task. Generated tests must pass qualification first (fail on the stub, pass on a known-correct solution, fail on a plausible wrong solution) and still count as weak evidence; self-written tests are weakest. A required behavior whose contract isn't visible is flagged as an open question, never invented. When a project exposes a deterministic checker (`script/check.sh`, `tests/check.py`, or the `vw_check.py` template in APPENDIX §A11), that checker is the loop's feedback.
+- API-doc-driven backend tests: for backend-only changes the loop is: update the API doc, audit doc↔code consistency once, write test cases from the doc (not from the implementation), then run the httpx test→fix→test loop until everything passes. Cross-endpoint changes additionally require real-HTTP workflow scenarios with on-disk traces (`tests/workflows/*.trace.log`); direct service-layer calls are not E2E and don't count.
+- Self-starting verification loop: the moment a change touches runtime behavior, the agent enters `Act → Capture → Verify → Fix → Log` on its own. The verifier is picked at task start by a three-stage probe (see the mm-sensor hookup below); with [mm-sensor](https://github.com/logandoo/mm-sensor) installed the maker/checker split means the model doesn't grade its own homework. Video and audio are included when the verifier model supports them.
+- Script-only lifecycle: frontend builds and service start/stop/restart go through `script/` scripts. Raw `npm run build`, `vite`, `npm start`, `uvicorn` are forbidden. Stop scripts use the `.pid`-file pattern; `pkill -f "uvicorn"` on a shared box kills your coworker's service.
+- Research before code: the first action on any task is decomposing the problem (ask when anything is unclear, one question at a time) and searching the web (exa MCP + Context7) for existing solutions, evaluating at least two approaches. Mandatory unless there's no internet or the fix is a trivial typo/config change. The philosophy: there is nothing new under the sun, if a genuine search turns up no precedent, the thing is too novel to be our job.
+- Project memory: arguably the most important piece, because opencode has no native memory system and every session starts with a fresh brain. Vibeweaver builds one from files and rules: an index plus topic files, trust tiers (⛔ Forbidden / ❌ Failed / ✅ Verified / ⏳ Unverified), and a fix state machine. Full mechanism below.
+- Bounded loops: every verification loop is capped at `cap=5` iterations per sub-problem with `stall=3×` (same criterion failing three times in a row means stop, change direction, record the dead end).
 
 The full package also covers new-project scaffolding (design docs first: FLOW / PAGE / DATABASE / BACKEND), config management, acceptance checklists, and an 8-column completion table.
 
@@ -32,18 +33,29 @@ git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver 
 install.bat     # Windows
 ```
 
-Restart opencode. The skill auto-triggers when you ask to build, modify, debug, or deploy anything. To also get the enforcement plugins (stop hook + completion auditor, `install.sh`/`install.bat` already do both):
+Restart opencode. The skill auto-triggers when you ask to build, modify, debug, or deploy anything. `install.sh` / `install.bat` also install the enforcement plugins (stop hook + completion auditor); installing them by hand looks like this:
 
 ```bash
 cp ~/.config/opencode/skills/vibeweaver/vibeweaver-gate.js ~/.config/opencode/plugins/
 cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/plugins/
 ```
 
-(Or just keep it simple and only use the skill without the gate. The gate is the enforcement layer, the skill is the instruction layer, and both work independently.)
+You can also keep it simple and use the skill without the gate: the gate is the enforcement layer, the skill is the instruction layer, and both work independently.
 
-Of the optional extras, Playwright and [mm-sensor](https://github.com/logandoo/mm-sensor) are the two we'd actually insist on: they're a designed pair, and the verification loop gets meaningfully weaker without them (self-grading instead of independent grading). Also useful: ffmpeg (video transcode), exa MCP + Context7 (research). None are required for the skill to function; they upgrade how much of the evidence gets collected and how independently it gets checked.
+Of the optional extras, Playwright and [mm-sensor](https://github.com/logandoo/mm-sensor) are the two worth insisting on: they're a designed pair, and the verification loop gets meaningfully weaker without them (self-grading instead of independent grading). Also useful: ffmpeg (video transcode), exa MCP + Context7 (research). None are required for the skill to function.
 
-Once active, here is what shows up on disk after a task: `tests/verification_log.md` (the capture→verify→fix loop entries), `tests/acceptance.md` (opening with the `> cap=5  stall=3×` acceptance line), the media evidence files, and `memory/` entries. If evidence is missing, the gate plugin blocks the agent's next write with `GATE-BLOCKED` (see the stop hook below); `VIBEWEAVER_GATE=off` turns the gate off.
+## Usage
+
+Ask for the work in plain language ("add OAuth login", "fix this 502", "can we do X?"); the skill routes by task type. What lands on disk after a task:
+
+| Artifact | What it proves |
+|---|---|
+| `tests/acceptance.md` | the stop condition, written before the work (`> cap=5  stall=3×` on the first line) |
+| `tests/verification_log.md` | every capture→verify→fix iteration, with a diagnosis on each failure |
+| media evidence | screenshots / video / audio, graded by the verifier picked at task start |
+| `memory/*.md` | what future sessions must know (forbidden approaches, verified fixes) |
+
+If the gate plugin is installed, a missing artifact blocks the agent's next write with `GATE-BLOCKED` (see the stop hook below); `VIBEWEAVER_GATE=off` turns the gate off.
 
 ## Repo layout
 
@@ -51,13 +63,26 @@ This repository contains three sub-projects:
 
 | Directory | What |
 |---|---|
-| `vibeweaver/` | The full skill — this README describes it |
-| `vibeweaver-mini/` | Trimmed single-file variant (~5KB) with a small gain on small LLMs whose instruction-following is mediocre — the kind of skill that people who don't need it don't need at all, and people who do can actually use |
-| `vibeweaver-eval/` | Benchmark harness: 16-task A/B configs, grading scripts, raw results, round reports |
+| `vibeweaver/` | The full skill, this README describes it |
+| `vibeweaver-mini/` | Small-model kit: a 1.7 KB deterministic loop ("run the checker, fix the first failure, repeat") plus `scripts/vw_check.py`, a checker that prints a repair packet and refuses to run if the test set changed. Benchmarked on a 3B-active model: loop + real tests 4/4, loop + self-written tests 1/4, the oracle decides, not the prose |
+| `vibeweaver-eval/` | Benchmark rig: 16-task A/B configs, grading scripts, raw results, round reports |
 
-Which one to pick: **strong model** → full (plugin-injected); **weak-following model** → mini, always-on; **extremely weak (~3B active)** → mini, force-injected.
+Which one to pick: **strong model** → full (plugin-injected); **weak-following model** → mini, always-on; **extremely weak (~3B active)** → mini plus the checker, force-injected.
 
-Repo root also holds the skill's own test machinery: `verify_skill.py` (integrity check over the skill package), `tests/` (self-test suite with pass/fail fixture projects), and `.github/workflows/verify.yml` (runs both on every push, Ubuntu / macOS / Windows). The skill is checked the way it demands projects be checked.
+The repo root also holds the skill's own test machinery: `verify_skill.py` (integrity check over the skill package), `tests/` (self-test suite with pass/fail fixture projects), and `.github/workflows/verify.yml` (runs both on every push, Ubuntu / macOS / Windows). The skill is checked the way it demands projects be checked.
+
+## Testing
+
+```bash
+python verify_skill.py                      # package integrity: payload, links, markers, syntax
+python -m unittest discover -s tests -v     # skill self-tests + checker regression tests
+node vibeweaver/scripts/audit_selftest.mjs  # 36 fixture checks (T6 skips without calibration data)
+node vibeweaver/scripts/mutation_sweep.mjs  # 27 mutations, each must be caught
+```
+
+## Contributing
+
+Issues and PRs are welcome, especially ports to other harnesses (Claude Code, Codex, …). If you adapt the skill to another agent, open an issue and link it so it can be listed here.
 
 ## The workflow is a graph, not a checklist
 
@@ -105,8 +130,8 @@ flowchart TD
 
 - **Nodes = stages with mandatory artifacts.** ZERO (decompose + research) → project-mode detection → design gates → implementation → verification loop → independent review dispatch → completion table. A stage is not "done" because the model said so; it is done when its required outputs actually exist on disk.
 - **Edges = explicit conditions, not model mood.** New project forks to one workflow, modify-existing to another; the verifier capability probe branches the capture and grading set into four modality modes; backend-only changes swap the browser loop for the doc-driven API test loop.
-- **Cycles are bounded by construction.** Every loop shares one termination contract (`cap=5` iterations per sub-problem, `stall=3×`), and the stop condition is written down by the user *first*, so the graph is guaranteed to have an exit.
-- **Traversal is soft, gating is hard.** The model walks the graph by interpreting prose, that part stays soft. But each guard condition is machine-checkable: literal tokens in the final answer, on-disk evidence byte-checked by `tests/assert_artifacts.py`, and (with the plugin) a tool-level hook that blocks the agent's own writes while any gate is red.
+- Cycles are bounded by construction. Every loop shares one termination contract (`cap=5` iterations per sub-problem, `stall=3×`), and the stop condition is written down by the user *first*, so the graph is guaranteed to have an exit.
+- Traversal is soft, gating is hard. The model walks the graph by interpreting prose, that part stays soft. But each guard condition is machine-checkable: literal tokens in the final answer, on-disk evidence byte-checked by `tests/assert_artifacts.py`, and (with the plugin) a tool-level hook that blocks the agent's own writes while any gate is red.
 
 That is what makes it a state machine instead of a sobriety pact: the current stage is always verifiable from the files, and no transition may be declared without its evidence. The stop hook below is the same idea one layer down: the graph's final guard, executed by opencode itself instead of the model.
 
@@ -128,7 +153,7 @@ It is also skill-agnostic: the gate fires on any project that has `tests/verific
 
 The gate has a companion: `vibeweaver-audit` is a mechanical Tier-0/1/2 auditor of completion claims. At session idle it re-runs the project's `tests/assert_artifacts.py` (the same assertion script the gate runs), grades the final output against its own claim checks, and re-checks the on-disk evidence; a BAD grade latches a **session-scoped** RED state that blocks the agent's writes until the evidence is actually fixed. Because the latch is session-scoped, a truncated session can never brick a project again: it self-releases on session change, on TTL expiry, or via legacy-state migration, and every release is journaled and surfaced in the audit report (see the 2026-08-21 entry in [CHANGELOG.md](CHANGELOG.md)).
 
-One honest caveat: this plugin speaks opencode's plugin API (`tool.execute.after`, `session.idle`, `client.app.log`). Whether Claude Code or Codex have an equivalent mechanism, I haven't verified it, so honestly no idea. Forks welcome. The DeepSeek Harness port exists and is open-sourced as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh) — covenant card, mechanical gate (the same `assert_artifacts.py` evidence checks), and round guard included.
+One honest caveat: this plugin speaks opencode's plugin API (`tool.execute.after`, `session.idle`, `client.app.log`). Whether Claude Code or Codex have an equivalent mechanism, I haven't verified it, so honestly no idea. Forks welcome. The DeepSeek Harness port exists and is open-sourced as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh), covenant card, mechanical gate (the same `assert_artifacts.py` evidence checks), and round guard included.
 
 ## The cognitive overlay: state management beyond the tools
 
@@ -136,10 +161,10 @@ The evidence rules solve "the model lied about what it did". They don't solve "t
 
 - **Untrusted content is data, not instructions (COV-11).** This skill *mandates* web research (exa MCP + Context7), and fetched content is precisely where "ignore all previous instructions" lives. Fetched / tool / third-party text may inform, it may not command; a fetched "solution" still has to pass the ≥2-approach evaluation; and the asymmetry rule applies: a hit is strong evidence, "found nothing suspicious" is **not** a clearance: absence is established with a named check, never with the model's own monitor staying silent.
 - **Consistency hub (write once, read many).** Big tasks carry one canonical row per shared name / config key / value / signature in the plan. Later steps *cite* the hub row instead of re-deriving it. A rename changes the hub first, then the old spelling is grepped to zero hits, and the zero-hit grep output is the completion evidence. This kills the classic long-task drift where one settled value turns up in three spellings.
-- **Diagnosis-carrying retries.** Every `- iter N FAIL:` line in `verification_log.md` must carry `diagnosis: <one falsifiable clause>`, machine-checked (assert group 12). A retry without its diagnosis is the same attempt again: same cost, buys nothing.
-- **Stall escape: parameterize, don't spin.** When `stall=3×` fires, the next direction is *generated*, not vibes: the open unknown becomes a finite candidate set, each with the cheapest test that could refute it, and only then does the direction shift (abstraction / strategy / empirics). Differential verification demands the reference **not share the candidate's assumptions**, a brute force that inherits the cleverness inherits the bug. And when two cheap independent verification paths exist, take both: agreement earns the conclusion, disagreement *locates* the faulty assumption.
-- **Re-entry after gaps.** After a compaction / session boundary / long idle, the agent re-reads `verification_log.md` in full, re-reads the goal line by line, re-reads the covenants, and names the first action back, in that order, before touching the work (§3.3).
-- **Mechanized stall observation.** The plugin now keeps `.vibeweaver/state.json` (atomic writes): the same file edited 3× with no new PASS entry in between triggers a `GATE-WARNING` stall note pointing at the escape protocol. `stall=3×` used to be a bound the model counted for itself; now the plugin counts too.
+- Diagnosis-carrying retries. Every `- iter N FAIL:` line in `verification_log.md` must carry `diagnosis: <one falsifiable clause>`, machine-checked (assert group 12). A retry without its diagnosis is the same attempt again: same cost, buys nothing.
+- Stall escape: parameterize, don't spin. When `stall=3×` fires, the next direction is *generated*, not vibes: the open unknown becomes a finite candidate set, each with the cheapest test that could refute it, and only then does the direction shift (abstraction / strategy / empirics). Differential verification demands the reference **not share the candidate's assumptions**, a brute force that inherits the cleverness inherits the bug. And when two cheap independent verification paths exist, take both: agreement earns the conclusion, disagreement *locates* the faulty assumption.
+- Re-entry after gaps. After a compaction / session boundary / long idle, the agent re-reads `verification_log.md` in full, re-reads the goal line by line, re-reads the covenants, and names the first action back, in that order, before touching the work (§3.3).
+- Mechanized stall observation. The plugin now keeps `.vibeweaver/state.json` (atomic writes): the same file edited 3× with no new PASS entry in between triggers a `GATE-WARNING` stall note pointing at the escape protocol. `stall=3×` used to be a bound the model counted for itself; now the plugin counts too.
 
 And while touching this, I applied to the skill the progressive-disclosure discipline it preaches: the ~120-line embedded assertion script became the canonical `scripts/assert_artifacts.py`, and the four backend / TDD / review protocols moved to `TESTING_PROTOCOLS.md`; the entry file got ~180 lines lighter then, and later splits took it down to today's ~813 lines, with every new rule above costing one compact covenant line plus a pointer.
 
@@ -149,11 +174,11 @@ opencode has no native memory. A fresh session is a fresh brain. The model has n
 
 - **An index + topic files.** `memory/MEMORY.md` is a table of contents, not the memory itself (load cap: 200 lines / 25KB). Each memory lives in its own `memory/*.md` file with YAML frontmatter: type (`user` / `feedback` / `project` / `reference` / `fix`), status, the commit hash it describes, and the file references it cites.
 - **Selective recall, not full recall.** At session start the index loads first; then the agent greps the topic files for keywords from your request and loads only the top 3-5 most relevant entries. Memory is consulted before code is touched, but never trusted blindly: every file/line citation is verified against the current code, and entries older than 14 days get a "this may be stale" warning. Even a ✅ Verified entry self-ages: if it hasn't been re-validated in 14 days or its cited code changed, it's demoted back to ⏳ until re-verified.
-- **Trust tiers, because not all memories are facts.** ⛔ Forbidden = methods proven to fail; never retry. ✅ Verified = confirmed by the user. ⏳ Unverified = the agent's own fix that passed tests but nobody confirmed. ❌ Failed = a ⏳ that later failed; it carries the same "don't retry" weight as ⛔.
-- **A state machine for fixes.** Agent fixes something and tests pass → written as ⏳ (never ✅, only the user can verify). You report the same symptom next session → the entry is auto-demoted to ❌ and the agent must try a genuinely different direction. You confirm it works → promoted to ✅. Three or more failures on the same problem → everything escalates into a ⛔ Forbidden file.
-- **Written every session, gated at the end.** Memory writing is a non-negotiable session-end step, checked by a Final Memory Gate before the completion table. Fix entries must carry the commit hash of the change they describe, plus the failed approaches and rejected alternatives that were considered, so a future session can look at the memory, look at the exact code state, and skip the dead end entirely.
-- **Two scopes, merged.** User-global memory (`~/.config/opencode/vibeweaver/memory/`) holds your cross-project preferences and conventions; project-local memory holds everything project-specific. Both load at session start; project-local wins on conflict.
-- **Housekeeping.** The index has a consolidation trigger (150 lines / 20KB, or >15 topic files): ⛔ / ✅ / user / feedback entries survive consolidation, stale ⏳ entries get pruned, and a `.session-scratchpad.md` tracks mid-session backtracking before being deleted when the real memories are written.
+- Trust tiers, because not all memories are facts. ⛔ Forbidden = methods proven to fail; never retry. ✅ Verified = confirmed by the user. ⏳ Unverified = the agent's own fix that passed tests but nobody confirmed. ❌ Failed = a ⏳ that later failed; it carries the same "don't retry" weight as ⛔.
+- A state machine for fixes. Agent fixes something and tests pass → written as ⏳ (never ✅, only the user can verify). You report the same symptom next session → the entry is auto-demoted to ❌ and the agent must try a genuinely different direction. You confirm it works → promoted to ✅. Three or more failures on the same problem → everything escalates into a ⛔ Forbidden file.
+- Written every session, gated at the end. Memory writing is a non-negotiable session-end step, checked by a Final Memory Gate before the completion table. Fix entries must carry the commit hash of the change they describe, plus the failed approaches and rejected alternatives that were considered, so a future session can look at the memory, look at the exact code state, and skip the dead end entirely.
+- Two scopes, merged. User-global memory (`~/.config/opencode/vibeweaver/memory/`) holds your cross-project preferences and conventions; project-local memory holds everything project-specific. Both load at session start; project-local wins on conflict.
+- Housekeeping. The index has a consolidation trigger (150 lines / 20KB, or >15 topic files): ⛔ / ✅ / user / feedback entries survive consolidation, stale ⏳ entries get pruned, and a `.session-scratchpad.md` tracks mid-session backtracking before being deleted when the real memories are written.
 
 In short: it's a poor man's persistent memory: filesystem plus rules doing the job of a memory layer, so the model doesn't have to relearn your project from zero every session.
 
@@ -163,9 +188,9 @@ In general, [mm-sensor](https://github.com/logandoo/mm-sensor) and vibeweaver sh
 
 - **A three-stage verifier tree (COV-5, behavioral probe, not self-declaration).** At task start vibeweaver first runs its self-multimodality probe `scripts/mm_probe.py`: it generates a probe image carrying a token and a color (`tests/probe_vision.png`), the model reads it via the Read tool and reports the token + color it actually sees, then `--check` verifies: **PASS** → announce `Verifier: model-native [image]`; the model grades its own screenshots under the §A4.1.1 Visual Verification Protocol (observation-first · per-criterion verdicts with quoted evidence · DOM/log cross-check · UNCERTAIN=FAIL). **FAIL** with mm-sensor installed → announce `Verifier: mm-sensor [video+audio|video|image]` for independent grading. Neither → `Verifier: direct read` (DOM/log inspection is the primary evidence).
 - **vibeweaver makes the evidence exist.** Its rules force the agent to actually run the app, drive it with Playwright, and leave screenshots / operation video / page audio on disk.
-- **mm-sensor grades it independently.** The maker/checker split: while mm-sensor is the verifier, the model that wrote the code is forbidden from grading its own screenshots. vibeweaver alone falls back to direct-read self-grading when the model fails its own probe, weaker, and it demands extra cross-checks against DOM and logs.
-- **A capability probe decides how much evidence gets captured.** At task start, vibeweaver runs `vision.py --probe` to ask the model behind mm-sensor what it can actually perceive. Full-modal models get the [video+audio] mode: Playwright records the whole flow as video, captures in-page audio via Web Audio, plus a terminal-state screenshot. Image-only models degrade to [video] or [image] mode. The mode is fixed per task, and every captured file is graded with `vision.py --detail high`.
-- **If the environment is lacking, it degrades gracefully.** No ffmpeg → grade the raw webm via frame-sampling. Model can't hear audio → mm-sensor reports the skip explicitly and the loop continues on video + screenshots. Audio is an added signal, never a criterion by itself.
+- mm-sensor grades it independently. The maker/checker split: while mm-sensor is the verifier, the model that wrote the code is forbidden from grading its own screenshots. vibeweaver alone falls back to direct-read self-grading when the model fails its own probe, weaker, and it demands extra cross-checks against DOM and logs.
+- A capability probe decides how much evidence gets captured. At task start, vibeweaver runs `vision.py --probe` to ask the model behind mm-sensor what it can actually perceive. Full-modal models get the [video+audio] mode: Playwright records the whole flow as video, captures in-page audio via Web Audio, plus a terminal-state screenshot. Image-only models degrade to [video] or [image] mode. The mode is fixed per task, and every captured file is graded with `vision.py --detail high`.
+- If the environment is lacking, it degrades gracefully. No ffmpeg → grade the raw webm via frame-sampling. Model can't hear audio → mm-sensor reports the skip explicitly and the loop continues on video + screenshots. Audio is an added signal, never a criterion by itself.
 
 In one line: vibeweaver decides *what must be captured*; the verifier (model-native or mm-sensor) decides *what the evidence actually says*.
 
@@ -175,7 +200,7 @@ Every table below uses the same three setup modes:
 
 - **baseline**: no skill at all.
 - **available**: the skill is installed and listed in `available_skills`; the model decides whether to load it. Whether it ever does is the **trigger rate**, listed per arm.
-- **force-injected**: the skill's full text is pasted into the system prompt; the model has no choice.
+- force-injected: the skill's full text is pasted into the system prompt; the model has no choice.
 
 ### How the eval is designed
 
@@ -183,9 +208,9 @@ The numbers below come from one fixed, reproducible harness (`vibeweaver-eval`),
 
 - **A fixed task set**: the same 16 tasks every round: 10 Aider polyglot + 6 SWE-bench Lite real-repo issues. Same prompts, same scoring, round after round.
 - **Hidden-test grading**: solutions are graded by tests the agent never sees: Exercism-style for polyglot, FAIL_TO_PASS + P2P regression guards for SWE-bench.
-- **Isolated arms**: every arm runs in its own XDG config directory; the only difference between arms is the skill (or its absence). The no-skill arm is the **control group**; the rest are treatment arms.
-- **Gold-validated before admission**: every SWE-bench instance must fail on base and pass on gold before it's allowed into the set.
-- **Headless and scripted**: `opencode run --auto`, everything published: harness, configs, gold checks, raw runs, grading scripts.
+- Isolated arms: every arm runs in its own XDG config directory; the only difference between arms is the skill (or its absence). The no-skill arm is the **control group**; the rest are treatment arms.
+- Gold-validated before admission: every SWE-bench instance must fail on base and pass on gold before it's allowed into the set.
+- Headless and scripted: `opencode run --auto`, everything published: rig, configs, gold checks, raw runs, grading scripts.
 
 ### Before / after: qwen3.6-35b-a3b (the weakest model yet)
 
@@ -193,11 +218,11 @@ The numbers below come from one fixed, reproducible harness (`vibeweaver-eval`),
 
 | Arm | Pass rate (16 tasks) | Trigger rate |
 |---|---|---|
-| No skill (baseline) | 6/16 (37.5%) | — |
+| No skill (baseline) | 6/16 (37.5%) |, |
 | mini, available | 6/16 (37.5%) | 0/10 |
 | Full skill, available | 7/16 (43.8%) | 0/10 |
-| **mini, force-injected** | **7/16 (43.8%)** | — |
-| Full skill, force-injected | 5/16 (31.3%) | — |
+| **mini, force-injected** | **7/16 (43.8%)** |, |
+| Full skill, force-injected | 5/16 (31.3%) |, |
 
 - Below a capability threshold the model loads nothing: 0/10 for both sizes.
 - Force-injected mini gains nothing either: 7/16 ≈ baseline.
@@ -207,10 +232,10 @@ The numbers below come from one fixed, reproducible harness (`vibeweaver-eval`),
 
 | Arm | Pass rate (16 tasks) | Trigger rate |
 |---|---|---|
-| No skill (baseline) | 7/16 (44%) | — |
+| No skill (baseline) | 7/16 (44%) |, |
 | Full skill (71KB), available | 6/16 (38%) | 0/16 |
 | Full skill (improved description), available | 9/16 (56%) | 2/16 |
-| Full skill, force-injected | 9/16 (56%) | — |
+| Full skill, force-injected | 9/16 (56%) |, |
 | **mini, available** | **10/16 (62.5%)** | **10/16** |
 
 This is the round that made the mini variant exist:
@@ -222,10 +247,10 @@ This is the round that made the mini variant exist:
 
 | Arm | Pass rate (16 tasks) | Trigger rate |
 |---|---|---|
-| No skill (baseline) | 11/16 (68.8%) | — |
+| No skill (baseline) | 11/16 (68.8%) |, |
 | Full skill, available | 11/16 (68.8%) | 0/16 |
 | mini, available | 11/16 (68.8%) | 12/16 |
-| **Full skill, force-injected** | **14/16 (87.5%)** | — |
+| **Full skill, force-injected** | **14/16 (87.5%)** |, |
 
 A strong model already has the discipline natively, so mini becomes completely useless starting at this tier. The full version's gain starts to show, but the model will never load it on its own (0/16 available); it needs **force-injection** into the context. The edge lives in polyglot: 8/10 vs 5/10.
 
@@ -233,10 +258,10 @@ A strong model already has the discipline natively, so mini becomes completely u
 
 | Arm | Pass rate (16 tasks) | Trigger rate |
 |---|---|---|
-| No skill (baseline) | 13/16 (81%) | — |
+| No skill (baseline) | 13/16 (81%) |, |
 | mini, available | 13/16 (81%) | 10/10 (polyglot) |
 | Full skill, available | 15/16 (94%) | 12/16 |
-| **Full skill, force-injected** | **16/16 (100%)** | — |
+| **Full skill, force-injected** | **16/16 (100%)** |, |
 
 Two findings: the bare model improved on its own (44% → 81% vs qwen3.6), and 3.8-27B's willingness to load skills grew a lot: qwen3.8 loaded the full skill on its own 12/16 times, producing the best score ever recorded on this benchmark. Force-injecting the full skill then completed the sweep: **16/16, the first perfect round in the eval's history** (polyglot 10/10 with every task at full marks, SWE-bench 6/6). But the perfection is pricey: 1820s/task avg vs 518s self-triggered (+251%), which is exactly what "the full verification loop, every single time" costs. mini is worthless here too, same as on deepseek-v4-flash-0731.
 
@@ -248,19 +273,30 @@ Two findings: the bare model improved on its own (44% → 81% vs qwen3.6), and 3
 | Full skill, available | 7/16 (43.8%) | 9/16 (56%)† | 11/16 (69%) | 15/16 (94%) |
 | Full skill, force-injected | 5/16 (31.3%) | 9/16 (56%) | 14/16 (87.5%) | **16/16 (100%)** |
 | mini, available | 6/16 (37.5%) | 8–10/16 (best 62.5%) | 13/16 (81%)* | 13/16 (81%) |
-| mini, force-injected | 7/16 (43.8%) | 8/16 (50%) | — | — |
+| mini, force-injected | 7/16 (43.8%) | 8/16 (50%) |, |, |
 | Best config | mini, force-injected | mini, available | full, force-injected | **full, force-injected** |
 
 \* deepseek's mini: first run 11/16, clean-environment rerun 13/16, both within noise of its 11/16 baseline.
 † qwen3.6's full skill: the plain version scored 6/16 (never loaded); 9/16 is the improved-description variant.
 
+### Waves 6–7: what actually makes it work
+
+The four-model table above is the 16-task benchmark. Later rounds asked a narrower question: when a small model does use the skill, what makes the difference? Not more rules.
+
+**Controls (deepseek-v4-flash, 16 tasks, forced injection).** No-skill 11/16. A generic 39 KB engineering playbook, same size and tone, 11/16: a long structured prompt alone changed nothing. The skill 15/16. Against the playbook the discordant pairs were +4/−0 (McNemar p=0.125, directionally clear, underpowered at n=16).
+
+**The oracle experiment (qwen3.6-35B-A3B, 4 tasks every arm failed).** With a deterministic checker and the project's real tests: 1/4 → 4/4, 12–36 checker runs per task, zero test tampering. Same loop, self-written tests: 1/4, with one task regressing below baseline. Generated tests, even from a strong model, even after qualification (fail-on-stub, pass-on-gold, fail-on-plausible-wrong): 1/4 with verified false greens. The delivered solution passed the generated suite and still failed the hidden tests on `area_code` and exact error strings that appear nowhere in the visible spec. The loop was never the bottleneck; the oracle was. Wave 7 codified that into A4.8 and APPENDIX §A11.
+
+**Wave 7 A/B (text-only non-inferiority, forced injection).** deepseek-flash 16 tasks: 13/16 → 16/16 (the before arm was a low draw; the same-size skill scored 15/16 in wave 6, so read this as no regression). qwen3.6-35B 8-task subset: 4/8 → 3/8, one flip each way. The checker and oracle machinery is validated by the experiments above, not by this A/B.
+
 ### Well, To be Honest
 
 - Being TDD-driven, this skill **burns tokens like crazy**. If you have a real problem you want solved, it's still worth trying. If you're just playing with vibe-coding, it matters much less.
 - Model generations still matter more than the skill itself: qwen3.6 → qwen3.8 lifted the bare model from 44% to 81% before any skill was involved; and the skill's role flips with the model: it *supplies* the missing discipline on qwen3.6 (mini wins), *enforces* execution discipline on qwen3.8 (force-injection hits a perfect 16/16), only works force-injected on deepseek, and only works as force-injected mini on the 35b-a3b class.
+- **Test provenance matters more than test count.** Self-written tests can deceive (one task scored *worse* with them than with no feedback at all), and generated tests under-specify: a suite can pass on a wrong solution while the real contract fails on a method name or an exact error string that was never written down. The honest hierarchy is project/external tests > qualified generated tests > self-written tests.
 - 16 tasks is a small sample. Each task is substantial, but I can't rule out a task "happening to be solvable" or "happening to be unsolvable", landing right on a model's strength or weakness.
-- Each arm ran only once per round. A qwen3.8 arm takes 40-60 minutes; the llama.cpp-hosted 35b-a3b takes 1-3 hours; force-injected arms take several times longer. More rounds would be proper, models are stochastic, but one round already takes too long, and I don't have the patience for more.
-- mini is a rather niche skill, but for exactly the people who need it, it happens to be exactly useful. On qwen3.8 and 35b-a3b mini gains nothing. The most interesting finding: for models with very strong or very weak instruction-following, mini doesn't matter much; but for a model like qwen3.6-27B — decent at coding but poor at long-context instruction-following — it's a good choice.
+- Each arm ran only once per round. A qwen3.8 arm takes 40-60 minutes; the llama.cpp-hosted 35b-a3b takes 1-3 hours; force-injected arms take several times longer. More rounds would be proper, models are stochastic, but one round already takes too long, and I don't have the patience for more. The wave 7 numbers inherit that limitation: the deepseek delta (+3) is inside run-to-run variance, and the qwen subset is n=8.
+- mini is a rather niche skill, but for exactly the people who need it, it happens to be exactly useful. On qwen3.8 and 35b-a3b mini gains nothing. The most interesting finding: for models with very strong or very weak instruction-following, mini doesn't matter much; but for a model like qwen3.6-27B, decent at coding but poor at long-context instruction-following, it's a good choice.
 
 ## Stack compatibility
 
@@ -268,7 +304,7 @@ vibeweaver is stack-agnostic. It never assumes a language, framework, or databas
 
 - **New projects**: tell it the stack, or it will ask once before scaffolding. Then it generates design docs, `config.toml` layout, `script/` lifecycle scripts, and dependency manifests around your stack.
 - **Existing projects**: it reads what's already there (memory, config, scripts, structure) and adapts every rule to match. It will not "helpfully" introduce React into your Vue project.
-- **Windows**: yes, it knows. `install.bat` and `script/windows/` exist.
+- Windows: yes, it knows. `install.bat` and `script/windows/` exist.
 
 ### The default stack, and how to change it
 
@@ -290,12 +326,12 @@ Two ways to get a different stack:
 | Dimension | vibeweaver | superpowers |
 |---|---|---|
 | Workflow | Decompose → **web research (near-mandatory)** → task-type routing (build / audit / deploy / ops / non-web / spike) → design docs / plan (when scoped) → test-first → evidence gates | Classify the request (spike / bounded / architectural) → design approval → spec + bite-sized plan (architectural path) → subagent-per-task execution |
-| Core bet | **Research-first + evidence-gated completion** — near-mandatory web search before code (nothing new under the sun), tests must run and leave artifacts, enforced by a tool-level plugin gate | **Planning-first + approval-first** — no implementation before the human approves the intent; the ceremony scales with the task, the approval gate never does |
-| Human involvement | AUTO by default: the agent settles defined interaction points itself and logs an ADR; GUIDED (more checkpoints) on request | Approval is the hard gate on every path — a spike gets a nod, a bounded task gets a yes to an in-chat design, an architectural one approves section by section |
-| Execution model | Same session — verifier continuity, memory and evidence accumulate across the task; subagents are read-only reviewers | Fresh subagent per task — context isolation; the coordinator reviews between tasks |
-| Verification | Self-starting capture loop graded by an independent multimodal verifier; evidence is byte-checked by `assert_artifacts.py`; major changes get an independent review with a spec-fidelity triad | Evidence-before-claims iron law (fresh run, read the output) — process-enforced, no tool gate |
+| Core bet | **Research-first + evidence-gated completion**, near-mandatory web search before code (nothing new under the sun), tests must run and leave artifacts, enforced by a tool-level plugin gate | **Planning-first + approval-first**, no implementation before the human approves the intent; the ceremony scales with the task, the approval gate never does |
+| Human involvement | AUTO by default: the agent settles defined interaction points itself and logs an ADR; GUIDED (more checkpoints) on request | Approval is the hard gate on every path, a spike gets a nod, a bounded task gets a yes to an in-chat design, an architectural one approves section by section |
+| Execution model | Same session, verifier continuity, memory and evidence accumulate across the task; subagents are read-only reviewers | Fresh subagent per task, context isolation; the coordinator reviews between tasks |
+| Verification | Self-starting capture loop graded by an independent multimodal verifier; evidence is byte-checked by `assert_artifacts.py`; major changes get an independent review with a spec-fidelity triad | Evidence-before-claims iron law (fresh run, read the output), process-enforced, no tool gate |
 | Project memory | Built-in memory subsystem with trust tiers | Not a core feature |
-| Model requirements | Engineered for small models too (mini variant, benchmarked down to ~3B-active) | Assumes strong models — long specs, subagent delegation |
+| Model requirements | Engineered for small models too (mini variant, benchmarked down to ~3B-active) | Assumes strong models, long specs, subagent delegation |
 | Harness support | opencode (with a plugin gate; DeepSeek Harness port released as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh); Claude Code / Codex unknown, forks welcome) | Claude Code, Codex, Cursor, Gemini CLI, Copilot, opencode, etc. |
 | Public benchmark | Published A/B vs no-skill baseline, multiple models | None |
 
@@ -305,20 +341,20 @@ Short version: both start the same way, decompose then plan. The weight differs:
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | The binding operational contract + router (813 lines, <49 KB — size-guarded) |
+| `SKILL.md` | The binding operational contract + router (682 lines, ~41.8 KB, size-guarded) |
 | `COMPLETION_GATE.md` | Completion output spec · artifact gates · §AUDIT audit protocol · pre-output checklist |
 | `CODING_PRINCIPLES.md` | The four iron rules + Karpathy's six disciplines + reviewer smell baseline |
 | `ENGINEERING_STD.md` | Detailed engineering standards |
-| `REFERENCE.md` / `APPENDIX.md` | Workflow reference / executable templates (incl. §A9 postmortem) |
+| `REFERENCE.md` / `APPENDIX.md` | Workflow reference / executable templates (§A9 postmortem · §A11 trusted-oracle + checker templates) |
 | `TESTING_PROTOCOLS.md` | §A4.1 loop + §A4.6 debugging + canonical §A4.7–§A4.11 protocols (§A4.11 modes/pause) |
 | `WORKFLOWS_EXTENDED.md` | §M dual modes + Class-E list + ADR/PAUSED formats · C4 audit / C5 deploy / C6 ops / C7 non-web / S1 spike · profile reference |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md` | Project memory subsystem |
-| `scripts/assert_artifacts.py` | The canonical 17-marker assertion script projects copy into `tests/` (incl. secret-scan approval pairing / test-change guard / risk-tier / project profiles) |
+| `scripts/assert_artifacts.py` | The canonical assertion script projects copy into `tests/` (16 groups: secret-scan approval pairing, test-change guard, risk-tier, project profiles) |
 | `scripts/mm_probe.py` | Behavioral self-multimodality probe (verifier selection, COV-5) |
 | `vibeweaver-gate.js` | The stop-hook plugin (opencode) + mechanized stall observer |
-| `vibeweaver-audit.js` | Three-tier mechanical auditor (Tier 0/1/2) — session-scoped RED latch, journaled auto-release, stale-latch healing |
+| `vibeweaver-audit.js` | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing |
 | `scripts/vibeweaver-audit-core.js` | Pure triage core (headless-testable) |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 36 fixture checks / 27 mutation checks — including the latch-release regressions |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 36 fixture checks / 27 mutation checks, including the latch-release regressions |
 | `install.sh` / `install.bat` | Installers (skill files + both plugins) |
 
 ## Related
@@ -332,7 +368,7 @@ Short version: both start the same way, decompose then plan. The weight differs:
 
 The **cognitive overlay** mechanisms descend from [J-Space Cognition Suite V3.6](https://github.com/Tiger3807861189/J-Space-Cognition-Suite-V3.6) by [Tiger3807861189](https://github.com/Tiger3807861189): the claim-without-scope lint (assert group 13) is modeled on their `ship` check, and stall parameterization, differential testing against an independent reference, the two-route reconcile, the write-once consistency hub, the asymmetry rule for untrusted input, the post-gap re-entry protocol, and the mechanized stall observation in the plugin all trace back to that project's modules and controller. Its single-entry + on-demand-module architecture also informed this skill's progressive-disclosure layout. The credit is at the idea level: every implementation here is our own.
 
-The 2026-08-30 waves (wave4/5) adapted ideas from [mattpocock/skills](https://github.com/mattpocock/skills) (test seams, the spec-fidelity triad, the reviewer smell baseline, grilling's frontier rounds, the ADR admission test) and [obra/superpowers](https://github.com/obra/superpowers) (spike routing, task right-sizing) — both MIT; see the wave entries in [CHANGELOG.md](CHANGELOG.md) for what was adopted and what was rejected.
+The 2026-08-30 waves (wave4/5) adapted ideas from [mattpocock/skills](https://github.com/mattpocock/skills) (test seams, the spec-fidelity triad, the reviewer smell baseline, grilling's frontier rounds, the ADR admission test) and [obra/superpowers](https://github.com/obra/superpowers) (spike routing, task right-sizing), both MIT; see the wave entries in [CHANGELOG.md](CHANGELOG.md) for what was adopted and what was rejected.
 
 Benchmark methodology and raw data: `vibeweaver-eval`.
 
@@ -342,4 +378,4 @@ Wave-by-wave design history lives in [CHANGELOG.md](CHANGELOG.md) (Chinese: [CHA
 
 ## License
 
-MIT — go nuts, fork it, break it, tell us what broke.
+MIT, go nuts, fork it, break it, tell us what broke.

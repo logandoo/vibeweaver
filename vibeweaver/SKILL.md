@@ -442,47 +442,50 @@ Playwright video + in-page audio + screenshot templates: APPENDIX.md §A1.
 No fixes without root-cause investigation first. ANY bug-fix task: narration
 MUST include a `## Root Cause Investigation (A4.6)` heading BEFORE the
 implementation step. Phases: (1) root cause — full error/stack, consistent
-reproduction (else gather data), recent changes, boundary diagnostics per layer,
-trace the bad value to its source; (2) pattern analysis — similar WORKING code,
-list EVERY difference, read reference implementations completely; (3)
-hypothesis + minimal test — ONE explicit falsifiable hypothesis (the
-`diagnosis:` clause), smallest change, failure → REVERT + NEW hypothesis; (4)
-implementation — failing repro test FIRST (§A4.8), fix root cause, repro passes
-+ suite stays green. **3+ failed fixes = architectural question:** STOP, record
-❌ in memory, escalate per §A4.10 / PAUSED. Full text: TESTING_PROTOCOLS.md §A4.6.
+reproduction, recent changes, boundary diagnostics per layer, trace the bad
+value to its source; (2) pattern analysis — similar WORKING code, list EVERY
+difference, read references completely; (3) hypothesis — ONE falsifiable clause
+(the `diagnosis:`), smallest change, failure → REVERT + NEW hypothesis;
+(4) implementation — failing repro test FIRST (§A4.8), fix the root cause, suite
+green. **3+ failed fixes = architectural question:** STOP, record ❌, escalate
+per §A4.10 / PAUSED. Full text: TESTING_PROTOCOLS.md §A4.6.
 
 #### A4.7 Backend-only task: API doc-driven test loop ★
-Canonical text of COV-6. Backend-only (no browser-rendered output) → replace
-the Playwright loop: pick httpx/requests → update the API doc → audit doc↔code
-consistency exactly once → write test cases FROM the doc (new endpoints
-test-first — the first run MUST fail) → test→fix→test until ALL pass, started
-via `script/` (COV-2), iterations logged (`diagnosis:` on every FAIL). Same
-cap=5 / stall=3×. Cross-endpoint changes ADD **A4.7b workflow scenarios**: 1-3
-business flows, clean start state, state-transition asserts, REAL HTTP traces
-to `tests/workflows/*.trace.log`; `E2E depth: real-HTTP / workflow-trace` in the
-gate line. Full text: TESTING_PROTOCOLS.md §A4.7 / §A4.7b.
+Canonical text of COV-6. Backend-only → replace the Playwright loop: httpx/
+requests → update the API doc → audit doc↔code once → write test cases FROM
+the doc (new endpoints test-first — first run MUST fail) → test→fix→test until
+ALL pass, started via `script/` (COV-2), iterations logged (`diagnosis:` on
+FAIL). Same cap=5 / stall=3×. Cross-endpoint changes ADD **A4.7b workflow
+scenarios**: 1-3 flows, clean start state, state-transition asserts, REAL HTTP
+traces to `tests/workflows/*.trace.log`; `E2E depth` in the gate line. Full
+text: TESTING_PROTOCOLS.md §A4.7 / §A4.7b.
 
 #### A4.8 TDD for logic-bearing code ★
 Logic-bearing code (services/repositories/utils/transforms/validation/state) is
-test-first: **RED** — write ONE failing behavior test, RUN it, WATCH it fail
-(paste the failing output into `verification_log.md`) → **GREEN** — minimal code
-(YAGNI), watch it pass + suite stays green → commit. Wrote code before the
-test? Delete it, start from the test. Regression tests complete the
-revert-and-fail cycle. UI/E2E rendering stays test-after via §A4.1;
-config/markup/docs are exempt (state the reason).
+test-first: **RED** — ONE failing behavior test, RUN it, WATCH it fail (paste
+the output into `verification_log.md`) → **GREEN** — minimal code (YAGNI),
+watch it pass + suite green → commit. Code before the test? Delete it, start
+from the test. Regression tests complete the revert-and-fail cycle. UI/E2E
+stays test-after via §A4.1; config/markup/docs exempt (state the reason).
+**Trusted oracle:** only project/external acceptance tests (or executable
+acceptance criteria) certify; qualified generated tests are weak evidence;
+self-written tests are weakest. Record the tier in the log: `- oracle:
+project-tests | executable-acceptance | qualified-generated | self-tests
+(weak)`. An invisible contract is flagged as an open question, never invented.
+A project checker (`script/check.sh` / `tests/check.py`) is the loop's
+feedback. Full text: TESTING_PROTOCOLS §A4.8 · templates: APPENDIX §A11.
 
 #### A4.9 Independent code review (major changes) ★
 Canonical text of COV-8. Trigger ANY of: new feature · ≥3 files changed (EVERY
-path in `git diff --stat`, tests/docs/config included) · schema/API-surface
-change · security-sensitive area · risk-tier paths (auth/security/payment/
-billing/crypto/migration/permission/acl — non-skippable) · behavior-semantic
-change. BEFORE the A4.4 table: write log/diff to ONE file, dispatch a READ-ONLY
-reviewer subagent (verdict contract: Strengths · Critical/Important/Minor
-tagged Bugs/Security/Compliance with file:line + why · Assessment). Fix
-Critical/Important + re-run covering tests + scoped re-review (max 5 rounds,
-stall 3× → §A4.10); defer Minors to memory; every finding adjudicated — no
-silent discard. Non-trigger: the gate line's `A4.9 not triggered —` reason MUST
-cite `git diff --stat`.
+path in `git diff --stat`) · schema/API-surface change · security-sensitive
+area · risk-tier paths (auth/security/payment/billing/crypto/migration/
+permission/acl — non-skippable) · behavior-semantic change. BEFORE the A4.4
+table: write log/diff to ONE file, dispatch a READ-ONLY reviewer subagent
+(verdict: Strengths · Critical/Important/Minor tagged Bugs/Security/Compliance
+with file:line + why · Assessment). Fix Critical/Important (+ covering tests +
+scoped re-review; max 5 rounds, stall 3× → §A4.10); defer Minors to memory;
+adjudicate every finding. Non-trigger: the gate line's `A4.9 not triggered —`
+reason MUST cite `git diff --stat`.
 
 ### A5. Design Documents (Conditional)
 
@@ -670,7 +673,7 @@ un-truncated.
   C6 ops · C7 non-web · S1 spike · project-profile reference.
 - [ENGINEERING_STD.md](ENGINEERING_STD.md) — §A6–§A9 full text ·
   [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) 4 iron rules.
-- [APPENDIX.md](APPENDIX.md) — executable templates §A1–§A9.
+- [APPENDIX.md](APPENDIX.md) — executable templates §A1–§A11.
 - [MEMORY_RULES.md](MEMORY_RULES.md) §A7.1–§A7.14 ·
   [MEMORY_TEMPLATES.md](MEMORY_TEMPLATES.md) templates.
 - `scripts/assert_artifacts.py` — canonical artifact-assertion script; copy

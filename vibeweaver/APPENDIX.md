@@ -720,3 +720,157 @@ check that re-runs whenever agent-steering config changes (CLAUDE.md,
 (1) its regression test exists and was watched failing on the buggy code,
 (2) its lesson is in memory, and (3) any standing eval above is wired to
 re-run. Until then the postmortem stays in the owner's triage queue.
+
+---
+
+## §A11. Trusted Oracle & Deterministic Checker (Universal)
+
+**Oracle hierarchy — what may certify a task:**
+
+| Tier | What it is | May certify? |
+|---|---|---|
+| 1. Project / external acceptance tests | the requester's suite, the project's existing tests, executable acceptance criteria | ✅ the only certifying tier |
+| 2. Independently generated + qualified tests | a different author/model writes them from the spec; they pass qualification (below) | ⚠ weak — catches gross errors, never certifies |
+| 3. Self-written tests | the same agent that wrote the code | ⚠ weakest — a RED/GREEN driver; label it in the completion evidence |
+
+**Qualification (required before a generated suite may serve as loop feedback):**
+1. it FAILS on the stub (not vacuous),
+2. it PASSES on a known-correct solution (not wrong),
+3. it FAILS on a plausible wrong solution (discriminative — mutation-style).
+
+A suite that fails (1) or (2) is wrong; a suite that passes (3) is too weak.
+Qualification catches incorrect and non-discriminative tests — it does NOT
+catch **under-specification**: a suite can be correct and still miss required
+behaviors that appear nowhere in the visible contract. Only tier 1 closes that
+gap; when the contract is under-specified, flag it as an open question instead
+of inventing an interface (A4.8).
+
+**Checker contract:**
+- The project exposes ONE deterministic entry point: `script/check.sh` or
+  `tests/check.py` (or `python3 vw_check.py` when the checker is dropped in).
+- The loop runs it, fixes the FIRST failure, re-runs — until it prints
+  `ALL CHECKS PASS` (or the project's documented pass line).
+- Quote the pass line verbatim in the completion evidence; log the checker
+  output to `tests/check_<wave>.log`.
+- Test files are hash-guarded during the wave: the checker refuses to run if the
+  test set changed since the first run. This is a discipline aid, NOT a security
+  boundary — the checker and its hash record are agent-writable; any edit is a
+  test-change event and must be recorded. Fix the code, never the tests.
+
+**Repair packet (VeriHarness):** feedback must carry location + observed +
+expected, plus admissible alternatives when they can be enumerated. A raw
+rejection message ("failed") is not actionable; the template below prints the
+failing tests and the first observed-vs-expected pair.
+
+**`vw_check.py` template (drop into the project root; requires pytest):**
+
+```python
+#!/usr/bin/env python3
+"""Deterministic completion checker — run me until I print ALL CHECKS PASS.
+
+Fails closed: an unreadable hash record or a changed test set refuses to run.
+Requires pytest. Fix the CODE, never the tests.
+"""
+import glob, hashlib, json, os, re, subprocess, sys
+
+HASH_FILE = ".vw_test_hashes.json"
+
+def sha(p):
+    with open(p, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+SKIP = ("node_modules", ".venv", "venv", ".git", "site-packages")
+tests = sorted(set(t for pat in ("**/*_test.py", "**/test_*.py")
+                   for t in glob.glob(pat, recursive=True)
+                   if os.path.isfile(t)
+                   and not any(part in SKIP for part in t.replace("\\", "/").split("/"))))
+if not tests:
+    print("NO TESTS FOUND.")
+    print("NEXT ACTION: write spec_test.py from the spec's own examples, then re-run.")
+    print("NOTE: a suite you wrote yourself is weak evidence — say so in your report.")
+    sys.exit(1)
+
+hashes = {t: sha(t) for t in tests}
+if os.path.exists(HASH_FILE):
+    try:
+        old = json.load(open(HASH_FILE))
+        if not isinstance(old, dict):
+            raise ValueError("bad record")
+    except Exception:
+        print("HASH RECORD UNREADABLE — refusing to run (fail-closed).")
+        print("NEXT ACTION: if the tests are unchanged, delete .vw_test_hashes.json to re-baseline.")
+        sys.exit(1)
+    changed = sorted((set(old) ^ set(hashes)) | {t for t in old if t in hashes and hashes[t] != old[t]})
+    if changed:
+        print("TEST SET CHANGED since first run — refusing to run: " + ", ".join(changed))
+        print("NEXT ACTION: restore the tests and fix the CODE; if the change is")
+        print("intentional, record it and delete .vw_test_hashes.json to re-baseline.")
+        sys.exit(1)
+else:
+    json.dump(hashes, open(HASH_FILE, "w"), indent=1)
+
+try:
+    r = subprocess.run([sys.executable, "-m", "pytest", "-q", *tests],
+                       capture_output=True, text=True, timeout=900)
+except subprocess.TimeoutExpired:
+    print("TIMEOUT — the test suite hung. Fix the hang, then re-run.")
+    sys.exit(1)
+out = (r.stdout + r.stderr).strip()
+print(out[-2500:])
+if r.returncode == 0:
+    print("\nALL CHECKS PASS")
+    sys.exit(0)
+failing = re.findall(r"^(FAILED\s+\S+)", out, re.M)
+if failing:
+    print("\nFAILING TESTS:")
+    for f in failing[:8]:
+        print("  " + f)
+m = re.search(r"E\s+(?:AssertionError|assert):\s*(.+)", out)
+if m:
+    print("\nFIRST FAILURE (observed != expected):\n  " + m.group(1).strip()[:300])
+print("\nNOT DONE.")
+print("NEXT ACTION: make the observed value equal the expected value for the first")
+print("failing test, then run `python3 vw_check.py` again.")
+sys.exit(1)
+```
+
+**`qualify_tests.py` sketch (run before trusting a generated suite):**
+
+```python
+#!/usr/bin/env python3
+"""Qualify a generated suite: stub fails, gold passes, faulty fails.
+Usage: python3 qualify_tests.py <stub.py> <gold.py> <faulty.py> <test_file.py>
+"""
+import pathlib, shutil, subprocess, sys, tempfile
+
+if len(sys.argv) != 5:
+    print(__doc__)
+    sys.exit(2)
+
+def suite_passes(solution: pathlib.Path, test_file: pathlib.Path) -> bool:
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        src_dir = solution.parent if solution.parent != pathlib.Path(".") else None
+        files = src_dir.iterdir() if src_dir else [solution]
+        for f in files:
+            if f.is_file() and f.name != test_file.name:
+                shutil.copy2(f, td / f.name)
+        shutil.copy2(test_file, td / test_file.name)
+        try:
+            r = subprocess.run([sys.executable, "-m", "pytest", "-q", test_file.name],
+                               cwd=td, capture_output=True, text=True, timeout=900)
+        except subprocess.TimeoutExpired:
+            return False
+        return r.returncode == 0
+
+stub, gold, faulty, tests = (pathlib.Path(p) for p in sys.argv[1:5])
+ok = (not suite_passes(stub, tests)) and suite_passes(gold, tests) and (not suite_passes(faulty, tests))
+print("QUALIFIED" if ok else "REJECTED — fix or discard this suite")
+sys.exit(0 if ok else 1)
+```
+
+**When no checker exists:** build the feedback first — list every required
+function/class/method/error message from the spec, write `spec_test.py` from
+the spec's own examples, and treat it as tier 2/3 evidence (label it); a
+missing checker is itself a finding. Under-specified contract items are
+recorded as open questions, never invented.

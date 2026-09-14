@@ -21,6 +21,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Test deps
+        run: python -m pip install pytest
+
       - name: Skill package integrity
         run: python verify_skill.py
 

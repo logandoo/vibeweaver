@@ -235,13 +235,10 @@ Capture set per mode (mm-sensor loaded):
 
 Capture rules:
 - **Video**: `context.record_video` (webm, e.g. 1280×720, ~fps 25-30); one
-  video per user flow, recording the WHOLE Act sequence (clicks, fills,
-  navigations, animations). Transcode webm → mp4 (ffmpeg) for grading —
-  Playwright emits VP8/webm and several gateways (e.g. MiMo) accept mp4
-  only; keep the raw webm too. No ffmpeg / transcode failure → grade the
-  webm directly (mm-sensor degrades to frame-sampling; usable but lossy).
-  Save the final file to a stable name (`tests/<flow>.mp4`) — see
-  APPENDIX §A1.
+  video per user flow, recording the WHOLE Act sequence. Transcode webm → mp4
+  (ffmpeg) for grading (several gateways accept mp4 only; keep the raw webm);
+  no ffmpeg → grade the webm directly (frame-sampling, lossy). Stable name:
+  `tests/<flow>.mp4` (APPENDIX §A1).
 - **Audio**: inject the Web Audio capture script BEFORE page load
   (`add_init_script`), dump via `page.evaluate` at flow end, assemble a WAV
   in Python (`wave` module) — captures Web Audio API + `<audio>`/`<video>`
@@ -534,37 +531,46 @@ change.
 
 ## A4.8 TDD for Logic-Bearing Code ★ NON-NEGOTIABLE
 
-**Core principle: If you didn't watch the test fail, you don't know if it
-tests the right thing.** A test written after the code passes immediately
-proves nothing — it may test the wrong thing, test the implementation instead
-of the behavior, or miss the edge case you didn't think of.
+**Core principle: if you didn't watch the test fail, you don't know if it
+tests the right thing.** A test written after the code passes immediately —
+it may test the wrong thing, the implementation instead of the behavior, or
+miss the edge case you didn't think of.
 
-**Scope — where test-first applies:**
+**Scope:** logic-bearing code (services/repositories/utils, transforms,
+validation, state) — test-first · UI/E2E rendering — §A4.1 screenshot loop ·
+backend API — §A4.7 (NEW endpoints test-first) · pure config/markup/docs,
+generated code — exempt (state the reason).
 
-| Layer | Rule |
-|---|---|
-| **Logic-bearing code** — backend services/repositories/utils, data transforms, validation, frontend state/business logic | **Test-first (this section)** |
-| **UI / E2E rendering** — pages, components, layout | Test-after is correct here: the §A4.1 screenshot loop |
-| **Backend API surface** | §A4.7 loop; test-first ordering for NEW endpoints (above) |
-| **Exempt** — pure config files, markup/copy, docs, generated code | No test required (state the skip reason) |
+**Trusted oracle (what may certify a task, in order):** ① project/external
+acceptance tests — the only certifying tier (greenfield: render the acceptance
+criteria executable; if that is impossible the task cannot be certified — the
+log records `- oracle: self-tests (weak)` and the claim is flagged);
+② independently generated + **qualified** tests (fail on the stub, pass on a
+known-correct solution, fail on a plausible wrong solution) — weak tier:
+catches gross errors, never certifies; ③ self-written tests — weakest. Record
+the tier in `verification_log.md`: `- oracle: project-tests |
+executable-acceptance | qualified-generated | self-tests (weak)`.
+**Under-specified contract:** a required behavior whose interface/semantics are
+not visible in the spec/starter is NOT invented — record it as an open question
+and resolve it (GUIDED) or mark the criterion unverified (AUTO ADR); a test
+that invents an interface is a false oracle. **Checker contract:** a project
+checker (`script/check.sh` / `tests/check.py`) is the loop's feedback — quote
+its pass line, hash-guard the tests (a discipline aid, not a security
+boundary), never edit tests to pass. Templates: APPENDIX.md §A11.
 
 **The cycle (RED → GREEN → minimal):**
 1. **RED — write ONE failing test** for the next small behavior. One
    behavior per test, clear name, real code (mocks only when unavoidable).
-2. **Verify RED — run it and WATCH it fail.** Confirm: it fails (not errors),
-   the failure message is the expected one, and it fails because the feature
-   is missing (not a typo). A test that passes immediately is testing existing
-   behavior — fix the test. **Paste the failing output into
-   `tests/verification_log.md`** — this is the RED evidence for COV-1 / Gate 1.
-3. **GREEN — write the minimal code to pass.** Nothing beyond what the test
-   demands (YAGNI).
-4. **Verify GREEN — run it and watch it pass**, and confirm the rest of the
-   suite still passes with pristine output (no warnings).
-5. **Commit** (or fold into the task's commit), then next failing test.
+2. **Verify RED — run it and WATCH it fail:** it fails (not errors), for the
+   expected reason (missing feature, not a typo). A test passing immediately
+   tests existing behavior — fix it. **Paste the failing output into
+   `tests/verification_log.md`** (the RED evidence for COV-1 / Gate 1).
+3. **GREEN — minimal code to pass** (YAGNI, nothing beyond the test).
+4. **Verify GREEN — it passes**, and the rest of the suite stays green.
+5. **Commit**, then next failing test.
 
-**Wrote code before the test?** Delete it and start over from the test. Don't
-keep it as "reference", don't "adapt" it while writing tests — that's
-test-after in disguise.
+**Wrote code before the test?** Delete it, start from the test — keeping it as
+"reference" is test-after in disguise.
 
 **Regression tests — the red-green verification method:** a regression test is
 only proven if it can catch the bug:
@@ -572,18 +578,13 @@ only proven if it can catch the bug:
 Write test → run (PASSES with fix present) → revert the fix → run (MUST FAIL)
 → restore the fix → run (passes)
 ```
-A regression test that was never watched failing on the buggy code is
-unproven — complete this cycle before claiming the bug is covered.
+A regression test never watched failing on the buggy code is unproven.
 
-**Red flags — STOP and restart test-first:**
-- Code before test, or test added "after, just to cover it"
-- Test passes on first run and you can't explain what production change would break it
-- "Too simple to test" / "I'll test after" / "I already manually verified it"
-- Can't name the production change that would make the test fail
-- **The verification reference shares the candidate's assumptions** — a
-  "brute force" or oracle that inherits the same cleverness inherits the same
-  bug and will agree with it beautifully while both are wrong (see §A4.10
-  TRUST-AND-VERIFY)
+**Red flags — STOP:** code before test · test passes on first run with no
+nameable production change that would break it · "too simple to test" /
+"test after" / "already verified manually" · **the verification reference
+shares the candidate's assumptions** — an oracle inheriting the same
+cleverness inherits the same bug (§A4.10 TRUST-AND-VERIFY).
 
 ---
 
@@ -654,14 +655,12 @@ group 16 machine-checks `tests/review_package.md` exists on disk.
    open-findings list. The re-review verdicts each finding
    **ADDRESSED / NOT ADDRESSED** and flags NEW breakage in the fix diff only;
    out-of-scope observations become deferred Minors and never extend the loop.
-5. **Reviewer disagreement is allowed** — if a finding is technically wrong
-   for THIS codebase, push back with reasoning (cite working tests/code)
-   instead of complying blindly. Record the ruling. Never silently discard.
-6. **Findings feed the rules (closed loop):** when the SAME mistake is flagged
-   a second time — across reviews or sessions — the correction goes into
-   project memory (feedback / ⛔ per A7.9), or the project's `CLAUDE.md` /
-   `AGENTS.md` when one exists, so the mistake is caught at generation time,
-   not at review. Review reads those files; the loop tightens itself.
+5. **Disagreement is allowed** — a technically wrong finding gets a reasoned
+   push-back (cite working tests/code), recorded as a ruling; never silently
+   discard.
+6. **Findings feed the rules:** a mistake flagged twice goes into project
+   memory (feedback/⛔ per A7.9) or `CLAUDE.md`/`AGENTS.md`, so it is caught at
+   generation time, not review.
 
 **Red flags:** skipping review because "it's simple" · fixing findings without
 re-running tests · accepting every suggestion without verifying it against the
