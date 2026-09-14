@@ -195,7 +195,8 @@ def make_workdir(meta: dict, arm_dir: Path) -> None:
         subprocess.run(["git", "-C", str(arm_dir), "clean", "-fdq"], check=True)
 
 
-def run_one(task_id: str, arm: str, timeout: int, force_skill: bool = False) -> dict:
+def run_one(task_id: str, arm: str, timeout: int, force_skill: bool = False,
+            prelude: str = "", prelude_hidden_tests: bool = False) -> dict:
     task_dir = TASKS / task_id
     meta = json.loads((task_dir / "task.json").read_text())
     cfg_arm = arm
@@ -204,6 +205,16 @@ def run_one(task_id: str, arm: str, timeout: int, force_skill: bool = False) -> 
     arm_dir = RUNS / f"{task_id}__{arm}"
     make_workdir(meta, arm_dir)
     shutil.copy2(task_dir / "prompt.md", arm_dir / "prompt.md")
+    if prelude:
+        for f in sorted(Path(prelude).iterdir()):
+            if f.is_file():
+                shutil.copy2(f, arm_dir / f.name)
+    if prelude_hidden_tests:
+        ht = task_dir / "hidden_tests"
+        if ht.is_dir():
+            for f in sorted(ht.iterdir()):
+                if f.is_file():
+                    shutil.copy2(f, arm_dir / f.name)
     prompt = build_prompt(task_dir, force_skill, cfg_arm)
     env = dict(os.environ)
     env.update(ARMS[cfg_arm])
@@ -244,6 +255,10 @@ def main():
     ap.add_argument("--timeout", type=int, default=2400)
     ap.add_argument("--force-skill", action="store_true",
                     help="inject the vibeweaver SKILL.md content into the prompt (forced-load arm)")
+    ap.add_argument("--prelude", default="",
+                    help="directory of files copied into every workdir before the run")
+    ap.add_argument("--prelude-hidden-tests", action="store_true",
+                    help="copy the task's hidden tests into the workdir (deterministic-feedback probe)")
     args = ap.parse_args()
 
     if args.arm != "both" and args.arm not in ARMS:
@@ -278,7 +293,8 @@ def main():
                 job = jobs[idx]
                 idx += 1
             t, a = job
-            run_one(t, a, args.timeout, force_skill=args.force_skill)
+            run_one(t, a, args.timeout, force_skill=args.force_skill,
+                    prelude=args.prelude, prelude_hidden_tests=args.prelude_hidden_tests)
     threads = [threading.Thread(target=worker) for _ in range(min(args.concurrency, len(jobs)))]
     for th in threads:
         th.start()
