@@ -1,0 +1,169 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+I'll start by reading the prompt.md file to understand the exercise, then implement the solution.
+[0m→ [0mRead grade_school.py
+[0m✱ [0mGlob "**/*test*"[90m in . · 0 matches[0m
+Now I'll check for any test files to understand expected behavior, then implement the solution.
+[0m✱ [0mGlob "**/*"[90m in . · 3 matches[0m
+[0m→ [0mRead run.log
+[0m
+[0m← [0mWrite grade_school.py
+Wrote file successfully.
+[0m
+Now I'll implement the solution:
+Now verify with a quick smoke test:
+[0m$ [0mpython3 -c "
+from grade_school import School
+
+s = School()
+
+# Test add_student
+assert s.add_student('Jim', 2) == True
+assert s.add_student('Anna', 1) == True
+assert s.add_student('Barb', 1) == True
+assert s.add_student('Charlie', 1) == True
+assert s.add_student('Alex', 2) == True
+assert s.add_student('Peter', 2) == True
+assert s.add_student('Zoe', 2) == True
+assert s.add_student('Jim', 5) == True
+
+# Test duplicate rejection
+assert s.add_student('Jim', 2) == False
+
+# Test roster (sorted by grade, then alphabetically)
+assert s.roster() == ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe', 'Jim']
+
+# Test grade
+assert s.grade(1) == ['Anna', 'Barb', 'Charlie']
+assert s.grade(2) == ['Alex', 'Peter', 'Zoe']
+assert s.grade(5) == ['Jim']
+assert s.grade(3) == []
+
+# Test added
+assert 'Jim' in s.added()
+
+print('All tests passed!')
+"
+
+Traceback (most recent call last):
+  File "<string>", line 14, in <module>
+AssertionError
+[0m
+[0m$ [0mpython3 -c "
+from grade_school import School
+
+s = School()
+
+# Test add_student
+assert s.add_student('Jim', 2) == True
+assert s.add_student('Anna', 1) == True
+assert s.add_student('Barb', 1) == True
+assert s.add_student('Charlie', 1) == True
+assert s.add_student('Alex', 2) == True
+assert s.add_student('Peter', 2) == True
+assert s.add_student('Zoe', 2) == True
+# Jim already exists, adding to grade 5 should fail
+assert s.add_student('Jim', 5) == False
+
+# Test duplicate in same grade
+assert s.add_student('Jim', 2) == False
+
+# Test roster (sorted by grade, then alphabetically)
+assert s.roster() == ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe']
+
+# Test grade
+assert s.grade(1) == ['Anna', 'Barb', 'Charlie']
+assert s.grade(2) == ['Alex', 'Peter', 'Zoe']
+assert s.grade(5) == []
+assert s.grade(3) == []
+
+# Test added
+assert 'Jim' in s.added()
+assert 'Anna' in s.added()
+
+# Example from prompt: Jim in grade 5 only (no duplicates)
+s2 = School()
+s2.add_student('Anna', 1)
+s2.add_student('Barb', 1)
+s2.add_student('Charlie', 1)
+s2.add_student('Alex', 2)
+s2.add_student('Peter', 2)
+s2.add_student('Zoe', 2)
+s2.add_student('Jim', 5)
+assert s2.roster() == ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe', 'Jim']
+
+print('All tests passed!')
+"
+
+Traceback (most recent call last):
+  File "<string>", line 21, in <module>
+AssertionError
+[0m
+The duplicate `Jim` in grade 5 should also be rejected since Jim is already in the roster. Let me verify the issue — Jim is in grade 2, so adding him to grade 5 should fail. The assertion on line 14 is `s.add_student('Jim', 5) == True` but it should be `False`. Let me fix the test:
+[0m$ [0mpython3 -c "
+from grade_school import School
+s = School()
+s.add_student('Jim', 2)
+s.add_student('Anna', 1)
+s.add_student('Barb', 1)
+s.add_student('Charlie', 1)
+s.add_student('Alex', 2)
+s.add_student('Peter', 2)
+s.add_student('Zoe', 2)
+print('roster:', s.roster())
+print('grade 2:', s.grade(2))
+print('grade 1:', s.grade(1))
+"
+
+roster: ['Anna', 'Barb', 'Charlie', 'Alex', 'Jim', 'Peter', 'Zoe']
+grade 2: ['Alex', 'Jim', 'Peter', 'Zoe']
+grade 1: ['Anna', 'Barb', 'Charlie']
+[0m
+[0m$ [0mpython3 -c "
+from grade_school import School
+
+# Full scenario from prompt
+s = School()
+s.add_student('Anna', 1)
+s.add_student('Barb', 1)
+s.add_student('Charlie', 1)
+s.add_student('Alex', 2)
+s.add_student('Peter', 2)
+s.add_student('Zoe', 2)
+s.add_student('Jim', 5)
+
+assert s.roster() == ['Anna', 'Barb', 'Charlie', 'Alex', 'Peter', 'Zoe', 'Jim']
+assert s.grade(1) == ['Anna', 'Barb', 'Charlie']
+assert s.grade(2) == ['Alex', 'Peter', 'Zoe']
+assert s.grade(5) == ['Jim']
+
+# Duplicate student should be rejected
+assert s.add_student('Anna', 3) == False
+assert s.add_student('Jim', 1) == False
+assert s.add_student('Jim', 5) == False  # already in roster
+
+# Empty grade returns empty list
+assert s.grade(99) == []
+
+# added() returns all students
+added = s.added()
+assert 'Anna' in added
+assert 'Jim' in added
+assert len(added) == 7
+
+print('All tests passed!')
+"
+
+All tests passed!
+[0m
+The roster includes Jim in grade 2. The issue is the test expected `Jim` only in grade 5. Let me fix the test — the prompt says Jim is in grade 5 in the example, but in my test I added Jim to grade 2 first. The implementation is correct. Let me run a proper test:
+All tests pass. Here's what I implemented:
+
+**`grade_school.py`** — `School` class with:
+- `__init__`: internal dict mapping grades → student lists, plus a set for duplicate detection
+- `add_student(name, grade)`: adds student if not already in the roster; returns `True` on success, `False` if duplicate
+- `roster()`: returns all students sorted by grade (ascending), then alphabetically within each grade
+- `grade(grade_number)`: returns sorted list of students in that grade, or `[]` if empty/missing
+- `added()`: returns the list of all student names ever added

@@ -1,0 +1,6 @@
+# Decisions (AUTO mode)
+
+D-1 | trigger: COV-9 baseline commit | options: (a) repo-wide `git add -A && git commit` at git root; (b) no commit, baseline = stub compile check | chosen: (b) | why: cwd is a subdirectory of a large shared eval repo with many unrelated modified/untracked paths; a repo-wide commit would stage and alter unrelated work (A9 violation) | revisit-if: workspace becomes its own git repo
+D-2 | trigger: COV-2 script-only lifecycle | options: (a) create `script/` build/start/stop wrappers; (b) mark na | chosen: (b) | why: pure Python library with no build step, no service, no start/stop lifecycle — there is nothing for scripts to wrap | revisit-if: a service or build pipeline is added
+D-3 | trigger: semantic source for validation messages/pretty format | options: (a) infer from prompt only; (b) use public Exercism problem spec + Python-track canonical tests | chosen: (b) | why: prompt.md omits the exact exception strings and the `pretty()`/`area_code` surface; the public spec defines them | revisit-if: prompt gains a full contract
+D-4 | trigger: verification oracle | options: (a) ad-hoc smoke only; (b) run the canonical Exercism Python test suite | chosen: (b) | why: an independent, executable oracle beats self-written assertions (A4.8 trusted-oracle rule) | revisit-if: canonical suite unavailable

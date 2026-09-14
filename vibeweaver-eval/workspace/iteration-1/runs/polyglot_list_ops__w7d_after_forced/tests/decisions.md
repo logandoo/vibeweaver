@@ -1,0 +1,5 @@
+# Decisions (AUTO mode)
+
+D-1 | trigger: COV-9 baseline commit | options: (a) repo-wide `git add -A && git commit` at git root; (b) scoped file backup + compile baseline | chosen: (b) | why: cwd is a subdirectory of a large shared eval repo with unrelated modified/untracked paths; a repo-wide commit would stage and alter unrelated work (A9 violation) | revisit-if: workspace becomes its own git repo
+D-2 | trigger: hidden tests exist on disk | options: (a) read hidden tests to pin semantics; (b) derive semantics from public Exercism spec | chosen: (b) | why: eval integrity — hidden tests are the grader, not the spec; public canonical data + Python-track tests fully define behavior | revisit-if: public spec proves ambiguous
+D-3 | trigger: skill companions/scripts absent (skill dir contains only SKILL.md) | options: (a) halt; (b) proceed with binding contract from SKILL.md and reproduce artifacts manually | chosen: (b) | why: R1/R1b/R9 companions and scripts/assert_artifacts.py, mm_probe.py are not on disk; the task is a trivial non-web single file | revisit-if: companions become available

@@ -14,6 +14,20 @@
 
 验证：dev selftest exit 0（36 checks / 0 fail / 1 skip）、sweep 27/27、doc_lint OK、assert 17/17；19 文件 × 3 副本 `cmp` 字节一致；repo `verify_skill.py` 9 checks + unittest 13/13；各副本 selftest 36/0/1 + sweep 27/27；dsh 无契约增量（covenant 文本未变），unit 35/35。
 
+## 2026-09-14：wave7 —— 可信 oracle 与确定性 checker 契约（源自 15 臂实验）
+
+wave6 spike 的 15 个评测臂证明：确定性循环只有在喂入"受信 oracle"时才有收益（真测试 4/4；自写测试 1/4；生成测试 1/4 且出现假绿）。用户要求把三条结论全部落地（oracle 分级、checker 契约+修复包、变异式资格验证），注意长度预算，然后做一次双模型强制注入 A/B。
+
+- **A4.8 可信 oracle**（SKILL.md 绑定 + TESTING_PROTOCOLS 规范文本）：① 项目/外部验收测试（或可执行验收标准）是唯一可认证层级——greenfield 须把验收标准可执行化，做不到则记录 `- oracle: self-tests (weak)` 并标记；② 独立生成+资格验证（stub 必挂 / gold 必过 / 错误解必挂）为弱证据；③ 自写测试最弱。契约不可见 → 标为 open question，禁止发明接口。
+- **checker 契约**：项目单一确定性入口（`script/check.sh` / `tests/check.py` / `vw_check.py`）；引用通过行；输出落盘；测试集变化即拒绝运行（哈希守卫——纪律工具，非安全边界）。
+- **APPENDIX §A11**（由 A10 更名）：oracle 分级 + 资格验证协议 + `vw_check.py`（递归 glob、排除 vendored、fail-closed、900s 超时、修复包）+ `qualify_tests.py` 模板。
+- **mini kit 重写**：`vibeweaver-mini/SKILL.md`（1,719B 确定性循环 + oracle/不发明接口规则）+ `scripts/vw_check.py` + 中英 README 按实测重写；提交 55c9db8 并同步安装副本。
+- **长度纪律**：SKILL 41,554→41,772B（净 +218B，补偿修剪）；TESTING_PROTOCOLS 46,040→45,977B（−63B）；APPENDIX 26,297→33,036B（≤45KiB）。
+- **A4.9 两轮**：首轮 ready-with-fixes（1 Critical + 4 Important）→ 修复后 scoped re-review 全 ADDRESSED；新增 `tests/test_vw_check.py` 5/5。
+
+验证：selftest 36/0/1、sweep 27/27、doc_lint OK、assert 18/18；19 文件 × 3 副本字节一致；repo verify_skill 9 checks + unittest 13/13；各副本绿；dsh 无增量 35/35。
+A/B（强制注入；D-2 限定为 SKILL 文本非劣性）：ds 16 题 before 13/16 → after 16/16（Δ+3；before 低抽样，wave6 同尺寸 15/16 → "无回归、方向为正"）；qwen 8 题子集 before 4/8 → after 3/8（Δ−1，噪声内，满足非劣判据）。
+
 ## 2026-08-30：wave5 —— 可行性问题成为一等路由，外加一条计划切分测试
 
 对 obra/superpowers 做了全仓库对照（14 个技能逐读）。先说实话：大半内容本 skill 早已覆盖——计划格式、调试四阶段、TDD 规则、spec 自审清单本就衍生自 superpowers 同名机制，这趟主要是覆盖确认。仍有两条凭实力留下；八条在案拒绝（全路径批准门、逐节设计批准、子代理逐任务执行、git worktree、分支收尾菜单、并行修复代理、技能编写指南、条件等待——各自与这里的某个有意选择冲突：AUTO 模式、一次性确认、会话内证据环、基线提交模型）。

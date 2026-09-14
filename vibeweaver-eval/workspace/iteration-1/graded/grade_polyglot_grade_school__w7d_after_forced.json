@@ -1,0 +1,7 @@
+{
+  "task": "polyglot_grade_school",
+  "passed": true,
+  "tests_passed": 20,
+  "tests_total": 20,
+  "output": "....................                                                     [100%]\n20 passed in 0.02s\n"
+}

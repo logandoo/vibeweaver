@@ -1,0 +1,4 @@
+# Decisions (AUTO mode, append-only)
+
+D-1 | trigger: iterator implementation choice | options: (A) explicit `LinkedIterator` class (canonical Exercism reference) vs (B) generator-based `__iter__` | chosen: B | why: satisfies `list()`/`for` semantics with fewer lines and no extra public class (Simplicity First, YAGNI); behavior verified identical by the official suite | revisit-if: a consumer needs a re-usable, resettable iterator object independent of iteration protocol.
+D-2 | trigger: task says "Do NOT create or modify any test files" vs skill's TDD requirement | options: (A) create a workspace test file vs (B) run the official suite from /tmp with PYTHONPATH | chosen: B | why: honors the explicit user constraint (no test files in workspace) while still producing real, executed RED→GREEN evidence | revisit-if: the grader requires tests to live in the workspace.

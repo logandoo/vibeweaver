@@ -1,0 +1,12 @@
+....                                                                     [100%]
+4 passed in 0.01s
+exit=
+
+### Stress / edge checks
+ALL CHECKS PASSED
+unique live names: 5000 | format ok | 1000 resets unique | seeded reset distinct: FV566 -> CP146
+exit=0
+
+### Fresh re-run on final tree (robot_name.py unchanged since first run)
+....                                                                     [100%]
+4 passed in 0.01s

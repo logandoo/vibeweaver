@@ -1,0 +1,19 @@
+{
+  "profile": "library",
+  "language": "python",
+  "entry_point": "list_ops.py",
+  "public_api": [
+    "append",
+    "concat",
+    "filter",
+    "length",
+    "map",
+    "foldl",
+    "foldr",
+    "reverse"
+  ],
+  "observable_output": ["exit code", "stdout transcript", "return values"],
+  "build_system": "none (pure-python module, imported directly)",
+  "service_lifecycle": "none",
+  "test_runner": "external (hidden); local verification via inline python3 transcript"
+}

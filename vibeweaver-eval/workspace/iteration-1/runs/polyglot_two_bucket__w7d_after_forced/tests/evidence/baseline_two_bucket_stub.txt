@@ -1,0 +1,86 @@
+test_goal_larger_than_both_buckets_is_impossible (two_bucket_test.TwoBucketTest) ... FAIL
+test_measure_one_step_using_bucket_one_of_size_1_and_bucket_two_of_size_3_start_with_bucket_two (two_bucket_test.TwoBucketTest) ... FAIL
+test_measure_using_bucket_one_of_size_2_and_bucket_two_of_size_3_start_with_bucket_one_and_end_with_bucket_two (two_bucket_test.TwoBucketTest) ... FAIL
+test_measure_using_bucket_one_of_size_3_and_bucket_two_of_size_5_start_with_bucket_one (two_bucket_test.TwoBucketTest) ... FAIL
+test_measure_using_bucket_one_of_size_3_and_bucket_two_of_size_5_start_with_bucket_two (two_bucket_test.TwoBucketTest) ... FAIL
+test_measure_using_bucket_one_of_size_7_and_bucket_two_of_size_11_start_with_bucket_one (two_bucket_test.TwoBucketTest) ... FAIL
+test_measure_using_bucket_one_of_size_7_and_bucket_two_of_size_11_start_with_bucket_two (two_bucket_test.TwoBucketTest) ... FAIL
+test_not_possible_to_reach_the_goal (two_bucket_test.TwoBucketTest) ... FAIL
+test_with_the_same_buckets_but_a_different_goal_then_it_is_possible (two_bucket_test.TwoBucketTest) ... FAIL
+
+======================================================================
+FAIL: test_goal_larger_than_both_buckets_is_impossible (two_bucket_test.TwoBucketTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tb_baseline/two_bucket_test.py", line 52, in test_goal_larger_than_both_buckets_is_impossible
+    measure(5, 7, 8, "one")
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_measure_one_step_using_bucket_one_of_size_1_and_bucket_two_of_size_3_start_with_bucket_two (two_bucket_test.TwoBucketTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tb_baseline/two_bucket_test.py", line 36, in test_measure_one_step_using_bucket_one_of_size_1_and_bucket_two_of_size_3_start_with_bucket_two
+    self.assertEqual(measure(1, 3, 3, "two"), (1, "two", 0))
+AssertionError: None != (1, 'two', 0)
+
+======================================================================
+FAIL: test_measure_using_bucket_one_of_size_2_and_bucket_two_of_size_3_start_with_bucket_one_and_end_with_bucket_two (two_bucket_test.TwoBucketTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tb_baseline/two_bucket_test.py", line 41, in test_measure_using_bucket_one_of_size_2_and_bucket_two_of_size_3_start_with_bucket_one_and_end_with_bucket_two
+    self.assertEqual(measure(2, 3, 3, "one"), (2, "two", 2))
+AssertionError: None != (2, 'two', 2)
+
+======================================================================
+FAIL: test_measure_using_bucket_one_of_size_3_and_bucket_two_of_size_5_start_with_bucket_one (two_bucket_test.TwoBucketTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tb_baseline/two_bucket_test.py", line 16, in test_measure_using_bucket_one_of_size_3_and_bucket_two_of_size_5_start_with_bucket_one
+    self.assertEqual(measure(3, 5, 1, "one"), (4, "one", 5))
+AssertionError: None != (4, 'one', 5)
+
+======================================================================
+FAIL: test_measure_using_bucket_one_of_size_3_and_bucket_two_of_size_5_start_with_bucket_two (two_bucket_test.TwoBucketTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tb_baseline/two_bucket_test.py", line 21, in test_measure_using_bucket_one_of_size_3_and_bucket_two_of_size_5_start_with_bucket_two
+    self.assertEqual(measure(3, 5, 1, "two"), (8, "two", 3))
+AssertionError: None != (8, 'two', 3)
+
+======================================================================
+FAIL: test_measure_using_bucket_one_of_size_7_and_bucket_two_of_size_11_start_with_bucket_one (two_bucket_test.TwoBucketTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tb_baseline/two_bucket_test.py", line 26, in test_measure_using_bucket_one_of_size_7_and_bucket_two_of_size_11_start_with_bucket_one
+    self.assertEqual(measure(7, 11, 2, "one"), (14, "one", 11))
+AssertionError: None != (14, 'one', 11)
+
+======================================================================
+FAIL: test_measure_using_bucket_one_of_size_7_and_bucket_two_of_size_11_start_with_bucket_two (two_bucket_test.TwoBucketTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tb_baseline/two_bucket_test.py", line 31, in test_measure_using_bucket_one_of_size_7_and_bucket_two_of_size_11_start_with_bucket_two
+    self.assertEqual(measure(7, 11, 2, "two"), (18, "two", 7))
+AssertionError: None != (18, 'two', 7)
+
+======================================================================
+FAIL: test_not_possible_to_reach_the_goal (two_bucket_test.TwoBucketTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tb_baseline/two_bucket_test.py", line 45, in test_not_possible_to_reach_the_goal
+    measure(6, 15, 5, "one")
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_with_the_same_buckets_but_a_different_goal_then_it_is_possible (two_bucket_test.TwoBucketTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/tb_baseline/two_bucket_test.py", line 48, in test_with_the_same_buckets_but_a_different_goal_then_it_is_possible
+    self.assertEqual(measure(6, 15, 9, "one"), (10, "two", 0))
+AssertionError: None != (10, 'two', 0)
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.001s
+
+FAILED (failures=9)
