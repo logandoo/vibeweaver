@@ -1,0 +1,29 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+I'll start by reading the prompt and understanding the task.
+[0m→ [0mRead grade_school.py
+[0m→ [0mRead vw_check.py
+[0m✱ [0mGlob "*_test.py"[90m 1 match[0m
+Now let me find the test files:
+[0m→ [0mRead grade_school_test.py
+[0m
+[0m← [0mWrite grade_school.py
+Wrote file successfully.
+[0m
+Now I understand the requirements. Let me implement the `School` class:
+Now let me run the checker:
+[0m$ [0mpython3 vw_check.py
+............                                                             [100%]
+12 passed in 0.02s
+
+ALL CHECKS PASS
+[0m
+All 12 tests pass. Here's what I implemented in `grade_school.py`:
+
+- **`__init__`**: Stores students as a list of `(name, grade)` tuples (preserving insertion order) and a `set` of names for O(1) duplicate detection.
+- **`add_student(name, grade)`**: Raises `ValueError` if the student name already exists; otherwise appends to the list and set.
+- **`roster()`**: Returns all students sorted by grade (ascending), then by name (alphabetical) within each grade.
+- **`grade(grade_number)`**: Returns students in a specific grade, sorted alphabetically.
+- **`added()`**: Returns all student names in insertion order.

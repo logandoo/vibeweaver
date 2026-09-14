@@ -196,7 +196,8 @@ def make_workdir(meta: dict, arm_dir: Path) -> None:
 
 
 def run_one(task_id: str, arm: str, timeout: int, force_skill: bool = False,
-            prelude: str = "", prelude_hidden_tests: bool = False) -> dict:
+            prelude: str = "", prelude_hidden_tests: bool = False,
+            prompt_note: str = "") -> dict:
     task_dir = TASKS / task_id
     meta = json.loads((task_dir / "task.json").read_text())
     cfg_arm = arm
@@ -206,7 +207,10 @@ def run_one(task_id: str, arm: str, timeout: int, force_skill: bool = False,
     make_workdir(meta, arm_dir)
     shutil.copy2(task_dir / "prompt.md", arm_dir / "prompt.md")
     if prelude:
-        for f in sorted(Path(prelude).iterdir()):
+        pdir = Path(prelude)
+        if (pdir / task_id).is_dir():
+            pdir = pdir / task_id  # per-task prelude wins when present
+        for f in sorted(pdir.iterdir()):
             if f.is_file():
                 shutil.copy2(f, arm_dir / f.name)
     if prelude_hidden_tests:
@@ -216,6 +220,8 @@ def run_one(task_id: str, arm: str, timeout: int, force_skill: bool = False,
                 if f.is_file():
                     shutil.copy2(f, arm_dir / f.name)
     prompt = build_prompt(task_dir, force_skill, cfg_arm)
+    if prompt_note:
+        prompt = prompt + "\n\n" + prompt_note
     env = dict(os.environ)
     env.update(ARMS[cfg_arm])
     env.update(ENV_EXTRA)
@@ -259,6 +265,8 @@ def main():
                     help="directory of files copied into every workdir before the run")
     ap.add_argument("--prelude-hidden-tests", action="store_true",
                     help="copy the task's hidden tests into the workdir (deterministic-feedback probe)")
+    ap.add_argument("--prompt-note", default="",
+                    help="text appended to every task prompt (e.g. checker instructions)")
     args = ap.parse_args()
 
     if args.arm != "both" and args.arm not in ARMS:
@@ -294,7 +302,8 @@ def main():
                 idx += 1
             t, a = job
             run_one(t, a, args.timeout, force_skill=args.force_skill,
-                    prelude=args.prelude, prelude_hidden_tests=args.prelude_hidden_tests)
+                    prelude=args.prelude, prelude_hidden_tests=args.prelude_hidden_tests,
+                    prompt_note=args.prompt_note)
     threads = [threading.Thread(target=worker) for _ in range(min(args.concurrency, len(jobs)))]
     for th in threads:
         th.start()

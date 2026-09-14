@@ -1,0 +1,39 @@
+[0m
+> build · qwen3.6_35b-a3b
+[0m
+[0m→ [0mRead prompt.md
+I'll start by reading the prompt and understanding the workspace structure.
+[0m✱ [0mGlob "*"[90m in . · 5 matches[0m
+[0m→ [0mRead phone_number.py
+[0m→ [0mRead phone_number_test.py
+[0m→ [0mRead vw_check.py
+[0m
+[0m← [0mWrite phone_number.py
+Wrote file successfully.
+[0m
+Now I understand the task. I need to implement the `PhoneNumber` class that:
+1. Cleans up phone numbers by removing punctuation
+2. Validates NANP format (10 digits, or 11 digits starting with 1)
+3. Validates area code (first digit 2-9) and exchange code (first digit 2-9)
+4. Rejects letters and invalid punctuation
+5. Exposes `.number`, `.area_code`, and `.pretty()` method
+
+Let me implement it:
+[0m$ [0mpython3 vw_check.py
+........................                                                 [100%]
+24 passed in 0.02s
+
+ALL CHECKS PASS
+[0m
+All 24 tests pass. Here's what I implemented:
+
+**`PhoneNumber` class** in `phone_number.py`:
+- **`__init__(self, number)`** — Strips all non-digit characters, then validates:
+  - 11-digit numbers must start with country code `1` (stripped); otherwise raises `ValueError`
+  - Must be exactly 10 digits after cleanup
+  - Rejects letters and invalid punctuation characters
+  - Area code (first 3 digits) must start with 2-9
+  - Exchange code (next 3 digits) must start with 2-9
+- **`number`** property — returns the cleaned 10-digit string
+- **`area_code`** property — returns the first 3 digits
+- **`pretty()`** method — returns formatted string like `"(223) 456-7890"`
