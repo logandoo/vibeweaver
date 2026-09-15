@@ -1,0 +1,301 @@
+{
+ "date": "2026-09-14",
+ "scope": "README.md + README_zh.md (thesis + reference-README + fact audit + ZH rewrite sync + flowchart + EN grammar pass + opencode/codex built-in audit + Codex-support paragraph)",
+ "tool": "readme-weaver/scripts/readme_lint.py",
+ "scores": {
+  "en": {
+   "before": {
+    "定位": 15,
+    "结构": 25,
+    "语言": 18.0,
+    "事实": 10,
+    "密度": 5,
+    "总分": 73.0
+   },
+   "after": {
+    "定位": 20,
+    "结构": 30,
+    "语言": 24.7,
+    "事实": 10,
+    "密度": 10,
+    "总分": 94.7
+   }
+  },
+  "zh": {
+   "before": {
+    "定位": 15,
+    "结构": 25,
+    "语言": 26.5,
+    "事实": 10,
+    "密度": 5,
+    "总分": 81.5
+   },
+   "after": {
+    "定位": 20,
+    "结构": 30,
+    "语言": 26.7,
+    "事实": 10,
+    "密度": 10,
+    "总分": 96.7
+   }
+  }
+ },
+ "language_penalty": {
+  "en": [
+   12.0,
+   5.3
+  ],
+  "zh": [
+   3.5,
+   3.3
+  ]
+ },
+ "before": {
+  "en": {
+   "file": "README.md",
+   "lines": 382,
+   "bytes": 42670,
+   "lang": "en",
+   "identity": {
+    "has_h1": true,
+    "description": "A coding discipline for opencode that makes \"done\" mean \"proven\": research before code, tests that actually ran, evidence on disk, enforced by a tool-level gate, not by asking the model nicely. Vibeweaver is a binding contract for the coding agent's development process, packaged as an opencode skill. It targets the failure mode benchmark scores hide: on medium-to-large projects the agent doesn't know what \"done\" means, so it declares victory without proof. The contract fixes the process (decompose, research, plan, test-first, verify, review) and the standards (what evidence counts), turning model capability into delivery you can trust. The project is opencode-only for now. A DeepSeek Harness port is open-sourced separately as [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh). Codex and Claude Code: never used them, no plans to, no idea, forks welcome.",
+    "desc_len": 874,
+    "desc_ok": false,
+    "desc_cliche": false
+   },
+   "structure": {
+    "sections": {
+     "features": false,
+     "install": true,
+     "usage": true,
+     "config": false,
+     "structure": true,
+     "testing": true,
+     "contributing": true,
+     "license": true,
+     "changelog": true
+    },
+    "dated_h2_count": 0,
+    "changelog_first": false,
+    "install_early": true,
+    "usage_early": true,
+    "has_toc": false,
+    "code_block_count": 4
+   },
+   "language": {
+    "categories": {
+     "slop 词汇": 6
+    },
+    "counts": {
+     "破折号 —": 0,
+     "感叹号": 0,
+     "bold 开头列表项": 17,
+     "列表项总数": 62
+    },
+    "penalty": 12.0
+   },
+   "facts": {
+    "local_links": 4,
+    "broken_links": [],
+    "placeholders": 0
+   },
+   "density": {
+    "max_wall_lines": 2,
+    "long_paragraphs": 26
+   },
+   "scores": {
+    "定位": 15,
+    "结构": 25,
+    "语言": 18.0,
+    "事实": 10,
+    "密度": 5,
+    "总分": 73.0
+   }
+  },
+  "zh": {
+   "file": "README_zh.md",
+   "lines": 389,
+   "bytes": 41285,
+   "lang": "zh",
+   "identity": {
+    "has_h1": true,
+    "description": "面向 opencode 的编码纪律：让「done」必须可证明。先研究再写码，测试必须真的跑过，证据必须落盘。靠工具层的门禁执行，而不是靠请求模型自觉。 Vibeweaver 是一份约束 coding agent 开发流程的显式契约，打包成 opencode skill。它针对的是 benchmark 分数掩盖的失效模式：在中大型项目上，agent 不知道「完成任务」的定义，于是没有证据就宣布胜利。契约固定了流程（拆解、研究、计划、测试优先、验证、评审）和标准（什么算证据），把模型能力转化为可信的交付。 目前项目仅针对 opencode 做了优化，另外开源了 DeepSeek Harness 版本的插件 [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh)。至于 Codex 和 Claude Code，没用过，也没打算用，不知道。感兴趣可以自行 fork。",
+    "desc_len": 416,
+    "desc_ok": false,
+    "desc_cliche": false
+   },
+   "structure": {
+    "sections": {
+     "features": false,
+     "install": true,
+     "usage": true,
+     "config": false,
+     "structure": true,
+     "testing": true,
+     "contributing": true,
+     "license": true,
+     "changelog": true
+    },
+    "dated_h2_count": 0,
+    "changelog_first": false,
+    "install_early": true,
+    "usage_early": true,
+    "has_toc": true,
+    "code_block_count": 4
+   },
+   "language": {
+    "categories": {},
+    "counts": {
+     "破折号 —": 11,
+     "感叹号": 0,
+     "bold 开头列表项": 17,
+     "第二人称 你/您": 0,
+     "中英无空格": 2,
+     "列表项总数": 62
+    },
+    "penalty": 3.5
+   },
+   "facts": {
+    "local_links": 4,
+    "broken_links": [],
+    "placeholders": 0
+   },
+   "density": {
+    "max_wall_lines": 2,
+    "long_paragraphs": 1
+   },
+   "scores": {
+    "定位": 15,
+    "结构": 25,
+    "语言": 26.5,
+    "事实": 10,
+    "密度": 5,
+    "总分": 81.5
+   }
+  }
+ },
+ "after": {
+  "en": {
+   "file": "README.md",
+   "lines": 811,
+   "bytes": 55466,
+   "lang": "en",
+   "identity": {
+    "has_h1": true,
+    "description": "Vibeweaver doesn't make a model stronger; it makes the ability already there actually count.",
+    "desc_len": 92,
+    "desc_ok": true,
+    "desc_cliche": false
+   },
+   "structure": {
+    "sections": {
+     "features": true,
+     "install": true,
+     "usage": true,
+     "config": false,
+     "structure": true,
+     "testing": true,
+     "contributing": true,
+     "license": true,
+     "changelog": true
+    },
+    "dated_h2_count": 0,
+    "changelog_first": false,
+    "install_early": true,
+    "usage_early": true,
+    "has_toc": true,
+    "code_block_count": 5
+   },
+   "language": {
+    "categories": {
+     "slop 词汇": 1
+    },
+    "counts": {
+     "破折号 —": 11,
+     "感叹号": 0,
+     "bold 开头列表项": 34,
+     "列表项总数": 79
+    },
+    "penalty": 5.3
+   },
+   "facts": {
+    "local_links": 4,
+    "broken_links": [],
+    "placeholders": 0
+   },
+   "density": {
+    "max_wall_lines": 8,
+    "long_paragraphs": 0
+   },
+   "scores": {
+    "定位": 20,
+    "结构": 30,
+    "语言": 24.7,
+    "事实": 10,
+    "密度": 10,
+    "总分": 94.7
+   }
+  },
+  "zh": {
+   "file": "README_zh.md",
+   "lines": 435,
+   "bytes": 49754,
+   "lang": "zh",
+   "identity": {
+    "has_h1": true,
+    "description": "Vibeweaver 不会让模型变强，但它能把模型已有的能力真正发挥出来。",
+    "desc_len": 37,
+    "desc_ok": true,
+    "desc_cliche": false
+   },
+   "structure": {
+    "sections": {
+     "features": true,
+     "install": true,
+     "usage": true,
+     "config": false,
+     "structure": true,
+     "testing": true,
+     "contributing": true,
+     "license": true,
+     "changelog": true
+    },
+    "dated_h2_count": 0,
+    "changelog_first": false,
+    "install_early": true,
+    "usage_early": true,
+    "has_toc": true,
+    "code_block_count": 5
+   },
+   "language": {
+    "categories": {},
+    "counts": {
+     "破折号 —": 11,
+     "感叹号": 0,
+     "bold 开头列表项": 35,
+     "第二人称 你/您": 0,
+     "中英无空格": 0,
+     "列表项总数": 78
+    },
+    "penalty": 3.3
+   },
+   "facts": {
+    "local_links": 4,
+    "broken_links": [],
+    "placeholders": 0
+   },
+   "density": {
+    "max_wall_lines": 2,
+    "long_paragraphs": 0
+   },
+   "scores": {
+    "定位": 20,
+    "结构": 30,
+    "语言": 26.7,
+    "事实": 10,
+    "密度": 10,
+    "总分": 96.7
+   }
+  }
+ }
+}
