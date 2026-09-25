@@ -120,8 +120,11 @@ class TestAssertOnProject(unittest.TestCase):
 
 
 DRIVER = """
-import { VibeweaverGate } from "./gate.mjs"
+import gateModule from "./gate.mjs"
 import path from "node:path"
+// Dual-compat surface: current plugin default-exports { id, server, setup };
+// fall back to a legacy shape when driving an older copy.
+const VibeweaverGate = gateModule.server || gateModule.default || gateModule
 const dir = process.argv[2]
 const hooks = await VibeweaverGate({ client: { app: { log: async () => {} } }, directory: dir })
 const after = hooks["tool.execute.after"]

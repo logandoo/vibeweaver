@@ -370,6 +370,38 @@ not audited (subagent reviewers, unrelated chats) — silent. Doc-only tasks
 emit the gate line with `na`/`no` values; the audit accepts those claims at
 face value (no artifact demanded). Disable per-run: `VIBEWEAVER_AUDIT=off`.
 
+**Loop-guard (degenerate-generation watchdog):** the same text observation
+channel also watches for runaway output, independent of the artifact audit.
+Three shapes, detected the moment they emerge from the assistant text stream:
+(a) an identical line-group repeating at the tail — period derived from the
+data (any block period up to 640 lines within the 96KB tail window, i.e.
+realistic code up to ~50 chars/line), multi-line groups at ≥3×; a single
+repeated line needs ≥4× and punctuation-only separator lines are ignored
+(identical banner/log lines ×3 are legitimate codegen); (b) a trailing run of
+≥12 bare tokens stepping +1 — integers (`1,2,…,179`) or bijective base-26
+letters (`a,b,…,kf`); (c) line-sparse (no-newline) tails — a char-level
+suffix period: the same ≥32-char string repeated ≥4× (with a letter/digit;
+short sub-period streams are caught at their ≥32-char super-period), e.g. a
+sentence streamed back-to-back with no line breaks. Repeated JSX/HTML
+elements ×3 and pure-punctuation runs stay clean by the same bar. On trigger
+the plugin interrupts the session (v1 `session.abort` / v2
+`session.interrupt({continue:false})`) and posts a corrective prompt naming
+the pattern (restate the task in one line + the single next concrete step).
+One intervention per degeneration episode (re-arms only after clean text),
+budget 2 per session (further episodes are log-only, config
+`loopGuardMaxInterventions` in `audit.json`). Near-misses are excluded by
+construction: numbered lists with content (`1. step`) are not bare tokens;
+a 2× repetition is below the bar. Disable per-run:
+`VIBEWEAVER_LOOPGUARD=off`.
+
+**C8 self-clearing rule:** a forbidden raw command (C8) flags only ONCE per
+project root (command-hash dedup, persisted in `.vibeweaver/audit-state.json`
+`c8Flagged`). Immutable session history can never pin a session in a
+permanent RED latch — the latch clears on the next GREEN audit; every NEW
+distinct forbidden command still flags. The dedup is persisted only by the
+FINAL audit: a mid-phase warning never consumes the one-shot, so a forbidden
+command run mid-task still latches when the completion audit lands.
+
 **Config lives OUTSIDE the agent's write scope:** global only —
 `~/.config/opencode/vibeweaver/audit.json` (overrides DEFAULTS:
 `samplingRate` · `escOnUncertain` · `escOnHighRisk` · `forbiddenRaw`).

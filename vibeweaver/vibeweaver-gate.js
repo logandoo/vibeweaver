@@ -13,6 +13,22 @@ import path from "node:path"
 // at TESTING_PROTOCOLS.md §A4.10 (warnings only, state in
 // .vibeweaver/state.json, atomic writes). Disable with
 // VIBEWEAVER_GATE=off.
+//
+// OPENCODE DUAL-COMPAT CONTRACT (v1 + v2):
+// This module default-exports ONE object { id, server, setup }.
+//   - opencode v1 (>= 1.18.29): the loader's readV1Plugin detects the
+//     default object and calls server(input, options) -> the v1 hooks
+//     map ("tool.execute.after" / "event"). Older v1 releases fall back
+//     to iterating exports and also accept an object with a function
+//     `server` property — one export means one registration either way.
+//   - opencode v2 (>= 2.0.0): the loader's PluginModule schema decodes
+//     ONLY the default export against { id, setup } (excess keys like
+//     `server` are tolerated) and calls setup(ctx); hooks are registered
+//     via ctx.tool.hook("execute.after") and ctx.event.subscribe().
+// Both adapters delegate to the SAME logic so behavior is identical
+// across versions. Keep exactly this one export: any extra non-function
+// export breaks the legacy v1 iterator, any extra plugin-function export
+// risks double registration.
 
 const GATED_TOOLS = new Set(["write", "edit"])
 const FLAG_COMBOS = [[], ["--existing"], ["--backend-only"], ["--existing", "--backend-only"]]
@@ -197,51 +213,197 @@ function isEvidencePath(root, filePath) {
   return seg === "test" || seg === "tests" || seg === "memory"
 }
 
-export const VibeweaverGate = async ({ client, directory }) => {
+// ---------- version-agnostic gate logic ----------
+
+// Evaluate one completed write/edit. Returns:
+//   { block: string }                      — caller must throw Error(block)
+//   { notes: [string, ...] }               — caller must surface as warnings
+//   null                                   — clean
+// Ordering mirrors the legacy v1 hook: a blocking result short-circuits
+// BEFORE the stall observer records the op (a blocked write is not a
+// landed write).
+function gateCheckWrite(directory, filePath) {
+  if (process.env.VIBEWEAVER_GATE === "off") return null
+  const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
+  if (!root) return null
+  // evidence-fix path must never be gated (same rule as the audit
+  // plugin): writes under tests/ or memory/ ARE the evidence repair
+  // itself — gating them creates the first-log catch-22 deadlock.
+  if (isEvidencePath(root, filePath)) return null
+  const result = checkGate(root)
+  if (result && result.blocking.length) return { block: blockMessage(root, result) }
+  const notes = []
+  if (result && result.warnings.length) {
+    notes.push("[GATE-WARNING (vibeweaver)] non-blocking: " + result.warnings.join("; ") + " — fix before the final [Verification Gate] line.")
+  }
+  const stall = stallObservation(root, filePath || "(unknown file)")
+  if (stall) notes.push("[GATE-WARNING (vibeweaver-stall)] " + stall)
+  return notes.length ? { notes } : null
+}
+
+// Session-idle re-check: returns { blocking } when the gate is RED.
+function gateIdleCheck(directory) {
+  if (process.env.VIBEWEAVER_GATE === "off") return null
+  const root = findProjectRoot([directory])
+  if (!root) return null
+  const result = checkGate(root)
+  if (result && result.blocking.length) return { blocking: result.blocking }
+  return null
+}
+
+// Host logging: v1 offers client.app.log({ body }); v2's ctx.app is
+// {name, version, channel} (no log API) — fall back to stderr. Never
+// throws: logging must never break the gate.
+async function logToHost(appLike, entry) {
+  try {
+    if (appLike && typeof appLike.log === "function") {
+      await appLike.log({ body: entry })
+      return
+    }
+  } catch {
+    /* fall through to stderr */
+  }
+  try {
+    console.error(`[${entry.service}] ${entry.level}: ${entry.message}`)
+  } catch {
+    /* never crash */
+  }
+}
+
+// Append warning notes to a v2 tool result (Tool.Result =
+// { output?, content?: string | Content[], metadata? }). Content is the
+// model-visible channel; metadata is the fallback. In-place mutation first
+// (a host that captured the result reference before dispatch still sees the
+// note); reassignment as the fallback for frozen/readonly results.
+function appendNotesToV2Result(event, notes) {
+  const text = notes.join("\n")
+  const result = event.result
+  if (!result || typeof result !== "object") return
+  try {
+    if (typeof result.content === "string") {
+      result.content = result.content + "\n" + text
+      return
+    }
+    if (Array.isArray(result.content)) {
+      result.content.push({ type: "text", text })
+      return
+    }
+    if (result.metadata && typeof result.metadata === "object") {
+      result.metadata.vibeweaverGate = text
+      return
+    }
+    result.metadata = { vibeweaverGate: text }
+    return
+  } catch {
+    /* readonly/frozen result — fall back to reassignment */
+  }
+  if (typeof result.content === "string") {
+    event.result = { ...result, content: result.content + "\n" + text }
+  } else if (Array.isArray(result.content)) {
+    event.result = { ...result, content: [...result.content, { type: "text", text }] }
+  } else {
+    event.result = { ...result, metadata: { ...(result.metadata || {}), vibeweaverGate: text } }
+  }
+}
+
+// v2 idle detection: v1 emits "session.idle"; v2 emits "session.status"
+// with data { sessionID, status: { type: "idle" | "busy" | "retry" } }.
+function v2EventIsIdle(event) {
+  if (!event || event.type !== "session.status") return false
+  const data = event.data
+  return !!data && !!data.status && data.status.type === "idle"
+}
+
+// ---------- opencode v1 adapter ----------
+
+async function server({ client, directory }) {
   return {
     "tool.execute.after": async (input, output) => {
       if (!GATED_TOOLS.has(input.tool)) return
-      if (process.env.VIBEWEAVER_GATE === "off") return
       const filePath = input.args && typeof input.args.filePath === "string" ? input.args.filePath : null
-      const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
-      if (!root) return
-      // evidence-fix path must never be gated (same rule as the audit
-      // plugin): writes under tests/ or memory/ ARE the evidence repair
-      // itself — gating them creates the first-log catch-22 deadlock.
-      if (isEvidencePath(root, filePath)) return
-      const result = checkGate(root)
-      if (result && result.blocking.length) {
-        throw new Error(blockMessage(root, result))
-      }
-      if (result && result.warnings.length) {
-        const note = "[GATE-WARNING (vibeweaver)] non-blocking: " + result.warnings.join("; ") + " — fix before the final [Verification Gate] line."
-        output.output = (output.output ? output.output + "\n" : "") + note
-      }
-      const stall = stallObservation(root, filePath || "(unknown file)")
-      if (stall) {
-        output.output = (output.output ? output.output + "\n" : "") + "[GATE-WARNING (vibeweaver-stall)] " + stall
+      const r = gateCheckWrite(directory, filePath)
+      if (r && r.block) throw new Error(r.block)
+      if (r && r.notes) {
+        for (const note of r.notes) {
+          output.output = (output.output ? output.output + "\n" : "") + note
+        }
       }
     },
     event: async ({ event }) => {
       if (!event || event.type !== "session.idle") return
-      if (process.env.VIBEWEAVER_GATE === "off") return
-      const root = findProjectRoot([directory])
-      if (!root) return
-      const result = checkGate(root)
-      if (result && result.blocking.length) {
-        try {
-          await client.app.log({
-            body: {
-              service: "vibeweaver-gate",
-              level: "warn",
-              message: "Session idle with RED verification gate",
-              extra: { blocking: result.blocking },
-            },
-          })
-        } catch {
-          // logging must never crash the plugin
-        }
+      const r = gateIdleCheck(directory)
+      if (r) {
+        await logToHost(client && client.app, {
+          service: "vibeweaver-gate",
+          level: "warn",
+          message: "Session idle with RED verification gate",
+          extra: { blocking: r.blocking },
+        })
       }
     },
   }
+}
+
+// ---------- opencode v2 adapter ----------
+
+async function setup(ctx) {
+  const directory = ctx && ctx.location && typeof ctx.location.directory === "string" ? ctx.location.directory : null
+  const hasV2Apis = !!(ctx && ctx.tool && typeof ctx.tool.hook === "function" && ctx.event && typeof ctx.event.subscribe === "function")
+  if (!directory || !hasV2Apis) {
+    // opencode v1's hybrid bridge calls setup() with a partial context (no
+    // location/tool/event domains) — that is EXPECTED there and the v1 server
+    // adapter provides the gate, so stay silent. Warn only when a location IS
+    // present (a genuine v2 host missing hook/event APIs — worth surfacing).
+    if (directory && !hasV2Apis) {
+      console.warn("[vibeweaver-gate] v2 setup: ctx.tool.hook/ctx.event.subscribe unavailable in this host — v2 adapter inactive for this instance")
+    }
+    return
+  }
+  const registration = await ctx.tool.hook("execute.after", async (event) => {
+    if (!event || !GATED_TOOLS.has(event.tool)) return
+    // v1 parity: tool.execute.after fires only for successful executions.
+    if (event.status !== "completed") return
+    const input = event.input
+    const filePath = input && typeof input === "object" && typeof input.filePath === "string" ? input.filePath : null
+    const r = gateCheckWrite(directory, filePath)
+    if (r && r.block) throw new Error(r.block)
+    if (r && r.notes) appendNotesToV2Result(event, r.notes)
+  })
+  const controller = new AbortController()
+  void (async () => {
+    try {
+      for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
+        try {
+          if (!v2EventIsIdle(event)) continue
+          const r = gateIdleCheck(directory)
+          if (r) {
+            await logToHost(null, {
+              service: "vibeweaver-gate",
+              level: "warn",
+              message: "Session idle with RED verification gate",
+              extra: { blocking: r.blocking },
+            })
+          }
+        } catch {
+          /* one bad event must not kill the idle re-check */
+        }
+      }
+    } catch {
+      /* stream closed/aborted — idle re-check is advisory, never crash */
+    }
+  })()
+  return () => {
+    controller.abort()
+    try {
+      if (registration && typeof registration.dispose === "function") void registration.dispose()
+    } catch {
+      /* disposal best-effort; the v2 host also scopes registrations to the plugin */
+    }
+  }
+}
+
+export default {
+  id: "vibeweaver-gate",
+  server,
+  setup,
 }

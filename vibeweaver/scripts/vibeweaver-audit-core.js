@@ -141,6 +141,14 @@ export function isForbiddenCommand(cmd, forbiddenRaw = DEFAULTS.forbiddenRaw) {
   return forbiddenRaw.some((re) => re.test(cmd))
 }
 
+// Stable short hash for a raw command string — used by C8 dedup so the same
+// forbidden command is flagged only ONCE per project root (a latch must be
+// self-clearable; re-flagging immutable history on every audit would pin the
+// session forever). sha1 slice: collision risk negligible at the 100-entry cap.
+export function hashCommand(cmd) {
+  return crypto.createHash("sha1").update(cmd).digest("hex").slice(0, 12)
+}
+
 export function hashSession(sessionID, salt) {
   const h = crypto.createHash("sha256").update(`${salt}::${sessionID}`).digest()
   return h.readUInt32BE(0) % 100
@@ -173,6 +181,7 @@ export function auditProject(opts) {
     skillLoaded = false,
     phase = "final", // "mid" (warn-only subset) | "final" (full triage)
     config = {},
+    priorFlagged = [], // C8 dedup: hashCommand()s already flagged for this root
   } = opts
 
   if (!skillLoaded) {
@@ -227,17 +236,26 @@ export function auditProject(opts) {
   if (!missing.length) check(checks, "A3", "cited media/screenshots exist and >0 bytes", "OK", `${cited.length} cited`)
   else check(checks, "A3", "cited media/screenshots exist and >0 bytes", "BAD", `missing/empty: ${missing.join(", ")}`)
 
-  // Group C8 — script-only lifecycle (both phases; the only live check)
+  // Group C8 — script-only lifecycle (both phases; the only live check).
+  // Dedup by command hash: a forbidden command flags only the FIRST time it
+  // is seen for this root. The latch is thereby self-clearable — re-auditing
+  // immutable history cannot pin a session forever, while every NEW distinct
+  // forbidden command still flags (and is persisted by the caller).
   const hasScripts = existsSync(path.join(root, "script"))
   const rawCmds = tools.filter((t) => t.tool === "bash").map((t) => t.command || "")
   const forbidden = rawCmds.filter((c) => isForbiddenCommand(c, cfg.forbiddenRaw))
-  if (forbidden.length > 0)
-    check(checks, "C8", "script-only lifecycle ↔ bash commands", "BAD", `forbidden raw commands: ${forbidden.map((c) => c.slice(0, 80)).join(" | ")}`)
+  const priorSet = new Set(priorFlagged)
+  const freshForbidden = forbidden.filter((c) => !priorSet.has(hashCommand(c)))
+  if (freshForbidden.length > 0)
+    check(checks, "C8", "script-only lifecycle ↔ bash commands", "BAD", `forbidden raw commands: ${freshForbidden.map((c) => c.slice(0, 80)).join(" | ")}`)
+  else if (forbidden.length > 0)
+    check(checks, "C8", "script-only lifecycle ↔ bash commands", "OK", `${forbidden.length} forbidden raw command(s) already flagged and recorded — not re-flagged`)
   else check(checks, "C8", "script-only lifecycle ↔ bash commands", "OK", hasScripts ? "no forbidden raw command observed" : "no script/ dir — raw commands legitimate")
+  const newlyFlagged = [...new Set(freshForbidden.map(hashCommand))]
 
   if (phase === "mid") {
     const bad = checks.filter((c) => c.verdict === "BAD").length
-    return { checks, bad, uncertain: 0, escalate: bad > 0, escalateReasons: bad ? ["BAD"] : [], red: bad > 0, skipped: false, gateLine: null }
+    return { checks, bad, uncertain: 0, escalate: bad > 0, escalateReasons: bad ? ["BAD"] : [], red: bad > 0, skipped: false, gateLine: null, newlyFlagged }
   }
 
   // Group B — narration markers in final text
@@ -394,6 +412,7 @@ export function auditProject(opts) {
     red: bad > 0,
     skipped: false,
     gateLine,
+    newlyFlagged,
   }
 }
 

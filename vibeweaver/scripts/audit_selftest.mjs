@@ -15,7 +15,10 @@ import path from "node:path"
 const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
 const CORE_MODULE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
 const { auditProject, buildReport, hashSession, isForbiddenCommand } = await import(pathToFileURL(CORE_MODULE))
-const { VibeweaverAudit } = await import(pathToFileURL(AUDIT_MODULE))
+// Dual-compat module surface: current plugin default-exports { id, server, setup };
+// fall back to the legacy named export when testing an older copy.
+const auditModule = await import(pathToFileURL(AUDIT_MODULE))
+const VibeweaverAudit = auditModule.VibeweaverAudit || (auditModule.default && auditModule.default.server)
 
 const TMP = "/tmp/vibeweaver-audit-test"
 const results = []
@@ -524,8 +527,78 @@ const baseTools = () => [
 }
 
 // =====================================================================
+// T21 — C8 dedup: the same forbidden command flags ONCE per root
+// (a latch must be self-clearable; immutable history cannot pin a session)
+// =====================================================================
+{
+  const root = newFixture("t21-c8dedup")
+  scaffoldComplete(root)
+  initGit(root, false)
+  write(root, "tests/verification_log.md", readFileSyncSafe(path.join(root, "tests/verification_log.md")) + "\n")
+  const tools21 = [...baseTools(), { tool: "bash", command: "pkill -f uvicorn" }]
+  const a1 = auditProject({ root, sessionID: "ses_t21", sessionText: cleanSessionText(), tools: tools21, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c8a = a1.checks.find((c) => c.id === "C8")
+  rec("T21 first forbidden command flags BAD", c8a && c8a.verdict === "BAD" && a1.red, c8a ? `${c8a.verdict} red=${a1.red}` : "missing")
+  rec("T21 newlyFlagged returned for persistence", Array.isArray(a1.newlyFlagged) && a1.newlyFlagged.length === 1, `n=${a1.newlyFlagged ? a1.newlyFlagged.length : "?"}`)
+  const a2 = auditProject({ root, sessionID: "ses_t21", sessionText: cleanSessionText(), tools: tools21, skillLoaded: true, phase: "final", config: { samplingRate: 0 }, priorFlagged: a1.newlyFlagged })
+  const c8b = a2.checks.find((c) => c.id === "C8")
+  rec("T21 same history does NOT re-flag (self-clearable)", c8b && c8b.verdict === "OK" && a2.bad === 0 && !a2.red, c8b ? `${c8b.verdict} bad=${a2.bad} red=${a2.red}` : "missing")
+  const a3 = auditProject({ root, sessionID: "ses_t21", sessionText: cleanSessionText(), tools: [...tools21, { tool: "bash", command: "npm run build" }], skillLoaded: true, phase: "final", config: { samplingRate: 0 }, priorFlagged: a1.newlyFlagged })
+  const c8c = a3.checks.find((c) => c.id === "C8")
+  rec("T21 a different forbidden command still flags", c8c && c8c.verdict === "BAD" && Array.isArray(a3.newlyFlagged) && a3.newlyFlagged.length === 1, c8c ? `${c8c.verdict} new=${a3.newlyFlagged ? a3.newlyFlagged.length : "?"}` : "missing")
+}
+
+// ---- T22: a C8 latch self-clears on the next GREEN audit (dedup e2e) ----
+{
+  const root = newFixture("t22-c8selfclear")
+  scaffoldComplete(root)
+  initGit(root, false)
+  write(root, "tests/verification_log.md", readFileSyncSafe(path.join(root, "tests/verification_log.md")) + "\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  await emit("message.part.updated", { sessionID: "ses_t22", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  await emit("message.part.updated", { sessionID: "ses_t22", part: { id: "t1", type: "text", text: cleanSessionText() } })
+  await emit("message.part.updated", { sessionID: "ses_t22", part: { id: "b1", type: "tool", tool: "bash", state: { status: "completed", input: { command: "pkill -f uvicorn" }, output: "" } } })
+  await emit("session.idle", { sessionID: "ses_t22" })
+  const sp = path.join(root, ".vibeweaver", "audit-state.json")
+  const latched = JSON.parse(readFileSync(sp, "utf8")).roots[root].red
+  const blocked = await tryWrite(plugin, root, "src/x.ts", "ses_t22")
+  rec("T22 fresh forbidden command latches RED", !!latched && typeof blocked === "string" && /GATE-BLOCKED/.test(blocked), latched ? `latched bad=${latched.bad}` : "no latch: " + blocked)
+  await emit("session.idle", { sessionID: "ses_t22" })
+  const st2 = JSON.parse(readFileSync(sp, "utf8")).roots[root]
+  const cleared = st2.red == null
+  const writeAfter = cleared ? await tryWrite(plugin, root, "src/y.ts", "ses_t22") : "still latched"
+  rec("T22 latch self-clears on the next GREEN audit (no env-off, no state surgery)", cleared && writeAfter === true, cleared ? `cleared; c8Flagged=${(st2.c8Flagged || []).length}` : "still latched — dedup broken")
+}
+
+// =====================================================================
+
+
+// ---- T23: a forbidden command run MID-TASK (before the completion marker)
+// must still latch at the final audit — the mid-phase warn must NOT consume
+// the C8 one-shot (wave9 review Critical regression fixture)
+{
+  const root = newFixture("t23-midthenfinal")
+  scaffoldComplete(root)
+  initGit(root, false)
+  write(root, "tests/verification_log.md", readFileSyncSafe(path.join(root, "tests/verification_log.md")) + "\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  await emit("message.part.updated", { sessionID: "ses_t23", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  await emit("message.part.updated", { sessionID: "ses_t23", part: { id: "t0", type: "text", text: "working on it, no completion marker yet" } })
+  await emit("message.part.updated", { sessionID: "ses_t23", part: { id: "b1", type: "tool", tool: "bash", state: { status: "completed", input: { command: "pkill -f uvicorn" }, output: "" } } })
+  await emit("session.idle", { sessionID: "ses_t23" })
+  const sp = path.join(root, ".vibeweaver", "audit-state.json")
+  const st1 = JSON.parse(readFileSync(sp, "utf8")).roots[root] || {}
+  rec("T23 mid-phase warns but neither latches nor persists dedup", st1.red == null && !(Array.isArray(st1.c8Flagged) && st1.c8Flagged.length), `red=${JSON.stringify(st1.red)} flagged=${(st1.c8Flagged || []).length}`)
+  await emit("message.part.updated", { sessionID: "ses_t23", part: { id: "t1", type: "text", text: cleanSessionText() } })
+  await emit("session.idle", { sessionID: "ses_t23" })
+  const st2 = JSON.parse(readFileSync(sp, "utf8")).roots[root] || {}
+  rec("T23 the final audit still latches the mid-task forbidden command", !!st2.red && Array.isArray(st2.c8Flagged) && st2.c8Flagged.length === 1, `red=${JSON.stringify(st2.red)} flagged=${(st2.c8Flagged || []).length}`)
+}
+
+// =====================================================================
 // T16-T19 — RED latch is SESSION-SCOPED (deadlock regression, 2026-08-21)
-// A truncated/aborted session must not hold the next task hostage.
 // =====================================================================
 
 async function latchRed(plugin, sessionId, root) {

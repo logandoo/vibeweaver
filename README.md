@@ -123,6 +123,12 @@ checkable.
 - **Bounded loops.** Every verification loop is capped at `cap=5` iterations per
   sub-problem with `stall=3×`: the same criterion failing three times in a row
   means stop, change direction, record the dead end.
+- **A loop-guard for degenerate output.** When the model's own generation runs
+  away — the same block repeating, or a meaningless bare echo sequence
+  (`1,2,…,179`, `a,b,…,kf`, with or without newlines) — the auditor plugin
+  detects it from the text stream, interrupts the session, and posts a corrective
+  prompt (once per episode, budgeted per session; `VIBEWEAVER_LOOPGUARD=off`
+  turns it off).
 - **The whole SDLC, not one slice of it.** New-project scaffolding with design docs
   first (FLOW / PAGE / DATABASE / BACKEND), config management, acceptance
   checklists, task-type routing (build / audit / deploy / ops / CLI-library /
@@ -150,6 +156,12 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 
 The gate is the enforcement layer and the skill is the instruction layer; both work
 independently, so the skill runs fine without the plugins.
+
+Both plugins are a single file each that supports **opencode v1 (≥ 1.18.29) and
+opencode v2 (≥ 2.0.0)** at the same time: the module default-exports
+`{ id, server, setup }`, v1's loader calls `server()` for the v1 hook map, and
+v2's loader decodes `{ id, setup }` and calls `setup(ctx)` for the domain-API
+hooks. Same logic, same `.vibeweaver/` state, same behavior on both generations.
 
 Optional extras, in rough order of how much they matter:
 
@@ -487,17 +499,29 @@ until the evidence is actually fixed. Because the latch is session-scoped, a
 truncated session can never brick a project again: the latch self-releases on
 session change, on TTL expiry, or via legacy-state migration, and every release is
 journaled and surfaced in the audit report (see the 2026-08-21 entry in
-[CHANGELOG.md](CHANGELOG.md)).
+[CHANGELOG.md](CHANGELOG.md)). A forbidden raw command (C8) flags only once per
+project — the latch always stays self-clearable on the next clean audit.
+
+The same observation channel also runs the **loop-guard**: a bounded tail scan of
+the assistant text stream for runaway generation — an identical line-group
+repeating (any block period, line-aligned or a no-newline stream), or a trailing
+run of ≥12 bare tokens stepping +1 (integers or bijective base-26 letters). On a
+hit it interrupts the session (v1 `session.abort` / v2
+`session.interrupt({continue:false})`) and posts a corrective prompt naming the
+pattern; one intervention per episode, two per session at most, further episodes
+are log-only. Near-misses are designed out: numbered lists with content are not
+bare tokens, and a 2× repeat is below the bar.
 
 The gate is also skill-agnostic: it fires on any project that has
 `tests/verification_log.md`, so it covers **vibeweaver-mini** too; mini's artifact
 formats are deliberately aligned with its evidence floor. If you only run mini and
 want the hard floor, installing this one plugin is the whole job.
 
-One honest caveat: the plugins speak opencode's plugin API
-(`tool.execute.after`, `session.idle`, `client.app.log`). Whether Claude Code or
-Codex have an equivalent mechanism, I haven't checked; forks welcome. The
-vibeweaver-dsh port ships the same `assert_artifacts.py` evidence checks.
+One honest caveat: the plugins speak opencode's plugin API — both generations of
+it (v1's `server()` hook map and v2's `setup(ctx)` domain API, from one file each;
+v1 needs ≥ 1.18.29). Whether Claude Code or Codex have an equivalent mechanism, I
+haven't checked; forks welcome. The vibeweaver-dsh port ships the same
+`assert_artifacts.py` evidence checks.
 
 ## The memory system: opencode forgets, the files don't
 
