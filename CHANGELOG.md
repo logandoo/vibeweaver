@@ -2,6 +2,39 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-09-24: wave10 — loop-guard blind spots closed (no-newline streams, large periods) + public docs synced
+
+Closes the two loop-guard blind spots left on record from wave9, and syncs the public repo's Chinese README and both changelogs (the English README changes sit mid/low in the page, so they read as "unchanged" at a glance).
+
+- **No-newline streaming repeats (char-level suffix period).** When the tail is newline-sparse (<4 newlines in the last 2KB, or a trailing line over 512 chars), the same ≥32-char unit containing a letter/digit repeated ≥4× in a row now triggers. Candidate periods come from re-occurrences of the last 32-char seed (native `lastIndexOf`, ≤16 candidates), and a stream that is itself short-periodic ("very "×40) is caught by probing its ≥32-char super-period multiples.
+- **Large block periods, 192 → 640 lines.** The line-group period cap rose to ≤640 lines with the tail window sized to 96KB, so three copies of realistic code (~50 chars/line or less) all fit; candidates stay filtered by last-line re-occurrence with exact 3-copy comparison. G10 (300-line ×3) and G10b (640-line ×3) now trigger.
+- **Uniform 4-copy bar.** A single repeated unit (one line, or one no-newline block) needs 4 copies, not 3, and must hold real content — so a repeated JSX/HTML element ×3 and a pure-punctuation run stay clean, matching the line path's single-line rule.
+- **Public docs.** README_zh.md mirrors the English (dual-compat section, loop-guard bullet, audit C8/loop-guard paragraphs, dual-generation API caveat); CHANGELOG.md and CHANGELOG_zh.md gain wave8/9/10 in this commit.
+
+Verified: harness 43/43 (G9 ×3 clean / ×4 fires / super-period fires / JSX + punctuation clean, G10, G10b), self-test 44 checks, sweep 27/27, artifact assertions 26/26; payload byte-identical across four copies; repo `verify_skill.py` 9 checks + unittest 13/13; two review rounds, scoped re-review 7/7 ADDRESSED (ready).
+
+## 2026-09-24: wave9 — v1 startup silence, C8 latch self-clearing, and the loop-guard
+
+Three user-driven changes: two defects in wave8's v1 surface, and the new degenerate-output watchdog.
+
+- **v1 startup was printing red lines.** opencode v1's hybrid bridge calls the v2 `setup()` with a partial context (no `location`/`tool`/`event`), and the new adapter printed two error-style lines on every v1 start in every project. It now returns silently there and warns only on a genuinely partial v2 host. A real v1 TUI start shows zero plugin output lines.
+- **C8 latch could self-deadlock.** The audit rescanned the whole immutable bash history each final audit, so a session that ever ran a forbidden raw command (the banned pattern-kill form) stayed C8-BAD forever and its RED latch could never clear. Now each forbidden command flags only once per project root (sha1 command-hash dedup, final-phase persistence in `.vibeweaver/audit-state.json`); a mid-phase warn does not consume the one-shot, so the canonical order (forbidden command run mid-task, then the completion audit) still latches, and the latch self-clears on the next clean audit. New fixtures T21/T22/T23.
+- **loop-guard (v1).** A bounded tail scan of the assistant text stream: an identical line-group repeating at the tail (period derived from the data), or a trailing run of ≥12 bare tokens stepping +1 (integers `1,2,…,179` or bijective base-26 letters `a,b,…,kf`). On a hit it interrupts (v1 `session.abort` / v2 `session.interrupt({continue:false})`) and posts a corrective prompt naming the pattern. One intervention per episode (re-arms after clean text), two per session at most, later episodes log-only; `VIBEWEAVER_LOOPGUARD=off` disables it. Numbered lists with content and a 2× repeat are designed out.
+- **Two review rounds (A4.9).** Round one came back not-ready on a Critical (the mid-phase audit was consuming the C8 one-shot, so mid-task forbidden commands never latched) plus Important/Minor detector-tuning findings; all fixed, scoped re-review 8/8 ADDRESSED.
+
+Verified: harness 40/40 at this wave (G1–G8), self-test 44 checks, sweep 27/27, real v1 TUI start with zero plugin lines, a real v1 RED-project write still GATE-BLOCKED; payload byte-identical across four copies.
+
+## 2026-09-24: wave8 — dual-compat plugins for opencode v1 and v2 (one file each)
+
+opencode v2.0 shipped its plugin system as a deliberate breaking change: the v2 loader decodes only a module's `default` export against `{ id, setup }`, so the old v1 function exports stopped loading. The gate and auditor plugins had to run on both generations from a single file. The v1↔v2 delta was verified against primary sources (the opencode v2 docs, the v1.18.32 loader, the v2.0.16 loader and published plugin types, plus running the real v2 binary in an isolated home).
+
+- **One-file dual shape.** Both plugins now default-export `{ id, server, setup }`. v1 (≥ 1.18.29) calls `server()` for the v1 hooks map; v2 (≥ 2.0.0) decodes `{ id, setup }` and calls `setup(ctx)` for the domain-API hooks. Same logic, same `.vibeweaver/` state, same behavior on both. The named exports were dropped so one export = one registration on any loader variant (no double-fire).
+- **Gate v2.** `ctx.tool.hook("execute.after")` for completed writes (throw = GATE-BLOCKED, warnings into the result) plus `ctx.event.subscribe` watching `session.status` idle.
+- **Audit v2.** A shared audit machine keeps the latch / stale-release / report identical across versions; observation comes from `ctx.tool.hook` plus the v2 session events (`session.text.delta`, `session.message.content.updated`, `session.skill.activated`, `session.status`).
+- **Dual-loader harness.** New `tests/plugin_compat_test.mjs` simulates both loader contracts (v1 `readV1Plugin` + legacy iteration, v2 `PluginModule` schema) and asserts gate/audit behavioral parity under each.
+
+Verified: harness 30/30 after this wave; a real opencode 1.18.32 model write into a RED project is still GATE-BLOCKED; a real v2 binary (isolated home) loads both plugins with zero errors; payload byte-identical across the four copies (`diff -q`).
+
 ## 2026-09-14: wave6 — consistency fixes plus an A/B-gated root slim (−15.1%)
 
 The user's rule for this wave: change nothing on faith — forced-injection A/B first, implement only Pareto improvements (models: qwen3.6-35B at biklimax.cn:18002 and deepseek-v4-flash). Of the WP1–WP6 plan, this wave shipped WP4 (mechanical consistency) and the WP2 root slim (a content change, so it ran the A/B gate); WP1 (hash pinning/CI), WP3 (task-level eval expansion), WP5 (`vw` CLI) and WP6 (telemetry) remain queued.

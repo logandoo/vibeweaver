@@ -2,6 +2,39 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-09-24：wave10 —— loop-guard 盲区封死（无换行流 / 大周期块）+ 公开仓文档补齐
+
+封掉 wave9 在案留存的两个 loop-guard 边界（单行无换行流式重复、>192 行周期块），并把公开仓的中文 README 与两份 changelog 补齐（英文 README 的改动落在页面中下部，粗看像没变）。
+
+- **无换行流式重复（字符级后缀周期）。** 尾窗行稀疏时（最近 2KB 内换行 <4，或末行 >512 字符），同一 ≥32 字符单元（含字母数字）连续复读 ≥4 次即触发。候选周期取自末 32 字符种子的复现位置（native `lastIndexOf`，≤16 个），流自身短周期的情况（如 "very "×40）按其 ≥32 字符超周期倍数探测覆盖。
+- **大周期块，192 → 640 行。** 行组周期上限提到 ≤640 行，尾窗扩到 96KB——约 ≤50 字符/行的现实代码 3 份拷贝装得下；候选仍按末行复现过滤，精确三份比对。G10（300 行×3）与 G10b（640 行×3）均可触发。
+- **统一 4 份栏。** 单一重复单元（单行或单一无换行块）需 4 份而非 3 份且须含真实内容——JSX/HTML 单元素 ×3、纯标点串保持干净，与行路径的单行规则一致。
+- **公开文档。** README_zh.md 对齐英文（双兼容段、loop-guard 条目、审计 C8/loop-guard 段、双代 API 诚实边界）；CHANGELOG.md 与 CHANGELOG_zh.md 在本提交补齐 wave8/9/10。
+
+验证：harness 43/43（G9 ×3 干净 / ×4 触发 / 超周期触发 / JSX+标点干净、G10、G10b），selftest 44 checks，sweep 27/27，assert 26/26；4 副本 payload 字节一致；repo `verify_skill.py` 9 checks + unittest 13/13；A4.9 两轮，scoped re-review 7/7 ADDRESSED（ready）。
+
+## 2026-09-24：wave9 —— v1 启动静默 + C8 锁存自解 + loop-guard 上线
+
+用户驱动的三个改动：wave8 v1 侧的两个缺陷 + 新的退化输出看护。
+
+- **v1 启动红字。** opencode v1 的混合桥以残缺上下文（无 `location`/`tool`/`event`）调用 v2 的 `setup()`，新适配层于是在每个项目的 v1 启动时打两条报错样输出。现在该路径静默返回，仅对真实残缺的 v2 host 留一行 warn。真机 v1 TUI 启动：零插件输出行。
+- **C8 锁存自解。** 审计此前每轮 final 都重扫全部不可变的 bash 历史——跑过一次违禁原始命令（被禁的模式杀形态）的会话 C8 永远 BAD，RED 锁存永不可解。现在每条违禁命令按项目只标记一次（sha1 命令哈希去重，仅 final 阶段持久化于 `.vibeweaver/audit-state.json`）；mid 阶段告警不消耗一次性名额——「违禁命令跑在任务中期、完工审计才 lands」的正常时序仍会锁存，且锁存可在下一次干净审计后自解。新夹具 T21/T22/T23。
+- **loop-guard（首版）。** 助手文本流上有界尾窗扫描：尾部同一行组复读（周期按数据推导），或末尾连续 ≥12 个裸 token 步长 +1（整数 `1,2,…,179`、双十进制字母 `a,b,…,kf`）。命中后打断会话（v1 `session.abort` / v2 `session.interrupt({continue:false})`）并投递指出具体模式的纠正提示；一段发作干预一次（干净文本后重新武装），每会话至多两次，之后的发作只记日志；`VIBEWEAVER_LOOPGUARD=off` 关闭。编号列表（带内容）、2× 重复按设计不触发。
+- **两轮评审（A4.9）。** 首轮 not-ready（Critical：mid 审计消耗了 C8 一次性名额，中期的违禁命令反而永远锁不了存，另有检测调优的 Important/Minor）；全部修复，scoped re-review 8/8 ADDRESSED。
+
+验证：harness 40/40（G1–G8），selftest 44 checks，sweep 27/27，真机 v1 TUI 启动零插件行，真机 v1 RED 项目写入仍 GATE-BLOCKED；4 副本 payload 字节一致。
+
+## 2026-09-24：wave8 —— opencode v1 与 v2 双兼容插件（单文件）
+
+opencode v2.0 把插件系统作为有意破坏性变更发布：v2 loader 只按 `{ id, setup }` 解码模块的 `default` 导出，旧的 v1 函数导出不再被加载。门禁与审计两个插件要用同一个文件跑两代。v1↔v2 差异全部对一手来源核实（opencode v2 文档、v1.18.32 loader 源码、v2.0.16 loader 与已发布插件类型，并在隔离 HOME 下跑真 v2 二进制）。
+
+- **单文件双形态。** 两个插件默认导出 `{ id, server, setup }`：v1（≥ 1.18.29）调 `server()` 拿 v1 hooks 对象；v2（≥ 2.0.0）解码 `{ id, setup }` 并调 `setup(ctx)` 走域 API。同一份逻辑、同一个 `.vibeweaver/` 状态、两代行为一致。移除命名导出——一个导出 = 任何 loader 变体下一次注册，不双发。
+- **门禁 v2。** `ctx.tool.hook("execute.after")`（仅 completed 写入；抛错 = GATE-BLOCKED，警告写入结果）+ `ctx.event.subscribe` 监听 `session.status` idle。
+- **审计 v2。** 共享审计机，锁存 / 陈旧释放 / 报告跨版本一致；观察取自 `ctx.tool.hook` + v2 会话事件（`session.text.delta`、`session.message.content.updated`、`session.skill.activated`、`session.status`）。
+- **双 loader 测试设施。** 新增 `tests/plugin_compat_test.mjs`：模拟两套 loader 契约（v1 `readV1Plugin` + 旧式迭代、v2 `PluginModule` schema），对两套 API 下的门禁/审计行为断言一致。
+
+验证：本波后 harness 30/30；真机 opencode 1.18.32 模型写入 RED 项目仍 GATE-BLOCKED；真机 v2 二进制（隔离 HOME）加载两插件零错误；4 副本 payload 逐字节一致（`diff -q`）。
+
 ## 2026-09-14：wave6 —— 一致性修复 + A/B 门控的根文件瘦身（−15.1%）
 
 本轮的规则来自用户：不凭信仰改任何东西——先强制注入 A/B，只在帕累托改进时落地（被测模型：qwen3.6-35B @ biklimax.cn:18002 与 deepseek-v4-flash）。WP1–WP6 计划中，本轮交付 WP4（机械一致性）与 WP2 根文件瘦身（内容变更，走 A/B 门）；WP1（哈希钉扎/CI）、WP3（任务级 eval 扩展）、WP5（`vw` CLI）、WP6（遥测）排队后续。

@@ -44,6 +44,7 @@ coding agent 在真实项目上出问题，包括但不限于把文件删了、�
 - **先研究再动手**：任何任务的第一步都是拆解问题（有不清楚的就停下来问，一次一个问题，别猜），并联网检索现成方案（exa MCP + Context7），评估至少两种方案再写代码。除非没有网络或只是琐碎的 typo、配置修改。背后的哲学：太阳底下没有新鲜事。如果真搜遍全网都找不到先例，那说明这活儿新到不该由我们干。
 - **项目记忆**：opencode 没有原生记忆系统，每场会话都是从头开始的新脑子。vibeweaver 用文件和规则硬造了一个：索引 + 主题文件、信任分级（⛔ 禁止 / ❌ 失败 / ✅ 已验证 / ⏳ 未验证）、修 bug 的状态机。完整机制见下文。
 - **循环有上限**：每个验证循环都受约束：单个子问题最多 `cap=5` 次迭代，`stall=3×`（同一标准连续失败三次就停下、换方向、把死路记进 memory）。
+- **退化输出看护（loop-guard）**：模型自己的生成跑飞时——同一段反复复读、无意义的裸 echo 序列（`1,2,…,179`、`a,b,…,kf`），有无换行都覆盖——审计插件从文本流里即时识别，打断会话并投递纠正提示（一段发作干预一次、每会话限次；`VIBEWEAVER_LOOPGUARD=off` 关闭）。
 - **覆盖完整开发流程，不止一个环节**：新项目脚手架（先出设计文档 FLOW / PAGE / DATABASE / BACKEND）、配置管理、验收清单、按任务类型路由（构建 / 审计 / 部署 / 运维 / CLI 与库 / 可行性 spike）、8 列完工表格，以及两个执行层插件。
 
 ## 安装
@@ -65,6 +66,8 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 ```
 
 插件是执行层，skill 是指令层，两者独立工作，所以只装 skill 不装插件也能跑。
+
+两个插件各是一个单文件，**同时支持 opencode v1（≥ 1.18.29）和 opencode v2（≥ 2.0.0）**：模块默认导出 `{ id, server, setup }`——v1 的 loader 调 `server()` 拿 v1 hooks 对象，v2 的 loader 按 `{ id, setup }` 解码并调 `setup(ctx)` 走域 API 注册。同一份逻辑、同一个 `.vibeweaver/` 状态文件、两代行为一致。
 
 可选配件，大致按重要性排序：
 
@@ -274,11 +277,13 @@ flowchart TD
 
 **`vibeweaver-audit`：机械审计器。** 会话空闲时它重跑项目的 `tests/assert_artifacts.py`（和门禁用的是同一份脚本），再用自己的声明检查组给最终输出打分、复核磁盘证据。
 
-打出 BAD 就落下一个**会话级**的 RED 锁存，拦住 agent 的写入，直到证据真的补齐。正因为锁存是会话级的，一个被截断的会话永远不会把项目锁死：换会话、TTL 到期、旧格式状态迁移，三条路都会自动释放；而且每次释放都会记进日志并出现在审计报告里（机制详见 [CHANGELOG_zh.md](CHANGELOG_zh.md) 的 2026-08-21 一节）。
+打出 BAD 就落下一个**会话级**的 RED 锁存，拦住 agent 的写入，直到证据真的补齐。正因为锁存是会话级的，一个被截断的会话永远不会把项目锁死：换会话、TTL 到期、旧格式状态迁移，三条路都会自动释放；而且每次释放都会记进日志并出现在审计报告里（机制详见 [CHANGELOG_zh.md](CHANGELOG_zh.md) 的 2026-08-21 一节）。违禁原始命令（C8）每个项目只标记一次——锁存永远能在下一次干净审计后自解，不会被不可变的历史命令永久钉住。
+
+同一观察通道还跑着 **loop-guard**：对助手文本流做有界尾窗扫描，识别跑飞的生成——尾部同一行组复读（块周期按数据推导，≤640 行；多行块 ≥3×，单行 ≥4×，纯标点分隔线豁免）、末尾连续 ≥12 个裸 token 步长 +1（整数或双十进制字母）、无换行流的字符级周期（≥32 字符单元复读 ≥4×）。命中后打断会话（v1 `session.abort` / v2 `session.interrupt({continue:false})`）并投递指出具体模式的纠正提示；一段发作干预一次，每会话至多两次，之后的发作只记日志；编号列表（`1. 步骤`）这类「看着像序列」的正常文本不会触发。
 
 门禁也不挑 skill：只要项目里有 `tests/verification_log.md` 它就生效，所以 **vibeweaver-mini** 同样被覆盖，mini 的落盘格式刻意与它的证据底线保持一致。只用 mini 又想要这条硬底线的用户，装这一个插件就够了。
 
-一句实话：这个插件说的是 opencode 的插件 API（`tool.execute.after`、`session.idle`、`client.app.log`）。至于 Claude Code 或 Codex 有没有类似的机制，没验证过，欢迎 fork。vibeweaver-dsh 移植版带同一套 `assert_artifacts.py` 证据检查。
+一句实话：这个插件说的是 opencode 的插件 API——两代都是（v1 的 `server()` hooks 对象与 v2 的 `setup(ctx)` 域 API，各一个单文件；v1 需要 ≥ 1.18.29）。至于 Claude Code 或 Codex 有没有类似的机制，没验证过，欢迎 fork。vibeweaver-dsh 移植版带同一套 `assert_artifacts.py` 证据检查。
 
 ## 记忆系统：opencode 会忘，文件不会
 
