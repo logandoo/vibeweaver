@@ -99,8 +99,20 @@ Output this audit line immediately before the completion table (the two
 contain the strings `HARD-GATE-1: NO-TEST-NO-DONE` and
 `HARD-GATE-2: SCRIPT-ONLY`, each marked `pass` / `na`):
 ```
-[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
+[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Lane: S/M/L | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | Fresh-verify: pass/N/A | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
 ```
+
+**`[Coverage]` line (VERIFICATION_UPGRADES §V3) — output immediately after
+`[Convergence]`, before `[Covenant Recall]`:**
+```
+[Coverage] criteria: N/M covered | unchecked: <comma-separated criterion names or none>
+```
+`covered` = verified with evidence this session. `unchecked` = applicable but
+NOT verified — name it; an unchecked item is NEVER phrased as done anywhere in
+the final answer. The 8-column table's Verification Evidence cell MAY say
+`UNVERIFIED — <why not checked>`; every such cell appears in `unchecked`.
+`na` (not applicable + reason) is not `unchecked` — do not launder unchecked
+into `na`.
 
 **E2E depth ladder (what each value means):** `real-HTTP` = the flow was
 exercised through the running server's HTTP API (chat/API request → handler
@@ -520,6 +532,31 @@ Before declaring any task complete, explicitly list and confirm:
       until ALL criteria pass OR cap=5 / stall=3× hit (COV-7)
 - [ ] ★ Convergence summary line output before completion table:
       `[Convergence] <task>: N iters | X/Y pass | stalls | cap-hits` (A4.1 Step 5)
+- [ ] ★ **`[Coverage]` line output (§V3)** — `criteria: N/M covered |
+      unchecked: <names|none>`; every unchecked item named and never phrased
+      as done; `UNVERIFIED` cells in the table all listed; unchecked never
+      laundered into `na`
+- [ ] ★ **Lane declared and honest (§V5)** — `Lane: S/M/L` matches the
+      objective eligibility list (≤2 files · ≤3 criteria · no risk-tier /
+      schema / new feature / new dep for S; L triggers honored); misreporting
+      the lane is a compliance violation
+- [ ] ★ **Test integrity held (§V2)** — no existing test edited/deleted/
+      skipped/weakened to pass; any test↔spec conflict flagged via PAUSED/ADR
+      with the SPEC as source of truth (never cheated green)
+- [ ] ★ **(Lane L OR weak-oracle completions) FCV done (§V1)** —
+      `tests/fcv_report.md` exists with per-criterion verdicts from a fresh
+      context re-run → `Fresh-verify: pass`; or `Fresh-verify: N/A (<reason>)`
+      with the trigger genuinely not met
+- [ ] ★ **(Lane L) Adversarial review dispatched (§V4)** — two fresh-context
+      diff-only reviewers, findings merged/deduped, disagreements escalated
+- [ ] ★ **Secret scan clean** — `python3 scripts/scan_secrets.py` (or
+      equivalent named grep over the diff) found no key/token/credential on
+      added lines (group 14 also machine-checks this on the project copy)
+- [ ] ★ **Ship order held (§V9)** — code+tests landed first; deferred
+      ceremony (memory topics · `tests/review_package.md` · ADR prose) was
+      assembled from the log at completion time; any budget cut left its
+      mark in `[Coverage] unchecked` / `UNVERIFIED`, never as fake evidence
+      and never as a missing deliverable
 - [ ] ★ **(Backend-only tasks) A4.7 backend loop** — API doc updated, doc↔code
       consistency audited once, test cases written FROM the doc, the test → fix
       loop executed with httpx/requests until ALL cases pass; iterations logged

@@ -2,6 +2,58 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-09-26: wave11 — ceremony economy, action triage (AEWM), and honest timeouts
+
+Two A/B rounds (28 graded cells, deepseek-v4.1-flash and qwen3.8-27b) found the
+first upgrade wave's discipline front-loaded: weak models burned the cell budget
+on protocol loading and ADR prose before any code landed, STOP-first conflict
+semantics invited ceremonial halts, and 420s truncation was being misread as
+behavioral failure. This wave fixes the economics, borrows the contamination
+guards from AEWM (arXiv:2609.28416), and makes timeouts honest.
+
+- **§V9 ceremony economy.** Binding ship order: minimal code + green tests first
+  (one-line log entries), then evidence, then the completion output; deferred
+  ceremony (memory topics, review packages, ADR prose) is assembled from the log
+  at completion time. A budget-reserve self-check at every iteration entry asks
+  whether the remaining budget still covers code + one test run + the gate line;
+  if not, consolidate and name the rest in `[Coverage] unchecked`. The Load Map
+  keeps safety rules (covenants, integrity, honesty) always resident and defers
+  A4.6/A4.7/A4.9/A4.10 to their triggers (hybrid loading, per the skill-loading
+  studies); narration is a one-line action index, not an essay.
+- **§V2 implement-unambiguous-first.** On a test↔spec conflict the spec wins and
+  the unambiguous part lands first; the conflict is flagged at the boundary
+  (PAUSED/ADR) with the suspect test left failing and named. STOP-before-code is
+  required only when the disputed behavior is the entire deliverable. Tests stay
+  read-only during implementation.
+- **§V10 action triage & state revision.** From AEWM's task-state contamination
+  analysis: tag each planned action `[C|E|N]` (critical/exploratory/noisy) in its
+  log line and do not execute N — revise it first; when evidence kills an
+  assumption, rewrite the artifact that carries it (edit, don't append); a local
+  green never promotes to task completion.
+- **Lanes, FCV, coverage honesty.** Lane S/M/L with objective eligibility (S
+  compresses reads only — every covenant and gate holds); lane escalation fires on
+  scope growth, never on an ADR/flag/PAUSED; fresh-context verification (FCV) is
+  required when the strongest green evidence is self-written tests or the lane is
+  L; `[Coverage] criteria: N/M | unchecked: …` plus `UNVERIFIED` cells make
+  un-checked claims nameable instead of launderable into `na`.
+- **Honest timeouts (§V8).** A timed-out cell is budget-invalid: excluded from
+  behavioral rates and reported as completion rate; wall time and output bytes are
+  COST metrics, never pass/fail axes. Fixtures must clear a no-skill budget
+  calibration first. **TDD/new-feature fixtures are budgeted 2h per cell**
+  (`--timeout-tdd`, default 7200s).
+- **New scripts.** `scripts/scan_secrets.py` (named-check secret scan over diffs)
+  and `scripts/ab/run.mjs` (paired fresh-context A/B harness: deterministic
+  assertions, Fisher exact with N<5 labelled LOW, birthtime-based ship-order
+  check).
+
+Verified: package CI green with the new content (verify_skill.py 9 checks,
+unittest 18/18, audit_selftest 44 fixture checks, mutation_sweep 27/27 —
+engines byte-identical, doc-layer only). At 1200s cells both arms complete the
+bugfix and spec-conflict tasks with full compliance (gate-line 2/2,
+implements-spec 1/1, test integrity 8/8, conflict flagged 8/8); the earlier
+420s "arm B loses" readings are confirmed truncation artifacts. The deepseek
+re-run was voided by an upstream subscription outage and is archived as such.
+
 ## 2026-09-24: wave10 — loop-guard blind spots closed (no-newline streams, large periods) + public docs synced
 
 Closes the two loop-guard blind spots left on record from wave9, and syncs the public repo's Chinese README and both changelogs (the English README changes sit mid/low in the page, so they read as "unchanged" at a glance).

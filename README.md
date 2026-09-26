@@ -129,6 +129,23 @@ checkable.
   detects it from the text stream, interrupts the session, and posts a corrective
   prompt (once per episode, budgeted per session; `VIBEWEAVER_LOOPGUARD=off`
   turns it off).
+- **Honest coverage, and a second pair of eyes.** The completion output carries a
+  `[Coverage] criteria: N/M | unchecked: …` line: what was checked is named with
+  evidence, what was not checked is named too — an unchecked item can never be
+  phrased as done, and `UNVERIFIED` cells can't be laundered into `na`. When the
+  strongest green evidence is the agent's own tests, a fresh-context verifier
+  re-runs the checks without having seen the implementation reasoning.
+- **Ceremony economy.** Code and green tests land first; memory writes, review
+  packages and decision prose are assembled at completion time from the
+  one-line-per-iteration log. A budget check at each iteration keeps a time-boxed
+  run converging on a deliverable instead of dying mid-ceremony, and safety rules
+  stay resident while debugging/review protocols load only when their trigger
+  fires.
+- **Action triage and state revision.** Every planned step is tagged
+  critical/exploratory/noisy before it runs; noise is revised, not executed. When
+  evidence kills an assumption, the artifact that carried it is rewritten in
+  place — an appended correction beside a stale plan keeps contaminating later
+  decisions (the AEWM failure mode this guards against).
 - **The whole SDLC, not one slice of it.** New-project scaffolding with design docs
   first (FLOW / PAGE / DATABASE / BACKEND), config management, acceptance
   checklists, task-type routing (build / audit / deploy / ops / CLI-library /
@@ -365,6 +382,24 @@ tasks: 13/16 → 16/16 (the before arm was a low draw; the same-size skill score
 15/16 in wave 6, so read this as no regression). qwen3.6-35B 8-task subset: 4/8 →
 3/8, one flip each way. The checker and oracle machinery is validated by the
 experiments above, not by this A/B.
+
+### Wave 11 (Sep 2026): ceremony economy + AEWM triage
+
+The first protocol upgrade wave (lanes, FCV, coverage honesty) was validated in
+two A/B rounds on deepseek-v4.1-flash and qwen3.8-27b — and the runs themselves
+turned up two design faults. Weak models spent the cell budget on loading the
+discipline instead of shipping code, and the 420s cell cap was silently counting
+truncation as behavioral failure. Wave 11 fixes both: the ship order puts
+working code and green tests before ceremony, budgets reserve a completion
+margin, and timed-out cells are classified budget-invalid (excluded from
+behavioral rates; completion rate is reported separately; wall time is a cost
+metric, not a verdict). TDD/new-feature fixtures are budgeted 2h per cell. With
+adequate budget, both arms complete the bugfix and spec-conflict tasks with full
+compliance — the earlier "skill arm loses" readings were truncation artifacts.
+The wave also borrows AEWM's contamination guards (arXiv:2609.28416): per-action
+critical/exploratory/noisy triage, state revision by editing the stale artifact
+rather than appending critiques, and the rule that a local green is never task
+completion.
 
 ### Honest caveats
 

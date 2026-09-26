@@ -2,6 +2,19 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-09-26：wave11 —— 仪式经济学、行动分诊（AEWM）、诚实的超时
+
+两轮 A/B（28 个有效评分格，deepseek-v4.1-flash 与 qwen3.8-27b）暴露：第一轮升级的纪律全部前置时，弱模型把格子预算烧在协议装载和 ADR 长文上、代码没落地；STOP-优先的冲突语序诱发仪式性停机；420s 截断被误读为行为失败。本轮修经济性、移植 AEWM（arXiv:2609.28416）的污染防护、并让超时诚实化。
+
+- **§V9 仪式经济学。** 交付顺序硬约束：最小代码+测试绿先行（日志一行一条），然后证据，然后完成输出；延迟仪式（memory 主题、评审包、ADR 长文）在完成时从日志组装。每轮迭代入口做预算保留自检（剩余预算还够"代码+一次测试+gate line"吗），不够就收敛、其余写进 `[Coverage] unchecked` 点名。Load Map 让安全规则（契约/完整性/诚实语义）常驻、A4.6/A4.7/A4.9/A4.10 按触发点惰性加载（混合加载，依据技能加载研究）；叙述是一行行动索引，不是长文。
+- **§V2 先实现无争议部分。** 测试↔规格冲突时规格为准、无争议部分先落地；冲突在边界旗标（PAUSED/ADR），嫌疑测试保持失败并被点名。仅当争议行为就是全部交付物时才 STOP-before-code。实现期测试保持只读。
+- **§V10 行动分诊与状态修订。** 源自 AEWM 的 task-state contamination 分析：每个计划动作在日志行标注 `[C|E|N]`（critical/exploratory/noisy），N 不执行、先改写；证据否决假设时就地改写承载它的工件（edit, don't append）；局部绿永不升格为任务完成。
+- **车道、FCV、覆盖诚实。** Lane S/M/L + 客观资格线（S 只压缩读取量——12 条契约与全部 gate 不减）；车道升级只看范围增长，ADR/旗标/PAUSED 不触发；最强绿证是自写测试或 Lane L 时强制全新 context 复核（FCV）；`[Coverage] criteria: N/M | unchecked: …` 与 `UNVERIFIED` 格让"没查过"可点名、不可洗白成 `na`。
+- **诚实的超时（§V8）。** 超时格=budget-invalid：从行为正确率剔除、单列完成率；墙钟与输出字节只是 COST 指标，绝不是 pass/fail 轴。fixture 先过无-skill 预算校准。**TDD/新特性 fixture 按 2h/格预算**（`--timeout-tdd`，默认 7200s）。
+- **新脚本。** `scripts/scan_secrets.py`（命名式检查的密钥扫描）与 `scripts/ab/run.mjs`（配对 fresh-context A/B harness：确定性断言、Fisher 小样本标 LOW、birthtime 交付顺序检查）。
+
+验证：新内容下包内 CI 全绿（verify_skill.py 9 项、unittest 18/18、audit_selftest 44 项 fixture、mutation_sweep 27/27——引擎字节不变、仅文档层）。1200s 预算下两臂在 bugfix 与规格冲突任务上均完整合规（gate-line 2/2、implements-spec 1/1、测试完整性 8/8、冲突旗标 8/8）；此前 420s 的"B 臂落败"读数确认为截断伪影。deepseek 复跑因上游订阅故障作废并留档。
+
 ## 2026-09-24：wave10 —— loop-guard 盲区封死（无换行流 / 大周期块）+ 公开仓文档补齐
 
 封掉 wave9 在案留存的两个 loop-guard 边界（单行无换行流式重复、>192 行周期块），并把公开仓的中文 README 与两份 changelog 补齐（英文 README 的改动落在页面中下部，粗看像没变）。

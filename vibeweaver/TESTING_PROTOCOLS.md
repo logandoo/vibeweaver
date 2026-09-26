@@ -302,7 +302,10 @@ a result (group 13).
 Decision rules:
 - **ALL criteria PASS** → loop exits. Record screenshot filename + verdict.
 - **Any FAIL** → diagnose the specific defect from the verifier's output
-  (cite the criterion #). Modify the code. Go to Step 2 (re-screenshot +
+  (cite the criterion #). **Revert the falsified attempt's edits for real
+  (`git restore`) before the next hypothesis** (§V6 VERIFICATION_UPGRADES —
+  forward-patching on a dead attempt contaminates the next iteration).
+  Modify the code. Go to Step 2 (re-screenshot +
   re-verify).
 - **Stall** (same criterion fails ≥3 consecutive iterations) → STOP retrying
   that direction. Declare it in the log (`- stall: <signals> — stopping pure
@@ -531,6 +534,10 @@ change.
 
 ## A4.8 TDD for Logic-Bearing Code ★ NON-NEGOTIABLE
 
+**Test integrity (binding, §V2 VERIFICATION_UPGRADES):** tests are READ-ONLY
+during implementation — never weaken/delete/skip a failing test to make it
+pass; a test↔spec conflict is FLAGGED (PAUSED/ADR), never cheated green.
+
 **Core principle: if you didn't watch the test fail, you don't know if it
 tests the right thing.** A test written after the code passes immediately —
 it may test the wrong thing, the implementation instead of the behavior, or
@@ -595,7 +602,9 @@ screenshots — but the CODE itself is otherwise only ever seen by the model
 that wrote it. For major changes, dispatch an independent reviewer BEFORE
 the A4.4 completion table (and AFTER Gate-1 test evidence exists). For minor
 changes: state `A4.9 not triggered — reason: <…>` in the [Verification Gate]
-line and proceed.
+line and proceed. **Lane L default: TWO adversarial fresh-context reviewers
+(§V4 VERIFICATION_UPGRADES)** — merged findings, solo findings still
+adjudicated, reviewer disagreement escalates.
 
 **Trigger ANY of:** new feature · ≥3 files changed · schema/API-surface change ·
 security-sensitive area · **behavior-semantic change** (a runtime pipeline /

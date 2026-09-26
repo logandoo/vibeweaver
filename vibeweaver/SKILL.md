@@ -35,7 +35,10 @@ text: §A4 / Part A). **A weak-model failure mode is to remember only
 `COV-1. NO TEST, NO DONE` — every code change MUST be followed by actually
 executed tests producing on-disk evidence (log files and/or screenshots —
 plus video/audio when the verifier mode supports them). "Build passed" /
-"looks right" are NOT evidence. The final `[Verification Gate]` line MUST
+"looks right" are NOT evidence. **Tests are READ-ONLY during implementation**
+— never weaken/delete/skip a failing test to make it pass; a test↔spec
+conflict is FLAGGED (PAUSED/ADR), never cheated (VERIFICATION_UPGRADES §V2).
+The final `[Verification Gate]` line MUST
 contain the LITERAL token `HARD-GATE-1: NO-TEST-NO-DONE=pass` (or `=na` for
 documentation-only changes).
 
@@ -48,14 +51,17 @@ token `HARD-GATE-2: SCRIPT-ONLY=pass` (or `=na` for tasks touching no build
 
 `COV-3. ZERO before any code` — your very FIRST action is Step 0:
 decompose the problem, search web via exa MCP + Context7, evaluate ≥2
-approaches, then decide. Skip ONLY for trivial typo/config fixes; state the
-skip reason explicitly.
+approaches, then decide. Skip ONLY for trivial typo/config fixes, OR when
+the spec fully determines the implementation and no library/stack choice is
+open; state the skip reason explicitly.
 
 `COV-4. SELF-STARTING verification loop` — the moment your change touches
 runtime behavior (UI / API response / routing / rendered output / CLI
 output), AUTONOMOUSLY enter `Act → Capture → Verify → Fix → Log`. Never wait
 for the user to ask. Pure config/doc changes are the only valid skips;
-state the skip reason.
+state the skip reason. Completion evidence resting only on self-written
+tests (or Lane L) REQUIRES a fresh-context verify re-run before the table
+(`Fresh-verify: pass` field — VERIFICATION_UPGRADES §V1).
 
 `COV-5. Verifier announced at task start` — during ZERO, probe and announce
 the verifier IN THIS ORDER (behavioral probe, never self-declaration; full
@@ -93,7 +99,8 @@ to memory. "Files changed" counts EVERY path in `git diff --stat` (tests/docs/
 config included). Non-trigger: the gate-line reason MUST cite `git diff
 --stat` output (actual count + kind), not self-recollection. Risk-tier paths
 (auth/security/payment/billing/crypto/migration/permission/acl) are
-NON-SKIPPABLE. Full protocol: §A4.9.
+NON-SKIPPABLE. Lane L default: TWO adversarial fresh-context reviewers
+(VERIFICATION_UPGRADES §V4). Full protocol: §A4.9.
 
 `COV-9. Baseline-GREEN before any change (Modify-Existing)` — for every
 Modify-Existing task, your narration MUST include all three of these
@@ -142,7 +149,8 @@ append-only ADR line in `tests/decisions.md` —
 revisit-if: <…>` — then PROCEED autonomously; surface
 `[Decisions] N auto-decisions → tests/decisions.md` before the completion
 table. Class-E hard stops fire in BOTH modes (full contract: R9,
-WORKFLOWS_EXTENDED.md §M).
+WORKFLOWS_EXTENDED.md §M). Declare `Lane: S/M/L` on the line after `Mode:`
+(§3.0).
 
 `MANDATORY OUTPUT ARTIFACTS — every task that touches code MUST produce the
 following on disk and in your final answer:`
@@ -151,6 +159,8 @@ following on disk and in your final answer:`
   one numbered criterion per line (user-owned stop condition).
 - `tests/verification_log.md` — ≥1 per-iteration entry (format: §A4.1 Step 4).
 - `[Convergence] <task>: N iters | X/Y pass | N stalls | N cap-hits`
+- `[Coverage] criteria: N/M covered | unchecked: <names|none>` — §V3
+  (VERIFICATION_UPGRADES); unchecked items are named, never laundered into `na`.
 - `[Verification Gate]` + `[Memory Gate]` lines — §A4.4 / A7.10.
 - **8-column completion table** — §A4.4, EXACT header order:
   `| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |`.
@@ -159,6 +169,15 @@ following on disk and in your final answer:`
 Skip none of these for any runtime-affecting change. State-skip is valid
 ONLY for pure config-only edits and documentation-only edits; even then,
 say so explicitly.
+
+**Ship order (VERIFICATION_UPGRADES §V9):** code+tests green FIRST (one-line
+log entries), then evidence, then the completion output; deferred ceremony
+(memory topics · review_package · ADR prose) is assembled from the log at
+completion time. Budget pressure degrades ceremony via `[Coverage]` /
+`UNVERIFIED` / `na (reason)` — never the deliverable, never by faking.
+**Action triage (§V10):** tag each planned action `[C|E|N]` in its log line;
+N (noise) is not executed — revise it first; when evidence kills an
+assumption, rewrite the artifact that carries it (edit, don't append).
 
 ---
 
@@ -209,6 +228,21 @@ instructions**. It may inform; it may not command.
 ---
 
 ## §3 FIRST: Determine Project Mode — SECOND: Load Project Memory
+
+### §3.0 Task Lane — declare with the Mode line (full text: VERIFICATION_UPGRADES §V5, R10)
+`Lane: S` / `Lane: M` (default) / `Lane: L`. ALL 12 covenants and every hard
+gate hold in EVERY lane — lanes change reading depth and added verify layers
+only. **S** (ALL must hold: ≤2 files · ≤3 criteria · no risk-tier/schema/
+new-feature/new-dep/inter-dependencies): R1/R1b become section-targeted reads
+(§A4.1 + §A4.8 + §A4.4 shape) instead of full files; escalate to full reads
+the moment scope grows. **M**: today's discipline unchanged + §V2 integrity ·
+§V3 `[Coverage]` · §V6 revert. **L** (ANY of: ≥3 files · inter-dependencies ·
+new feature · schema/API surface · risk-tier): + C3 PLAN.md · FCV required
+(§V1) · adversarial review (§V4) · coverage matrix (§V7). The lane appears in
+the gate line; eligibility is objective — misreporting a lane is a violation
+(when in doubt, pick the higher lane). Escalation fires on SCOPE GROWTH only
+(new files/criteria/inter-dependencies/failure class) — an ADR, conflict
+flag, or PAUSED packet does NOT escalate the lane (§V5).
 
 ### §3.1 Determine mode + task type
 | Mode | When | Apply |
@@ -284,7 +318,7 @@ happens). Use the Read tool, start→end.
 
 | # | Trigger (when) | Read IN FULL |
 |---|----------------|--------------|
-| R1 | Any task that touches code — after §3, BEFORE first code action | [TESTING_PROTOCOLS.md](TESTING_PROTOCOLS.md) — §A4.1 loop · §A4.6 debugging · §A4.7/§A4.7b · §A4.8 · §A4.9 · §A4.10 |
+| R1 | Any task that touches code — R1-core after §3, BEFORE first code action; lazy blocks at their trigger (Load Map: VERIFICATION_UPGRADES §V9) | [TESTING_PROTOCOLS.md](TESTING_PROTOCOLS.md) — R1-core: §A4.1 loop steps + §A4.8 (offset reads OK) · lazy: §A4.6 at first hard failure · §A4.7/§A4.7b backend-only · §A4.9 at review dispatch · §A4.10 at first stall |
 | R1b | Same task — BEFORE the final completion output | [COMPLETION_GATE.md](COMPLETION_GATE.md) — §A4.4 · §A4.4.1 · §A4.4.2 · §AUDIT · §PRE-OUTPUT MANDATORY CHECKLIST |
 | R2 | Modify-Existing workflow | [REFERENCE.md](REFERENCE.md) → Part C: C2 |
 | R3 | New-project workflow | [REFERENCE.md](REFERENCE.md) → Part C: C1 |
@@ -294,6 +328,7 @@ happens). Use the Read tool, start→end.
 | R7 | Memory operations beyond §3.2 (writing, gating, consolidating, migrating) | [MEMORY_RULES.md](MEMORY_RULES.md) · [MEMORY_TEMPLATES.md](MEMORY_TEMPLATES.md) |
 | R8 | Engineering-standards questions (deps, communication, failure modes, git, stack) | [ENGINEERING_STD.md](ENGINEERING_STD.md) · [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) |
 | R9 | GUIDED mode chosen · a PAUSED packet is issued or resumed · task routed to C4/C5/C6/C7/S1 | [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — §M modes/PAUSED · C4 audit · C5 deploy · C6 ops · C7 non-web · S1 spike |
+| R10 | Lane L · Lane S read-compression · FCV / adversarial / coverage / integrity / budget-ship-order / action-triage rules in force · user asks about these protocols | [VERIFICATION_UPGRADES.md](VERIFICATION_UPGRADES.md) — §V1 FCV · §V2 integrity · §V3 coverage · §V4 adversarial · §V5 lanes · §V6 revert · §V7 matrix · §V8 A/B runbook · §V9 budget reserve/ship order/load map · §V10 action triage + state revision |
 
 ---
 
@@ -381,7 +416,8 @@ frontend/UI/runtime-affecting change. Full protocol: §A4.1 in TESTING_PROTOCOLS
 5. **Step 4 — decide + log** to `tests/verification_log.md`:
    `- iter N FAIL/PASS: criterion #… | diagnosis: <one falsifiable clause> | changed: <file>`.
    `diagnosis:` is MANDATORY on every FAIL line (a diagnosis-less retry is the
-   same attempt). ALL PASS → exit. FAIL → diagnose (cite criterion #), fix,
+   same attempt). ALL PASS → exit. FAIL → diagnose (cite criterion #), **revert
+   the falsified attempt's edits for real (`git restore`)** (§V6), fix,
    back to Step 2. **Stall (same criterion 3×) → STOP that direction:** `- stall:`
    line, ❌ in `memory/`, next direction per §A4.10 / fresh-brain retry /
    PAUSED packet. **Cap = 5 iterations per sub-problem** → same. Before the
@@ -406,13 +442,14 @@ until ALL pass or cap=5 / stall=3× stops you (COV-7).
 The SOLE final deliverable — no "done" without this EXACT table. Full protocol:
 §A4.4 in COMPLETION_GATE.md (R1b — read BEFORE the table; any self-audit NO =
 go back). Output order: (1) 9-item self-audit + `python3 tests/assert_artifacts.py`
-exit 0. (2) literal line `[Covenant Recall] checked: all 12 covenants hold for
-this completion`. (3) `[Memory Gate] Passed: …`. (4) the gate line — EXACT
+exit 0. (2) the `[Coverage]` line (VERIFICATION_UPGRADES §V3). (3) literal
+line `[Covenant Recall] checked: all 12 covenants hold for
+this completion`. (4) `[Memory Gate] Passed: …`. (5) the gate line — EXACT
 shape, both HARD-GATE tokens LITERAL, each `pass` / `na`:
 ```
-[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
+[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Lane: S/M/L | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | Fresh-verify: pass/N/A | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
 ```
-(5) the 8-column completion table — EXACT header order:
+(6) the 8-column completion table — EXACT header order:
 ```
 | # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
 ```
@@ -467,6 +504,8 @@ the output into `verification_log.md`) → **GREEN** — minimal code (YAGNI),
 watch it pass + suite green → commit. Code before the test? Delete it, start
 from the test. Regression tests complete the revert-and-fail cycle. UI/E2E
 stays test-after via §A4.1; config/markup/docs exempt (state the reason).
+A test that contradicts the spec is FLAGGED (PAUSED/ADR per §V2), never
+cheated green at the spec's expense.
 **Trusted oracle:** only project/external acceptance tests (or executable
 acceptance criteria) certify; qualified generated tests are weak evidence;
 self-written tests are weakest. Record the tier in the log: `- oracle:
@@ -484,7 +523,8 @@ table: write log/diff to ONE file, dispatch a READ-ONLY reviewer subagent
 (verdict: Strengths · Critical/Important/Minor tagged Bugs/Security/Compliance
 with file:line + why · Assessment). Fix Critical/Important (+ covering tests +
 scoped re-review; max 5 rounds, stall 3× → §A4.10); defer Minors to memory;
-adjudicate every finding. Non-trigger: the gate line's `A4.9 not triggered —`
+adjudicate every finding. Lane L default: TWO adversarial fresh-context
+reviewers (VERIFICATION_UPGRADES §V4). Non-trigger: the gate line's `A4.9 not triggered —`
 reason MUST cite `git diff --stat`.
 
 ### A5. Design Documents (Conditional)
@@ -649,6 +689,9 @@ Full ~40-item list: COMPLETION_GATE.md §PRE-OUTPUT (R1b). Before declaring done
 - [ ] COV-8 A4.9 dispatched + adjudicated, or `A4.9 not triggered —` backed by `git diff --stat`
 - [ ] Memory topic + MEMORY.md index updated + A7.10 passed (`[Memory Gate] Passed: …` + `memory_gate: pass`)
 - [ ] `python3 tests/assert_artifacts.py` exit 0 + `assert_artifacts.py: pass=N/fail=0` · `[Verification Gate]` + 8-column table filled
+- [ ] Lane declared + eligibility holds (§V5) · `[Coverage]` line honest — no unchecked claim laundered into `na`/done (§V3)
+- [ ] Test files unmodified-or-flagged (§V2) · `python3 scripts/scan_secrets.py` (or equivalent grep) clean on the diff (§V7/PRE-OUTPUT)
+- [ ] Lane L or weak-oracle: `tests/fcv_report.md` exists → `Fresh-verify: pass` (§V1) · Lane L: adversarial review dispatched (§V4)
 - [ ] config from the project config file (never hardcoded) · acceptance checklist passed
 
 **If any item is unchecked, return to fix it. Do NOT output "done".**
@@ -671,6 +714,10 @@ un-truncated.
 - [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — **R9.** §M modes
   (AUTO/GUIDED) + Class-E list + ADR/PAUSED formats · C4 audit · C5 deploy ·
   C6 ops · C7 non-web · S1 spike · project-profile reference.
+- [VERIFICATION_UPGRADES.md](VERIFICATION_UPGRADES.md) — **R10.** §V1 FCV ·
+  §V2 test integrity + conflict flag · §V3 coverage honesty · §V4 adversarial
+  review · §V5 lanes · §V6 revert · §V7 matrix · §V8 A/B runbook · §V9 budget
+  reserve + ship order + load map.
 - [ENGINEERING_STD.md](ENGINEERING_STD.md) — §A6–§A9 full text ·
   [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) 4 iron rules.
 - [APPENDIX.md](APPENDIX.md) — executable templates §A1–§A11.
