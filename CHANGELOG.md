@@ -2,6 +2,50 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-09-27: wave12 — objective A/B evaluation methodology (§V8) + first objective results
+
+Earlier A/B rounds had three measurement defects that briefly produced a wrong
+verdict ("the new skill is worse"): circular metrics that rewarded the skill's
+own new output fields, no blind grading (the agent saw the scoring criteria),
+and a contaminated axis where a deliberately wrong fixture test punished the
+honest arm and rewarded silent test rewriting. This wave replaces the runbook
+with an objective metrics hierarchy and records what it actually found.
+
+- **§V8 rewritten as an objective metrics hierarchy.** Verdict axes, in order:
+  hidden fail-to-pass tests (SWE-bench style: gold assertions injected at
+  grading time only) > integrity (visible grading test hashes unchanged; on
+  spec↔test conflict tasks silent test rewriting is a violation even if the
+  suite goes green) > Effective Mutation Score `EffMS = MS × SPR` (SecMutBench
+  validity gate: the delivered suite must pass on the gold implementation
+  before its mutant kill rate counts) > COST (wall/bytes, reported beside,
+  never a verdict). Compliance tokens (gate line, `[Coverage]`, `Lane:`) are
+  explicitly demoted to circular process markers.
+- **Six measurement pitfalls codified** (each cost one voided round in real
+  runs): poisoned fixture tests must be excluded from suite scoring; gold
+  over-specification (spec under-determines behavior) makes SPR uninterpretable
+  for that task; equivalent mutants must be validated killable against a
+  perfect suite before the run; stale bytecode masks same-second same-size
+  mutant edits (run pytest with `PYTHONDONTWRITEBYTECODE=1` + cache purge);
+  string task ids must not be dispatched by numeric identity; truncated cells
+  are budget-invalid, never behavioral failures.
+- **`scripts/ab/obj_eval.mjs`** — the objective grader: embedded gold
+  implementations, hidden test batteries, semantic gold-mutants, and a
+  machinery self-test (a perfect suite must kill 100% of the mutant battery;
+  hidden tests must pass on gold). Three grading bugs were caught by that
+  self-test before any agent time was spent.
+
+Verified and measured (qwen3.8_27b, 3 tasks × 3 trials per arm, N=3 LOW
+confidence, directional): hidden F2P B 8/8 vs A 7/8 (A's miss: a
+conflict-task hard stop that never delivered the implementation); integrity
+B 5/5 vs A 3/5 — A silently rewrote the contradictory test twice to force a
+green suite, B never touched it and flagged the conflict while still
+implementing per spec (Fisher p=0.222); A's earlier high mutation scores on
+the conflict task were the tampering premium and vanish once the poisoned
+fixture test is excluded; EffMS interpretable on the bugfix task only (1.00
+both arms); COST B ≈1.35× A (up to 2.3× when review waves fire). The correct
+read: the new skill trades speed for anti-cheat discipline — "worse results"
+was a measurement artifact.
+
 ## 2026-09-26: wave11 — ceremony economy, action triage (AEWM), and honest timeouts
 
 Two A/B rounds (28 graded cells, deepseek-v4.1-flash and qwen3.8-27b) found the

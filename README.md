@@ -401,6 +401,26 @@ critical/exploratory/noisy triage, state revision by editing the stale artifact
 rather than appending critiques, and the rule that a local green is never task
 completion.
 
+### Wave 12 (Sep 2026): objective A/B evaluation
+
+The A/B harness itself was put on trial after a round that seemed to show the
+upgraded skill doing worse and costing more. It did — at measuring the wrong
+things: the assertions rewarded the skill's own new output fields (circular),
+the agent could see the scoring criteria, and a deliberately wrong fixture
+test on the conflict task rewarded silent test rewriting while punishing
+honest conflict flagging. Wave 12 replaces the runbook with an objective
+hierarchy: hidden fail-to-pass tests grade the outcome, test-file hashes and
+conflict discipline grade anti-cheat integrity, Effective Mutation Score
+(delivered suite must pass on the gold implementation before its mutant kills
+count) grades suite quality, and wall time is demoted to a cost column. Six
+measurement pitfalls discovered in real voided rounds are codified in §V8.
+First objective results (N=3, directional): outcome 8/8 vs 7/8 in favor of
+the upgraded skill; integrity 5/5 vs 3/5 — the old skill silently rewrote
+the contradictory test twice to force green, the new one implemented per
+spec, flagged the conflict, and never touched the test. The earlier "high
+mutation score" of the old arm was the tampering premium. Cost remains the
+real trade: about 1.35× slower on this suite.
+
 ### Honest caveats
 
 - Being TDD-driven, this skill **burns tokens like crazy**. If you have a real

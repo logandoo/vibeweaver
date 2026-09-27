@@ -197,10 +197,31 @@ iteration and hides which change fixed what.
 
 ## §V8 A/B Evaluation Runbook ★
 
-How to measure whether a SKILL.md revision actually changes agent behavior
-(bundled harness: `scripts/ab/run.mjs`). Method follows the established eval
+How to measure whether a SKILL.md revision actually changes agent behavior.
+Harnesses: `scripts/ab/run.mjs` (compliance/convention checks) and
+`scripts/ab/obj_eval.mjs` (objective grading). Method follows established eval
 practice: fresh isolated context per cell · paired old/new arms · deterministic
 assertions (no LLM judge) · honest small-sample reporting.
+
+**Objective metrics hierarchy (use these as the verdict axes).** Compliance
+tokens (gate line, `[Coverage]`, `Lane:`) measure whether the skill's own
+conventions appear — they are circular and NEVER the outcome verdict. The
+verdict axes are, in order:
+1. **Hidden fail-to-pass tests** (SWE-bench style): gold behavioral tests
+   embedded in the harness and injected only at grading time; the agent never
+   sees the grading assertions. Score = fraction passed on the DELIVERED code.
+   Hidden tests must stick to spec-stated behavior only.
+2. **Integrity** (anti-cheat): sha256 of visible grading/test files unchanged;
+   on spec↔test conflict tasks, silent test rewriting counts as a violation
+   even if the suite goes green.
+3. **Effective Mutation Score `EffMS = MS × SPR`** (delivered-suite quality,
+   SecMutBench validity gate): SPR = the delivered suite must pass on the GOLD
+   implementation (the suite certifies the spec, not its own implementation);
+   MS = fraction of semantic gold-mutants the delivered suite kills. Only
+   interpretable when the spec determines the gold uniquely and the fixture
+   contains no poisoned tests (see pitfalls).
+4. **COST** (wall seconds, output bytes): reported beside the rates, never a
+   pass/fail axis.
 
 **Experimental identity.** The ONLY variable between arms is the skill
 content. Controls:
@@ -212,39 +233,45 @@ content. Controls:
 - neutral prompt that points at the skill path without naming any new
   mechanism (no "use Lane S", no "flag conflicts").
 
-**Assertions are deterministic.** File-sha256 (test files unmodified),
-mtime-order (tests created before code), pytest exit codes, and transcript
-tokens (`[Verification Gate]`, `HARD-GATE-1: NO-TEST-NO-DONE`, `Lane:`,
-`[Coverage]`, `Fresh-verify:`). Assertions must be meaningful on the pristine
-fixture (a `--dry-run` check flags assertions that pass before any work).
+**Measurement pitfalls (all observed in real runs — each cost a void round).**
+1. **Poisoned fixture tests**: if the fixture ships a deliberately wrong test
+   (conflict tasks), it must be EXCLUDED from the delivered suite when scoring
+   SPR/MS — otherwise honest arms (which leave it failing) score 0 while
+   silent rewriters score high. Keep such fixtures; grade around them.
+2. **Gold over-specification**: if the spec under-determines behavior (e.g.
+   non-ASCII policy), SPR measures agreement with the gold's arbitrary choice,
+   not suite quality. Either pin the graded behavior in the spec/hidden tests,
+   or declare the axis uninterpretable for that task.
+3. **Equivalent mutants**: a mutant masked by another layer of the
+   implementation survives even a perfect suite (observed: removing an explicit
+   combining-mark strip where a later regex strips it anyway). Validate the
+   battery against a perfect suite (hidden tests + spec edge cases) BEFORE the
+   run; every mutant must be killable.
+4. **Stale bytecode**: same-size/same-second mutant edits are masked by
+   `__pycache__` (.pyc mtime+size invalidation). Purge caches and run pytest
+   with `PYTHONDONTWRITEBYTECODE=1` in the grader.
+5. **Fixture dispatch**: task ids arriving from CLI filters are strings; loose
+   identity comparison silently serves every cell the same fixture. Dry-run
+   the fixture writer and inspect one cell dir before trusting a run.
+6. **Truncation ≠ failure**: timed-out cells are budget-invalid (excluded
+   from rates, reported as completion); speed is never a verdict.
 
-**Statistics.** Per-cell N trials; report per-arm pass counts and the Fisher
-exact p-value on the 2×2 outcome table. **N<5 per cell = `LOW` confidence,
-directional only — never claim a conclusive lift from it.** Report deltas as
-"on this suite, under model M and harness H, arm B passed X/Y vs A's W/Y",
-never "the skill is N% better".
-
-**Failure handling.** Timeout/crash = cell failure (not silently dropped);
-record wall time. If both arms fail a task, the task is too hard for the model
-under test — downgrade the fixture, do not interpret it as skill failure.
+**Statistics.** Per-cell N trials; per-arm counts + Fisher exact on 2×2
+tables; paired sign counts at (task,trial) level for graded scores. **N<5 per
+cell = `LOW` confidence, directional only.** Report scoped claims: "on this
+suite, model M, harness H: arm B passed X/Y vs A's W/Y" — never "the skill is
+N% better".
 
 **Calibration (mandatory before interpreting any run).** (1) Run each task
 with NO skill pointer first: if the bare model cannot finish the fixture
-inside the budget, the fixture is budget-invalid — shrink it or raise the
-budget; a suite of budget-invalid fixtures measures ceremony speed, not
-behavior. (2) **Timeouts are an environment artifact, not a behavioral
-verdict.** Size the per-cell timeout so that ~all control (no-skill or
-old-arm) cells COMPLETE — 3× observed p99 is a sane floor (600–1200s for
-full-ceremony coding tasks on mid-tier models). **TDD / new-feature fixtures
-carry the full ceremony (RED/GREEN + PLAN + review + memory): budget them
-2h (7200s) per cell** (harness: `--timeout-tdd`, default 7200). (3) A
-timed-out cell is classified **budget-invalid**: it is EXCLUDED from
-behavioral assertion rates and reported separately as truncation/completion
-rate. (4) Wall time and output bytes are reported as COST metrics beside the
-rates — completion correctness is the primary metric; speed is never a
-pass/fail axis. (5) A skill arm that still truncates at the calibrated
-budget is a first-class finding about that skill's ceremony tax (see §V9) —
-report it, do not hide it inside a pass rate.
+inside the budget, shrink it or raise the budget. (2) Size the per-cell
+timeout so that ~all control cells COMPLETE — 3× observed p99 is a sane floor
+(600–1200s on mid-tier models); **TDD/new-feature fixtures carry the full
+ceremony — budget 2h (7200s) per cell** (`--timeout-tdd`). (3) Run the
+grader's machinery self-test (gold suite must kill 100% of the mutant
+battery; hidden tests must pass on gold) before launching agents. (4) A skill
+arm that still truncates at the calibrated budget is a first-class ceremony-tax
+finding (§V9) — report it, never hide it inside a pass rate.
 
 ## §V9 Budget Reserve · Ship Order · Load Map ★
 

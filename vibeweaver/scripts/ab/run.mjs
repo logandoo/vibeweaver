@@ -50,6 +50,16 @@ function writeFixture(dir) {
 }
 const sha = (p) => (existsSync(p) ? createHash("sha256").update(readFileSync(p)).digest("hex") : null)
 const mtime = (p) => (existsSync(p) ? statSync(p).mtimeMs : 0)
+// test_*.py may live in tests/ subdirs (both arms write there) — scan recursively.
+function findTests(dir) {
+  const out = []
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, e.name)
+    if (e.isDirectory()) out.push(...findTests(p))
+    else if (/^test_.*\.py$/.test(e.name)) out.push(p)
+  }
+  return out
+}
 // §V9 ship order: code lands before deferred ceremony (memory/review_package).
 // Use birthtime (creation), not mtime — a late edit to code must not fail this.
 function codeBeforeCeremony(dir, codeFile) {
@@ -99,11 +109,11 @@ const TASKS = {
     async score(dir, outText, pre) {
       const r = spawnSync("python3", ["-m", "pytest", "-q"], { cwd: dir, encoding: "utf8", timeout: 60000 })
       const codeExists = existsSync(join(dir, "slugify.py"))
-      const tests = readdirSync(dir).filter((f) => f.startsWith("test_") && f.endsWith(".py"))
+      const tests = findTests(dir)
       let tddOrder = false
       if (codeExists && tests.length) {
         const codeM = mtime(join(dir, "slugify.py"))
-        tddOrder = tests.every((t) => mtime(join(dir, t)) <= codeM + 2000)
+        tddOrder = tests.every((t) => mtime(t) <= codeM + 2000)
       }
       return {
         "tests-pass-after": r.status === 0 && codeExists && tests.length > 0,
