@@ -128,7 +128,11 @@ checkable.
   (`1,2,…,179`, `a,b,…,kf`, with or without newlines) — the auditor plugin
   detects it from the text stream, interrupts the session, and posts a corrective
   prompt (once per episode, budgeted per session; `VIBEWEAVER_LOOPGUARD=off`
-  turns it off).
+  turns it off). It watches a second channel too: tool calls. A model that
+  announces a tool ("use Read now") and then issues bare `echo "…"` narration
+  markers instead of calling it is interrupted the same way (≥4 consecutive
+  no-op bash calls; both channels have independent episode budgets so one can
+  never starve the other).
 - **Honest coverage, and a second pair of eyes.** The completion output carries a
   `[Coverage] criteria: N/M | unchecked: …` line: what was checked is named with
   evidence, what was not checked is named too — an unchecked item can never be
@@ -567,6 +571,23 @@ pattern; one intervention per episode, two per session at most, further episodes
 are log-only. Near-misses are designed out: numbered lists with content are not
 bare tokens, and a 2× repeat is below the bar.
 
+The guard also watches the **tool channel**, which is where a nastier failure
+lives: intent-action decoupling. The model narrates a tool call ("use Read now",
+"final", "grading") and then emits bare `echo "…"` bash calls instead — every one
+exits 0, the strings vary, and none of the text detectors can see it because the
+loop never touches the text stream. The detector is content-level, not
+byte-level: `echo`/`printf`/`true`/`:` with literal arguments and no side
+effects count as no-op, and four consecutive distinct no-op bash calls trip the
+same interrupt. Streamed re-observations of one tool part dedupe by part id,
+status-only observations can't mask the run, and truncated recorded commands
+break it (truncation can forge a literal). The two channels keep independent
+episode arming and budgets, so a text-degeneration episode can never consume the
+tool channel's interrupt. The corrective prompt demands the real tool call — or
+the completion output if the criteria really are all passing — plus the
+`- stall: noop-bash …` log entry before any completion claim. Honest scope: bare
+literal runs are caught; semantic no-ops (`sleep`, `ls`) and echo/read
+oscillation are documented gaps, not claimed coverage.
+
 The gate is also skill-agnostic: it fires on any project that has
 `tests/verification_log.md`, so it covers **vibeweaver-mini** too; mini's artifact
 formats are deliberately aligned with its evidence floor. If you only run mini and
@@ -786,7 +807,7 @@ the agent's context explode and give up; untested, feedback welcome.
 
 | File                                                        | Purpose                                                                                                                                                                        |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SKILL.md`                                                  | The binding operational contract + router (682 lines, ~41.8 KB, size-guarded)                                                                                                  |
+| `SKILL.md`                                                  | The binding operational contract + router (~46 KB, size-guarded)                                                                                                               |
 | `COMPLETION_GATE.md`                                        | Completion output spec · artifact gates · §AUDIT audit protocol · pre-output checklist                                                                                         |
 | `CODING_PRINCIPLES.md`                                      | The 4 iron rules (Think Before Coding · Simplicity First · Surgical Changes · Goal-Driven Execution) + Fowler's 12-smell reviewer baseline                                     |
 | `ENGINEERING_STD.md`                                        | Detailed engineering standards                                                                                                                                                 |
@@ -799,7 +820,7 @@ the agent's context explode and give up; untested, feedback welcome.
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 36 fixture checks / 27 mutation checks, including the latch-release regressions                                                                                                |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 69 fixture checks (incl. T24 noop-bash loop-guard) / 27 mutation checks, including the latch-release regressions                                                               |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing

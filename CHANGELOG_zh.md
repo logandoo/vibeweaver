@@ -2,6 +2,15 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-09-28：loop-guard noop-bash —— 工具通道 echo 旁白循环的机械中断
+
+一种弱模型失效形态从 vibeweaver 现有的全部停止机制底下溜了过去：模型反复宣告要调工具（"use Read now"、"final"、"grading"），实际发的却是裸 `echo "…"` bash 调用——一口气 20 多次，每次 exit 0，字面各不相同。文本流 loop-guard（字节级周期/序列/字符周期三检测器）在结构上看不见它；门禁的 stall observer 只盯 write/edit；COV-7 的计数器永远不推进——循环卡在任何验证迭代出现之前。外部研究与此形态完全吻合（reasoning 说调 X、action 发 bash 的意图-动作脱节；byte-identical 守卫抓不住变字面；每次调用都"成功"）。
+
+- **工具通道内容级检测器**（`scripts/vibeweaver-audit-core.js`）。`isNoopBashCommand` 判定字面量 `echo`/`printf`/`true`/`:` 且无副作用（保守偏置：重定向、管道、替换、串联、未闭合引号一律算真实命令）；`noopBashFinding` 在尾部 ≥4 个相异 no-op bash 调用时触发。同一工具 part 的流式重观测按 part id 去重；unknown/仅状态观测既遮不住 run 也不消耗 pid；被截断的命令直接断开 run（截断能伪造出字面量）。已知缺口如实入档而非粉饰：语义级 no-op（`sleep`/`ls`/`pwd`）与 echo/read 交错振荡需要意图-动作一致性检测，明确不在范围内。
+- **双通道守卫**（`vibeweaver-audit.js`）。原单通道 `maybeLoopCheck` 改为 `maybeGuardCheck(sessionID, channel)`：text 与 tool 两通道只共享干预机制，各自独立的发作 arming 与每通道 2 次的预算——文本退化发作永远不会饿死工具通道最需要的那次打断。`noop-bash` 的纠正提示要求立即发出真实工具调用（或在判据确已全部通过时输出完成产物），并强制在完成输出前向 `tests/verification_log.md` 写入 `- stall: noop-bash …`——中断本身就是 stall 声明。
+- **契约文本**。TESTING_PROTOCOLS §A4.1 Step 2 增加「旁白≠执行」（宣布的工具调用不是调用，echo 标记不是行动）；§A4.10 将 noop-bash 中断列为 stall 声明；SKILL.md 增加状态迁移许可（PRE-OUTPUT 全勾且 `assert_artifacts.py` exit 0 后即可完工，禁止用 echo 调用填充过渡）。两处措辞都如实划定保证范围：裸字面量 run 有机械中断，带装饰的变体没有。
+- **测试**。T24a–j 共 25 条断言：分类器 32 个边角、阈值与重置语义、part id 去重、adapter 级干预（每发作恰好一次、预算耗尽仅记日志、`VIBEWEAVER_LOOPGUARD=off`）、文本通道回归、预算隔离、unknown 观测与截断边角。套件 69/0，mutation sweep 27/27。两轮对抗评审：首轮 14 项发现（修复即上文），次轮确认 ready。
+
 ## 2026-09-27：wave12 —— 客观 A/B 评测方法论（§V8）+ 首轮客观结果
 
 此前的 A/B 轮存在三个测量缺陷，一度得出"新技能更差"的错误结论：循环指标（奖励技能自家新增输出字段）、无盲测（agent 见得到评分标准）、污染轴（fixture 里的故意错误测试惩罚诚实臂、奖励静默改写测试的臂）。本波把评测手册替换为客观指标层级，并记录真实发现。

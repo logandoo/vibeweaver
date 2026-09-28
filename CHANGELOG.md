@@ -2,6 +2,51 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-09-28: loop-guard noop-bash — tool-channel echo-narration stop
+
+A weak-model failure mode escaped every stop mechanism vibeweaver had: instead
+of emitting the tool call it kept announcing ("use Read now", "final",
+"grading"), the model issued bare `echo "…"` bash calls — 20+ in a row, each
+exiting 0, strings varying. The text-stream loop-guard (byte-level period /
+sequence / char-period detectors) is structurally blind to it, the gate's stall
+observer watches write/edit only, and COV-7's counters never advance because
+the loop stalls before any verification iteration exists. Research matches the
+shape exactly (intent-action decoupling: reasoning says tool X, action emits
+bash; byte-identical guards miss varied content; every call succeeds).
+
+- **Tool-channel content-level detector** (`scripts/vibeweaver-audit-core.js`).
+  `isNoopBashCommand` classifies literal `echo`/`printf`/`true`/`:` with no
+  side effects (conservative: redirects, pipes, substitution, chaining,
+  unclosed quotes all count as real); `noopBashFinding` fires on ≥4 trailing
+  distinct no-op bash calls. Streaming re-observations of one tool part dedupe
+  by part id; unknown/status-only observations can neither mask the run nor
+  consume the pid; truncated recorded commands break it (truncation can forge
+  a literal). Known gaps are documented, not papered over: semantic no-ops
+  (`sleep`/`ls`/`pwd`) and interleaved echo/read oscillation need intent-action
+  consistency detection and stay out of scope.
+- **Dual-channel guard** (`vibeweaver-audit.js`). The old single
+  `maybeLoopCheck` became `maybeGuardCheck(sessionID, channel)` with text and
+  tool channels sharing nothing but the intervention machinery: independent
+  episode arming and a per-channel budget of 2, so a text-degeneration episode
+  can never starve the tool channel of the interrupt this incident class needs.
+  The corrective prompt for `noop-bash` demands the real tool call (or the
+  completion output if criteria are verified passing) AND the mandatory
+  `- stall: noop-bash …` entry in `tests/verification_log.md` before any
+  completion output — the interrupt is the stall declaration.
+- **Contract text.** TESTING_PROTOCOLS §A4.1 Step 2 gains "Narration ≠
+  execution" (an announced tool call is not the call; echo markers are not
+  actions) and §A4.10 lists the noop-bash interrupt as a stall declaration;
+  SKILL.md gains the state-transition permission (once PRE-OUTPUT is checked
+  and `assert_artifacts.py` exits 0, complete — never pad the transition with
+  echo calls). Both wordings scope the guarantee honestly: bare literal runs
+  are mechanically interrupted, decorated variants are not.
+- **Tests.** T24a–j: 25 assertions covering the classifier (32 edge cases),
+  threshold and reset semantics, part-id dedup, adapter-level interventions
+  (exactly one per episode, budget exhaustion log-only, `VIBEWEAVER_LOOPGUARD=off`),
+  text-channel regression, budget isolation, unknown-observation and
+  truncation edge cases. Suite 69/0, mutation sweep 27/27. Two adversarial
+  review rounds: first found 14 items (fixes above), second confirmed ready.
+
 ## 2026-09-27: wave12 — objective A/B evaluation methodology (§V8) + first objective results
 
 Earlier A/B rounds had three measurement defects that briefly produced a wrong
