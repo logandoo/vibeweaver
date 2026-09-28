@@ -223,6 +223,17 @@ criteria. ONE criterion = ONE pass/fail sentence a verifier can answer yes/no.
 operation; capture evidence per the verifier mode announced in Step 0.
 Save to `tests/` with descriptive names. Template: [APPENDIX.md §A1](APPENDIX.md).
 
+**Narration ≠ execution (binding):** a tool call announced in prose ("now I
+will Read the screenshot", "grading") is NOT the call — only an emitted tool
+invocation is. Never `echo`/`printf` intent markers as bash calls; if your
+reasoning names a tool, the next emission is THAT tool call. Bare literal
+`echo`/`printf` narration runs (≥4 consecutive, no side effects) are
+mechanically interrupted (loop-guard `noop-bash`); the interrupt IS the
+stall declaration (§A4.10 — log `- stall: noop-bash …` before any completion
+output). Decorated variants (`>`/`|`/`$(…)`/chained) and interleaved
+real-action loops are known gaps — the interrupt covers bare narration
+runs, not every degenerate shape.
+
 Capture set per mode (mm-sensor loaded):
 
 | Verifier mode | Captured evidence (per flow) |
@@ -690,8 +701,13 @@ README → Attribution).
 Stall signals: the same sub-problem re-derived with no new constraint ·
 constraints flip-flopping between iterations · the same test failing with a
 mobile but related error · three failed fixes on the same problem (see
-§A4.6 escalation). **Any two signals → declare the stall explicitly in the
-log** (`- stall: <signals> — stopping pure iteration`). An undeclared stall
+§A4.6 escalation) · **≥4 consecutive no-op bash calls** — bare `echo`/
+`printf` narration markers ("use Read now", "final", "grading") standing in
+for an announced tool call; the loop-guard's `noop-bash` finding interrupts
+this mechanically, and the interrupt itself IS a stall declaration (log
+`- stall: noop-bash echo narration — …` and take the escape below; never
+resume by echoing again). **Any two signals → declare the stall explicitly in
+the log** (`- stall: <signals> — stopping pure iteration`). An undeclared stall
 becomes silent guessing, which looks exactly like reasoning right up until it
 is wrong.
 

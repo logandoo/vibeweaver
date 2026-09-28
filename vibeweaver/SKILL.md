@@ -695,6 +695,13 @@ Full ~40-item list: COMPLETION_GATE.md §PRE-OUTPUT (R1b). Before declaring done
 - [ ] config from the project config file (never hardcoded) · acceptance checklist passed
 
 **If any item is unchecked, return to fix it. Do NOT output "done".**
+**State-transition permission:** once every PRE-OUTPUT checklist item
+(COMPLETION_GATE §PRE-OUTPUT, the full ~40-item list this core list
+summarizes) is checked and `assert_artifacts.py` exits 0, no further
+evidence-producing tool calls are expected — proceed through the remaining
+documented completion steps (sync/push/memory) and emit the completion
+output; never pad the transition with `echo`/narration tool calls
+(loop-guard `noop-bash` interrupts them, TESTING_PROTOCOLS §A4.10).
 
 ## Reference Files (companion files)
 

@@ -297,6 +297,9 @@ function loopFinding(text) {
 }
 
 function loopRecoveryText(finding) {
+  if (finding && finding.kind === "noop-bash") {
+    return `[loop-guard] Your last tool calls degenerated into no-op echo/printf narration (${finding.pattern}) — echoing intent is NOT a tool call. STOP the echo loop. Do exactly ONE of: (1) emit the REAL tool call you kept announcing (e.g. Read/Edit — whatever your narration named) as an actual tool invocation — no echo markers, no narration; or (2) only if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table). BEFORE any completion output, append \`- stall: noop-bash echo narration — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10 — this interrupt IS the stall declaration; do not resume by echoing again).`
+  }
   return `[loop-guard] Your output degenerated into meaningless repetition (${finding.kind}: ${finding.pattern}). STOP repeating. Reply with (1) the task you are solving in ONE line, (2) the single next concrete step, then continue normally — no sequences, no filler. If the task is actually complete, emit the final completion output instead.`
 }
 
@@ -472,54 +475,72 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
     return { audit, report }
   }
 
-  // Degenerate-generation check (loop-guard) — runs on every text
-  // observation once the buffer grew enough; detection is a bounded tail
-  // scan, never on the whole buffer. Never throws.
-  const maybeLoopCheck = (sessionID) => {
+  // Degenerate-generation check (loop-guard) — runs on every observation
+  // once the buffer grew enough; detection is a bounded tail scan, never on
+  // the whole buffer. Two channels, each with its OWN intervention budget
+  // (per-channel, so one channel's episode can never starve the other's):
+  //   text — periodic/sequence repetition of the assistant stream;
+  //   tool — trailing no-op bash narration runs (echo/printf literal markers
+  //          standing in for an announced tool call; noopBashFinding).
+  // Each channel has its own episode-arming flag so one channel's episode
+  // never masks the other. Never throws.
+  const maybeGuardCheck = (sessionID, channel) => {
     try {
       if (process.env.VIBEWEAVER_LOOPGUARD === "off") return
       if (typeof onDegenerate !== "function") return
       const sess = state.sessions[sessionID]
       if (!sess) return
-      if (!sess.loopGuard) sess.loopGuard = { interventions: 0, armed: true }
+      if (!sess.loopGuard) sess.loopGuard = { interventions: 0, interventionsNoop: 0, armed: true, armedNoop: true }
       const lg = sess.loopGuard
-      const finding = loopFinding(sess.text)
+      if (lg.interventionsNoop === undefined) lg.interventionsNoop = 0
+      if (lg.armedNoop === undefined) lg.armedNoop = true
+      const toolChannel = channel === "tool"
+      const armedKey = toolChannel ? "armedNoop" : "armed"
+      const usedKey = toolChannel ? "interventionsNoop" : "interventions"
+      const finding = toolChannel
+        ? typeof core.noopBashFinding === "function"
+          ? core.noopBashFinding(sess.tools)
+          : null
+        : loopFinding(sess.text)
       // one intervention per degeneration EPISODE: after firing, stay
       // disarmed while the same pattern still sits at the tail (the
       // interrupt stops generation; the remaining history must not
       // re-trigger). Re-arm only after a clean observation.
       if (!finding) {
-        lg.armed = true
+        lg[armedKey] = true
         return
       }
-      if (!lg.armed) return
-      lg.armed = false
+      if (!lg[armedKey]) return
+      lg[armedKey] = false
       const cfg = readConfig()
       const maxInterventions = Number.isFinite(cfg.loopGuardMaxInterventions) ? cfg.loopGuardMaxInterventions : LOOP_MAX_INTERVENTIONS_DEFAULT
-      if (lg.interventions >= maxInterventions) {
-        // budget exhausted: never interrupt again, but log every NEW episode
-        // (armed semantics guarantee this is a distinct episode, not the
-        // same tail re-flagged)
+      if (lg[usedKey] >= maxInterventions) {
+        // budget exhausted for THIS channel: never interrupt again on it,
+        // but log every NEW episode (armed semantics guarantee this is a
+        // distinct episode, not the same tail re-flagged)
         void log({
           service: "vibeweaver-loopguard",
           level: "info",
-          message: `degenerate generation detected (${finding.kind}: ${finding.pattern}) — intervention budget exhausted (${maxInterventions}/session), not interrupting`,
-          extra: { sessionID, finding },
+          message: `degenerate generation detected (${finding.kind}: ${finding.pattern}) — intervention budget exhausted (${maxInterventions}/session/${channel}), not interrupting`,
+          extra: { sessionID, finding, channel },
         })
         return
       }
-      lg.interventions++
+      lg[usedKey]++
+      flush() // arming + budget must survive a mid-episode restart (F9)
       void log({
         service: "vibeweaver-loopguard",
         level: "warn",
-        message: `degenerate generation detected (${finding.kind}: ${finding.pattern}) — interrupting and posting a corrective prompt (${lg.interventions}/${maxInterventions})`,
-        extra: { sessionID, finding },
+        message: `degenerate generation detected (${finding.kind}: ${finding.pattern}) — interrupting and posting a corrective prompt (${lg[usedKey]}/${maxInterventions}/${channel})`,
+        extra: { sessionID, finding, channel },
       })
-      void Promise.resolve(onDegenerate(sessionID, finding, lg.interventions, maxInterventions)).catch(() => {})
+      void Promise.resolve(onDegenerate(sessionID, finding, lg[usedKey], maxInterventions)).catch(() => {})
     } catch {
       /* loop-guard must never break observation */
     }
   }
+  const maybeLoopCheck = (sessionID) => maybeGuardCheck(sessionID, "text")
+  const maybeToolLoopCheck = (sessionID) => maybeGuardCheck(sessionID, "tool")
 
   // ---- v1 observation: message.part.updated parts ----
   const observePart = (sessionID, part) => {
@@ -546,14 +567,19 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
     } else if (part.type === "tool" && part.tool) {
       const st = part.state || {}
       const t = { tool: part.tool, t: Date.now() }
+      if (typeof part.id === "string" && part.id) t.pid = part.id
       const inp = st.input || {}
       if (typeof inp.filePath === "string") t.filePath = inp.filePath
-      if (typeof inp.command === "string") t.command = inp.command.slice(0, IN_CAP)
+      if (typeof inp.command === "string") {
+        t.command = inp.command.slice(0, IN_CAP)
+        if (inp.command.length > IN_CAP) t.truncated = true // truncation can forge a literal (F10)
+      }
       if (typeof inp.name === "string") t.name = inp.name
       if (part.tool === "bash" && typeof st.output === "string") t.output = st.output.slice(0, OUT_CAP)
       sess.tools.push(t)
       if (sess.tools.length > TOOL_CAP) sess.tools = sess.tools.slice(-TOOL_CAP)
       if (part.tool === "skill" && typeof inp.name === "string" && inp.name.startsWith("vibeweaver")) sess.skillLoaded = true
+      maybeToolLoopCheck(sessionID)
     }
   }
 
@@ -564,11 +590,15 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
     const t = { tool, t: Date.now() }
     const inp = input && typeof input === "object" ? input : {}
     if (typeof inp.filePath === "string") t.filePath = inp.filePath
-    if (typeof inp.command === "string") t.command = inp.command.slice(0, IN_CAP)
+    if (typeof inp.command === "string") {
+      t.command = inp.command.slice(0, IN_CAP)
+      if (inp.command.length > IN_CAP) t.truncated = true // truncation can forge a literal (F10)
+    }
     if (typeof inp.name === "string") t.name = inp.name
     sess.tools.push(t)
     if (sess.tools.length > TOOL_CAP) sess.tools = sess.tools.slice(-TOOL_CAP)
     if (tool === "skill" && typeof inp.name === "string" && inp.name.startsWith("vibeweaver")) sess.skillLoaded = true
+    maybeToolLoopCheck(sessionID)
   }
 
   const observeToolEnd = (sessionID, tool, result) => {

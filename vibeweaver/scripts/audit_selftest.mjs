@@ -14,7 +14,7 @@ import path from "node:path"
 
 const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
 const CORE_MODULE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
-const { auditProject, buildReport, hashSession, isForbiddenCommand } = await import(pathToFileURL(CORE_MODULE))
+const { auditProject, buildReport, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding } = await import(pathToFileURL(CORE_MODULE))
 // Dual-compat module surface: current plugin default-exports { id, server, setup };
 // fall back to the legacy named export when testing an older copy.
 const auditModule = await import(pathToFileURL(AUDIT_MODULE))
@@ -705,6 +705,331 @@ async function tryWrite(plugin, root, relPath, sessionId) {
       ? `red=${JSON.stringify(st.roots[root].red)} reason=${rel && rel[0] ? rel[0].reason : "?"}`
       : "legacy latch deadlocked the next session (takeover path broken)"
   )
+}
+
+// =====================================================================
+// T24 — loop-guard noop-bash detection (echo-narration stop, 2026-09-28)
+// The reported failure mode: intent-narration loops where the model
+// announces a tool call ("use Read now", "final", "grading") via bare
+// `echo` bash calls instead of emitting the tool call. Every echo
+// succeeds, strings vary, so byte-repeat and failure detectors stay
+// silent. Detector contract: >=4 trailing no-op bash calls (literal
+// echo/printf/true/:, no side effects) -> one corrective intervention.
+// =====================================================================
+{
+  const mkTools = (cmds) => cmds.map((c, i) => ({ tool: "bash", command: c, t: i + 1 }))
+  const hasNoop = typeof noopBashFinding === "function" && typeof isNoopBashCommand === "function"
+
+  // ---- T24a — threshold: 4 trailing literal echoes (varying strings) -> finding ----
+  const four = ['echo "use read tool now"', "echo final", "echo grading", "echo read"]
+  const f4 = hasNoop ? noopBashFinding(mkTools(four)) : undefined
+  rec("T24a 4 consecutive literal echoes -> noop-bash finding", !!f4 && f4.kind === "noop-bash", hasNoop ? (f4 ? `kind=${f4.kind}` : "null") : "detector missing (RED)")
+  const f3 = hasNoop ? noopBashFinding(mkTools(four.slice(0, 3))) : undefined
+  rec("T24a 3 consecutive echoes -> no finding", f3 === null, hasNoop ? (f3 ? `kind=${f3.kind}` : "null") : "detector missing (RED)")
+
+  // ---- T24b — classifier: literal no-op vs real command ----
+  const noopYes = [
+    'echo "use read tool now"', "echo done", "echo 'final'", 'printf "x"', "true", ":", "echo -n done", 'echo "1"',
+    "echo attempting Read tool on screenshot",
+    'printf "final\\n"',        // escape in double quotes = stdout formatting, still no-op (F1)
+    "printf 'a\\nb'",           // escape in single quotes = literal, no-op
+    "echo final;",             // trailing lone `;` (F2)
+    "echo a # note",           // trailing comment (F2)
+    "/bin/echo final",         // absolute path (F2)
+    "echo",                    // bare echo
+    'echo ""',                 // empty-arg echo
+  ]
+  const noopNo = [
+    'echo "x" > f',            // redirect
+    "echo a | wc",             // pipe
+    'echo "$(date)"',          // command substitution
+    "echo a && echo b",        // chain
+    "echo hi; ls",             // chain
+    "ls -la",                  // non-echo
+    "cat f.txt",               // non-echo
+    "bash script/linux/start.sh", // non-echo
+    "echo `date`",             // backtick substitution
+    "echo $HOME",              // expansion
+    "echo a\nls",              // newline-chained second command
+    "true extra",              // bare true with args
+    ": extra",                 // bare : with args
+    'echo "unterminated',      // unclosed double quote
+    "echo 'unterminated",      // unclosed single quote
+    "echo a; ls;",             // inner chain survives trailing-; strip
+  ]
+  const misNoop = noopYes.filter((c) => !hasNoop || !isNoopBashCommand(c))
+  const misReal = noopNo.filter((c) => !hasNoop || isNoopBashCommand(c))
+  rec("T24b literal echo/printf/true/: classified no-op", misNoop.length === 0, misNoop.join(" | ") || "all 16 correct")
+  rec("T24b redirect/pipe/subst/chain/escape-quote/non-echo classified real", misReal.length === 0, misReal.join(" | ") || "all 16 correct")
+
+  // ---- T24c — reset semantics: interleaved real action breaks the run ----
+  const dispersed = [...mkTools(["echo a", "echo b"]), { tool: "bash", command: "ls", t: 3 }, ...mkTools(["echo c", "echo d"])]
+  const fd = hasNoop ? noopBashFinding(dispersed) : undefined
+  rec("T24c real command interleaved resets run (4 dispersed echoes -> null)", fd === null, hasNoop ? (fd ? `kind=${fd.kind}` : "null") : "detector missing (RED)")
+  const viaRead = [...mkTools(["echo a", "echo b"]), { tool: "read", filePath: "/x.png", t: 3 }, ...mkTools(["echo c", "echo d"])]
+  const fr = hasNoop ? noopBashFinding(viaRead) : undefined
+  rec("T24c non-bash tool interleaved resets run", fr === null, hasNoop ? (fr ? `kind=${fr.kind}` : "null") : "detector missing (RED)")
+
+  // ---- T24d — streaming re-observations of the same tool part never inflate the run ----
+  const reobs = [1, 2, 3, 4].map((i) => ({ tool: "bash", command: 'echo "final"', pid: "p1", t: i }))
+  const fDup = hasNoop ? noopBashFinding(reobs) : undefined
+  rec("T24d same part id re-observed 4x -> no finding (dedup)", fDup === null, hasNoop ? (fDup ? `kind=${fDup.kind}` : "null") : "detector missing (RED)")
+  const twoDistinct = [...reobs, { tool: "bash", command: 'echo "done"', pid: "p2", t: 5 }]
+  const fTwo = hasNoop ? noopBashFinding(twoDistinct) : undefined
+  rec("T24d 2 distinct calls + re-observations -> no finding", fTwo === null, hasNoop ? (fTwo ? `kind=${fTwo.kind}` : "null") : "detector missing (RED)")
+  const fourDistinct = [1, 2, 3, 4].map((i) => ({ tool: "bash", command: `echo "n${i}"`, pid: `p${i}`, t: i }))
+  const f4d = hasNoop ? noopBashFinding(fourDistinct) : undefined
+  rec("T24d 4 distinct part ids -> finding", !!f4d && f4d.kind === "noop-bash", hasNoop ? (f4d ? `kind=${f4d.kind}` : "null") : "detector missing (RED)")
+
+  // ---- T24e — v1 adapter integration: exactly one intervention per episode, budget 2 ----
+  {
+    const root24 = newFixture("t24-noop")
+    write(root24, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { abort: 0, prompts: [], logs: [] }
+    const plugin24 = await VibeweaverAudit({
+      client: {
+        app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async (args) => {
+            const parts = args && args.body && args.body.parts
+            calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+          },
+        },
+      },
+      directory: root24,
+    })
+    const emitBash = (sid, id, command) =>
+      plugin24.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id, type: "tool", tool: "bash", state: { status: "completed", input: { command } } } },
+        },
+      })
+    const sid = "ses_t24"
+    for (let i = 0; i < 4; i++) await emitBash(sid, `k${i}`, `echo "final ${i}"`)
+    rec(
+      "T24e 4 echoes through adapter -> exactly one intervention (abort+prompt)",
+      calls.abort === 1 && calls.prompts.length === 1,
+      `abort=${calls.abort} prompts=${calls.prompts.length}`
+    )
+    const ptext = calls.prompts[0] || ""
+    rec(
+      "T24e corrective text: echo narration is not an action + demands real tool call or completion output",
+      /echo/i.test(ptext) && /(tool call|real action)/i.test(ptext) && /(completion output|final completion)/i.test(ptext),
+      ptext.slice(0, 140)
+    )
+    rec("T24e corrective text mandates the stall declaration (F7 contract)", /- stall: noop-bash/i.test(ptext) && /verification_log/i.test(ptext), ptext.slice(0, 140))
+    for (let i = 4; i < 6; i++) await emitBash(sid, `k${i}`, `echo "still ${i}"`)
+    rec("T24e continued degeneration -> no thrash (still 1 intervention)", calls.abort === 1, `abort=${calls.abort}`)
+    await emitBash(sid, "k_real", "ls -la")
+    for (let i = 0; i < 4; i++) await emitBash(sid, `q${i}`, `echo "second ${i}"`)
+    rec("T24e re-arms on real action -> 2nd intervention (budget 2)", calls.abort === 2, `abort=${calls.abort}`)
+    await emitBash(sid, "k_real2", "ls -la")
+    for (let i = 0; i < 4; i++) await emitBash(sid, `r${i}`, `echo "third ${i}"`)
+    const budgetLog = calls.logs.some((m) => /budget exhausted/i.test(m))
+    rec("T24e 3rd episode beyond budget -> log-only, no abort", calls.abort === 2 && budgetLog, `abort=${calls.abort} budgetLog=${budgetLog}`)
+  }
+
+  // ---- T24f — adapter-level part re-observation (state updates) never triggers ----
+  {
+    const root24f = newFixture("t24-reobs")
+    write(root24f, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { abort: 0, prompts: 0 }
+    const plugin24f = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async () => {
+            calls.prompts++
+          },
+        },
+      },
+      directory: root24f,
+    })
+    const sid = "ses_t24f"
+    // the SAME tool part observed 4x (running -> completed state transitions)
+    for (const status of ["pending", "running", "running", "completed"]) {
+      await plugin24f.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id: "part1", type: "tool", tool: "bash", state: { status, input: { command: 'echo "final"' } } } },
+        },
+      })
+    }
+    rec("T24f same part re-observed 4x through adapter -> no intervention", calls.abort === 0 && calls.prompts === 0, `abort=${calls.abort} prompts=${calls.prompts}`)
+    // 4 DISTINCT parts do trigger
+    for (let i = 0; i < 4; i++) {
+      await plugin24f.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id: `d${i}`, type: "tool", tool: "bash", state: { status: "completed", input: { command: `echo "go ${i}"` } } } },
+        },
+      })
+    }
+    rec("T24f 4 distinct parts through adapter -> intervention fires", calls.abort === 1, `abort=${calls.abort}`)
+  }
+
+  // ---- T24g — VIBEWEAVER_LOOPGUARD=off disables the tool-channel guard ----
+  {
+    const root24g = newFixture("t24-off")
+    write(root24g, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const prev = process.env.VIBEWEAVER_LOOPGUARD
+    process.env.VIBEWEAVER_LOOPGUARD = "off"
+    const calls = { abort: 0, prompts: 0 }
+    const plugin24g = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async () => {
+            calls.prompts++
+          },
+        },
+      },
+      directory: root24g,
+    })
+    for (let i = 0; i < 5; i++) {
+      await plugin24g.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: "ses_t24g", part: { id: `x${i}`, type: "tool", tool: "bash", state: { status: "completed", input: { command: `echo "off ${i}"` } } } },
+        },
+      })
+    }
+    if (prev === undefined) delete process.env.VIBEWEAVER_LOOPGUARD
+    else process.env.VIBEWEAVER_LOOPGUARD = prev
+    rec("T24g VIBEWEAVER_LOOPGUARD=off -> guard silent", calls.abort === 0 && calls.prompts === 0, `abort=${calls.abort}`)
+  }
+
+  // ---- T24h — text channel regression + per-channel budget isolation ----
+  {
+    const root24h = newFixture("t24-mixed")
+    write(root24h, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { abort: 0, prompts: [], logs: [] }
+    const plugin24h = await VibeweaverAudit({
+      client: {
+        app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async (args) => {
+            const parts = args && args.body && args.body.parts
+            calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+          },
+        },
+      },
+      directory: root24h,
+    })
+    const emitText = (sid, id, text) =>
+      plugin24h.event({ event: { type: "message.part.updated", properties: { sessionID: sid, part: { id, type: "text", text } } } })
+    const emitBash = (sid, id, command) =>
+      plugin24h.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id, type: "tool", tool: "bash", state: { status: "completed", input: { command } } } },
+        },
+      })
+    const sid = "ses_t24h"
+    // text-channel episode: 4 identical trailing lines (p=1 repeat bar met)
+    await emitText(sid, "t0", "degenerate line text here\n".repeat(4))
+    rec("T24h text channel still fires after refactor (regression)", calls.abort === 1, `abort=${calls.abort}`)
+    // text channel exhausts its OWN budget (2) — tool channel must NOT be starved
+    await emitText(sid, "t1", "ok single line\n")
+    await emitText(sid, "t2", "second degenerate line\n".repeat(4))
+    rec("T24h text budget 2nd episode fires", calls.abort === 2, `abort=${calls.abort}`)
+    await emitText(sid, "t3", "ok again\n")
+    await emitText(sid, "t4", "third degenerate line\n".repeat(4))
+    const textBudgetLog = calls.logs.some((m) => /budget exhausted/i.test(m) && /\/text\)/.test(m))
+    rec("T24h text 3rd episode -> log-only (budget 2/channel)", calls.abort === 2 && textBudgetLog, `abort=${calls.abort} log=${textBudgetLog}`)
+    // tool channel unaffected by exhausted text budget
+    for (let i = 0; i < 4; i++) await emitBash(sid, `b${i}`, `echo "iso ${i}"`)
+    rec("T24h tool channel not starved by text budget (per-channel)", calls.abort === 3, `abort=${calls.abort}`)
+  }
+
+  // ---- T24i — trailing status-only re-observation never masks the run (R1#4) ----
+  {
+    const root24i = newFixture("t24-mask")
+    write(root24i, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { abort: 0, prompts: 0 }
+    const plugin24i = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async () => {
+            calls.prompts++
+          },
+        },
+      },
+      directory: root24i,
+    })
+    const sid = "ses_t24i"
+    for (let i = 0; i < 4; i++) {
+      await plugin24i.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id: `m${i}`, type: "tool", tool: "bash", state: { status: "completed", input: { command: `echo "mask ${i}"` } } } },
+        },
+      })
+    }
+    // status-only re-observation of the LAST part (no input at all)
+    await plugin24i.event({
+      event: {
+        type: "message.part.updated",
+        properties: { sessionID: sid, part: { id: "m3", type: "tool", tool: "bash", state: { status: "running" } } },
+      },
+    })
+    rec("T24i unknown trailing observation does not mask the run", calls.abort === 1 && calls.prompts === 1, `abort=${calls.abort}`)
+  }
+
+  // ---- T24j — truncated recorded command can never forge a literal (F10) ----
+  {
+    const root24j = newFixture("t24-trunc")
+    write(root24j, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { abort: 0 }
+    const plugin24j = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async () => {},
+        },
+      },
+      directory: root24j,
+    })
+    const sid = "ses_t24j"
+    // each command exceeds IN_CAP(400): raw is `echo "x" && ls …padding`;
+    // naive truncation would cut after the closing quote and forge a literal
+    const long = 'echo "x" && ls ' + "p".repeat(420)
+    for (let i = 0; i < 4; i++) {
+      await plugin24j.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id: `j${i}`, type: "tool", tool: "bash", state: { status: "completed", input: { command: long } } } },
+        },
+      })
+    }
+    rec("T24j truncated commands never count as no-op", calls.abort === 0, `abort=${calls.abort}`)
+    if (hasNoop) {
+      const forged = [1, 2, 3, 4].map((i) => ({ tool: "bash", command: 'echo "x"', truncated: true, pid: `f${i}`, t: i }))
+      rec("T24j unit: truncated flag breaks the run", noopBashFinding(forged) === null, "null expected")
+    } else {
+      rec("T24j unit: truncated flag breaks the run", false, "detector missing (RED)")
+    }
+  }
 }
 
 // =====================================================================

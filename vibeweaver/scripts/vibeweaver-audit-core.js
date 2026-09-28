@@ -154,6 +154,131 @@ export function hashSession(sessionID, salt) {
   return h.readUInt32BE(0) % 100
 }
 
+// ---------------- loop-guard no-op bash detection ----------------
+// Intent-narration loop (2026-09-28 incident): the model announces a tool
+// call ("use Read now", "final", "grading") and then emits bare `echo` bash
+// calls INSTEAD of the tool call. Every echo exits 0 and the strings vary,
+// so byte-repeat and failure detectors stay silent — the loop lives in the
+// TOOL channel, not the text stream. Contract: >= NOOP_RUN_MIN trailing
+// no-op bash calls (literal echo/printf/true/: with no side effects, one
+// distinct call each) -> { kind: "noop-bash", pattern }. Detection is
+// content-level (no-op vs real), never byte-level, so varied narration
+// strings cannot evade it. Conservative by construction: anything with a
+// metacharacter, expansion, escape, or a second command is "real" and
+// resets the run — a missed no-op is acceptable, a false positive is not.
+const NOOP_RUN_MIN = 4
+
+// Shell tokens that give a command side effects or structure. Newlines are
+// command separators (chaining) and are rejected wholesale before tokenize.
+// `#` is NOT here: a comment at word boundary is handled in the tokenizer.
+const BASH_META = /[;&|<>()$`{}[\]*?~!\n\r]/
+
+// Split one bash command into literal words (quotes removed), or null if the
+// command has any structure (metacharacter / expansion / unclosed quote).
+// A null means "real command". Backslashes are literal output formatting
+// (escape sequences in echo/printf args are stdout work, not side effects);
+// `$`/backtick (expansion) stay forbidden even inside double quotes. A `#`
+// at word boundary starts a comment (rest of line dropped, like the shell).
+function tokenizeBashLiteral(cmd) {
+  const tokens = []
+  let i = 0
+  let cur = ""
+  let saw = false
+  const push = () => {
+    if (saw) {
+      tokens.push(cur)
+      cur = ""
+      saw = false
+    }
+  }
+  while (i < cmd.length) {
+    const ch = cmd[i]
+    if (ch === "\\" && i + 1 < cmd.length) {
+      cur += cmd[i + 1]
+      saw = true
+      i += 2
+      continue
+    }
+    if (ch === "'") {
+      const j = cmd.indexOf("'", i + 1)
+      if (j < 0) return null
+      cur += cmd.slice(i + 1, j)
+      saw = true
+      i = j + 1
+      continue
+    }
+    if (ch === '"') {
+      const j = cmd.indexOf('"', i + 1)
+      if (j < 0) return null
+      const inner = cmd.slice(i + 1, j)
+      if (/[`$]/.test(inner)) return null // expansion inside double quotes
+      cur += inner
+      saw = true
+      i = j + 1
+      continue
+    }
+    if (ch === "#" && !saw) break // comment at word boundary — drop the rest
+    if (/\s/.test(ch)) {
+      push()
+      i++
+      continue
+    }
+    if (BASH_META.test(ch)) return null
+    cur += ch
+    saw = true
+    i++
+  }
+  push()
+  return tokens
+}
+
+// True for a bash command that is a pure narration/no-op marker: bare
+// `true`/`:`, or literal `echo`/`printf` (every argument a quoted string or
+// plain word). Everything else is a real command. Conservative by
+// construction: structural doubt resolves to "real" (a missed no-op is
+// acceptable, a false positive is not).
+export function isNoopBashCommand(cmd) {
+  if (typeof cmd !== "string") return false
+  let c = cmd.trim()
+  if (!c) return false
+  if (/[\r\n]/.test(c)) return false // newline-chained second command
+  c = c.replace(/;\s*$/, "") // trailing lone `;` (`echo final;`) is not structure
+  if (c === "true" || c === ":") return true
+  const tokens = tokenizeBashLiteral(c)
+  if (!tokens || !tokens.length) return false
+  const head = tokens[0].split("/").pop() // /bin/echo == echo
+  return head === "echo" || head === "printf"
+}
+
+// Trailing run of distinct no-op bash calls in a tool-observation list
+// (`[{tool, command, pid?, truncated?}]`). Streaming re-observations of the
+// SAME tool part (same pid) count once — host state transitions must not
+// inflate the run. Entries with an UNKNOWN command (status-only
+// re-observation, missing input) are skipped without consuming the pid, so
+// they can never mask the real observation of the same call. A truncated
+// recorded command breaks the run (truncation can forge a literal).
+// Returns { kind: "noop-bash", pattern } | null.
+export function noopBashFinding(tools, minRun = NOOP_RUN_MIN) {
+  if (!Array.isArray(tools) || tools.length < 1) return null
+  const seenPid = new Set()
+  let run = 0
+  let sample = ""
+  for (let i = tools.length - 1; i >= 0; i--) {
+    const t = tools[i]
+    if (!t || typeof t !== "object") break
+    if (t.pid != null && seenPid.has(t.pid)) continue // duplicate observation of one call
+    if (t.tool !== "bash") break
+    const cmd = typeof t.command === "string" ? t.command : ""
+    if (!cmd.trim()) continue // unknown command (status-only re-obs) — skip
+    if (t.pid != null) seenPid.add(t.pid)
+    if (t.truncated || !isNoopBashCommand(cmd)) break
+    run++
+    if (!sample) sample = cmd.trim().slice(0, 40)
+    if (run >= minRun) return { kind: "noop-bash", pattern: `${run} consecutive no-op bash calls (e.g. ${sample})` }
+  }
+  return null
+}
+
 // ---------------- triage core ----------------
 
 function check(checks, id, name, v, evidence) {
