@@ -2,6 +2,39 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-09-28：任务分类 —— 比例化验证路径（COV-13 / §V11）
+
+验证路径不随任务缩放。改一段 README 或 CHANGELOG——没有运行时可测的散文活——和改行为走同一条路：带磁盘证据的测试、基线运行、8 列完成表、记忆门。更糟的是路径本身反过来推着文档动（「流程里有 README 这一步」），不管内容是否真的过期。一个说不出对应风险的 gate 就是流程膨胀。外部研究从四个方向给出同一答案：E3 的 estimate→execute→expand（arXiv 2607.13034——先按最小路径执行，只在验证失败时扩）、bucket→verification-depth 分桶定深、「无名风险的 gate 即流程膨胀」、以及单次分诊结果驱动全部下游决策。
+
+- **COV-13，Class 声明。**由变更集的文件种类判定——`git diff --stat` 加 untracked，绝不靠记忆：`Class: CODE`（含控制流的逻辑源码：分支/状态/校验/变换，含带行为断言的测试文件）优先，其次 `Class: CONFIG`（配置、脚本、标记、CI——无控制流），最后 `Class: DOC`（散文：md/txt/rst、README、CHANGELOG、docs/、memory/、office 资产）。首匹配取序；不确定取高一类；scope 越界或证据点名更高类风险时升类，且只升不降。
+- **每类一张 path card（§V11.3），gate↔具名风险。**DOC 把测试、捕获循环、基线运行、8 列表降为 `na (reason)`，保留验收判据、迭代日志、`[Coverage]` 与 gate line——外加三列 lite 表（`| # | Problem | What Changed & Evidence |`），且仅在 gate line 带已填写的 `Class: DOC|CONFIG` 字段时合法。CONFIG 保留 smoke 检查与 COV-9 基线。CODE 不变。类无关集不动：密钥扫描、test-change 守卫、风险层审查、cap=5/stall=3× 边界。
+- **doc-drift 触发器（§V11.5）。**README/CHANGELOG/API 文档只在内容确实过期时更新，且漂移必须具名（`docs-drift: <file> — <what went stale>`）；无漂移也要给一行（`docs-drift: none (<why>)`）。「流程里有 README 这一步」不算漂移。
+- **Class × Lane（§V11.8）是两个轴。**Lane 管读深与加层，Class 管哪些 gate 跑。DOC 类下 Lane-L 增件（计划文件、FCV、对抗评审、覆盖矩阵）与 COV-8 文件计数腿走 `na`；风险层/schema/API/行为语义腿在任何类都触发。
+- **执法双侧。**`assert_artifacts.py --class`（或任务块的 `- class: <X> — <basis>` 行）为 DOC 跳过记忆与服务生命周期组；审计侧新增已填写 `Class:` 字段检查（未填模板与散文提及一律不构成许可）、gate line↔log 类交叉核对、memory `na` 需真行理由（清单回声不算）、类错报守卫。
+- **验证。**fixture 套件增至 103 条断言（类套件：lite 放行、未授权 lite/na/模板拒绝、误报 token（`Class: DOCS`、`DOC|CONFIG`、空格模板）拒绝、tests/ 隐藏与无时间戳写抓获、gate↔log 不匹配抓获、旧任务块不给当前块许可）；变异扫描增至 41。TDD RED：类测试对变更前 core 批量失败。两轮对抗评审（契约一致性、执法绕过）加一轮全新上下文 FCV；一处 spec↔测试冲突按 ADR 裁决而非糊弄过去。
+
+## 2026-09-28：DOC-asset render 门与 doc-skill 委托（§V11.9）
+
+office 交付物无家可归。`report.docx`、台账 `.xlsx`、答辩 `.pptx` 既不是代码（无控制流）、不是配置、也不是散文，「不确定取高类」只能把它们推上重路径。而 DOC 的证据规则——diff 加 read-back——恰好是文档工具界反复警告的那件事：文本抽取与文档对象模型会在分页上说谎。误判它们的那道门同样错了：类错报守卫把每次 `.docx` 写入都当谎言。
+
+- **制品种类，不是第四类。**office 资产仍是 `Class: DOC`，由扩展名决定证据模式（散文 → diff 加具名 read-back；资产 → render-and-verify）。类值更少，可误报的点更少。
+- **NO RENDER, NO DONE**（openai `doc` skill 与 office-docx 的共识）。`soffice --headless` 转换、渲页、自动 QA（空白页、edge bleed、缺内容、页数）、页图经宣布的 verifier 评级、修、重渲。render→修 循环就是资产的 COV-4 循环，与任何循环一样受 cap=5 / stall=3× 约束。
+- **doc-skill 委托（§V11.9）。**readme-weaver 审计 README 类散文（永不编造：每条命令、徽章、路径都对仓库实物核对）；docx / xlsx / pptx-manipulation 负责写作；office-docx 渲染验证；office-mcp 兜底。skill 指令是数据与工具（COV-11）——为管线提供信息，永不压过契约。宏启用容器仅当具名可执行行为检查（`unzip -l` 查 `vbaProject.bin`、PDF `/JS` 扫描、宏表扫描）干净时留 DOC，否则升类，render 门随资产上行。
+- **完整性规则（docx-master、skillsdirectory）。**制品即证据——对独立不变量验证（重解析、schema 校验、渲染页），不用系统对自己输出的自我解读自证。落新文件；验证失败即弃候选文件并暴露错误；无静默重试。工具链缺失降级为带旗标的 `render: N/A (<缺失工具>)` 加 layout 风险提示，交付物标 `UNVERIFIED-layout`——绝不悄悄「完成」。
+- **验证。**TDD RED：对变更前 core，每次 `.docx` 写入都被误判为类谎言，合法渲染情形亦然。新 fixture 双向钉死 render 门与 exec-check 行。
+
+## 2026-09-28：盲区加固 —— file-kind 门、证据绑定、交付时点 exec-check
+
+上面两波之后的盲区猎杀找到真窟窿，其中几个就在已宣称闭环的声称里：两路探针加一路全新上下文语义猎手，九项确认。共同模式：门挂在类值上而不是文件种类上，证据从哪来都收。
+
+- **render 门改为文件种类触发（任何类）。**混合 CODE 波交付样例 `report.docx`、部署波的发布 PDF、CLI 导出的 docx——一视同仁欠渲染。资产不再构成类错报，顺带解开一处升级死锁：宏 →「升 CONFIG」→「资产属 DOC」→ 自相矛盾。门随资产升入更高类。
+- **证据绑定。**只有当前任务块与最终回答能绑定；`probe_vision.*`（COV-5 工具输出）永不算文档页；每个交付物一行 `render: <asset> — …`（一张图盖不住两个文件）；引用的页图必须在盘存在；工具链 N/A 必须点名具体工具——占位符（`<missing toolchain>`）与裸 "toolchain" 不是名字；引用回声不构成许可。
+- **波次全程，不是工作区。**资产集合取自 `backup: before changes`..HEAD 加未提交与 untracked（`--name-status`，二进制安全；删除不算交付）。第一版修复只看工作区，fixture 证明资产一 commit 就隐形。
+- **exec-check 在交付时点。**具名可执行行为检查跑在交付文件上（分类时文件还不存在），记录为 `exec-check: <asset> — clean|escalated`，由新增断言行强制。
+- **DOC 类的教训也绑定。**带 FAIL/stall 条目的波次有教训可存；其记忆组不再可跳（COV-7 的 ❌ 入档规则）。
+- **layout 诚实通道。**日志与回答里写 `Layout: verified (<pages>)` 或 `Layout: UNVERIFIED-layout (<why>)`，未验证必须落进 `[Coverage] unchecked`。图像交付物（`docs/figures/*.png`）经宣布的 verifier 评级，不默认没事。read-back 给出定义（逐字重读编辑后的文件；只看 diff 不够）。
+- **验证。**fixture 103 / 变异 41，含原始四探针作负例与逐资产绑定；FCV 一轮重跑十项探针全部闭环。
+
 ## 2026-09-28：loop-guard noop-bash —— 工具通道 echo 旁白循环的机械中断
 
 一种弱模型失效形态从 vibeweaver 现有的全部停止机制底下溜了过去：模型反复宣告要调工具（"use Read now"、"final"、"grading"），实际发的却是裸 `echo "…"` bash 调用——一口气 20 多次，每次 exit 0，字面各不相同。文本流 loop-guard（字节级周期/序列/字符周期三检测器）在结构上看不见它；门禁的 stall observer 只盯 write/edit；COV-7 的计数器永远不推进——循环卡在任何验证迭代出现之前。外部研究与此形态完全吻合（reasoning 说调 X、action 发 bash 的意图-动作脱节；byte-identical 守卫抓不住变字面；每次调用都"成功"）。

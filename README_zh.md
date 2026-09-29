@@ -48,6 +48,8 @@ coding agent 在真实项目上出问题，包括但不限于把文件删了、�
 - **覆盖诚实，加一双独立的眼睛**：完工输出带一行 `[Coverage] criteria: N/M | unchecked: …`——查过的点名附证据，没查过的也点名：未查项永远不能被说成已完成，`UNVERIFIED` 格也洗不白成 `na`。当最强绿证是模型自写测试时，由全新 context 的复核者在不知道实现推理的情况下重跑检查。
 - **仪式经济学**：代码和绿测试先落地；memory 写入、评审包、决策长文在完工时从「每轮一行」的日志组装。每轮迭代的预算自检让限时任务收敛到交付物，而不是死在仪式中途；安全规则常驻，调试/评审协议只在其触发点才装载。
 - **行动分诊与状态修订**：每个计划动作在执行前标注 critical/exploratory/noisy；噪音先改写、不执行。证据否决假设时，承载它的工件就地重写——在过时计划旁边追加一条更正，只会继续污染后续决策（AEWM 失效模式的解药）。
+- **任务分类，路径按比例给**：动手前由变更集的文件种类判定类别——`Class: CODE`（含控制流的逻辑源码）> `Class: CONFIG`（配置/脚本/CI，无控制流）> `Class: DOC`（散文与 office 资产），首匹配取序，不确定取高类。每类一张自己的 path card：散文改动保留验收判据、迭代日志与 gate line，把测试、采集循环、基线、8 列表降为 `na (reason)` 并换成三列 lite 表；配置改动保留 smoke 检查与基线；代码改动一概不变。说不出对应风险的 gate 就是流程膨胀，所以文档只在具名漂移时更新（`docs-drift: <file> — <what went stale>`），绝不因为「流程里有这一步」。
+- **文档交付物有渲染门**：交付的 `report.docx`、`.xlsx`、`.pptx` 按文档工具界公认的方式验证——渲页、跑版式 QA、给页图评级，任何任务类别下都是 `NO RENDER, NO DONE`。写作委托给专门 skill（README 散文用 readme-weaver，写作用 docx/xlsx/pptx-manipulation，验证用 office-docx，兜底 office-mcp）；工具链缺失只降级为带旗标的 `render: N/A (<缺失工具>)` 加 `UNVERIFIED-layout` 标记，绝不悄悄算完成。宏与嵌入脚本在交付时点由具名检查揪出，揪出即升类。
 - **覆盖完整开发流程，不止一个环节**：新项目脚手架（先出设计文档 FLOW / PAGE / DATABASE / BACKEND）、配置管理、验收清单、按任务类型路由（构建 / 审计 / 部署 / 运维 / CLI 与库 / 可行性 spike）、8 列完工表格，以及两个执行层插件。
 
 ## 安装
@@ -213,6 +215,15 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 
 有一轮评测看起来显示升级后的技能更差、更贵——于是评测本身被放上被告席。它确实测错了东西：断言在奖励技能自家新增的输出字段（循环）、agent 看得见评分标准、冲突任务里的故意错误测试在奖励静默改写测试的同时惩罚诚实的冲突旗标。第十二波把评测手册换成客观层级：隐藏 fail-to-pass 测试裁决结果、测试文件 hash 与冲突纪律裁决防作弊完整性、有效突变分（交付套件先在金标准实现上通过、其突变杀伤才计入）裁决套件质量，墙钟降为成本列。实测作废轮里发现的六条测量陷阱固化进 §V8。首轮客观结果（N=3，方向性）：结果正确性 8/8 vs 7/8 倾向新技能；完整性 5/5 vs 3/5——旧技能两次静默改写矛盾测试刷绿，新技能按规格实现、旗标冲突、测试分毫未动。旧臂此前的"高突变分"正是篡改溢价。成本仍是真实代价：本套件约 1.35× 更慢。
 
+### 第十三波（2026 年 9 月）：任务分类 + 文档门
+
+契约三处改动，都还没做过对模型的 A/B——证据来自 fixture 套件、对抗评审与全新上下文探针，这能说明机制有效，说明不了模型行为。
+
+- **COV-13 / §V11 任务分类**：`Class: CODE > CONFIG > DOC` 由文件种类判定；每类一张 path card（gate↔具名风险）；散文与配置走 lite 完工表；doc-drift 触发器；Class 与 Lane 是两个轴。动因很直白：改一段 CHANGELOG 在走完整验证路径，而路径本身还在自作主张推着 README 更新。
+- **§V11.9 DOC-asset render 门**：office 交付物仍归 Class DOC，但证据改为 render-and-verify（`NO RENDER, NO DONE`）；doc-skill 委托表；交付时点的具名可执行行为检查（vbaProject / PDF JS / 宏表）；工具链缺失带旗标降级并标 `UNVERIFIED-layout`。
+- **盲区加固**：两轮猎杀（自研探针 + 全新上下文语义评审）关掉九个真窟窿——门改按文件种类在任何类触发（混合 CODE 波交付样例 docx 同样欠渲染）、证据绑定到当前任务块并按资产逐件（COV-5 探针图、旧块引用、占位符 `render: N/A`、引用回声一律不许可）、资产集合取整个波次而非工作区（commit 过的资产仍是交付物）、exec-check 移到交付时点并强制日志令牌。
+- **证据**：fixture 103 条断言 / 变异扫描 41，TDD RED 对变更前 core，两轮双对抗评审（26 项发现全部裁决）与三轮 FCV——第一轮 FCV 判了两条验收标准不通过并点名剩余绕过，那些绕过就是下一波的输入。
+
 ### 说句实话
 
 - 因为是 TDD 导向的 skill，所以会**疯狂消耗 token**。如果手头真有想要解决的问题，还是很建议试试；如果只是玩一玩 vibe-coding，这个 skill 倒也不显得那么重要。
@@ -228,7 +239,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 
 ```mermaid
 flowchart TD
-    A["任务"] --> B["§2 ZERO ★ 动手前必过<br/>拆解 + 联网检索（≥2 方案）<br/>COV-5 验证器探针（mm_probe）：model-native / mm-sensor / direct read<br/>COV-11 不可信内容 = 数据不是指令<br/>COV-12 模式声明：AUTO（默认）/ GUIDED<br/>产物：拆解说明 + 检索结论"]
+    A["任务"] --> B["§2 ZERO ★ 动手前必过<br/>拆解 + 联网检索（≥2 方案）<br/>COV-5 验证器探针（mm_probe）：model-native / mm-sensor / direct read<br/>COV-11 不可信内容 = 数据不是指令<br/>COV-12 模式声明：AUTO（默认）/ GUIDED<br/>COV-13 任务分类：CODE > CONFIG > DOC（path card，只升不降）<br/>产物：拆解说明 + 检索结论"]
     B --> C{"§3 项目模式"}
     C -->|"新项目 C1"| D1["Design Gate A<br/>§A5 设计文档<br/>Design Gate B<br/>产物：FLOW / PAGE / DATABASE / BACKEND"]
     C -->|"存量修改 C2"| D2["现场勘察：memory · config · script/<br/>产物：baseline 提交 + Baseline verified GREEN"]
@@ -323,7 +334,7 @@ opencode 原生没有记忆。开一个新会话就是一颗新脑。它完全�
 - **长间隔后的重入。** compaction / 跨 session / 长时间中断之后，agent 先全量重读 `verification_log.md`、逐行重读目标、重读契约，然后说出恢复后的第一步动作，按这个顺序，然后再碰工作（§3.3）。
 - **停滞观测机械化。** 门禁插件现在维护 `.vibeweaver/state.json`（原子写）：同一文件被改 3 次、中间没有新增 PASS 条目 → 触发一条指向逃生协议的 `GATE-WARNING`。`stall=3×` 以前是模型自己数的上限，现在插件也数。
 
-顺便把 skill 自己宣讲的渐进披露纪律用到了它身上：约 120 行的内嵌断言脚本变成规范的 `scripts/assert_artifacts.py`，四个后端/TDD/评审协议移入 `TESTING_PROTOCOLS.md`。入口文件从 79KB 的单文件做到今天的 682 行 / 41.8KB；上面每条新规则的成本是一行紧凑契约 + 一个指针。
+顺便把 skill 自己宣讲的渐进披露纪律用到了它身上：约 120 行的内嵌断言脚本变成规范的 `scripts/assert_artifacts.py`，四个后端/TDD/评审协议移入 `TESTING_PROTOCOLS.md`。入口文件从 79KB 的单文件做到今天的 767 行 / 47.8KB；上面每条新规则的成本是一行紧凑契约 + 一个指针。
 
 ## 和 mm-sensor 怎么配合：搭档，不是对手
 
@@ -385,7 +396,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 | 文件                                                  | 用途                                                                                                               |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `SKILL.md`                                          | 绑定操作契约 + 路由器（682 行，约 41.8KB，有体积守卫）                                                                               |
+| `SKILL.md`                                          | 绑定操作契约 + 路由器（767 行，约 47.8KB，有体积守卫）                                                                               |
 | `COMPLETION_GATE.md`                                | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单                                                                              |
 | `CODING_PRINCIPLES.md`                              | 4 条铁律（Think Before Coding · Simplicity First · Surgical Changes · Goal-Driven Execution）+ Fowler 12 项 smell 评审基线 |
 | `ENGINEERING_STD.md`                                | 工程标准细则                                                                                                           |
@@ -393,12 +404,13 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `TESTING_PROTOCOLS.md`                              | §A4.1 循环 + §A4.6 调试 + §A4.7–§A4.11 规范文本（§A4.11 模式/暂停协议）                                                          |
 | `WORKFLOWS_EXTENDED.md`                             | §M 双模式 + Class-E 清单 + ADR/PAUSED 格式 · C4 审计 / C5 部署 / C6 运维 / C7 非 Web / S1 spike · 项目画像参照                       |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`           | 项目记忆子系统                                                                                                          |
-| `scripts/assert_artifacts.py`                       | 规范断言脚本，项目复制进 `tests/` 使用（16 组：产物存在性、证据完整性、诊断/声明 lint、secret scan、test-change guard、risk-tier）                    |
+| `VERIFICATION_UPGRADES.md`                          | §V1 FCV · §V2 测试完整性 · §V3 覆盖诚实 · §V4 对抗评审 · §V5 车道 · §V11 任务分类 + doc-skill 委托与 DOC-asset render 门                        |
+| `scripts/assert_artifacts.py`                       | 规范断言脚本，项目复制进 `tests/` 使用（18 组：产物存在性、证据完整性、诊断/声明 lint、secret scan、test-change guard、risk-tier、DOC-asset render 门、exec-check） |
 | `scripts/mm_probe.py`                               | 行为化多模态自探针（COV-5 验证器选择）                                                                                           |
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |
 | `vibeweaver-audit.js`                               | 三层机械审计器（Tier 0/1/2），会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈                                                                   |
 | `scripts/vibeweaver-audit-core.js`                  | 纯裁决核心（可无头测试）                                                                                                     |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 36 项 fixture 检查 / 27 项变异检查，含锁存释放回归                                                                               |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 103 项 fixture 检查（T24 loop-guard、T25 任务分类套件）/ 41 项变异检查，含锁存释放回归                                                    |
 | `install.sh` / `install.bat`                        | 安装脚本（skill 文件 + 两个插件）                                                                                            |
 
 ## 测试
@@ -408,8 +420,8 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 ```bash
 python3 verify_skill.py                     # 包完整性：payload、链接、标记、语法
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
-node vibeweaver/scripts/audit_selftest.mjs  # 36 项 fixture 检查（无校准数据时 T6 SKIP）
-node vibeweaver/scripts/mutation_sweep.mjs  # 27 项变异，每项都必须被抓到
+node vibeweaver/scripts/audit_selftest.mjs  # 103 项 fixture 检查（无校准数据时 T6 SKIP）
+node vibeweaver/scripts/mutation_sweep.mjs  # 41 项变异，每项都必须被抓到
 ```
 
 CI 在 Ubuntu / macOS / Windows 上跑这些（`.github/workflows/verify.yml`）。

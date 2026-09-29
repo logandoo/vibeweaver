@@ -3,7 +3,9 @@
 R10 companion. Binding full text for the compact rules added to SKILL.md
 (COV-1 integrity clause · COV-4 FCV clause · §3.0 lanes · A4.9 adversarial
 option). Everything here is ADDITIVE: no existing covenant, gate, or literal
-token is relaxed. Sections:
+token is relaxed — §V11 formalizes the `=na` clauses COV-1/COV-4/COV-9
+already carry (documentation-only / no-runtime) into a decision table; it
+never drops evidence for a class whose risks are live. Sections:
 
 - §V1 Fresh-Context Verify (FCV) — independent re-verification
 - §V2 Test Integrity & Spec-Test Conflict Flag (canonical text)
@@ -15,6 +17,7 @@ token is relaxed. Sections:
 - §V8 A/B Evaluation Runbook (skill self-eval)
 - §V9 Budget Reserve · Ship Order · Load Map (ceremony economy)
 - §V10 Action Triage & State Revision (contamination guards)
+- §V11 Task Class — proportional verification path (DOC/CONFIG/CODE)
 
 ---
 
@@ -32,6 +35,13 @@ implementation reasoning, then reports per-criterion verdicts.
 
 Otherwise `Fresh-verify: N/A (<reason>)` in the gate line is legitimate
 (e.g. `N/A (Lane M — project tests are the oracle)`).
+
+**Class exception (§V11.8#3):** for `Class: DOC`-prose whose evidence is
+the diff + read-back, FCV is `na` (`N/A (Class: DOC — diff + read-back)`) —
+there is no self-graded runtime claim to re-verify. A DOC-asset re-renders
+under FCV when layout is critical (the verifier grades fresh pages); a class
+escalation (V11.4) brings FCV back. Class CONFIG/`CODE` follow the trigger
+above.
 
 **Protocol (dispatch BEFORE the completion table):**
 1. Write `tests/fcv_brief.md`: the numbered acceptance criteria, the exact
@@ -139,7 +149,7 @@ objective; when in doubt, pick the higher lane.
 - no new dependency;
 - no multi-step inter-dependencies (else Lane L / C3).
 
-**Lane S obligations** — every covenant (COV-1..12) and every hard gate holds
+**Lane S obligations** — every covenant (COV-1..13) and every hard gate holds
 identically to Lane M. The ONLY differences:
 1. Companion reads (R1/R1b) may be **section-targeted** instead of full-file:
    read TESTING_PROTOCOLS.md §A4.1 (loop steps) + §A4.8 (RED rule) headings and
@@ -357,6 +367,284 @@ criteria it covers; intermediate success is never promoted to completion.
 Earlier obligations (acceptance criteria, interface contracts, regression
 tests) survive later edits — a new change never overrides them silently;
 `[Coverage]` + fresh-run on the delivered tree are the completion proof.
+
+---
+
+## §V11 Task Class — proportional verification path ★
+
+**Problem this solves.** Unclassified, every task walks the full
+verification path — including README/CHANGELOG-only edits — and the path
+drags doc updates along with it. Both are *process inflation*: a gate that
+names no risk. The fix is a classification, not a lighter conscience: one
+derived variable, decided BEFORE any action, routes the task to a path
+card; a lighter estimate that turns out wrong is recovered upward
+(Estimate → Execute → Expand — misclassification is recovered, never
+pre-empted).
+
+### V11.1 Declaration
+In ZERO, on the line after `Mode:`/`Lane:`: `Class: DOC` | `Class: CONFIG`
+| `Class: CODE`. The class appears in the gate line as
+`Class: DOC|CONFIG|CODE` (field after `Lane:`). Misreporting a class is a
+compliance violation exactly like a misreported lane — when in doubt, the
+HIGHER class.
+
+### V11.2 Decision table (objective · first match wins)
+Basis = the change set's file kinds (`git diff --stat` + untracked files —
+never self-recollection; same evidentiary standard as COV-8) and whether
+runtime behavior changes.
+
+| Class | Primary deliverable is… | Named risk its gates mitigate |
+|---|---|---|
+| **CODE** | any logic-bearing source file — **logic-bearing = contains control flow: branch · loop · state · validation · transform** (`.py/.js/.ts/.go/.rs/.java/.c/.cpp/.rb/.php…`; test files with behavior assertions count) | behavior regression |
+| **CONFIG** | config · scripts · markup · CI · lockfiles · dep pins · formatting — machine-read or executed, but no control flow of their own: a script that only sequences commands is CONFIG; one with branch/loop/state is CODE (uncertain → CODE) (`.toml/.yaml/.ini/.sh/.bat/Dockerfile/Makefile` · template `.html` · `package.json`/`requirements.txt` pins) | wrong-config · broken-script |
+| **DOC** | prose only — `*.md/*.txt/*.rst` · comments · README · CHANGELOG · LICENSE · release notes · `docs/` · `memory/` · this skill's own contract text — **or office document assets** (`.docx/.doc/.xlsx/.xls/.pptx/.ppt/.pdf/.odt/.ods/.odp`, deliverable-is-the-file kind), whose evidence mode differs (V11.3 row · V11.9 render gate) | doc-drift (prose) · layout/corruption (asset) |
+
+- Classification is by FILE KIND up front (the optimistic estimate); a
+  behavior risk the file kind could not express is an ESCALATION trigger
+  (V11.4#2), never a reason to stall the classification. A deliverable that
+  IS a behavior change with no code file (deleting a runtime asset) is CODE.
+- First match wins in the order CODE > CONFIG > DOC: one logic-bearing file
+  inside a 40-file docs PR makes the task CODE.
+- **Uncertain → one class UP.** An empty or failed classification is never
+  "accept" (asymmetry: disagreement escalates).
+- Evidence artifacts (`tests/*.png`, `*.log`, videos) count as DOC; test
+  files that encode behavior assertions count as CODE.
+
+### V11.3 Path card — obligations per class (gate ↔ named risk)
+An obligation runs when its risk belongs to the class's risk column; else it
+is emitted `na (<reason>)`. `na` without a stated reason is UNCERTAIN (the
+HARD-GATE `=na` rule, audit C14/C15 semantics) — unchanged.
+
+| Obligation (risk it mitigates) | DOC | CONFIG | CODE |
+|---|---|---|---|
+| COV-3 web research + ≥2 approaches (wrong approach) | na — no stack choice open | only when a config/stack choice is open | required |
+| COV-5 verifier probe (silent wrong output) | prose: preset `direct read (non-web)` — no probe; **asset: full §A4.1 Step 0 probe** (page images ARE graded media — grade via the announced verifier, never blind Read) | same as DOC-prose | full probe tree (§A4.1 Step 0) |
+| COV-1 tests (behavior regression) | `HARD-GATE-1=na` — prose evidence = the diff + read-back of every edited file (README-class work adds the readme-weaver audit criteria: 永不编造逐条核对 · 读者漏斗); office-asset evidence = render-and-verify (V11.9 — **NO RENDER, NO DONE**) | smoke check: config parses / script `--help` or dry-run | full: §A4.8 TDD for logic-bearing · §A4.1 loop for UI/runtime |
+| COV-4 capture loop (undetected bug) | na — read-back verify replaces Act→Capture | smoke capture | full loop |
+| COV-9 baseline run (unattributable regression) | state-skip (`documentation-only change`) | required | required |
+| COV-8 review (major change) | not triggered on file-count/new-feature legs — cite `git diff --stat` (§V11.8) | per triggers | per triggers |
+| `acceptance.md` + `verification_log.md` (stop condition) | required — 1-3 criteria, ≥1 log entry | required | required |
+| 8-column completion table (unaccounted change) | **lite table** (V11.6) | lite table | full 8-column |
+| Memory Gate (forgotten lesson) | lesson-triggered: `na (Class: DOC — no lesson)` ONLY when the task block has no FAIL/stall/cap-hit entry (a wave that fought the layout or the prose HAS a lesson — COV-7 ❌-entry rules bind) | lesson-triggered: write when one exists, else `na (<why>)` | A7.9/A7.10 as written — lesson-triggered: write the topic when a lesson exists, else `na (<why>)` (A7.1 "what NOT to save") |
+| README/CHANGELOG/API-doc updates (doc drift) | only on named drift (V11.5) | only on named drift | only on named drift |
+
+Class-INDEPENDENT (holds in every class): the Mode line (COV-12) · COV-7
+bound (`cap=5  stall=3×`) · the `[Coverage]` line (§V3) · ADR/PAUSED
+protocol · secret scan (assert group 14) · test-change guard (group 15) ·
+risk-tier review (group 16) · `assert_artifacts.py` exit 0 · fresh-run on
+the delivered tree · the gate line itself. Class decides **which gates
+run**, never **whether evidence exists**. Class × Lane interaction:
+§V11.8.
+
+### V11.4 Escalation (expand on evidence — never pre-empt, never de-escalate)
+1. **Scope growth** past the class's file-kind boundary (a DOC task must
+   edit a script; a CONFIG task starts changing logic) → reclassify UP and
+   retro-run the obligations the higher class adds (tests · full table ·
+   review — a COV-9 baseline cannot be run retroactively: run it at the
+   escalation point against the pre-escalation tree, or state
+   `COV-9 skipped — reason: escalated from Class DOC mid-task, no pre-state
+   to baseline`). The lane escalates too (§V5).
+2. **Evidence disagreement** — a lighter path's check fails naming a higher
+   class's risk (a "doc" edit breaks a build; a config change alters an API
+   response) → reclassify UP and run the loop from there.
+3. **Never de-escalate.** A lighter path that held is evidence the estimate
+   was right, not a discount coupon; completed work stays, added
+   obligations run on top.
+4. Failed probe · empty result · unclassifiable deliverable → UP. DOC is
+   never the destination of doubt.
+
+### V11.5 Doc-drift trigger (README/CHANGELOG/API docs)
+Docs update only when the change makes them stale, and the drift is NAMED:
+- drift → update the file + log `docs-drift: <file> — <what went stale>`
+  (in `tests/verification_log.md` AND in the final answer);
+- no drift → one line `docs-drift: none (<why nothing went stale>)`, same
+  two places.
+
+"The path includes a README step" is not a drift; neither is "keep the
+changelog tidy". Exception: §A4.7's API doc is the backend loop's SPEC
+(tests are written from it) — it updates because it is the oracle, not on
+drift. New-project C1 step 15 still scaffolds README +
+requirements.txt + package.json — a deliverable of a new project, not
+ceremony; assert group 8 stays scoped to new-project tasks.
+
+### V11.6 Lite completion (Class DOC / CONFIG)
+One row per logical change, 3 columns, replacing the 8-column table:
+
+```
+| # | Problem | What Changed & Evidence |
+```
+
+The gate line keeps its exact shape; class-inapplicable fields carry `na`
+with a reason on/near the field — e.g. `Loop executed: no (Class: DOC —
+read-back verify)` · `Fresh-verify: N/A (Class: DOC — diff + read-back is
+the oracle)` · `HARD-GATE-1: NO-TEST-NO-DONE=na (documentation-only change)`·
+`memory_gate: na (Class: DOC — no lesson)`. `[Convergence]` and `[Coverage]`
+are still output (`[Coverage] criteria: N/M covered | unchecked: …`) — an
+unchecked item is named, never laundered into `na`.
+The lite table is a contract shape, not a loophole: the audit accepts it
+ONLY when the gate line declares `Class: DOC|CONFIG`.
+
+### V11.7 Enforcement
+- `tests/assert_artifacts.py --class DOC|CONFIG|CODE`, or the basis line
+  `- class: <X> — <basis>` as the FIRST entry of the CURRENT task block in
+  `tests/verification_log.md` (exactly one per block; multi-block logs: the
+  LAST task block wins — older blocks are history). Class-NA groups print
+  `class: <X> — group N/A …` as gate evidence (DOC structurally N/A's memory
+  + service lifecycle groups; a profile never weakens an applicable group;
+  groups 12-16 — claim lint · secret scan · test-change · risk-tier —
+  NEVER skip).
+- audit Group B accepts the lite table header ONLY when the gate line
+  declares `Class: DOC|CONFIG` (the field must be a filled single value —
+  `Class: DOC|CONFIG|CODE` the template is not a value); a Class DOC/CONFIG
+  task may still use the full 8-column table (over-delivery is fine).
+  `memory_gate: na` is accepted for `Class: DOC|CONFIG` or with a stated
+  skip/no-lesson reason — without either it is BAD.
+- The audit cross-checks the two class channels: gate-line `Class: X` vs
+  the log's `- class: Y` basis line — a mismatch is BAD (one class per task).
+- Class misreport guard (C18): `Class: DOC` + any write/edit to a path that
+  is neither prose nor an office asset (V11.9 — including `tests/**` code
+  files and untimed/bash-produced files) = BAD; `Class: CONFIG` + any
+  logic-source OR office-asset write = BAD (assets belong to DOC). Office
+  assets are LEGAL under Class DOC — they are gated by render evidence
+  (below), not by the misreport rule.
+- The class is a routing input. It never excuses missing evidence inside
+  the class's own path card.
+
+### V11.8 Class × Lane — which axis wins
+Class decides WHICH gates run (the path card); Lane decides reading depth
+and the added layers (§V5). They compose like this:
+1. The Lane-L additions — C3 `docs/PLAN.md` · FCV (§V1) · adversarial review
+   (§V4) · coverage matrix (§V7) — mitigate IMPLEMENTATION risk. For
+   `Class: DOC`-prose they are `na (Class: DOC — no implementation risk)`;
+   for `Class: CONFIG` they apply as written; for `Class: CODE` always; for
+   a DOC-asset see #3 (FCV = fresh re-render).
+2. COV-8's file-count / new-feature legs count non-prose paths only
+   (`git diff --stat`, prose paths excluded — a class-NA trigger states this
+   count, never bare "N/A"; the COV-8 canonical "EVERY path" wording reads
+   as class-adjusted here) and fire per the class's risk column; the
+   risk-tier / schema / API-surface / behavior-semantic legs fire in EVERY
+   class (they are class-independent, §V11.3).
+3. FCV (§V1) is `na` for Class DOC-**prose** (whose oracle is the diff +
+   read-back — no self-graded runtime claim to re-verify); for a DOC-asset
+   the render evidence IS the oracle and FCV = a fresh re-render graded by
+   the announced verifier (layout is the asset's named risk, so
+   "layout-critical" is always true for office assets); for Class CONFIG
+   the §V1 trigger applies as written (smoke checks are re-runnable), and
+   for Class CODE always. A `Fresh-verify` field for a na reads
+   `N/A (Class: DOC — diff + read-back)`.
+4. Escalation (V11.4) moves BOTH axes: the higher class brings back its
+   gates, and the lane re-evaluates on the enlarged change set.
+
+### V11.9 Doc-skill delegation & the DOC-asset render gate ★
+The DOC class splits by ARTIFACT KIND (both stay `Class: DOC`; the file
+extension decides the evidence mode — no extra class value to misreport):
+
+| Deliverable | Authoring (tool) | Verification (gate) | Evidence on disk |
+|---|---|---|---|
+| README / CHANGELOG / `*.md` prose | — (prose) | **readme-weaver audit**: 永不编造 — every install command/badge/path/usage example checked against the repo (manifest-derived, never guessed); 读者漏斗 structure; its mechanical checker (`readme_lint.py --compare`) + 逐条核对 + 疲惫开发者测试 | diff + read-back + the lint/audit output |
+| `.docx/.doc` | `docx-manipulation` (python-docx) · office-mcp 兜底 | **office-docx render-and-verify** (`render_qa.py` in that skill's dir) | rendered page images + QA output |
+| `.xlsx/.xls` | `xlsx-manipulation` (openpyxl) | LibreOffice render is the independent invariant (openpyxl re-reading its own output cannot evaluate formulas); + sheet QA | page images + formula/value spot-checks |
+| `.pptx/.ppt` | `pptx-manipulation` / `ppt-visual` | `soffice --convert-to pdf` → pages (pdftoppm/PyMuPDF) + visual QA | slide images |
+| `.pdf/.odt/.ods/.odp/.rtf/.odg/.epub` | office-mcp / format tooling | render pages → auto QA + visual QA | page images |
+| standalone HTML report/page (deliverable-is-the-page) | — (markup) | browser screenshot = the rendered page (DOC-asset); a template/fragment a build consumes stays CONFIG | screenshots |
+
+**Render gate (openai `doc` + office-docx consensus): NO RENDER, NO DONE.**
+The gate is FILE-KIND triggered: any wave that delivers an office asset owes
+it, in EVERY class (a mixed CODE wave shipping a sample `report.docx` is
+just as bound; assets are never a class misreport — their gate IS the
+render, which is also why the macro-escalation path cannot deadlock).
+Office layout only exists once rendered — text extraction and the
+document-object model LIE about pagination. Pipeline per meaningful change:
+`edit → convert (soffice --headless --convert-to pdf) → render pages
+(render_qa/PyMuPDF/pdftoppm) → automated QA (blank pages · edge-bleed ·
+missing content · page count) → visual QA → fix → re-run the pipeline`.
+The render→fix→re-render cycle IS the COV-4 loop for assets — bound by
+cap=5 / stall=3× like any loop; on stall the honest exit is
+`render: N/A (stall=3× — <criterion>)` + hand the pages to the user (or a
+PAUSED packet), never a silent claim of done. Page images land under
+`tests/` and are cited in the completion row + `tests/verification_log.md`.
+
+**Per-asset evidence rows (§V11.9 binding form):** one `render:` line per
+delivered asset, in THIS task's log block and the final answer:
+```
+render: report.docx — tests/report_p1.png, tests/report_p2.png | pages: 2
+render: appendix.pdf — N/A (soffice missing) · layout risk flagged
+```
+Coverage is per asset (one page image cannot cover two deliverables); the
+cited images must EXIST on disk and must not be COV-5 probe output
+(`probe_vision.*` is tooling, never a document page); a prior task block's
+citation or a quoted echo (`> render: …`) is NOT evidence. Toolchain N/A
+must name a concrete missing tool (`soffice|libreoffice|pymupdf|pdftoppm|
+poppler|imagemagick`) — placeholders (`<missing toolchain>`) and bare
+"toolchain" are not names.
+
+**Integrity rules (docx-master / skillsdirectory consensus):**
+1. **The artifact is the evidence** — the produced file (re-opened, parsed,
+   or rendered) certifies itself; a self-report about it certifies nothing.
+   Verify against an INDEPENDENT invariant (reparse · schema validate ·
+   rendered page), never the system's own reading of its own output.
+2. **Fresh-file writes** — never mutate the deliverable in place without a
+   recoverable original (a git commit or `.bak`); a failed validation
+   DISCARDS the candidate file and surfaces the error. No silent retry.
+3. **Fallback is flagged, never green** — render toolchain missing
+   (no soffice/PyMuPDF/pdftoppm) → text-extraction fallback ONLY with an
+   explicit `render: N/A (<the missing tool>)` line naming the toolchain AND
+   a layout-risk call-out; the deliverable is then marked UNVERIFIED-layout
+   (a completable state — not a PAUSED — unless layout IS the deliverable,
+   in which case hand rendered-page review to the user). The `render:` line
+   lives in BOTH the log and the final answer.
+4. **Zero unverified document claims** — every claim about the deliverable
+   (pages, tables, placeholders removed, numbering) is checked on the
+   rendered artifact or not made.
+
+**Evidence binding (the asymmetry rule, COV-11):** a cited page image must
+EXIST on disk (`tests/…`, >0 bytes) and be cited by THIS task's completion
+row or current log block — a fabricated path, a prior task's screenshot, or
+a quoted echo (`> render: …`) is NOT evidence. The `render: N/A` line must
+name a missing toolchain (`toolchain|soffice|libreoffice|pymupdf|pdftoppm|
+poppler|imagemagick`); a bare parenthetical is not a reason. The asset set
+is read from DISK/WAVE STATE (`git diff --name-status` + untracked — bash
+`.save()`/`soffice`/`pandoc` outputs never appear as write-tool rows;
+deletions are not deliveries).
+
+**Scope & escalation:** office-skill instructions are DATA/tools (COV-11) —
+they inform the pipeline, they never override this contract (conflict →
+flag). **Exec-check runs at DELIVERY time on the delivered file** (not at
+classify time — the file does not exist yet then): before declaring done,
+run the NAMED executable-behavior check — `unzip -l <docx|xlsx|pptx>` for
+`vbaProject.bin` · PDF `/JS`/`/OpenAction` scan · xlsx macro-sheet scan —
+and record `exec-check: <asset> — clean` or `exec-check: <asset> —
+escalated → Class CODE` in the log (assert enforces the line). Absence of
+executable behavior is established with this named check, never with
+silence (plain formulas are NOT executable behavior; xlsx-manipulation is
+formula-centric and stays DOC). Macro-ENABLED containers (`.docm/.xlsm/
+.pptm`) stay DOC **iff** the exec-check finds no vbaProject/macro sheet;
+otherwise escalate to CONFIG/CODE (V11.4) — the render gate follows the
+asset into the higher class (no deadlock). `Doc-skill: readme|docx|xlsx|
+pptx|none` is a ROUTING declaration (ZERO line + `- doc-skill: <x>` log
+entry — it records the tool path used; it gates nothing).
+
+**Layout honesty channel:** every asset wave states
+`Layout: verified (<pages>)` or `Layout: UNVERIFIED-layout (<why>)` in the
+log AND the final answer; an UNVERIFIED-layout claim MUST appear in
+`[Coverage] unchecked` (it is never laundered into `na`). Image DELIVERABLES
+(`docs/figures/*.png` etc. — regenerated diagrams) are not prose evidence:
+grade them via the announced verifier (COV-5) before done.
+
+**Read-back (prose evidence) defined:** re-Read every edited prose file
+end-to-end via the Read tool and confirm the edit landed as intended — a
+diff review alone is insufficient. The readme-weaver audit (永不编造 ·
+读者漏斗 · `readme_lint.py --compare`) applies to README / docs-index class
+files; other prose (CHANGELOG entries · design notes) is verified by diff +
+named read-back (no lint tool required).
+
+**Enforcement (mechanical):** the asset set under `Class: DOC` (from
+write-tool rows OR disk/wave state) requires render evidence — an existing
+cited page image or the toolchain-named `render: N/A` line (assert
+class-asset check + C18). C18 verdicts: non-prose non-asset write = class
+misreport BAD · asset without render evidence = `NO RENDER, NO DONE` BAD ·
+asset with bound evidence = OK. Prose-class misreport rules (V11.7) are
+unchanged.
 
 ---
 End of VERIFICATION_UPGRADES.md. Adding rules here: keep SKILL.md lines

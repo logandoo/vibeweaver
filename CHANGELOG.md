@@ -2,6 +2,134 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-09-28: task classification — proportional verification paths (COV-13 / §V11)
+
+The verification path did not scale. Updating a README or a CHANGELOG — prose
+work with no runtime to test — walked the same path as a behavior change: tests
+with on-disk evidence, a baseline run, the 8-column completion table, the memory
+gate. Worse, the path itself pushed docs around ("the flow includes a README
+step") whether or not anything was stale. A gate that names no risk is process
+inflation. Research agreed from four directions: E3's estimate→execute→expand
+(arXiv 2607.13034 — size the minimum path, widen only when verification fails),
+bucket→verification-depth triage, the "a gate without a named risk is process
+inflation" rule, and single-pass triage whose output drives every downstream
+decision.
+
+- **COV-13, the Class declaration.** The change set's file kinds decide —
+  `git diff --stat` plus untracked, never the agent's recollection:
+  `Class: CODE` (logic-bearing source: control flow / state / validation /
+  transform, including test files with behavior assertions) first, then
+  `Class: CONFIG` (config, scripts, markup, CI — no control flow), then
+  `Class: DOC` (prose: md/txt/rst, README, CHANGELOG, docs/, memory/, office
+  assets). First match wins; uncertain goes one class UP; a class escalates on
+  scope growth or when evidence names a higher class's risk and never
+  de-escalates.
+- **A path card per class (§V11.3), gate ↔ named risk.** DOC drops tests, the
+  capture loop, the baseline run and the 8-column table to `na (reason)` and
+  keeps acceptance criteria, the iteration log, `[Coverage]` and the gate line —
+  with a 3-column lite table (`| # | Problem | What Changed & Evidence |`)
+  licensed only by a filled `Class: DOC|CONFIG` field. CONFIG keeps smoke checks
+  and the COV-9 baseline. CODE is unchanged. The class-independent set stays:
+  secret scan, test-change guard, risk-tier review, the cap=5/stall=3× bound.
+- **The doc-drift trigger (§V11.5).** README/CHANGELOG/API docs update only when
+  the change makes them stale, and the drift is named (`docs-drift: <file> —
+  <what went stale>`); no drift still produces a line (`docs-drift: none (<why>)`).
+  "The flow includes a README step" is not a drift.
+- **Class × Lane (§V11.8)** are different axes: Lane sets reading depth and added
+  review layers, Class sets which gates run. For DOC, the Lane-L additions (plan
+  file, FCV, adversarial review, coverage matrix) and the COV-8 file-count leg go
+  `na`; risk-tier / schema / API / behavior-semantic legs fire in every class.
+- **Enforcement both sides.** `assert_artifacts.py --class` (or the task block's
+  `- class: <X> — <basis>` line) N/A's the memory and service-lifecycle groups
+  for DOC; the auditor gains a filled-`Class:` field check (unfilled template and
+  prose mentions don't license anything), gate-line-vs-log class cross-check,
+  a memory-`na` reason-line rule where checklist echoes don't count as reasons,
+  and a class misreport guard.
+- **Verification.** Fixture suite grew to 103 assertions (class suite: lite path
+  accepted, unlicensed lite/na/template rejected, misfire tokens (`Class: DOCS`,
+  `DOC|CONFIG`, spaced template) rejected, tests/-hidden and untimed writes
+  caught, gate-vs-log mismatch caught, old task blocks don't license the current
+  one); mutation sweep to 41. TDD RED: the class tests fail in bulk against the
+  pre-change core. Two adversarial review rounds (contract coherence,
+  enforcement bypasses) plus a fresh-context FCV round; one spec↔test conflict
+  adjudicated as an ADR rather than papered over.
+
+## 2026-09-28: the DOC-asset render gate and doc-skill delegation (§V11.9)
+
+Office deliverables had no home. `report.docx`, a ledger `.xlsx`, a defense
+`.pptx` are not code (no control flow), not config, and not prose, so
+"uncertain → higher class" shoved them up into the heavy path. And the DOC
+evidence rule — diff plus read-back — is exactly what the doc-tooling world
+warns about: text extraction and the document object model lie about
+pagination. The gate that caught it was also wrong: the class misreport guard
+treated every `.docx` write as a lie.
+
+- **Artifact kind, not a fourth class.** Office assets stay `Class: DOC`; the
+  extension picks the evidence mode (prose → diff + named read-back; asset →
+  render-and-verify). Fewer class values, fewer things to misreport.
+- **NO RENDER, NO DONE** (openai `doc` skill and office-docx consensus). Convert
+  with `soffice --headless`, rasterize pages, run automated QA (blank pages,
+  edge bleed, missing content, page count), grade the page images through the
+  announced verifier, fix, re-render. The render→fix cycle is the COV-4 loop for
+  assets and is bound by cap=5 / stall=3× like any loop.
+- **Doc-skill delegation (§V11.9).** readme-weaver audits README-class prose
+  (never fabricate: every command, badge and path checked against the repo);
+  docx / xlsx / pptx-manipulation author; office-docx renders and verifies;
+  office-mcp is the fallback. Skill instructions are data and tools (COV-11) —
+  they inform the pipeline, never override the contract. Macro-enabled
+  containers stay DOC only if a named executable-behavior check
+  (`unzip -l` for `vbaProject.bin`, PDF `/JS` scan, macro-sheet scan) comes back
+  clean; otherwise the task escalates and the render gate follows the asset up.
+- **Integrity rules (docx-master, skillsdirectory).** The artifact is the
+  evidence — verify against an independent invariant (reparse, schema validate,
+  rendered page), never the system's own reading of its own output. Fresh-file
+  writes; a failed validation discards the candidate and surfaces the error; no
+  silent retry. A missing toolchain degrades to a flagged
+  `render: N/A (<the missing tool>)` with a layout-risk call-out, and the
+  deliverable is marked `UNVERIFIED-layout` — never quietly "done".
+- **Verification.** TDD RED against the pre-wave core: every `.docx` write was
+  misclassified as a class lie, including the legitimate rendered case. New
+  fixtures pin the render gate in both directions and the exec-check line.
+
+## 2026-09-28: blind-spot hardening — file-kind gate, evidence binding, delivery-time exec-check
+
+A blind-spot hunt after the two waves above found real holes, several in claims
+already marked closed: two probes plus a fresh-context semantic hunter, nine
+confirmed gaps. The pattern across them: the gate was scoped to a class instead
+of a file kind, and evidence was accepted from anywhere.
+
+- **The render gate is file-kind triggered (every class).** A mixed CODE wave
+  shipping a sample `report.docx`, a release PDF in a deploy wave, a CLI-exported
+  docx — all owe the same render. Assets stopped being a class misreport, which
+  also closed an escalation deadlock: macro → "escalate to CONFIG" → "assets
+  belong to DOC" → contradiction. The gate travels with the asset into the higher
+  class.
+- **Evidence binding.** Only the current task block and the final answer can
+  bind; `probe_vision.*` (COV-5 tooling output) never counts as a document page;
+  one `render: <asset> — …` line per deliverable (one page image cannot cover two
+  files); cited page images must exist on disk; the toolchain N/A must name a
+  concrete tool — placeholders (`<missing toolchain>`) and bare "toolchain" are
+  not names; quoted echoes don't license.
+- **Wave scope, not working tree.** The asset set is read from
+  `backup: before changes`..HEAD plus uncommitted and untracked paths
+  (`--name-status`, binary-safe; deletions are not deliveries). A first fix
+  looked only at the working tree and a fixture proved that committing the asset
+  made it invisible.
+- **Exec-check at delivery time.** The named executable-behavior check runs on
+  the delivered file (it did not exist at classify time) and is recorded as
+  `exec-check: <asset> — clean|escalated`, enforced by a new assertion row.
+- **Lessons bind for DOC too.** A wave with FAIL/stall entries has a lesson; the
+  memory group stops being skippable for it (COV-7's ❌-entry rule).
+- **Layout honesty channel.** `Layout: verified (<pages>)` or
+  `Layout: UNVERIFIED-layout (<why>)` in the log and the answer, with
+  UNVERIFIED-layout landing in `[Coverage] unchecked`. Image deliverables
+  (`docs/figures/*.png`) are graded through the announced verifier, not assumed
+  fine. Read-back got a definition (re-read the edited file end to end; a diff
+  review alone is insufficient).
+- **Verification.** Fixture suite 103 / mutation sweep 41, including the four
+  original probes as negative cases and per-asset binding; the FCV round re-ran
+  ten probes and closed all of them.
+
 ## 2026-09-28: loop-guard noop-bash — tool-channel echo-narration stop
 
 A weak-model failure mode escaped every stop mechanism vibeweaver had: instead

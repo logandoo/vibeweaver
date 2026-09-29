@@ -11,8 +11,8 @@ Checks:
   3. SKILL.md entry budget (soft 1400 lines warn / hard 1600 lines fail)
   4. every relative markdown link in SKILL.md resolves (one level deep)
   5. companion files' relative links resolve
-  6. scripts/assert_artifacts.py compiles + carries all 13 markers
-  7. SKILL.md's own marker list matches the canonical script's 13
+  6. scripts/assert_artifacts.py compiles + carries all 18 markers
+  7. COMPLETION_GATE.md's marker list matches the canonical script's 18
   8. install.sh / install.bat install the full file set
    9. payload JS syntax — both plugins + 3 helper scripts (node --check,
       when node is available)
@@ -29,7 +29,7 @@ MARKERS = [
     "git repo needs", "FLOW_DESIGN", "README", "Baseline verified GREEN",
     "workflow trace", "media evidence", "diagnosis:",
     "claim without stated coverage", "secret scan", "test-change:",
-    "risk-tier", "secret-approved",
+    "risk-tier", "secret-approved", "DOC-asset render gate", "exec-check",
 ]
 PAYLOAD_FILES = [
     "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",

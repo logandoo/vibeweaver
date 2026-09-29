@@ -272,7 +272,11 @@ Before implementing any change:
 7. **Check MEMORY.md caps** — If index exceeds 150 lines or 20KB, consolidate before adding more
 8. **Clean up session scratchpad** — If you created `memory/.session-scratchpad.md`, delete it after permanent topic files are written
 
-**The checklist item "Memory topic file written to memory/" is MANDATORY — do not skip it.**
+**The checklist item "Memory topic file written to memory/" is MANDATORY for
+any task that produced a lesson — do not skip it.** Lesson-less tasks
+(Class DOC / trivial changes, §V11.3) state `- memory: na (<why no lesson>)`
+in `tests/verification_log.md` instead of writing filler topics (A7.1
+"what NOT to save" — a forced empty topic is worse than none).
 
 ---
 
@@ -293,6 +297,10 @@ Before outputting the completion table, you MUST pass this gate. If any check fa
 **Explicit reporting:** In the line immediately before the completion table, output a single summary line:
 ```
 [Memory Gate] Passed: N new/updated topic file(s) | Index updated: yes/no | Commit hashes present: yes/no/N/A | Scratchpad cleaned: yes/no/N/A
+```
+or, when nothing persistable was produced (§V11.3 lesson-triggered):
+```
+[Memory Gate] na (<why no lesson>) — gate line field: memory_gate: na
 ```
 Do not output the completion table until this line is present and all answers are truthful.
 

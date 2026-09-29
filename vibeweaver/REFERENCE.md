@@ -422,7 +422,7 @@ below — they are the full authoritative text.
 12.  Act → Capture → Verify (verifier per §A4.1 Step 0: model-native /
       mm-sensor / direct read) → Fix → Log loop until ALL criteria
      pass or cap=5/stall=3× stops you (COV-7); convergence summary + ★ 8-column
-     completion table (A4.4) — no exceptions
+     completion table (A4.4) — no exceptions (Class DOC/CONFIG → §V11.6 lite)
 13.  Acceptance checklist
 14.  ★ Write session memories: create memory/MEMORY.md + topic files + index
      ([MEMORY_RULES.md §A7.9](MEMORY_RULES.md)); record design decisions, user
@@ -516,7 +516,7 @@ won't know whether you broke it or it was already broken.
 - Act → Capture → Verify → Fix → Log to `tests/verification_log.md` →
   Repeat until ALL acceptance criteria pass or cap=5/stall=3× stops you.
 - ★ Convergence summary line + 8-column completion table (§A4.4) — final
-  deliverable, no exceptions.
+  deliverable, no exceptions (Class DOC/CONFIG → the §V11.6 lite table, COV-13).
 
 **Major change** (≥3 files / new feature / API-surface change) → dispatch the
 A4.9 reviewer before the completion table (COV-8). Else state
@@ -540,8 +540,8 @@ At session end, before the completion table, you MUST (operational rules in
 7. Record project memories for goals / deadlines / team context.
 8. Check consolidation need (>15 topic files or index >150 lines / 20KB — see
    [MEMORY_RULES.md §A7.13](MEMORY_RULES.md)).
-9. Pass Final Memory Gate (A7.10) and output the `[Memory Gate] Passed: …` line
-   immediately before the completion table.
+9. Pass Final Memory Gate (A7.10) and output the `[Memory Gate] Passed: …`
+   (or `na (reason)` per §V11.3) line immediately before the completion table.
 
 ### C3. Large-Task Implementation Plan (Conditional)
 **Trigger:** work touching ≥3 files, or multi-step inter-dependencies (new
