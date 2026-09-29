@@ -9,9 +9,9 @@
 - **COV-13，Class 声明。**由变更集的文件种类判定——`git diff --stat` 加 untracked，绝不靠记忆：`Class: CODE`（含控制流的逻辑源码：分支/状态/校验/变换，含带行为断言的测试文件）优先，其次 `Class: CONFIG`（配置、脚本、标记、CI——无控制流），最后 `Class: DOC`（散文：md/txt/rst、README、CHANGELOG、docs/、memory/、office 资产）。首匹配取序；不确定取高一类；scope 越界或证据点名更高类风险时升类，且只升不降。
 - **每类一张 path card（§V11.3），gate↔具名风险。**DOC 把测试、捕获循环、基线运行、8 列表降为 `na (reason)`，保留验收判据、迭代日志、`[Coverage]` 与 gate line——外加三列 lite 表（`| # | Problem | What Changed & Evidence |`），且仅在 gate line 带已填写的 `Class: DOC|CONFIG` 字段时合法。CONFIG 保留 smoke 检查与 COV-9 基线。CODE 不变。类无关集不动：密钥扫描、test-change 守卫、风险层审查、cap=5/stall=3× 边界。
 - **doc-drift 触发器（§V11.5）。**README/CHANGELOG/API 文档只在内容确实过期时更新，且漂移必须具名（`docs-drift: <file> — <what went stale>`）；无漂移也要给一行（`docs-drift: none (<why>)`）。「流程里有 README 这一步」不算漂移。
-- **Class × Lane（§V11.8）是两个轴。**Lane 管读深与加层，Class 管哪些 gate 跑。DOC 类下 Lane-L 增件（计划文件、FCV、对抗评审、覆盖矩阵）与 COV-8 文件计数腿走 `na`；风险层/schema/API/行为语义腿在任何类都触发。
+- **Class × Lane（§V11.8）是两个轴。**Lane 管读深与加层，Class 管哪些 gate 跑。DOC-prose 下 Lane-L 增件（计划文件、FCV、对抗评审、覆盖矩阵）走 `na`；DOC-asset 的 FCV 是一次全新重渲（渲染就是它的 oracle）；COV-8 文件计数腿走 `na` 但须报出非散文路径数。风险层/schema/API/行为语义腿在任何类都触发。
 - **执法双侧。**`assert_artifacts.py --class`（或任务块的 `- class: <X> — <basis>` 行）为 DOC 跳过记忆与服务生命周期组；审计侧新增已填写 `Class:` 字段检查（未填模板与散文提及一律不构成许可）、gate line↔log 类交叉核对、memory `na` 需真行理由（清单回声不算）、类错报守卫。
-- **验证。**fixture 套件增至 103 条断言（类套件：lite 放行、未授权 lite/na/模板拒绝、误报 token（`Class: DOCS`、`DOC|CONFIG`、空格模板）拒绝、tests/ 隐藏与无时间戳写抓获、gate↔log 不匹配抓获、旧任务块不给当前块许可）；变异扫描增至 41。TDD RED：类测试对变更前 core 批量失败。两轮对抗评审（契约一致性、执法绕过）加一轮全新上下文 FCV；一处 spec↔测试冲突按 ADR 裁决而非糊弄过去。
+- **验证。**fixture 套件增至 103 条断言（类套件：lite 放行、未授权 lite/na/模板拒绝、误报 token（`Class: DOCS`、`DOC/CONFIG`、空格模板）拒绝、tests/ 隐藏与无时间戳写抓获、gate↔log 不匹配抓获、旧任务块不给当前块许可）；变异扫描增至 41。TDD RED：类测试对变更前 core 批量失败。两轮对抗评审（契约一致性、执法绕过）加一轮全新上下文 FCV；一处 spec↔测试冲突按 ADR 裁决而非糊弄过去。
 
 ## 2026-09-28：DOC-asset render 门与 doc-skill 委托（§V11.9）
 

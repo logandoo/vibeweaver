@@ -36,9 +36,11 @@ decision.
   <what went stale>`); no drift still produces a line (`docs-drift: none (<why>)`).
   "The flow includes a README step" is not a drift.
 - **Class × Lane (§V11.8)** are different axes: Lane sets reading depth and added
-  review layers, Class sets which gates run. For DOC, the Lane-L additions (plan
-  file, FCV, adversarial review, coverage matrix) and the COV-8 file-count leg go
-  `na`; risk-tier / schema / API / behavior-semantic legs fire in every class.
+  review layers, Class sets which gates run. For DOC-prose the Lane-L additions
+  (plan file, FCV, adversarial review, coverage matrix) go `na`; a DOC-asset's
+  FCV is a fresh re-render (the render is its oracle); the COV-8 file-count leg
+  goes `na` with the non-prose count stated. Risk-tier / schema / API /
+  behavior-semantic legs fire in every class.
 - **Enforcement both sides.** `assert_artifacts.py --class` (or the task block's
   `- class: <X> — <basis>` line) N/A's the memory and service-lifecycle groups
   for DOC; the auditor gains a filled-`Class:` field check (unfilled template and
@@ -47,7 +49,7 @@ decision.
   and a class misreport guard.
 - **Verification.** Fixture suite grew to 103 assertions (class suite: lite path
   accepted, unlicensed lite/na/template rejected, misfire tokens (`Class: DOCS`,
-  `DOC|CONFIG`, spaced template) rejected, tests/-hidden and untimed writes
+  `DOC/CONFIG`, spaced template) rejected, tests/-hidden and untimed writes
   caught, gate-vs-log mismatch caught, old task blocks don't license the current
   one); mutation sweep to 41. TDD RED: the class tests fail in bulk against the
   pre-change core. Two adversarial review rounds (contract coherence,

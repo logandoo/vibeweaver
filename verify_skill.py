@@ -11,8 +11,8 @@ Checks:
   3. SKILL.md entry budget (soft 1400 lines warn / hard 1600 lines fail)
   4. every relative markdown link in SKILL.md resolves (one level deep)
   5. companion files' relative links resolve
-  6. scripts/assert_artifacts.py compiles + carries all 18 markers
-  7. COMPLETION_GATE.md's marker list matches the canonical script's 18
+  6. scripts/assert_artifacts.py compiles + carries all 19 markers
+  7. COMPLETION_GATE.md's marker LIST (parsed, not substring) matches MARKERS 1:1
   8. install.sh / install.bat install the full file set
    9. payload JS syntax — both plugins + 3 helper scripts (node --check,
       when node is available)
@@ -145,12 +145,24 @@ def main():
             fail("canonical assert script missing marker: %r" % mk)
 
     # 7) the marker list lives in COMPLETION_GATE.md §A4.4.1 (SKILL.md points
-    #    there since the wave3 compression) — doc must mirror the script
+    #    there since the wave3 compression) — doc must mirror the script 1:1.
+    #    Parse the list itself: a substring-anywhere match would pass a marker
+    #    that survives only in prose (that blindness hid a 19-vs-18 split once).
     cg = (PAYLOAD / "COMPLETION_GATE.md").read_text(encoding="utf-8")
-    cg_m = [mk for mk in MARKERS if mk in cg]
-    if len(cg_m) != len(MARKERS):
-        missing = [mk for mk in MARKERS if mk not in cg]
-        fail("COMPLETION_GATE.md no longer lists all %d markers (missing: %s)" % (len(MARKERS), ", ".join(missing)))
+    lm = re.search(r"MUST contain each of these (\d+) markers —(.+?)\. Grep", cg, re.S)
+    if not lm:
+        fail("COMPLETION_GATE.md: marker-list sentence (…each of these N markers — … Grep) not found")
+    else:
+        declared_n = int(lm.group(1))
+        listed = re.findall(r"`([^`]+)`", lm.group(2))
+        if declared_n != len(MARKERS) or len(listed) != len(MARKERS):
+            fail("marker list count mismatch: COMPLETION_GATE declares %d and lists %d, MARKERS has %d"
+                 % (declared_n, len(listed), len(MARKERS)))
+        missing = [mk for mk in MARKERS if mk not in listed]
+        extra = [x for x in listed if x not in MARKERS]
+        if missing or extra:
+            fail("marker list mismatch (missing from list: %s | listed but not in MARKERS: %s)"
+                 % (", ".join(missing) or "—", ", ".join(extra) or "—"))
 
     # 8) installers carry the full set
     sh = (PAYLOAD / "install.sh").read_text(encoding="utf-8")
