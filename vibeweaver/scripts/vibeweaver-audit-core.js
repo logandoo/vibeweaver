@@ -80,7 +80,7 @@ function walkDir(root, rel, pred) {
 // (tests/, memory/, .vibeweaver/, *.md/*.html/*.txt/*.log/*.json) — commits or
 // writes that only document/record a verification run are legitimate and must
 // NOT trip the fresh-run / ordering checks.
-const BENIGN_RE = /(^|[\/])(tests|memory|\.vibeweaver)([\/]|$)|\.(md|html|txt|log|json|png|webm|wav|mp4|mp3|pyc|docx|doc|xlsx|xls|pptx|ppt|pdf|odt|ods|odp|rtf|odg|epub|mht|docm|xlsm|pptm)$/i
+const BENIGN_RE = /(^|[\/])(tests|memory|\.vibeweaver)([\/]|$)|\.(md|html|txt|log|json|png|webm|wav|mp4|mp3|pyc)$/i
 
 function isCodeFile(p) {
   if (typeof p !== "string") return false
@@ -384,36 +384,6 @@ export function auditProject(opts) {
   }
 
   // Group B — narration markers in final text
-  // COV-13 task class: STRUCTURAL, read from the gate line's own `|`-separated
-  // field only. The value must be exactly DOC/CONFIG/CODE and the NEXT field
-  // must not be another class name (that shape is the unfilled template
-  // `Class: DOC|CONFIG|CODE`, which splits across fields). Prose mentions
-  // inside other fields (`Loop executed: no (Class: DOC — …)`) never license.
-  const gateMatch = text.match(/\[Verification Gate\][^\n]*/)
-  const gateLine = gateMatch ? gateMatch[0].trim() : ""
-  const gateFields = gateLine.split("|").map((s) => s.trim())
-  const clsIdx = gateFields.findIndex((s) => /^Class:/i.test(s))
-  let classField = ""
-  if (clsIdx >= 0) {
-    const fm = gateFields[clsIdx].match(/^Class:[ \t]*(DOC|CONFIG|CODE)$/i)
-    const nxt = (gateFields[clsIdx + 1] || "").trim()
-    if (fm && !/^(CONFIG|CODE|DOC)$/i.test(nxt)) classField = fm[1].toUpperCase()
-  }
-  const liteClass = classField === "DOC" || classField === "CONFIG"
-  // Class basis line: scoped to the CURRENT (last `##`) task block — an older
-  // block's `- class:` is history and must not license the current task.
-  const logBlocks = log.split(/^(?=## )/m)
-  const curLogBlock = logBlocks.length ? logBlocks[logBlocks.length - 1] : log
-  const logClassM = [...curLogBlock.matchAll(/^-[ \t]*class:[ \t]*(DOC|CONFIG|CODE)[ \t]*[—-][ \t]*(\S[^\n]*)/gim)]
-  const logClass = logClassM.length ? logClassM[logClassM.length - 1][1].toUpperCase() : ""
-  const SKIP_REASONS = /documentation-only|doc-only|config-only|no runtime|no build|no UI|no service|na reason|no lesson|nothing persistable|informational only|纯文档|纯配置/i
-  // A reason must be STATED on a real line — checklist echoes (`- [ ] …`) and
-  // table rows (`| … |`) are template text, never a claim's own reason.
-  const reasonLineStated = (log + "\n" + text).split("\n").some((l) => {
-    const s = l.trim()
-    if (!s || s.startsWith("- [") || s.startsWith("|")) return false
-    return SKIP_REASONS.test(s)
-  })
   const m = (re) => re.test(text)
   if (m(/\[Verification Gate\]/)) check(checks, "B1", "`[Verification Gate]` line present", "OK", "found")
   else check(checks, "B1", "`[Verification Gate]` line present", "BAD", "missing from assistant text")
@@ -427,28 +397,18 @@ export function auditProject(opts) {
   else check(checks, "B5", "`[Memory Gate]` line present", "BAD", "missing")
   if (m(/\[Convergence\]/)) check(checks, "B6", "`[Convergence]` line present", "OK", "found")
   else check(checks, "B6", "`[Convergence]` line present", "BAD", "missing")
-  const liteHdr = /^\s*\|\s*#\s*\|\s*Problem\s*\|\s*What Changed & Evidence\s*\|\s*$/im
-  if (liteClass) {
-    // lite table licensed by the class; the full 8-column table is legitimate
-    // over-delivery for a DOC/CONFIG task and stays accepted.
-    if (liteHdr.test(text) || m(/\| # \| Problem \| Research Sources/)) check(checks, "B7", "completion table (lite licensed)", "OK", `Class: ${classField}`)
-    else check(checks, "B7", "completion table (lite licensed)", "BAD", `neither the §V11.6 lite header nor the 8-column header found (Class: ${classField})`)
-  } else if (m(/\| # \| Problem \| Research Sources/)) check(checks, "B7", "8-column completion table header", "OK", "found")
-  else if (liteHdr.test(text)) check(checks, "B7", "8-column completion table header", "BAD", "lite table used without a filled `Class: DOC|CONFIG` field (§V11.6)")
-  else check(checks, "B7", "8-column completion table header", "BAD", "missing from assistant text")
+  if (m(/\| # \| Problem \| Research Sources/)) check(checks, "B7", "8-column completion table header", "OK", "found")
+  else check(checks, "B7", "8-column completion table header", "BAD", "missing")
   if (m(/assert_artifacts\.py:\s*pass=\d+\/fail=0/)) check(checks, "B8", "`assert_artifacts.py: pass=N/fail=0` field", "OK", "found")
   else check(checks, "B8", "`assert_artifacts.py: pass=N/fail=0` field", "BAD", "missing")
   if (m(/covenant_recall:\s*pass/)) check(checks, "B9", "`covenant_recall: pass` field", "OK", "found")
   else check(checks, "B9", "`covenant_recall: pass` field", "BAD", "missing")
   if (m(/memory_gate:\s*pass/)) check(checks, "B10", "`memory_gate: pass` field", "OK", "found")
-  else if (m(/memory_gate:\s*na/) && (liteClass || reasonLineStated)) check(checks, "B10", "`memory_gate` field", "OK", liteClass ? `na (Class: ${classField})` : "na (stated reason line)")
-  else check(checks, "B10", "`memory_gate: pass` field", "BAD", "missing (na is licensed only by Class: DOC/CONFIG or a stated reason line — a checklist echo is not a reason)")
-  if (classField && logClass && classField !== logClass) check(checks, "B11", "`Class` field", "BAD", `class mismatch: gate line ${classField} vs log ${logClass} — one class per task (COV-13)`)
-  else if (classField) check(checks, "B11", "`Class: DOC|CONFIG|CODE` field", "OK", classField)
-  else check(checks, "B11", "`Class: DOC|CONFIG|CODE` field", "BAD", "missing or template left unfilled (COV-13)")
+  else check(checks, "B10", "`memory_gate: pass` field", "BAD", "missing")
 
   // Group C — claim ↔ artifact cross-checks (triage)
-  // gateLine extracted above (Group B) — shared with the Class field.
+  const gateMatch = text.match(/\[Verification Gate\][^\n]*/)
+  const gateLine = gateMatch ? gateMatch[0].trim() : ""
   const field = (re) => {
     const mm = gateLine.match(re)
     return mm ? mm[1] : null
@@ -525,12 +485,7 @@ export function auditProject(opts) {
     else check(checks, "C12", "verifier announced (COV-5)", "BAD", "loop executed but no verifier announcement")
   } else check(checks, "C12", "verifier announced (COV-5)", "UNCERTAIN", "loop claim absent")
 
-  // COV-9: state-skip is a Class DOC license. CONFIG runs the baseline
-  // (§V11.3) — its skip must name a mid-task escalation, not "documentation-only".
-  const baselineLine = /- Baseline verified GREEN/.test(log)
-  const escalationSkip = /COV-9 skipped[^\n]*escalat/i.test(log)
-  const docSkip = /COV-9 skipped/.test(log) && (classField === "DOC" || classField === "")
-  const baseline = baselineLine || escalationSkip || docSkip
+  const baseline = /- Baseline verified GREEN|COV-9 skipped/.test(log)
   const didWrite = tools.some((t) => t.tool === "write" || t.tool === "edit")
   if (baseline) check(checks, "C13", "COV-9 baseline recorded in log", "OK", "baseline line found")
   else if (didWrite) check(checks, "C13", "COV-9 baseline recorded in log", "BAD", "files edited but no baseline/skip line in log")
@@ -542,108 +497,21 @@ export function auditProject(opts) {
     .map((t) => t.t)
   const lastCodeWrite = codeWrites.length ? Math.max(...codeWrites) : null
   const logMtimeMs = mtimeOf(path.join(testsDir, "verification_log.md"))
-  if (lastCodeWrite === null) {
-    // Class DOC writes prose only — "no code writes" is definitional, not a gap.
-    if (classField === "DOC") check(checks, "C16", "code write precedes last log write", "OK", "Class DOC — no code writes expected")
-    else check(checks, "C16", "code write precedes last log write", "UNCERTAIN", "no timestamped code writes in tool log")
-  } else if (logMtimeMs !== null && lastCodeWrite <= logMtimeMs + 1_000) check(checks, "C16", "code write precedes last log write", "OK", "last code write before log")
+  if (lastCodeWrite === null) check(checks, "C16", "code write precedes last log write", "UNCERTAIN", "no timestamped code writes in tool log")
+  else if (logMtimeMs !== null && lastCodeWrite <= logMtimeMs + 1_000) check(checks, "C16", "code write precedes last log write", "OK", "last code write before log")
   else if (logMtimeMs !== null) check(checks, "C16", "code write precedes last log write", "BAD", `code written ${Math.round((lastCodeWrite - logMtimeMs) / 1000)}s after last log write`)
   else check(checks, "C16", "code write precedes last log write", "UNCERTAIN", "log missing")
 
-  // COV-13 misreport guard: the class licenses the lite path only for its own
-  // file kinds. Prose = docs/evidence artifacts only; any other write under a
-  // DOC claim (including tests/** code files, .json/.sh, untimed writes) or a
-  // logic-source write under a CONFIG claim = the class was wrong → escalate UP.
-  const PROSE_NAME_RE = /(^|[\/])(LICENSE|COPYING|README|CHANGELOG|AUTHORS|NOTICE|CONTRIBUTORS)(\.[A-Za-z0-9]+)?$/
-  const PROSE_EXT_RE = /\.(md|txt|rst|png|webm|wav|mp4|mp3|log)$/i
-  const MEMDOC_DIR_RE = /(^|[\/])(memory|docs)([\/]|$)/i
-  const LOGIC_SRC_RE = /\.(py|js|ts|tsx|jsx|go|rs|java|c|cc|cpp|h|hpp|rb|php|cs|kt|swift|m|scala|pl|lua|r|jl)$/i
-  const DOC_TOOLING_RE = /(^|[\/\\])tests[\/\\]assert_artifacts\.py$/i
-  // §V11.9 DOC-asset render gate: FILE-KIND triggered (every class — a mixed
-  // CODE wave shipping a docx owes the same render as a DOC wave; assets are
-  // never a class misreport, their gate IS the render). Evidence is bound to
-  // THIS task block + this answer, per asset, and to files that EXIST on disk
-  // — probe_vision.* is COV-5 tooling output, never a document page.
-  const ASSET_RE = /\.(docx|doc|xlsx|xls|pptx|ppt|pdf|odt|ods|odp|rtf|odg|epub|mht|docm|xlsm|pptm)$/i
-  const isProsePath = (p) => PROSE_NAME_RE.test(p) || PROSE_EXT_RE.test(p)
-    || (MEMDOC_DIR_RE.test(p) && !LOGIC_SRC_RE.test(p) && !ASSET_RE.test(p))
-  const evidText = curLogBlock + "\n" + text // current task block + this answer only
-  const isProbeArtifact = (f) => /^probe_vision\./i.test(f.split(/[\/\\]/).pop() || "")
-  const mediaOnDisk = (line) => [...line.matchAll(/\btests\/(\S+\.(?:png|webm))\b/g)]
-    .map((mm) => mm[1]).filter((f) => !isProbeArtifact(f))
-    .some((f) => sizeOf(path.join(testsDir, f)) > 0)
-  const TOOLCHAIN_RE = /soffice|libreoffice|pymupdf|pdftoppm|poppler|imagemagick/i
-  const naLineOk = (line) => /N\/A/i.test(line) && TOOLCHAIN_RE.test(line) && !/<[^>]*>/.test(line)
-  const renderLines = evidText.split("\n").filter((l) => /^[\s>*+—–-]*\s*render:/i.test(l) && !/^\s*>/.test(l))
-  const classWrites = tools.filter((t) => (t.tool === "write" || t.tool === "edit") && typeof t.filePath === "string")
-  // Wave state: the canonical office pipeline (python-docx .save / soffice /
-  // pandoc via bash) never appears as a write-tool row — read the disk.
-  const waveFiles = (() => {
-    try {
-      // Whole change wave, not just the working tree: assets COMMITTED mid-wave
-      // are still deliveries. --name-status (binary-safe); D = not a delivery.
-      const collect = (args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8", timeout: 8000, stdio: ["ignore", "pipe", "pipe"] })
-        .split("\n").map((s) => s.trim()).filter(Boolean)
-        .filter((l) => !l.startsWith("D"))
-        .map((l) => l.split("\t").pop())
-      let base = ""
-      try {
-        base = execFileSync("git", ["-C", root, "log", "--format=%H", "-1", "--fixed-strings", "--grep=backup: before changes"], { encoding: "utf8", timeout: 8000, stdio: ["ignore", "pipe", "pipe"] }).trim()
-      } catch { base = "" }
-      // No `backup:` marker → the wave is the working tree only (pre-wave
-      // history must never count as deliveries).
-      return [...new Set([
-        ...(base ? collect(["log", "--name-status", "--format=", `${base}..HEAD`]) : []),
-        ...collect(["diff", "--name-status", "HEAD"]),
-        ...collect(["diff", "--cached", "--name-status"]),
-        ...collect(["ls-files", "--others", "--exclude-standard"]),
-      ])]
-    } catch { return [] }
-  })()
-  const assetSet = [...new Set([
-    ...classWrites.map((t) => t.filePath).filter((p) => ASSET_RE.test(p)),
-    ...waveFiles.filter((p) => ASSET_RE.test(p)),
-  ])]
-  const assetNameMatch = (p, line) => {
-    const base = (p.split(/[\/\\]/).pop() || "").toLowerCase()
-    const stem = base.replace(/\.[^.]+$/, "")
-    return line.toLowerCase().includes(base) || (stem.length >= 4 && line.toLowerCase().includes(stem))
-  }
-  const uncoveredAssets = assetSet.filter((p) => !renderLines.some((l) => assetNameMatch(p, l) && (mediaOnDisk(l) || naLineOk(l))))
-  const misreportPath = (p) => !isProsePath(p) && !DOC_TOOLING_RE.test(p) && !ASSET_RE.test(p)
-  const docMis = classField === "DOC" && (
-    classWrites.some((t) => misreportPath(t.filePath)) || waveFiles.some(misreportPath))
-  const cfgMis = classField === "CONFIG" && (
-    classWrites.some((t) => LOGIC_SRC_RE.test(t.filePath)) || waveFiles.some((p) => LOGIC_SRC_RE.test(p)))
-  if (docMis || cfgMis) {
-    const badPath = (classWrites.map((t) => t.filePath).find((p) => (docMis ? misreportPath(p) : LOGIC_SRC_RE.test(p)))
-      || waveFiles.find((p) => (docMis ? misreportPath(p) : LOGIC_SRC_RE.test(p))) || "(path)")
-    check(checks, "C18", `Class ${classField} matches the change set`, "BAD",
-          `delivered ${badPath} under a \`Class: ${classField}\` claim — misreported class (COV-13: escalate, never de-escalate)`)
-  } else if (uncoveredAssets.length > 0) {
-    check(checks, "C18", "DOC-asset render gate (file-kind)", "BAD",
-          `delivered ${uncoveredAssets[0]} without bound render evidence — NO RENDER, NO DONE (§V11.9; add \`render: <asset> — <existing page images>\` or \`render: <asset> — N/A (<missing tool>)\` to this task's log/answer)`)
-  } else if (classField === "DOC" || classField === "CONFIG" || assetSet.length > 0) {
-    check(checks, "C18", `Class ${classField || "—"} matches the change set`, "OK",
-          assetSet.length > 0
-            ? "change set within the class's file kinds + per-asset render evidence bound (§V11.9)"
-            : "change set within the class's file kinds")
-  }
-
   // na 豁免不是免检：state-skip 只对纯配置/纯文档合法，且必须明说。
-  // 机器只查"有没有说"——"说得对不对"交给 Tier-2 审查。理由必须是真行
-  // （reasonLineStated，Group B）——清单回声不构成理由。许可证按字段区分：
-  // HARD-GATE-1=na 仅 Class DOC（CONFIG 跑 smoke，应 =pass）或陈述理由；
-  // HARD-GATE-2=na 对 DOC/CONFIG（无服务生命周期）或陈述理由。
-  const na1Ok = (v) => v === "pass" || (v === "na" && (classField === "DOC" || reasonLineStated))
-  const na2Ok = (v) => v === "pass" || (v === "na" && (liteClass || reasonLineStated))
-  const na1Unc = (v) => v === "na" && !(classField === "DOC" || reasonLineStated)
-  const na2Unc = (v) => v === "na" && !(liteClass || reasonLineStated)
-  if (na1Ok(hard1)) check(checks, "C14", "`HARD-GATE-1` value", "OK", hard1)
-  else if (na1Unc(hard1)) check(checks, "C14", "`HARD-GATE-1` value", "UNCERTAIN", "na without a stated reason line (documentation-only/config-only/no lesson/...)")
+  // 机器只查"有没有说"——"说得对不对"交给 Tier-2 审查。
+  const SKIP_REASONS = /documentation-only|doc-only|config-only|no runtime|no build|no UI|no service|na reason|纯文档|纯配置/i
+  const naOk = (v) => v === "pass" || (v === "na" && SKIP_REASONS.test(text))
+  const naUnc = (v) => v === "na" && !SKIP_REASONS.test(text)
+  if (naOk(hard1)) check(checks, "C14", "`HARD-GATE-1` value", "OK", hard1)
+  else if (naUnc(hard1)) check(checks, "C14", "`HARD-GATE-1` value", "UNCERTAIN", "na without a stated skip reason (documentation-only/config-only/...)")
   else check(checks, "C14", "`HARD-GATE-1` value", hard1 ? "BAD" : "UNCERTAIN", hard1 || "claim absent")
-  if (na2Ok(hard2)) check(checks, "C15", "`HARD-GATE-2` value", "OK", hard2)
-  else if (na2Unc(hard2)) check(checks, "C15", "`HARD-GATE-2` value", "UNCERTAIN", "na without a stated reason line (documentation-only/config-only/no lesson/...)")
+  if (naOk(hard2)) check(checks, "C15", "`HARD-GATE-2` value", "OK", hard2)
+  else if (naUnc(hard2)) check(checks, "C15", "`HARD-GATE-2` value", "UNCERTAIN", "na without a stated skip reason (documentation-only/config-only/...)")
   else check(checks, "C15", "`HARD-GATE-2` value", hard2 ? "BAD" : "UNCERTAIN", hard2 || "claim absent")
 
   const assertsPath = path.join(testsDir, "assert_artifacts.py")

@@ -204,11 +204,12 @@ The only allowed edit after copying is adding project-specific assertion
 lines — never remove or weaken groups 1-16.
 
 **Self-verify the copy is complete (MUST do after copying it):** the script
-MUST contain each of these 16 markers — `verification_log` · `cap=5` ·
+MUST contain each of these 19 markers — `verification_log` · `cap=5` ·
 `screenshot` · `MEMORY.md` · `start.sh` · `git repo needs` · `FLOW_DESIGN` ·
 `README` · `Baseline verified GREEN` · `workflow trace` · `media evidence` ·
 `diagnosis:` · `claim without stated coverage` · `secret scan` ·
-`test-change:` · `risk-tier`. Grep the file for all 16; ANY
+`test-change:` · `risk-tier` · `secret-approved` · `DOC-asset render gate` ·
+`exec-check`. Grep the file for all 19; ANY
 missing marker means an incomplete variant — re-copy from the canonical file.
 A script missing a marker will not catch the missing artifact; a complete
 script is what the exit-0 gate verifies.

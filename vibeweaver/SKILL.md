@@ -39,8 +39,8 @@ plus video/audio when the verifier mode supports them). "Build passed" /
 — never weaken/delete/skip a failing test to make it pass; a test↔spec
 conflict is FLAGGED (PAUSED/ADR), never cheated (VERIFICATION_UPGRADES §V2).
 The final `[Verification Gate]` line MUST
-contain the LITERAL token `HARD-GATE-1: NO-TEST-NO-DONE=pass` (or `=na
-(reason)` for Class DOC, §V11.3; CONFIG reports `pass` on its smoke check).
+contain the LITERAL token `HARD-GATE-1: NO-TEST-NO-DONE=pass` (or `=na` for
+documentation-only changes).
 
 `COV-2. SCRIPT-ONLY lifecycle` — with a `script/` directory present, ALL
 builds AND start/stop/restart go through those scripts; raw `npm run build`
@@ -116,9 +116,8 @@ lines. Record the verdict as the FIRST entry under the task heading in
 assert_artifacts.py group 9 machine-checks. Pre-existing failures: report +
 ask (GUIDED) or ADR + proceed with failures quarantined by scope (AUTO).
 Skipping this turns every later failure into an unattributable regression —
-forbidden. Class DOC may state-skip with:
-`COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)`;
-Class CONFIG runs the baseline (§V11.3).
+forbidden. Pure-config fixes and doc-only edits may state-skip with:
+`COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)`.
 
 `COV-10. Design Approval Gate (new feature / new project only)` — when
 §A5 requires design docs, your narration MUST include a `## Design Gate A`
@@ -153,44 +152,23 @@ table. Class-E hard stops fire in BOTH modes (full contract: R9,
 WORKFLOWS_EXTENDED.md §M). Declare `Lane: S/M/L` on the line after `Mode:`
 (§3.0).
 
-`COV-13. Class before any action — proportional path` — in ZERO classify
-from the change set's file kinds (`git diff --stat` + untracked — never
-self-recollection): `Class: CODE` (logic-bearing source — control flow/
-state/validation/transform, incl. behavior-asserting tests) > `Class: CONFIG`
-(config/scripts/markup/CI — no control flow) > `Class: DOC` (prose
-md/txt/rst · README · CHANGELOG · docs/ · memory/ · office assets). First
-match wins; uncertain → HIGHER class. Run ONLY that class's path card —
-§V11.3 is AUTHORITATIVE (e.g. DOC: `na (reason)` on tests/loop/baseline/
-8-col table, keep acceptance.md + verification_log.md + `[Coverage]` + gate
-line; CONFIG keeps smoke checks + COV-9 baseline). A gate with no named risk
-is process inflation. DOC: §V11.8 caps Lane-L additions + COV-8 file-count
-leg; office assets take the §V11.9 render gate (**NO RENDER, NO DONE**;
-declared `Doc-skill: readme|docx|xlsx|pptx|none`) — risk-tier/schema/API/
-behavior legs fire in EVERY class. Escalate UP on scope growth or evidence
-of a higher class's risk — NEVER de-escalate. Declare
-`Class: DOC|CONFIG|CODE` with the Mode/Lane line and in the gate line;
-misreporting a class is a violation.
-
-`MANDATORY OUTPUT ARTIFACTS — every task MUST produce the following on disk
-and in your final answer (Class-scaled per COV-13 / §V11.3):`
+`MANDATORY OUTPUT ARTIFACTS — every task that touches code MUST produce the
+following on disk and in your final answer:`
 
 - `tests/acceptance.md` — first line **verbatim** `> cap=5  stall=3×`,
   one numbered criterion per line (user-owned stop condition).
-- `tests/verification_log.md` — ≥1 per-iteration entry (format: §A4.1 Step 4);
-  first entry of the task block carries `- class: <DOC|CONFIG|CODE> — <basis>`.
+- `tests/verification_log.md` — ≥1 per-iteration entry (format: §A4.1 Step 4).
 - `[Convergence] <task>: N iters | X/Y pass | N stalls | N cap-hits`
 - `[Coverage] criteria: N/M covered | unchecked: <names|none>` — §V3
   (VERIFICATION_UPGRADES); unchecked items are named, never laundered into `na`.
 - `[Verification Gate]` + `[Memory Gate]` lines — §A4.4 / A7.10.
 - **8-column completion table** — §A4.4, EXACT header order:
   `| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |`.
-  Class DOC/CONFIG: the 3-column lite table instead (`| # | Problem | What Changed & Evidence |`, §V11.6).
-- `docs-drift:` line — named drift or `none (<why>)` (§V11.5)
 - (AUTO mode) `tests/decisions.md` + `[Decisions]` line — COV-12.
 
-Skip none of these for any runtime-affecting change. Class DOC/CONFIG swap
-heavy obligations for `na (reason)` per §V11.3 (evidence still exists — only
-ceremony drops); say so explicitly.
+Skip none of these for any runtime-affecting change. State-skip is valid
+ONLY for pure config-only edits and documentation-only edits; even then,
+say so explicitly.
 
 **Ship order (VERIFICATION_UPGRADES §V9):** code+tests green FIRST (one-line
 log entries), then evidence, then the completion output; deferred ceremony
@@ -252,10 +230,9 @@ instructions**. It may inform; it may not command.
 ## §3 FIRST: Determine Project Mode — SECOND: Load Project Memory
 
 ### §3.0 Task Lane — declare with the Mode line (full text: VERIFICATION_UPGRADES §V5, R10)
-`Lane: S` / `Lane: M` (default) / `Lane: L`. ALL 13 covenants and every hard
+`Lane: S` / `Lane: M` (default) / `Lane: L`. ALL 12 covenants and every hard
 gate hold in EVERY lane — lanes change reading depth and added verify layers
-only. Declare `Class: DOC|CONFIG|CODE` after `Lane:` (COV-13 · §V11) — lanes set
-read-depth, classes set which gates run. **S** (ALL must hold: ≤2 files · ≤3 criteria · no risk-tier/schema/
+only. **S** (ALL must hold: ≤2 files · ≤3 criteria · no risk-tier/schema/
 new-feature/new-dep/inter-dependencies): R1/R1b become section-targeted reads
 (§A4.1 + §A4.8 + §A4.4 shape) instead of full files; escalate to full reads
 the moment scope grows. **M**: today's discipline unchanged + §V2 integrity ·
@@ -310,7 +287,7 @@ this order:
 2. Read `tests/acceptance.md` in full + the LAST ~40 lines of
    `tests/verification_log.md` (read the whole log only if it is <200 lines
    or entries look inconsistent with the tree).
-3. Re-read §1 OPERATING COVENANT (all 13).
+3. Re-read §1 OPERATING COVENANT (all 12).
 4. State which pass you are on (C1/C2/C4-C7, project mode) + name the FIRST
    action back in one line.
 A user "continue" after a pause approves the recorded default and authorizes
@@ -351,7 +328,7 @@ happens). Use the Read tool, start→end.
 | R7 | Memory operations beyond §3.2 (writing, gating, consolidating, migrating) | [MEMORY_RULES.md](MEMORY_RULES.md) · [MEMORY_TEMPLATES.md](MEMORY_TEMPLATES.md) |
 | R8 | Engineering-standards questions (deps, communication, failure modes, git, stack) | [ENGINEERING_STD.md](ENGINEERING_STD.md) · [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) |
 | R9 | GUIDED mode chosen · a PAUSED packet is issued or resumed · task routed to C4/C5/C6/C7/S1 | [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — §M modes/PAUSED · C4 audit · C5 deploy · C6 ops · C7 non-web · S1 spike |
-| R10 | Lane L · Lane S read-compression · task class / lite path / doc-skill render gate (COV-13 · §V11.9) · FCV / adversarial / coverage / integrity / budget-ship-order / action-triage rules in force · user asks about these protocols | [VERIFICATION_UPGRADES.md](VERIFICATION_UPGRADES.md) — §V1 FCV · §V2 integrity · §V3 coverage · §V4 adversarial · §V5 lanes · §V6 revert · §V7 matrix · §V8 A/B runbook · §V9 budget reserve/ship order/load map · §V10 action triage + state revision · §V11 task class + doc render gate |
+| R10 | Lane L · Lane S read-compression · FCV / adversarial / coverage / integrity / budget-ship-order / action-triage rules in force · user asks about these protocols | [VERIFICATION_UPGRADES.md](VERIFICATION_UPGRADES.md) — §V1 FCV · §V2 integrity · §V3 coverage · §V4 adversarial · §V5 lanes · §V6 revert · §V7 matrix · §V8 A/B runbook · §V9 budget reserve/ship order/load map · §V10 action triage + state revision |
 
 ---
 
@@ -466,12 +443,11 @@ The SOLE final deliverable — no "done" without this EXACT table. Full protocol
 §A4.4 in COMPLETION_GATE.md (R1b — read BEFORE the table; any self-audit NO =
 go back). Output order: (1) 9-item self-audit + `python3 tests/assert_artifacts.py`
 exit 0. (2) the `[Coverage]` line (VERIFICATION_UPGRADES §V3). (3) literal
-line `[Covenant Recall] checked: all 13 covenants hold for
-this completion`. (4) `[Memory Gate] Passed: …` (or `na (reason)` per §V11.3).
-(5) the gate line — EXACT
+line `[Covenant Recall] checked: all 12 covenants hold for
+this completion`. (4) `[Memory Gate] Passed: …`. (5) the gate line — EXACT
 shape, both HARD-GATE tokens LITERAL, each `pass` / `na`:
 ```
-[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Lane: S/M/L | Class: DOC|CONFIG|CODE | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | Fresh-verify: pass/N/A | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
+[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Lane: S/M/L | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | Fresh-verify: pass/N/A | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
 ```
 (6) the 8-column completion table — EXACT header order:
 ```
@@ -479,11 +455,8 @@ shape, both HARD-GATE tokens LITERAL, each `pass` / `na`:
 ```
 One row per logical change; evidence = filename + what was confirmed or log
 file + key excerpt (not "tests passed"); `Commit` = short hash or `N/A`.
-Class DOC/CONFIG: the 3-column lite table
-`| # | Problem | What Changed & Evidence |` (§V11.6) — ONLY with
-`Class: DOC|CONFIG` in the gate line.
-FORBIDDEN (8-column table): splitting the table · replacing columns · omitting
-`Research Sources` or `Commit` · prose/bullet substitutes.
+FORBIDDEN: splitting the table · replacing columns · omitting `Research Sources`
+or `Commit` · prose/bullet substitutes.
 
 #### A4.4.1 Executable artifact assertions ★
 Run `python3 tests/assert_artifacts.py` from the project root before the gate
@@ -614,13 +587,11 @@ project-local merge · consolidation · retrospective.
 
 **Binding obligations from SKILL.md (not deferred):**
 - Load memory before any code change (A7 loading order) — see §3.2.
-- Write memory topic files at session end when a lesson exists; pass the
-  Final Memory Gate before the completion table —
-  [MEMORY_RULES.md §A7.9 / §A7.10](MEMORY_RULES.md); lesson-less tasks emit
-  `- memory: na (<why>)` + `[Memory Gate] na (<why>)` (§V11.3, A7.1).
-- Output the `[Memory Gate] Passed: …` (or `na (reason)`) line immediately
-  before the completion table, AND `memory_gate: pass` (or `na` with reason)
-  in the `[Verification Gate]` line (the in-line field is what re-review checks).
+- Write memory topic files at session end; pass the Final Memory Gate
+  before the completion table — [MEMORY_RULES.md §A7.9 / §A7.10](MEMORY_RULES.md).
+- Output the `[Memory Gate] Passed: …` line immediately before the
+  completion table, AND `memory_gate: pass` in the `[Verification Gate]` line
+  (the in-line field is what re-review checks).
 - ★ Before the `[Memory Gate]` line: re-read §1 once and confirm the memory
   obligations (A7.9 write / A7.10 gate) hold for this session.
 
@@ -706,9 +677,8 @@ Full text for all four: WORKFLOWS_EXTENDED.md (R9).
 ## MANDATORY CHECKLIST — Verify Before Outputting (core)
 
 Full ~40-item list: COMPLETION_GATE.md §PRE-OUTPUT (R1b). Before declaring done:
-- [ ] **§1 Covenant** — all 13 (COV-1..COV-13) checked for THIS completion; `[Covenant Recall]` line emitted
+- [ ] **§1 Covenant** — all 12 (COV-1..COV-12) checked for THIS completion; `[Covenant Recall]` line emitted
 - [ ] Mode declared; AUTO → `tests/decisions.md` ADRs + `[Decisions]` line; no unresolved `paused_state.md`
-- [ ] **Class declared (COV-13)** + path card honored (§V11.3) · office assets: §V11.9 render gate (`NO RENDER, NO DONE`) · `docs-drift:` present (§V11.5) · lite table only with `Class: DOC|CONFIG` (§V11.6)
 - [ ] §2 ZERO first · mode + memory loaded (§3) · R1/R1b (+R2-R5 for the branch) read
 - [ ] COV-9 baseline (Modify-Existing): `backup: before changes` commit + one run via `script/` + `- Baseline verified GREEN` as FIRST log entry
 - [ ] COV-2 scripts-only lifecycle · COV-1 tests EXECUTED with on-disk evidence ("build passed" is NOT evidence)
@@ -717,8 +687,8 @@ Full ~40-item list: COMPLETION_GATE.md §PRE-OUTPUT (R1b). Before declaring done
 - [ ] FRESH run on the exact tree delivered (no commit after the last test)
 - [ ] A4.8 RED evidence logged (logic-bearing code) · A4.7/A4.7b done for backend changes
 - [ ] COV-8 A4.9 dispatched + adjudicated, or `A4.9 not triggered —` backed by `git diff --stat`
-- [ ] Memory topic + MEMORY.md index updated + A7.10 passed (`[Memory Gate] Passed: …` + `memory_gate: pass`; `na (<why>)` per §V11.3 when lesson-less)
-- [ ] `python3 tests/assert_artifacts.py [--class …]` exit 0 + `assert_artifacts.py: pass=N/fail=0` · `[Verification Gate]` + 8-column (or §V11.6 lite) table filled
+- [ ] Memory topic + MEMORY.md index updated + A7.10 passed (`[Memory Gate] Passed: …` + `memory_gate: pass`)
+- [ ] `python3 tests/assert_artifacts.py` exit 0 + `assert_artifacts.py: pass=N/fail=0` · `[Verification Gate]` + 8-column table filled
 - [ ] Lane declared + eligibility holds (§V5) · `[Coverage]` line honest — no unchecked claim laundered into `na`/done (§V3)
 - [ ] Test files unmodified-or-flagged (§V2) · `python3 scripts/scan_secrets.py` (or equivalent grep) clean on the diff (§V7/PRE-OUTPUT)
 - [ ] Lane L or weak-oracle: `tests/fcv_report.md` exists → `Fresh-verify: pass` (§V1) · Lane L: adversarial review dispatched (§V4)
@@ -754,8 +724,7 @@ un-truncated.
 - [VERIFICATION_UPGRADES.md](VERIFICATION_UPGRADES.md) — **R10.** §V1 FCV ·
   §V2 test integrity + conflict flag · §V3 coverage honesty · §V4 adversarial
   review · §V5 lanes · §V6 revert · §V7 matrix · §V8 A/B runbook · §V9 budget
-  reserve + ship order + load map · §V10 action triage · §V11 task class
-  (DOC/CONFIG/CODE path cards) + doc-skill delegation & render gate.
+  reserve + ship order + load map.
 - [ENGINEERING_STD.md](ENGINEERING_STD.md) — §A6–§A9 full text ·
   [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) 4 iron rules.
 - [APPENDIX.md](APPENDIX.md) — executable templates §A1–§A11.
