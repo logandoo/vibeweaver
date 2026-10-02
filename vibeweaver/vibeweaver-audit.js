@@ -358,20 +358,23 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
     return {}
   }
 
-  // Release a stale RED latch. Rules (latch = { sessionID, ts, bad }):
+  // Release a stale RED latch. Rules (latch = { sessionID, ts, bad }),
+  // evaluated in this order:
   //   1. legacy boolean state (ts===0, never session-scoped at birth) →
   //      legacy-state release on first contact, labeled for its true origin
   //      (also reachable for object latches that lost their ts);
   //   2. a known DIFFERENT session touches the project → stale-session
   //      release (a latch must never outlive the session that earned it);
-  //   3. NEW TASK by the latching session itself (2026-10-02, multi-wave
+  //   3. TTL expiry (redTtlHours, default 24; audit.json) — checked before
+  //      new-task so an already-expired latch journals its dominant fact;
+  //   4. NEW TASK by the latching session itself (2026-10-02, multi-wave
   //      DOC→CODE deadlock): tests/acceptance.md rewritten AFTER the latch
   //      is the protocol's own first action of a new task — and tests/ is
   //      writable under the latch, so the key is always reachable without
   //      another session, a TTL wait, or VIBEWEAVER_AUDIT=off. Journaled
   //      as "new-task"; the old wave's debt stays in tests/gate_audit.md
-  //      and the new wave's own final audit re-checks everything.
-  //   4. TTL expiry (redTtlHours, default 24; audit.json) as a backstop.
+  //      and the new wave's own completion claim re-checks everything
+  //      (marker-count re-arm leg, runAudit final branch).
   // Never releases a fresh latch of the CURRENT session without the
   // new-task key (in-session teeth mid-wave).
   // Returns the release record or null. Never throws.

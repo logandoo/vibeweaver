@@ -369,9 +369,11 @@ AUDIT: BAD=n UNCERTAIN=n escalate=true|false reasons=[BAD,UNCERTAIN,HIGH-RISK,SA
     suppressed). A live latch is never refreshed (its `ts` keeps the TTL
     backstop real); a GREEN final clears the latch, the session's signature
     entry, and the marker count. Boundary: two completion claims separated
-    by >150KB of session text can have the earlier marker head-trimmed —
-    the count leg then misses one re-arm (the signature leg still fires on
-    any evidence change). Latches from before this deploy carry no recorded
+    by >150KB of session text can land the earlier marker in the trimmed
+    middle (the first 20KB head is kept) — the count leg then misses one
+    re-arm (the signature leg still fires on any evidence change). Quoted
+    prose mentions of the marker count too — fail-closed (an extra re-arm
+    after a release), bounded and journaled. Latches from before this deploy carry no recorded
     signature: after a takeover/TTL release they may re-latch once on a
     same-signature re-audit before the guard has their signature —
     conservative, self-healing in one cycle.
