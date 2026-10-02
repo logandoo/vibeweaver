@@ -816,6 +816,52 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   )
 }
 
+// ---- T28: review-round regressions (adversarial r1 PoCs, 2026-10-02) ----
+{
+  const root = newFixture("t28-crosssession")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  // A latches RED; B takes over (release, durable by design); then B emits
+  // ITS OWN completion claim and fails the same template checks. The
+  // signature is identical (template-driven BAD set) but it belongs to a
+  // DIFFERENT session's genuine fresh audit — it must re-latch.
+  await latchRed(plugin, "ses_t28_a", root)
+  await tryWrite(plugin, root, "src/b.ts", "ses_t28_b")
+  await emit("message.part.updated", { sessionID: "ses_t28_b", part: { id: "k2", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  await emit("message.part.updated", { sessionID: "ses_t28_b", part: { id: "t9", type: "text", text: "[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
+  await emit("session.idle", { sessionID: "ses_t28_b" })
+  const st28 = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
+  rec(
+    "T28a a DIFFERENT session's same-signature fresh RED re-latches (no cross-session amnesty)",
+    !!st28.red && st28.red.sessionID === "ses_t28_b",
+    st28.red ? `latched for ${st28.red.sessionID}` : "SUPPRESSED — signature amnesty leaked across sessions: " + JSON.stringify(st28.red)
+  )
+}
+{
+  const root = newFixture("t28-rearm")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  // A latches; new-task key releases; then A emits a NEW gate line (a fresh
+  // completion claim — closer to the buffer tail than the latched marker)
+  // and fails again with the SAME signature. The teeth must re-arm at the
+  // new claim: same-sig suppression only covers re-audits of the SAME claim.
+  await latchRed(plugin, "ses_t28c", root)
+  await new Promise((r) => setTimeout(r, 5))
+  write(root, "tests/acceptance.md", "wave2 criteria\n")
+  const open = (await tryWrite(plugin, root, "src/w2.ts", "ses_t28c")) === true
+  await emit("message.part.updated", { sessionID: "ses_t28c", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 2 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
+  await emit("session.idle", { sessionID: "ses_t28c" })
+  const st28c = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
+  const blocked = await tryWrite(plugin, root, "src/w3.ts", "ses_t28c")
+  rec(
+    "T28b new-task release re-arms the teeth at the NEXT completion claim (same signature)",
+    open && !!st28c.red && typeof blocked === "string" && /GATE-BLOCKED/.test(blocked),
+    open ? (st28c.red ? "re-armed at new claim" : "TEETH STILL DISARMED — backstop missing") : "new-task key broken"
+  )
+}
+
 // =====================================================================
 // T24 — loop-guard noop-bash detection (echo-narration stop, 2026-09-28)
 // The reported failure mode: intent-narration loops where the model

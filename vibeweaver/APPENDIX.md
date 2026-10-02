@@ -666,7 +666,7 @@ cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
   `tests/review_package.md` on disk (A4.9 review non-skippable for
   risk-tier paths).
 
-Self-verify the copy with the 16 markers listed in COMPLETION_GATE.md §A4.4.1; an
+Self-verify the copy with the 17 markers listed in COMPLETION_GATE.md §A4.4.1; an
 incomplete variant is re-copied, never patched by hand.
 
 ---

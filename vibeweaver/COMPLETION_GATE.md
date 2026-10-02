@@ -204,12 +204,12 @@ The only allowed edit after copying is adding project-specific assertion
 lines — never remove or weaken groups 1-16.
 
 **Self-verify the copy is complete (MUST do after copying it):** the script
-MUST contain each of these 19 markers — `verification_log` · `cap=5` ·
+MUST contain each of these 17 markers — `verification_log` · `cap=5` ·
 `screenshot` · `MEMORY.md` · `start.sh` · `git repo needs` · `FLOW_DESIGN` ·
 `README` · `Baseline verified GREEN` · `workflow trace` · `media evidence` ·
 `diagnosis:` · `claim without stated coverage` · `secret scan` ·
-`test-change:` · `risk-tier` · `secret-approved` · `DOC-asset render gate` ·
-`exec-check`. Grep the file for all 19; ANY
+`test-change:` · `risk-tier` · `secret-approved`. Grep the file for all 17;
+ANY
 missing marker means an incomplete variant — re-copy from the canonical file.
 A script missing a marker will not catch the missing artifact; a complete
 script is what the exit-0 gate verifies.
@@ -347,19 +347,34 @@ AUDIT: BAD=n UNCERTAIN=n escalate=true|false reasons=[BAD,UNCERTAIN,HIGH-RISK,SA
     action of a new task is writing `tests/acceptance.md` (Step 1, and
     `tests/` stays writable under the latch) — an acceptance rewrite whose
     floor(mtime) is strictly AFTER the latch's `ts` releases the latch on
-    the session's next gated write, journaled as `new-task`. The old wave's
-    debt stays in `tests/gate_audit.md`, and the new wave's own final audit
-    re-checks everything (a RED wave-2 re-latches on its changed signature).
-    Same-millisecond rewrites resolve to "no release" — the teeth win ties.
-  - **BAD-signature guard (no re-latch treadmill):** a final audit scores the
-    WHOLE session buffer, and multi-wave buffers keep the previous wave's
-    residue — so a re-audit whose BAD-check set is UNCHANGED is stale-buffer
-    residue, not a new completion failure: it neither refreshes a live
-    latch's `ts` (the TTL backstop cannot be starved) nor resurrects a
-    released latch (a takeover/TTL release stays durable). A CHANGED
-    signature (violations appeared or were genuinely fixed elsewhere) and
-    GREEN verdicts behave as before: changed-RED re-latches, GREEN clears
-    the latch and the recorded signature.
+    the session's next gated write or session idle, journaled as `new-task`
+    (an already-TTL-expired latch journals `ttl-expiry` — the dominant fact
+    wins). The old wave's debt stays in `tests/gate_audit.md`, and the new
+    wave's own completion claim re-checks everything (see the re-arm leg
+    below). Same-millisecond rewrites resolve to "no release" — the teeth
+    win ties; a backward wall-clock step between latch and rewrite is the
+    remaining skew corner (rare; fail-safe direction is "stays blocked").
+  - **BAD-signature guard (no re-latch treadmill; r2 hardening):** a final
+    audit scores the WHOLE session buffer, and multi-wave buffers keep the
+    previous wave's residue — so re-audits of an unchanged failure must not
+    re-latch. A RED final re-latches only when at least one of two legs
+    says "genuinely new failure":
+    *session signature* — the sorted BAD-check ids, keyed PER SESSION
+    (root-level keys would amnesty a DIFFERENT session's genuine first
+    failure: template-driven BAD sets are identical across sessions); and
+    *completion-marker count* — the number of `[Verification Gate]` markers
+    in the capped buffer, which grows by one on every NEW completion claim,
+    so a new claim re-arms the teeth even with an identical signature
+    (same-claim re-audits — mid-wave idles over a stale marker — stay
+    suppressed). A live latch is never refreshed (its `ts` keeps the TTL
+    backstop real); a GREEN final clears the latch, the session's signature
+    entry, and the marker count. Boundary: two completion claims separated
+    by >150KB of session text can have the earlier marker head-trimmed —
+    the count leg then misses one re-arm (the signature leg still fires on
+    any evidence change). Latches from before this deploy carry no recorded
+    signature: after a takeover/TTL release they may re-latch once on a
+    same-signature re-audit before the guard has their signature —
+    conservative, self-healing in one cycle.
   - Any `test`/`tests` directory in the project (top-level `tests/`,
     `dev/tests/`, `src/test/`, …) stays writable while RED, so the
     evidence-fix path can never deadlock.

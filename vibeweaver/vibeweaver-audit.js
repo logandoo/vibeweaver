@@ -51,6 +51,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 const STATE_DIR = ".vibeweaver"
 const STATE_FILE = "audit-state.json"
 const AUDIT_FILE = "gate_audit.md"
+const GATE_MARKER = "[Verification Gate]"
 const TEXT_CAP_HEAD = 20_000
 const TEXT_CAP_TAIL = 150_000
 const TOOL_CAP = 400
@@ -400,10 +401,10 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
         ? "legacy-state"
         : cur && latch.sessionID !== cur
           ? "stale-session"
-          : cur && latch.sessionID === cur && acceptanceMtime(root) > latch.ts
-            ? "new-task"
-            : age > ttlHours * 3_600_000
-              ? "ttl-expiry"
+          : age > ttlHours * 3_600_000
+            ? "ttl-expiry"
+            : cur && latch.sessionID === cur && acceptanceMtime(root) > latch.ts
+              ? "new-task"
               : null
       if (!reason) return null
       const rec = { ts: Date.now(), from: latch.sessionID || "unknown", bad: latch.bad, reason, via, by: cur || via }
@@ -487,32 +488,47 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
       /* report best-effort */
     }
     if (phase === "final") {
-      // BAD-signature guard (2026-10-02, multi-wave re-latch treadmill): a
-      // final audit scores the WHOLE session buffer, and in a multi-wave
-      // session that buffer keeps the previous wave's residue forever — so
-      // every idle re-audit of the SAME unfinished claim lands RED again,
-      // re-latching with a FRESH ts (starving the 24h TTL backstop) and
-      // resurrecting latches a takeover/TTL release had already cleared.
-      // Signature = the sorted ids of BAD checks: unchanged signature means
-      // stale-buffer re-audit, not a NEW completion failure → keep the
-      // current latch state (no new latch, no ts refresh). A CHANGED
-      // signature (new/gone violations — evidence genuinely moved) re-latches
-      // honestly; a GREEN final clears the latch AND the signature.
+      // BAD-signature guard (2026-10-02, multi-wave re-latch treadmill; r2
+      // hardening after adversarial review). A final audit scores the WHOLE
+      // session buffer, and a multi-wave buffer keeps the previous wave's
+      // residue forever — so every idle re-audit of the SAME unfinished
+      // claim lands RED again, re-latching with a FRESH ts (starving the
+      // 24h TTL backstop) and resurrecting latches a takeover/TTL release
+      // had already cleared. Two legs, and a RED final re-latches only when
+      // at least one says "genuinely new failure":
+      //   session signature — sorted BAD-check ids, keyed PER SESSION
+      //     (root-level amnestied a DIFFERENT session's genuine fresh audit:
+      //     template-driven BAD sets are identical across sessions, so a
+      //     successor's first failure must never be suppressed);
+      //   completion-marker count — the number of `[Verification Gate]`
+      //     occurrences in the capped buffer grows by one on every NEW
+      //     completion claim (head-trimming only drops markers when >150KB
+      //     of text separates two claims — a boundary, see Known gaps).
+      //     Same-sig re-audits of the latched claim (mid-wave idles over a
+      //     stale marker) stay suppressed; the next claim re-arms honestly.
       const badSig = audit.checks
         .filter((c) => c.verdict === "BAD")
         .map((c) => c.id)
         .sort()
         .join(",")
+      const gateCount = typeof sess.text === "string" ? sess.text.split(GATE_MARKER).length - 1 : 0
       if (audit.red) {
-        if (!readLatch(state.roots[root]) && state.roots[root].lastRedSig !== badSig) {
-          state.roots[root].red = { sessionID, ts: Date.now(), bad: audit.bad }
-          state.roots[root].lastRedSig = badSig
+        if (!readLatch(state.roots[root])) {
+          const sigs = state.roots[root].lastRedSigs || {}
+          const sameClaimResidue = sigs[sessionID] === badSig && !(gateCount > (state.roots[root].lastLatchGateCount ?? 0))
+          if (!sameClaimResidue) {
+            state.roots[root].red = { sessionID, ts: Date.now(), bad: audit.bad }
+            sigs[sessionID] = badSig
+            state.roots[root].lastRedSigs = Object.fromEntries(Object.entries(sigs).slice(-20))
+            state.roots[root].lastLatchGateCount = gateCount
+          }
         }
-        // else: live latch (already debt-recorded) or unchanged signature —
-        // leave red and its original ts untouched.
+        // else: a live latch is already debt-recorded — leave red and its
+        // original ts untouched (never refresh; TTL backstop stays real).
       } else {
         state.roots[root].red = null
-        state.roots[root].lastRedSig = null
+        if (state.roots[root].lastRedSigs) delete state.roots[root].lastRedSigs[sessionID]
+        state.roots[root].lastLatchGateCount = 0
       }
     }
     state.roots[root].lastSession = sessionID
@@ -716,7 +732,7 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
     const selfLatched = cur === latch.sessionID
     return selfLatched
       ? "GATE-BLOCKED (vibeweaver-audit): YOUR session's mechanical audit is RED — read tests/gate_audit.md. To unblock: fix each [BAD] item (any test directory — tests/, dev/tests/, … — stays writable: repair the missing evidence and append `- audit-fix: …` entries to tests/verification_log.md), then re-emit a corrected [Verification Gate] line in your reply. The audit re-runs at every session idle and re-checks on every write. Starting a NEW task in this session? Per protocol write tests/acceptance.md first (Step 1 — tests/ is writable right now): a post-latch acceptance rewrite auto-releases the latch on your next gated write (journaled as new-task) — no other session, no TTL wait, no VIBEWEAVER_AUDIT=off needed; the old wave's debt stays in tests/gate_audit.md and your new wave's own final audit re-checks everything. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
-      : "GATE-BLOCKED (vibeweaver-audit): a mechanical RED latch for this project is still pending — read tests/gate_audit.md. Latches are scoped to the session that earned them and auto-release on a different session's first write/idle, on the latching session's own new task (tests/acceptance.md rewritten after the latch), or after the red TTL (default 24h) — continuing your turn (any idle) will clear a stale latch automatically, and a stale-buffer re-audit with an unchanged failure signature cannot resurrect a released latch. Any test directory (tests/, dev/tests/, …) is writable right now. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
+      : "GATE-BLOCKED (vibeweaver-audit): a mechanical RED latch for this project is still pending — read tests/gate_audit.md. Latches are scoped to the session that earned them and auto-release on a different session's first write/idle, on the latching session's own new task (tests/acceptance.md rewritten after the latch), or after the red TTL (default 24h) — continuing your turn (any idle) will clear a stale latch automatically, and a stale-buffer re-audit with an unchanged failure signature cannot resurrect a released latch (a NEW completion claim honestly can). Any test directory (tests/, dev/tests/, …) is writable right now. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
   }
 
   // Session-idle driver (v1 "session.idle"; v2 "session.status" idle).
