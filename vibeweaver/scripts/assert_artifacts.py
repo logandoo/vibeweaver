@@ -1,6 +1,6 @@
 """G-DED artifact assertions — byte-level check of verification claims.
 Canonical copy: vibeweaver skill `scripts/assert_artifacts.py`.
-Mirrors COMPLETION_GATE.md §A4.4.1 minimum-check table (all 16 groups).
+Mirrors COMPLETION_GATE.md §A4.4.1 minimum-check table (all 18 groups).
 Group 12 enforces the A4.1 diagnosis clause; group 13 is a
 claim-without-scope lint (approach modeled on J-Space Cognition Suite's
 `ship` check at idea level; implementation here is original —
@@ -9,7 +9,10 @@ gates: 14 secret scan (`vw-approved` marker ⇄ `- secret-approved:` log
 pairing), 15 test-change guard, 16 risk-tier review. Project profiles
 (tests/project_profile.json or --profile) declaratively skip groups that
 are structurally N/A for the project kind (service/UI/new-project) —
-a profile never weakens an applicable group."""
+a profile never weakens an applicable group. `--class DOC|CONFIG|CODE`
+(COV-13 / §V11, or the log's `- class:` basis line) N/A's the memory (4)
+and service-lifecycle (5) groups for the classes whose path card has no
+such risk."""
 import argparse, json, os, pathlib, re, subprocess, sys
 
 FAILS = []
@@ -282,6 +285,8 @@ def main():
     ap.add_argument("--existing", action="store_true", help="Modify-Existing task: skip new-project §A5 design-doc + git checks")
     ap.add_argument("--backend-only", action="store_true", help="no UI: skip PAGE_DESIGN.html and project_build.sh checks")
     ap.add_argument("--profile", default="", help="project profile: service|backend-api|web-static|cli|library — skips structurally-N/A groups (overrides tests/project_profile.json)")
+    ap.add_argument("--class", dest="task_class", default="", choices=["DOC", "CONFIG", "CODE"],
+                    help="COV-13 task class (§V11): DOC N/A's memory + service-lifecycle groups; CONFIG N/A's memory when the log carries `- memory: na (<why>)`. Default: auto-detect from the `- class: <X> — <basis>` first entry of the task block in tests/verification_log.md")
     args = ap.parse_args()
 
     root = pathlib.Path(__file__).resolve().parent.parent
@@ -343,6 +348,92 @@ def main():
     vl = read(tests / "verification_log.md")
     acc = read(tests / "acceptance.md")
 
+    # --- COV-13 task class (VERIFICATION_UPGRADES §V11): which groups are
+    # structurally N/A for this change wave. --class wins; otherwise the
+    # `- class: <X> — <basis>` first entry of the CURRENT task block in the log.
+    # A class never weakens an applicable group — it only N/A's groups whose
+    # risk is not in the class's path card.
+    cls = (args.task_class or "").upper()
+    cls_basis = "--class flag"
+    # Multi-block logs: the CURRENT task is the LAST `## ` block — an older
+    # block's `- class:` / `- memory: na` is history and licenses nothing here.
+    cur_block = re.split(r"(?m)^(?=## )", vl)[-1] if vl else ""
+    if not cls:
+        m_all = re.findall(r"^-[ \t]*class:[ \t]*(DOC|CONFIG|CODE)[ \t]*[—-][ \t]*(.+)$", cur_block, re.M | re.I)
+        if m_all:
+            cls = m_all[-1][0].upper()
+            cls_basis = "log: - class: " + m_all[-1][0] + " — " + m_all[-1][1].strip()[:60]
+    else:
+        # flag-vs-log cross-check: a contradicting --class must not silently
+        # disable the class's own gates (§V11.7 one class per task).
+        m_flag_log = re.findall(r"^-[ \t]*class:[ \t]*(DOC|CONFIG|CODE)\b", cur_block, re.M | re.I)
+        if m_flag_log and m_flag_log[-1].upper() != cls:
+            check(False, f"--class {cls} contradicts the log's `- class: {m_flag_log[-1].upper()}` "
+                         f"in the current task block — one class per task (§V11.7)")
+    class_skip_memory = (cls == "DOC" and not re.search(
+        r"^- iter \d+ FAIL|^- stall:|cap-hit", cur_block, re.M)) or (
+        cls == "CONFIG" and bool(re.search(r"^-[ \t]*memory:[ \t]*na[ \t]*\(", cur_block, re.M | re.I)))
+    class_skip_service = cls == "DOC"
+    # §V11.9 DOC-asset render + exec gates — FILE-KIND triggered (every class:
+    # a mixed CODE wave shipping a docx owes the same render). Assets come from
+    # git --name-status + untracked (binary-safe; deletions are not deliveries).
+    _asset_re = re.compile(r"\.(docx|doc|xlsx|xls|pptx|ppt|pdf|odt|ods|odp|rtf|odg|epub|mht|docm|xlsm|pptm)$", re.I)
+    # Whole change wave, not just the working tree: assets COMMITTED mid-wave are
+    # still deliveries (newest `backup: before changes`..HEAD + uncommitted +
+    # untracked). --name-status is binary-safe; D = not a delivery.
+    _paths = set()
+    _rcb, _base = _git(root, "log", "--format=%H", "-1", "--fixed-strings", "--grep=backup: before changes")
+    # No `backup:` marker → the wave is the working tree only (pre-wave history
+    # must never count as deliveries).
+    _ranges = (["log", "--name-status", "--format=", f"{_base.strip()}..HEAD"] if _rcb == 0 and _base.strip()
+               else ["diff", "--name-status", "HEAD"])
+    for _args in (_ranges, ["diff", "--name-status", "HEAD"], ["diff", "--cached", "--name-status"],
+                  ["ls-files", "--others", "--exclude-standard"]):
+        _rc, _out = _git(root, *_args)
+        for _line in _out.splitlines():
+            _line = _line.strip()
+            if not _line or _line.startswith("D"):
+                continue
+            _parts = _line.split("\t")
+            if len(_parts) >= 2:
+                _paths.add(_parts[-1])
+    _wave_assets = sorted(p for p in _paths if _asset_re.search(p))
+    _render_lines = [l for l in cur_block.splitlines()
+                     if re.match(r"^[\s>*+—–-]*\s*render:", l, re.I) and not l.lstrip().startswith(">")]
+    _toolchain_re = re.compile(r"soffice|libreoffice|pymupdf|pdftoppm|poppler|imagemagick", re.I)
+
+    def _line_ok(_l):
+        _pngs = [f for f in re.findall(r"tests/(\S+\.(?:png|webm))", _l)
+                 if not os.path.basename(f).lower().startswith("probe_vision.")]
+        _on_disk = any((tests / f).exists() and (tests / f).stat().st_size > 0 for f in _pngs)
+        _na = bool(re.search(r"N/A", _l, re.I)) and bool(_toolchain_re.search(_l)) and "<" not in _l
+        return _on_disk or _na
+
+    def _named(_p, _l):
+        _base = os.path.basename(_p).lower()
+        _stem = os.path.splitext(_base)[0]
+        return _base in _l.lower() or (len(_stem) >= 4 and _stem in _l.lower())
+
+    _uncovered = [p for p in _wave_assets
+                  if not any(_named(p, l) and _line_ok(l) for l in _render_lines)]
+    if _uncovered:
+        check(False, f"§V11.9 DOC-asset render gate: {_uncovered[0]} delivered without bound render "
+                     "evidence — add `render: <asset> — <existing page images>` or `render: <asset> — "
+                     "N/A (<missing tool>)` to the log (NO RENDER, NO DONE)")
+    # 17b) §V11.9 exec-check: delivered office assets need the named
+    # executable-behavior check recorded (vbaProject/PDF JS/macro sheet).
+    _exec_lines = [l for l in cur_block.splitlines() if re.match(r"^[\s>*-]*\s*exec-check:", l, re.I)]
+    _exec_uncovered = [p for p in _wave_assets
+                       if not any(_named(p, l) and re.search(r"clean|escalat", l, re.I) for l in _exec_lines)]
+    if _exec_uncovered:
+        check(False, f"§V11.9 exec-check: {_exec_uncovered[0]} delivered without a recorded "
+                     "executable-behavior check — add `exec-check: <asset> — clean` or "
+                     "`exec-check: <asset> — escalated → Class CODE` (vbaProject.bin / PDF JS / macro sheet)")
+    if cls:
+        print(f"class: {cls} — {cls_basis}"
+              + ("; group 4 N/A (no lesson / docs-only wave)" if class_skip_memory else "")
+              + ("; group 5 N/A (no service lifecycle in a DOC wave)" if class_skip_service else ""))
+
     # 1) verification_log — exists, has >=1 standard iteration entry (COV-1)
     check(vl and len(vl.strip()) > 0, "tests/verification_log.md missing or empty (COV-1)")
     check(bool(re.search(r"^- iter \d+ (PASS|FAIL):", vl, re.M)),
@@ -359,16 +450,19 @@ def main():
               f"screenshot claimed but missing/empty: tests/{png} (A4.4)")
 
     # 4) memory — MEMORY.md + >=1 topic file + index pointers (A7.9/A7.10)
-    mem = root / "memory"
-    idx_text = read(mem / "MEMORY.md")
-    check(bool(idx_text), "memory/MEMORY.md missing (A7.10)")
-    if idx_text:
-        topics = sorted(mem.glob("*.md"))
-        check(len(topics) >= 2, "memory/: MEMORY.md + >=1 topic file required (A7.9)")
-        check(bool(re.search(r"\]\([^)]+\.md\)", idx_text)),
-              "memory/MEMORY.md index has no topic-file pointers (A7.9)")
-        check(any(p.name != "MEMORY.md" for p in topics),
-              "memory/: at least one topic file besides MEMORY.md (A7.9)")
+    #    Class DOC / lesson-less CONFIG: N/A (§V11.3 lesson-triggered) —
+    #    printed above as `class: … group 4 N/A` gate evidence.
+    if not class_skip_memory:
+        mem = root / "memory"
+        idx_text = read(mem / "MEMORY.md")
+        check(bool(idx_text), "memory/MEMORY.md missing (A7.10)")
+        if idx_text:
+            topics = sorted(mem.glob("*.md"))
+            check(len(topics) >= 2, "memory/: MEMORY.md + >=1 topic file required (A7.9)")
+            check(bool(re.search(r"\]\([^)]+\.md\)", idx_text)),
+                  "memory/MEMORY.md index has no topic-file pointers (A7.9)")
+            check(any(p.name != "MEMORY.md" for p in topics),
+                  "memory/: at least one topic file besides MEMORY.md (A7.9)")
 
     # 5) scripts — start/stop/restart (+ project_build unless no-UI) (A2/COV-2)
     #    exec-bit is only meaningful on POSIX; on Windows .sh files ride along
@@ -376,7 +470,8 @@ def main():
     #    Profiles (cli/library/web-static) skip this group — structurally N/A
     #    (a library has no service lifecycle; skipping is declarative, and the
     #    skip line above names it in the output for the completion gate).
-    if not no_service:
+    #    Class DOC: N/A — a prose change wave carries no service lifecycle.
+    if not no_service and not class_skip_service:
         posix = os.name != "nt"
         for s in ["start.sh", "stop.sh", "restart.sh"]:
             sp = root / "script" / "linux" / s
@@ -418,9 +513,16 @@ def main():
               "new-project requirements.txt/package.json missing (C1 step 15)")
 
     # 9) COV-9 — Modify-Existing tasks: baseline verdict recorded on disk (COV-9)
+    #    State-skip is a Class DOC license; CONFIG/CODE run the baseline (§V11.3) —
+    #    their skip must name a mid-task escalation, never "documentation-only".
     if existing:
-        check(bool(re.search(r"Baseline verified GREEN|COV-9 skipped", vl, re.M)),
-              "tests/verification_log.md missing `- Baseline verified GREEN` or `- COV-9 skipped —` entry (COV-9)")
+        baseline_line = bool(re.search(r"Baseline verified GREEN", vl, re.M))
+        escalation_skip = bool(re.search(r"COV-9 skipped[^\n]*escalat", vl, re.M | re.I))
+        doc_skip = bool(re.search(r"COV-9 skipped", vl, re.M)) and cls in ("DOC", "")
+        check(baseline_line or escalation_skip or doc_skip,
+              "tests/verification_log.md missing `- Baseline verified GREEN` (COV-9); "
+              "`- COV-9 skipped —` licenses Class DOC only — CONFIG/CODE run the baseline "
+              "or name an escalation (§V11.3)")
 
     # 10) A4.7b — workflow traces cited in the log must exist >0 bytes (A4.7b)
     for wf in re.findall(r"tests/workflows/(\S+?\.trace\.log)", vl):

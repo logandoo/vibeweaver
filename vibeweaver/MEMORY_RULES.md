@@ -272,6 +272,8 @@ Before implementing any change:
 7. **Check MEMORY.md caps** — If index exceeds 150 lines or 20KB, consolidate before adding more
 8. **Clean up session scratchpad** — If you created `memory/.session-scratchpad.md`, delete it after permanent topic files are written
 
+**The checklist item "Memory topic file written to memory/" is MANDATORY — do not skip it.**
+
 **The checklist item "Memory topic file written to memory/" is MANDATORY for
 any task that produced a lesson — do not skip it.** Lesson-less tasks
 (Class DOC / trivial changes, §V11.3) state `- memory: na (<why no lesson>)`

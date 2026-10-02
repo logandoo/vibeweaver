@@ -2,6 +2,43 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-02: audit latch same-session escape + payload reconciliation (wave14)
+
+**The deadlock.** A multi-wave session that latched RED in wave 1 could not
+start wave 2 in the same session: source writes were blocked by the latch,
+while the GREEN audit that would clear the latch required the evidence that
+required the blocked writes. All three release paths (another session's
+takeover write, the 24h TTL, `VIBEWEAVER_AUDIT=off`) lived outside the
+session — a mechanical gate that needs a human to juggle sessions is a broken
+gate.
+
+**The fix (two in-session semantics, teeth and journaling intact).**
+- **New-task key.** The protocol's own first action of a new task — rewriting
+  `tests/acceptance.md` (Step 1; `tests/` stays writable under the latch) —
+  releases the latch on the session's next gated write, journaled as
+  `new-task`. `floor(mtime)` is compared strictly against the latch timestamp;
+  same-millisecond ties resolve to "no release" (the teeth win ties).
+- **BAD-signature guard.** A final audit scores the whole session buffer, and
+  multi-wave buffers keep the previous wave's residue forever — re-audits of
+  an unchanged failure must not re-latch (that treadmill refreshed the latch
+  timestamp on every idle, starving the TTL backstop and resurrecting released
+  latches). A RED final re-latches only when a *session-keyed* signature
+  changes or the `[Verification Gate]` marker count grows (a genuinely new
+  completion claim re-arms the teeth even with an identical signature).
+  Adversarial round 1 caught a root-level signature key amnestying a
+  DIFFERENT session's genuine first failure (template-driven BAD sets are
+  identical across sessions) and a one-write permanent teeth-disarming — both
+  fixed and covered by the T29–T32 regressions; round 2 returned `ready`.
+
+**Reconciliation.** The classification wave's 18-group `assert_artifacts.py`
+(`--class DOC|CONFIG|CODE`, §V11.9 DOC-asset render gate, delivery-time
+exec-check) had never landed in the dev canonical — it survived only in the
+installed copy and this repo. Wave 14 landed it, merged the eleven diverged
+payload files both ways (classification wave ⇄ noop-bash/latch waves), and
+re-converged the marker triangle (doc list == `verify_skill` MARKERS ==
+canonical script) at 19. Suites: 112 fixture checks / 41 mutation sweeps /
+43 compat, green on all four copies.
+
 ## 2026-09-28: task classification — proportional verification paths (COV-13 / §V11)
 
 The verification path did not scale. Updating a README or a CHANGELOG — prose

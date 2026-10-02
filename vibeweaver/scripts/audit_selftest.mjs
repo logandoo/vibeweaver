@@ -106,14 +106,14 @@ function readFileSyncSafe(p) {
 // ---------- session text builders ----------
 
 const GATE_LINE =
-  "[Verification Gate] Verifier: mm-sensor [image] | direct-read | Loop executed: yes | Media graded externally: 3/3 (video 0 · audio 0 · screenshots 3) | Iterations: 2 | Tests executed with artifacts: yes | E2E depth: real-HTTP | Script-only build/lifecycle: yes | Fresh-run on final tree: yes | TDD RED evidence: yes | Code review: N/A | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass"
+  "[Verification Gate] Verifier: mm-sensor [image] | direct-read | Class: CODE | Loop executed: yes | Media graded externally: 3/3 (video 0 · audio 0 · screenshots 3) | Iterations: 2 | Tests executed with artifacts: yes | E2E depth: real-HTTP | Script-only build/lifecycle: yes | Fresh-run on final tree: yes | TDD RED evidence: yes | Code review: N/A | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass"
 
 function cleanSessionText() {
   return [
     "Verifier: mm-sensor [image]",
     "Baseline verified GREEN — proceed",
     GATE_LINE,
-    "[Covenant Recall] checked: all 12 covenants hold for this completion",
+    "[Covenant Recall] checked: all 13 covenants hold for this completion",
     "[Memory Gate] Passed: memory written (A7.9/A7.10)",
     "[Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
     "A4.9 not triggered — verified via git diff --stat: 1 file, config edit — reason: config edit",
@@ -404,7 +404,7 @@ const baseTools = () => [
   const skillMd = readFileSyncSafe(path.resolve(import.meta.dirname, "..", "SKILL.md"))
   const template = skillMd.match(/\[Verification Gate\] Verifier:[^\n]+/)
   const required = [
-    "Loop executed:", "Iterations:", "Media graded externally:", "E2E depth:", "TDD RED evidence:",
+    "Class:", "Loop executed:", "Iterations:", "Media graded externally:", "E2E depth:", "TDD RED evidence:",
     "Fresh-run on final tree:", "Code review:", "assert_artifacts.py: pass=", "covenant_recall:",
     "memory_gate:", "HARD-GATE-1:", "HARD-GATE-2:",
   ]
@@ -704,161 +704,6 @@ async function tryWrite(plugin, root, relPath, sessionId) {
     healed
       ? `red=${JSON.stringify(st.roots[root].red)} reason=${rel && rel[0] ? rel[0].reason : "?"}`
       : "legacy latch deadlocked the next session (takeover path broken)"
-  )
-}
-
-// =====================================================================
-// T25-T27 — same-session latch escape (multi-wave DOC→CODE deadlock,
-// 2026-10-02). A latch must keep in-session teeth mid-wave, but it must
-// never force the next task to wait for ANOTHER session, a 24h TTL, or
-// an env-off restart. Two in-session semantics:
-//   new-task key — rewriting tests/acceptance.md AFTER the latch (the
-//     protocol's own first action of a new task; tests/ stays writable)
-//     releases the latch, journaled as "new-task";
-//   BAD-signature guard — a final re-audit whose BAD set is unchanged
-//     (stale-buffer residue) neither refreshes a live latch's ts nor
-//     resurrects a released one (the takeover/TTL release stays durable).
-// =====================================================================
-
-// ---- T25: the new-task release key (and its pre-latch control) ----
-{
-  const root = newFixture("t25-newtask")
-  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
-  write(root, "tests/acceptance.md", "wave1 criteria\n")
-  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
-  await latchRed(plugin, "ses_t25", root)
-  const blocked = await tryWrite(plugin, root, "src/a.ts", "ses_t25")
-  rec(
-    "T25a pre-latch acceptance does NOT release (in-session teeth intact)",
-    typeof blocked === "string" && /GATE-BLOCKED/.test(blocked),
-    blocked === true ? "TEETH LOST — write landed" : "blocked"
-  )
-  // The session starts a NEW task per protocol: Step 1 rewrites the
-  // acceptance criteria (tests/ is writable under the latch). The 5ms gap
-  // models a real model-turn boundary: same-millisecond rewrites are a
-  // designed conservative boundary (floor(mtime) > latch.ts is strict, so
-  // a same-ms rewrite resolves to "no release" — teeth win the tie).
-  await new Promise((r) => setTimeout(r, 5))
-  write(root, "tests/acceptance.md", "wave2 criteria — new task begins\n")
-  const allowed = (await tryWrite(plugin, root, "src/b.ts", "ses_t25")) === true
-  const st25 = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
-  const rel = (st25.redReleases || []).find((r) => r.reason === "new-task")
-  rec(
-    "T25b post-latch acceptance rewrite releases the latch in-session (journal: new-task)",
-    allowed && st25.red == null && !!rel,
-    allowed ? (rel ? `released, journaled by ${rel.by}` : "released but journal MISSING") : "deadlocked: " + JSON.stringify(st25.red)
-  )
-}
-
-// ---- T26: same-signature final re-audits never refresh/resurrect ----
-{
-  const root = newFixture("t26-samesig")
-  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
-  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
-  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
-  await latchRed(plugin, "ses_t26", root)
-  // Age the latch 1h on disk and reload it into a fresh machine instance,
-  // so a ts refresh (Date.now()) is unambiguous even within one millisecond.
-  const sp = path.join(root, ".vibeweaver", "audit-state.json")
-  const st0 = JSON.parse(readFileSync(sp, "utf8"))
-  st0.roots[root].red.ts = Date.now() - 3_600_000
-  writeFileSync(sp, JSON.stringify(st0))
-  const plugin2 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
-  const ts0 = JSON.parse(readFileSync(sp, "utf8")).roots[root].red.ts
-  // idle on the RELOADED machine (it holds the aged latch); plugin1's
-  // in-memory state still has the fresh ts and would poison the comparison.
-  const emit2 = (type, props) => plugin2.event({ event: { type, properties: props } })
-  await emit2("session.idle", { sessionID: "ses_t26" })
-  const st1 = JSON.parse(readFileSync(sp, "utf8")).roots[root]
-  rec(
-    "T26a same-sig idle final audit does not refresh a live latch's ts (TTL not starved)",
-    !!st1.red && st1.red.ts === ts0,
-    st1.red ? (st1.red.ts === ts0 ? "ts preserved" : `ts refreshed ${ts0} -> ${st1.red.ts}`) : "latch vanished"
-  )
-  // A different session takes over; then the original session idles again.
-  await tryWrite(plugin2, root, "src/b.ts", "ses_t26_b")
-  await emit2("session.idle", { sessionID: "ses_t26" })
-  const st2 = JSON.parse(readFileSync(sp, "utf8")).roots[root]
-  rec(
-    "T26b same-sig idle final audit does not resurrect a released latch (treadmill dead)",
-    st2.red == null,
-    st2.red ? `RESURRECTED ts=${st2.red.ts}` : "release stayed durable"
-  )
-}
-
-// ---- T27: same-session DOC→CODE wave transition e2e ----
-{
-  const root = newFixture("t27-wavetransition")
-  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
-  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
-  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
-  // wave1 completes (badly) -> final RED latch.
-  await latchRed(plugin, "ses_t27", root)
-  const blocked1 = await tryWrite(plugin, root, "src/conv.ts", "ses_t27")
-  rec("T27 wave1 latch blocks the next wave's source write", typeof blocked1 === "string" && /GATE-BLOCKED/.test(blocked1), blocked1 === true ? "TEETH LOST" : "blocked")
-  // wave2 starts per protocol: fresh acceptance.md (real-turn gap, see T25b),
-  // then the evidence wave.
-  await new Promise((r) => setTimeout(r, 5))
-  write(root, "tests/acceptance.md", "wave2 criteria\n")
-  const allowed = (await tryWrite(plugin, root, "src/conv.ts", "ses_t27")) === true
-  rec("T27 wave2 new-task key opens the source-write path in-session", allowed, allowed ? "DOC->CODE unblocked without takeover" : "deadlocked: " + blocked1)
-  // wave2 lands better evidence (A1/A2 clear) and re-emits the gate line:
-  // the signature CHANGES, so the final audit must honestly re-latch.
-  write(root, "tests/verification_log.md", "- iter 1 PASS: wave2 fix landed (evidence: tests/x.log)\n")
-  await emit("message.part.updated", { sessionID: "ses_t27", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: direct read | Loop executed: yes | Iterations: 1 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
-  await emit("session.idle", { sessionID: "ses_t27" })
-  const st27 = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
-  const blocked2 = await tryWrite(plugin, root, "src/more.ts", "ses_t27")
-  rec(
-    "T27 wave2 final audit re-latches on a CHANGED bad signature (teeth return)",
-    !!st27.red && typeof blocked2 === "string" && /GATE-BLOCKED/.test(blocked2),
-    st27.red ? "re-latched on new signature" : "no re-latch: " + JSON.stringify(st27.red)
-  )
-}
-
-// ---- T28: review-round regressions (adversarial r1 PoCs, 2026-10-02) ----
-{
-  const root = newFixture("t28-crosssession")
-  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
-  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
-  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
-  // A latches RED; B takes over (release, durable by design); then B emits
-  // ITS OWN completion claim and fails the same template checks. The
-  // signature is identical (template-driven BAD set) but it belongs to a
-  // DIFFERENT session's genuine fresh audit — it must re-latch.
-  await latchRed(plugin, "ses_t28_a", root)
-  await tryWrite(plugin, root, "src/b.ts", "ses_t28_b")
-  await emit("message.part.updated", { sessionID: "ses_t28_b", part: { id: "k2", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
-  await emit("message.part.updated", { sessionID: "ses_t28_b", part: { id: "t9", type: "text", text: "[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
-  await emit("session.idle", { sessionID: "ses_t28_b" })
-  const st28 = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
-  rec(
-    "T28a a DIFFERENT session's same-signature fresh RED re-latches (no cross-session amnesty)",
-    !!st28.red && st28.red.sessionID === "ses_t28_b",
-    st28.red ? `latched for ${st28.red.sessionID}` : "SUPPRESSED — signature amnesty leaked across sessions: " + JSON.stringify(st28.red)
-  )
-}
-{
-  const root = newFixture("t28-rearm")
-  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
-  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
-  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
-  // A latches; new-task key releases; then A emits a NEW gate line (a fresh
-  // completion claim — closer to the buffer tail than the latched marker)
-  // and fails again with the SAME signature. The teeth must re-arm at the
-  // new claim: same-sig suppression only covers re-audits of the SAME claim.
-  await latchRed(plugin, "ses_t28c", root)
-  await new Promise((r) => setTimeout(r, 5))
-  write(root, "tests/acceptance.md", "wave2 criteria\n")
-  const open = (await tryWrite(plugin, root, "src/w2.ts", "ses_t28c")) === true
-  await emit("message.part.updated", { sessionID: "ses_t28c", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 2 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
-  await emit("session.idle", { sessionID: "ses_t28c" })
-  const st28c = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
-  const blocked = await tryWrite(plugin, root, "src/w3.ts", "ses_t28c")
-  rec(
-    "T28b new-task release re-arms the teeth at the NEXT completion claim (same signature)",
-    open && !!st28c.red && typeof blocked === "string" && /GATE-BLOCKED/.test(blocked),
-    open ? (st28c.red ? "re-armed at new claim" : "TEETH STILL DISARMED — backstop missing") : "new-task key broken"
   )
 }
 
@@ -1187,6 +1032,160 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   }
 }
 
+// T29-T31 — same-session latch escape (multi-wave DOC→CODE deadlock,
+// 2026-10-02). A latch must keep in-session teeth mid-wave, but it must
+// never force the next task to wait for ANOTHER session, a 24h TTL, or
+// an env-off restart. Two in-session semantics:
+//   new-task key — rewriting tests/acceptance.md AFTER the latch (the
+//     protocol's own first action of a new task; tests/ stays writable)
+//     releases the latch, journaled as "new-task";
+//   BAD-signature guard — a final re-audit whose BAD set is unchanged
+//     (stale-buffer residue) neither refreshes a live latch's ts nor
+//     resurrects a released one (the takeover/TTL release stays durable).
+// =====================================================================
+
+// ---- T29: the new-task release key (and its pre-latch control) ----
+{
+  const root = newFixture("t29-newtask")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  write(root, "tests/acceptance.md", "wave1 criteria\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  await latchRed(plugin, "ses_t29", root)
+  const blocked = await tryWrite(plugin, root, "src/a.ts", "ses_t29")
+  rec(
+    "T29a pre-latch acceptance does NOT release (in-session teeth intact)",
+    typeof blocked === "string" && /GATE-BLOCKED/.test(blocked),
+    blocked === true ? "TEETH LOST — write landed" : "blocked"
+  )
+  // The session starts a NEW task per protocol: Step 1 rewrites the
+  // acceptance criteria (tests/ is writable under the latch). The 5ms gap
+  // models a real model-turn boundary: same-millisecond rewrites are a
+  // designed conservative boundary (floor(mtime) > latch.ts is strict, so
+  // a same-ms rewrite resolves to "no release" — teeth win the tie).
+  await new Promise((r) => setTimeout(r, 5))
+  write(root, "tests/acceptance.md", "wave2 criteria — new task begins\n")
+  const allowed = (await tryWrite(plugin, root, "src/b.ts", "ses_t29")) === true
+  const st25 = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
+  const rel = (st25.redReleases || []).find((r) => r.reason === "new-task")
+  rec(
+    "T29b post-latch acceptance rewrite releases the latch in-session (journal: new-task)",
+    allowed && st25.red == null && !!rel,
+    allowed ? (rel ? `released, journaled by ${rel.by}` : "released but journal MISSING") : "deadlocked: " + JSON.stringify(st25.red)
+  )
+}
+
+// ---- T30: same-signature final re-audits never refresh/resurrect ----
+{
+  const root = newFixture("t30-samesig")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  await latchRed(plugin, "ses_t30", root)
+  // Age the latch 1h on disk and reload it into a fresh machine instance,
+  // so a ts refresh (Date.now()) is unambiguous even within one millisecond.
+  const sp = path.join(root, ".vibeweaver", "audit-state.json")
+  const st0 = JSON.parse(readFileSync(sp, "utf8"))
+  st0.roots[root].red.ts = Date.now() - 3_600_000
+  writeFileSync(sp, JSON.stringify(st0))
+  const plugin2 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const ts0 = JSON.parse(readFileSync(sp, "utf8")).roots[root].red.ts
+  // idle on the RELOADED machine (it holds the aged latch); plugin1's
+  // in-memory state still has the fresh ts and would poison the comparison.
+  const emit2 = (type, props) => plugin2.event({ event: { type, properties: props } })
+  await emit2("session.idle", { sessionID: "ses_t30" })
+  const st1 = JSON.parse(readFileSync(sp, "utf8")).roots[root]
+  rec(
+    "T30a same-sig idle final audit does not refresh a live latch's ts (TTL not starved)",
+    !!st1.red && st1.red.ts === ts0,
+    st1.red ? (st1.red.ts === ts0 ? "ts preserved" : `ts refreshed ${ts0} -> ${st1.red.ts}`) : "latch vanished"
+  )
+  // A different session takes over; then the original session idles again.
+  await tryWrite(plugin2, root, "src/b.ts", "ses_t30_b")
+  await emit2("session.idle", { sessionID: "ses_t30" })
+  const st2 = JSON.parse(readFileSync(sp, "utf8")).roots[root]
+  rec(
+    "T30b same-sig idle final audit does not resurrect a released latch (treadmill dead)",
+    st2.red == null,
+    st2.red ? `RESURRECTED ts=${st2.red.ts}` : "release stayed durable"
+  )
+}
+
+// ---- T31: same-session DOC→CODE wave transition e2e ----
+{
+  const root = newFixture("t31-wavetransition")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  // wave1 completes (badly) -> final RED latch.
+  await latchRed(plugin, "ses_t31", root)
+  const blocked1 = await tryWrite(plugin, root, "src/conv.ts", "ses_t31")
+  rec("T31 wave1 latch blocks the next wave's source write", typeof blocked1 === "string" && /GATE-BLOCKED/.test(blocked1), blocked1 === true ? "TEETH LOST" : "blocked")
+  // wave2 starts per protocol: fresh acceptance.md (real-turn gap, see T29b),
+  // then the evidence wave.
+  await new Promise((r) => setTimeout(r, 5))
+  write(root, "tests/acceptance.md", "wave2 criteria\n")
+  const allowed = (await tryWrite(plugin, root, "src/conv.ts", "ses_t31")) === true
+  rec("T31 wave2 new-task key opens the source-write path in-session", allowed, allowed ? "DOC->CODE unblocked without takeover" : "deadlocked: " + blocked1)
+  // wave2 lands better evidence (A1/A2 clear) and re-emits the gate line:
+  // the signature CHANGES, so the final audit must honestly re-latch.
+  write(root, "tests/verification_log.md", "- iter 1 PASS: wave2 fix landed (evidence: tests/x.log)\n")
+  await emit("message.part.updated", { sessionID: "ses_t31", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: direct read | Loop executed: yes | Iterations: 1 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
+  await emit("session.idle", { sessionID: "ses_t31" })
+  const st27 = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
+  const blocked2 = await tryWrite(plugin, root, "src/more.ts", "ses_t31")
+  rec(
+    "T31 wave2 final audit re-latches on a CHANGED bad signature (teeth return)",
+    !!st27.red && typeof blocked2 === "string" && /GATE-BLOCKED/.test(blocked2),
+    st27.red ? "re-latched on new signature" : "no re-latch: " + JSON.stringify(st27.red)
+  )
+}
+
+// ---- T32: review-round regressions (adversarial r1 PoCs, 2026-10-02) ----
+{
+  const root = newFixture("t32-crosssession")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  // A latches RED; B takes over (release, durable by design); then B emits
+  // ITS OWN completion claim and fails the same template checks. The
+  // signature is identical (template-driven BAD set) but it belongs to a
+  // DIFFERENT session's genuine fresh audit — it must re-latch.
+  await latchRed(plugin, "ses_t32_a", root)
+  await tryWrite(plugin, root, "src/b.ts", "ses_t32_b")
+  await emit("message.part.updated", { sessionID: "ses_t32_b", part: { id: "k2", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  await emit("message.part.updated", { sessionID: "ses_t32_b", part: { id: "t9", type: "text", text: "[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
+  await emit("session.idle", { sessionID: "ses_t32_b" })
+  const st28 = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
+  rec(
+    "T32a a DIFFERENT session's same-signature fresh RED re-latches (no cross-session amnesty)",
+    !!st28.red && st28.red.sessionID === "ses_t32_b",
+    st28.red ? `latched for ${st28.red.sessionID}` : "SUPPRESSED — signature amnesty leaked across sessions: " + JSON.stringify(st28.red)
+  )
+}
+{
+  const root = newFixture("t32-rearm")
+  write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+  const emit = (type, props) => plugin.event({ event: { type, properties: props } })
+  // A latches; new-task key releases; then A emits a NEW gate line (a fresh
+  // completion claim — closer to the buffer tail than the latched marker)
+  // and fails again with the SAME signature. The teeth must re-arm at the
+  // new claim: same-sig suppression only covers re-audits of the SAME claim.
+  await latchRed(plugin, "ses_t28c", root)
+  await new Promise((r) => setTimeout(r, 5))
+  write(root, "tests/acceptance.md", "wave2 criteria\n")
+  const open = (await tryWrite(plugin, root, "src/w2.ts", "ses_t28c")) === true
+  await emit("message.part.updated", { sessionID: "ses_t28c", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 2 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
+  await emit("session.idle", { sessionID: "ses_t28c" })
+  const st28c = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
+  const blocked = await tryWrite(plugin, root, "src/w3.ts", "ses_t28c")
+  rec(
+    "T32b new-task release re-arms the teeth at the NEXT completion claim (same signature)",
+    open && !!st28c.red && typeof blocked === "string" && /GATE-BLOCKED/.test(blocked),
+    open ? (st28c.red ? "re-armed at new claim" : "TEETH STILL DISARMED — backstop missing") : "new-task key broken"
+  )
+}
+
 // =====================================================================
 // Calibration — real session transcripts (informational)
 // =====================================================================
@@ -1245,6 +1244,307 @@ if (existsSync(calibDir)) {
   }
 } else {
   console.log("\n(no calibration dir — pass --calib <dir>)")
+}
+
+// =====================================================================
+// T25 — COV-13 task class: lite path licensing + misreport guard
+// =====================================================================
+{
+  const docGate =
+    "[Verification Gate] Verifier: direct read (non-web) | direct-read | Class: DOC | Loop executed: no (Class: DOC — read-back verify) | Media graded externally: 0/0 (video 0 · audio 0 · screenshots 0) | Iterations: 1 | Tests executed with artifacts: no | E2E depth: unit-only | Script-only build/lifecycle: no | Fresh-run on final tree: yes | Fresh-verify: N/A (Class: DOC) | TDD RED evidence: N/A | Code review: N/A | assert_artifacts.py: pass=8/fail=0 | covenant_recall: pass | memory_gate: na | HARD-GATE-1: NO-TEST-NO-DONE=na | HARD-GATE-2: SCRIPT-ONLY=na"
+  const docText = [
+    "Class: DOC — CHANGELOG.md prose only",
+    docGate,
+    "[Covenant Recall] checked: all 13 covenants hold for this completion",
+    "[Memory Gate] na (Class: DOC — no lesson to persist)",
+    "[Convergence] doc: 1 iter | 1/1 pass | 0 stalls | 0 cap-hits",
+    "A4.9 not triggered — verified via git diff --stat: 1 file, documentation-only change",
+    "docs-drift: none (README does not describe the edited changelog entry)",
+    "| # | Problem | What Changed & Evidence |",
+    "| 1 | stale entry | CHANGELOG.md — entry added; read-back confirms |",
+  ].join("\n")
+  const root25 = newFixture("t25-class-doc")
+  write(root25, "tests/verification_log.md", [
+    "## Task: changelog entry | 2026-09-28",
+    "- class: DOC — CHANGELOG.md prose only",
+    "- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)",
+    "- iter 1 PASS: criterion #1 — entry added (evidence: read-back of CHANGELOG.md)",
+  ].join("\n"))
+  write(root25, "tests/acceptance.md", "> cap=5  stall=3×\n1. Entry added\n")
+  const docTools = [{ tool: "write", filePath: "/x/CHANGELOG.md", t: Date.now() - 2000 }]
+  const a25 = auditProject({ root: root25, sessionID: "ses_t29a", sessionText: docText, tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const bBad25 = a25.checks.filter((c) => c.id.startsWith("B") && c.verdict === "BAD").map((c) => c.id)
+  rec("T25a Class DOC lite path accepted (B-group clean)", bBad25.length === 0, `B-BAD=[${bBad25.join(",")}]`)
+  const b11 = a25.checks.find((c) => c.id === "B11")
+  rec("T25b filled Class field OK", b11 && b11.verdict === "OK", b11 ? b11.verdict + " — " + b11.evidence : "missing")
+  const c18 = a25.checks.find((c) => c.id === "C18")
+  rec("T25c Class DOC + prose-only change set → C18 OK", c18 && c18.verdict === "OK", c18 ? c18.verdict : "missing")
+
+  const unlicensed = docText.replace(/Class: DOC/g, "Class: CODE")
+  const root25b = newFixture("t25-class-unlicensed")
+  write(root25b, "tests/verification_log.md", "## Task\n- iter 1 PASS: all\n")
+  write(root25b, "tests/acceptance.md", "> cap=5  stall=3×\n1. ok\n")
+  const a25b = auditProject({ root: root25b, sessionID: "ses_t29d", sessionText: unlicensed, tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b7 = a25b.checks.find((c) => c.id === "B7")
+  rec("T25d lite table WITHOUT Class DOC → B7 BAD", b7 && b7.verdict === "BAD", b7 ? b7.verdict : "missing")
+  const noLicense = unlicensed
+    .replace(/documentation-only change/g, "routine release note")
+    .replace(/no lesson to persist/g, "gate field only")
+  const a25b2 = auditProject({ root: root25b, sessionID: "ses_t29e", sessionText: noLicense, tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b10b = a25b2.checks.find((c) => c.id === "B10")
+  rec("T25e memory_gate: na WITHOUT Class DOC and WITHOUT reason → B10 BAD", b10b && b10b.verdict === "BAD", b10b ? b10b.verdict : "missing")
+
+  const tpl = docText.replace(/Class: DOC(?!\|)/g, "Class: DOC|CONFIG|CODE").replace(/\| # \| Problem \| What Changed & Evidence \|/, "| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |")
+  const a25c = auditProject({ root: root25, sessionID: "ses_t29f", sessionText: tpl, tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b11t = a25c.checks.find((c) => c.id === "B11")
+  rec("T25f template-unfilled Class field → B11 BAD", b11t && b11t.verdict === "BAD", b11t ? b11t.verdict + " — " + b11t.evidence : "missing")
+
+  const root25d = newFixture("t25-class-misreport")
+  write(root25d, "tests/verification_log.md", [
+    "## Task: doc claim, code write",
+    "- class: DOC — prose only",
+    "- COV-9 skipped — reason: documentation-only change",
+    "- iter 1 PASS: all",
+  ].join("\n"))
+  write(root25d, "tests/acceptance.md", "> cap=5  stall=3×\n1. ok\n")
+  const a25d = auditProject({
+    root: root25d, sessionID: "ses_t29g", sessionText: docText,
+    tools: [...docTools, { tool: "write", filePath: "/x/src/sneaky.ts", t: Date.now() + 500 }],
+    skillLoaded: true, phase: "final", config: { samplingRate: 0 },
+  })
+  const c18m = a25d.checks.find((c) => c.id === "C18")
+  rec("T25g Class DOC + code write → C18 BAD (misreport)", c18m && c18m.verdict === "BAD", c18m ? c18m.verdict + " — " + c18m.evidence : "missing")
+
+  // misfiring class tokens are NOT a filled field (R2: DOCS / DOC|CONFIG / spaced template)
+  for (const [label, token] of [["T25h1", "Class: DOCS"], ["T25h2", "Class: DOC/CONFIG"], ["T25h3", "Class: DOC | CONFIG | CODE"]]) {
+    const t = docText.replace(/Class: DOC(?!\|)/g, token)
+    const a = auditProject({ root: root25, sessionID: "ses_" + label, sessionText: t, tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+    const b11m = a.checks.find((c) => c.id === "B11")
+    rec(`${label} misfiring token "${token}" → B11 BAD`, b11m && b11m.verdict === "BAD", b11m ? b11m.verdict : "missing")
+  }
+
+  // tests/-hidden code write + untimed write both count (R2: BENIGN_RE / t-filter holes)
+  const a25h = auditProject({
+    root: root25d, sessionID: "ses_t29i", sessionText: docText,
+    tools: [{ tool: "write", filePath: "/x/tests/conftest.py" }], // no t — previously invisible
+    skillLoaded: true, phase: "final", config: { samplingRate: 0 },
+  })
+  const c18h = a25h.checks.find((c) => c.id === "C18")
+  rec("T25i Class DOC + untimed tests/conftest.py → C18 BAD", c18h && c18h.verdict === "BAD", c18h ? c18h.verdict : "missing")
+
+  const cfgText = docText.replace(/Class: DOC/g, "Class: CONFIG").replace(/CHANGELOG\.md prose only/, "config.toml only")
+  const a25i = auditProject({
+    root: root25d, sessionID: "ses_t29j", sessionText: cfgText,
+    tools: [{ tool: "write", filePath: "/x/config.toml", t: Date.now() - 1000 }],
+    skillLoaded: true, phase: "final", config: { samplingRate: 0 },
+  })
+  const c18i = a25i.checks.find((c) => c.id === "C18")
+  rec("T25j Class CONFIG + .toml write → C18 OK", c18i && c18i.verdict === "OK", c18i ? c18i.verdict : "missing")
+  const a25j = auditProject({
+    root: root25d, sessionID: "ses_t29k", sessionText: cfgText,
+    tools: [{ tool: "write", filePath: "/x/src/logic.py", t: Date.now() - 1000 }],
+    skillLoaded: true, phase: "final", config: { samplingRate: 0 },
+  })
+  const c18j = a25j.checks.find((c) => c.id === "C18")
+  rec("T25k Class CONFIG + logic-source write → C18 BAD", c18j && c18j.verdict === "BAD", c18j ? c18j.verdict : "missing")
+
+  // gate-line class vs log basis-line class must agree
+  const root25e = newFixture("t25-class-mismatch")
+  write(root25e, "tests/verification_log.md", [
+    "## Task: mixed claims",
+    "- class: CODE — logic changed",
+    "- COV-9 skipped — reason: documentation-only change",
+    "- iter 1 PASS: all",
+  ].join("\n"))
+  write(root25e, "tests/acceptance.md", "> cap=5  stall=3×\n1. ok\n")
+  const a25l = auditProject({ root: root25e, sessionID: "ses_t29l", sessionText: docText, tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b11mm = a25l.checks.find((c) => c.id === "B11")
+  rec("T25l gate Class DOC vs log `- class: CODE` → B11 BAD (mismatch)", b11mm && b11mm.verdict === "BAD", b11mm ? b11mm.verdict + " — " + b11mm.evidence : "missing")
+
+  // N1: unfilled template in the Class FIELD with the V11.6 na-prose INTACT must
+  // NOT license a class (the prose `(Class: DOC — read-back verify)` lives in
+  // another gate field and is not a class declaration)
+  const tplWithProse = docText.replace("| Class: DOC |", "| Class: DOC|CONFIG|CODE |")
+    .replace(/\| # \| Problem \| What Changed & Evidence \|/, "| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |")
+    .replace("| 1 | stale entry | CHANGELOG.md — entry added; read-back confirms |", "| 1 | stale entry | none | A | CHANGELOG.md | entry added | read-back ok | N/A |")
+  const a25m = auditProject({ root: root25, sessionID: "ses_t29m", sessionText: tplWithProse, tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b11p = a25m.checks.find((c) => c.id === "B11")
+  rec("T25m unfilled template + intact na-prose → B11 BAD (no prose fallback)", b11p && b11p.verdict === "BAD", b11p ? b11p.verdict : "missing")
+  const noReasonTpl = tplWithProse
+    .replace(/documentation-only change/g, "routine entry")
+    .replace(/no lesson to persist/g, "gate field only")
+  const a25m2 = auditProject({ root: root25b, sessionID: "ses_t29m2", sessionText: noReasonTpl, tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b10p = a25m2.checks.find((c) => c.id === "B10")
+  rec("T25m2 na-prose mention is not a license → B10 BAD (reason-line required)", b10p && b10p.verdict === "BAD", b10p ? b10p.verdict : "missing")
+
+  // N5: the documented no-lesson form for Class CODE is legitimate
+  const codeNoLesson = GATE_LINE.replace("memory_gate: pass", "memory_gate: na (no lesson — nothing persistable)")
+  const a25n = auditProject({
+    root: root25b, sessionID: "ses_t29n", sessionText: [
+      codeNoLesson,
+      "[Covenant Recall] checked: all 13 covenants hold for this completion",
+      "[Memory Gate] na (no lesson — nothing persistable)",
+      "[Convergence] x: 1 iter | 1/1 pass | 0 stalls | 0 cap-hits",
+      "A4.9 not triggered — verified via git diff --stat: 1 file, config edit — reason: config edit",
+      "| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |",
+      "| 1 | fix | none | A | src/a.ts | fixed | tests/shot.png -> ok | abc |",
+    ].join("\n"),
+    tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 },
+  })
+  const b10n = a25n.checks.find((c) => c.id === "B10")
+  rec("T25n Class CODE + `memory_gate: na (no lesson …)` → B10 OK (documented form)", b10n && b10n.verdict === "OK", b10n ? b10n.verdict + " — " + b10n.evidence : "missing")
+
+  // N4: a checklist echo is NOT a reason line — bare na stays unlicensed for CODE
+  const echoText = [
+    GATE_LINE.replace("HARD-GATE-1: NO-TEST-NO-DONE=pass", "HARD-GATE-1: NO-TEST-NO-DONE=na"),
+    "- [ ] Pure-doc/config edits state-skip with `COV-9 skipped — documentation-only change`",
+    "[Covenant Recall] checked: all 13 covenants hold for this completion",
+    "[Memory Gate] Passed: ok",
+    "[Convergence] x: 1 iter | 1/1 pass | 0 stalls | 0 cap-hits",
+    "| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |",
+    "| 1 | fix | none | A | src/a.ts | fixed | tests/shot.png -> ok | abc |",
+  ].join("\n")
+  const a25o = auditProject({ root: root25b, sessionID: "ses_t29o", sessionText: echoText, tools: docTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c14o = a25o.checks.find((c) => c.id === "C14")
+  rec("T25o checklist-echo + bare HARD-GATE-1=na (Class CODE) → C14 UNCERTAIN", c14o && c14o.verdict === "UNCERTAIN", c14o ? c14o.verdict + " — " + c14o.evidence : "missing")
+
+  // N3: an OLD block's `- class: DOC` must not license the CURRENT task block
+  const root25f = newFixture("t25-class-oldblock")
+  write(root25f, "tests/verification_log.md", [
+    "## Task: old doc task | 2026-09-01",
+    "- class: DOC — README prose",
+    "- COV-9 skipped — reason: documentation-only change",
+    "- iter 1 PASS: all",
+    "",
+    "## Task: current code task | 2026-09-28",
+    "- Baseline verified GREEN",
+    "- iter 1 PASS: all",
+  ].join("\n"))
+  write(root25f, "tests/acceptance.md", "> cap=5  stall=3×\n1. ok\n")
+  write(root25f, "memory/MEMORY.md", "# Index\n- [fix](fix.md)\n")
+  write(root25f, "memory/fix.md", "# Fix\n")
+  write(root25f, "script/linux/start.sh", "#!/bin/sh\nexit 0\n")
+  write(root25f, "script/linux/stop.sh", "#!/bin/sh\nexit 0\n")
+  write(root25f, "script/linux/restart.sh", "#!/bin/sh\nexit 0\n")
+  write(root25f, "script/linux/project_build.sh", "#!/bin/sh\nexit 0\n")
+  for (const s of ["start.sh", "stop.sh", "restart.sh", "project_build.sh"]) chmodSync(path.join(root25f, "script/linux", s), 0o755)
+  const a25p = auditProject({ root: root25f, sessionID: "ses_t29p", sessionText: GATE_LINE.replace("Class: CODE", "Class: CODE") , tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b11q = a25p.checks.find((c) => c.id === "B11")
+  rec("T25p current block without class line ≠ old DOC block → B11 OK on Class CODE", b11q && b11q.verdict === "OK" && b11q.evidence === "CODE", b11q ? b11q.verdict + " — " + b11q.evidence : "missing")
+
+  // §V11.9 DOC-asset render gate: office deliverables stay Class DOC but require
+  // rendered-page evidence (or a flagged toolchain N/A) — never a bare claim.
+  const docAssetTools = [{ tool: "write", filePath: "/x/output/report.docx", t: Date.now() - 1000 }]
+  const a25q = auditProject({ root: root25b, sessionID: "ses_t29q", sessionText: docText, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18q = a25q.checks.find((c) => c.id === "C18")
+  rec("T25q Class DOC + report.docx WITHOUT render evidence → C18 BAD (NO RENDER, NO DONE)", c18q && c18q.verdict === "BAD" && /render/i.test(c18q.evidence), c18q ? c18q.verdict + " — " + c18q.evidence : "missing")
+  // evidence binding: per-asset `render:` line, page image EXISTS on disk
+  const ghostText = docText.replace("docs-drift: none (README does not describe the edited changelog entry)", "render: report.docx — tests/ghost_page.png verified")
+  const a25t = auditProject({ root: root25b, sessionID: "ses_t29t", sessionText: ghostText, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18t = a25t.checks.find((c) => c.id === "C18")
+  rec("T25t fabricated page-image path (not on disk) → C18 BAD", c18t && c18t.verdict === "BAD", c18t ? c18t.verdict + " — " + c18t.evidence : "missing")
+  // COV-5 probe output is tooling, never a document page
+  write(root25b, "tests/probe_vision.png", "png-bytes")
+  const probeText = docText.replace("docs-drift: none (README does not describe the edited changelog entry)", "render: report.docx — tests/probe_vision.png verified")
+  const a25t2 = auditProject({ root: root25b, sessionID: "ses_t29t2", sessionText: probeText, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18t2 = a25t2.checks.find((c) => c.id === "C18")
+  rec("T25t2 probe_vision.png cited as render evidence → C18 BAD", c18t2 && c18t2.verdict === "BAD", c18t2 ? c18t2.verdict : "missing")
+  // cross-block citation: the current task block must carry its own evidence
+  write(root25b, "tests/report_p1.png", "png-bytes")
+  write(root25b, "tests/verification_log.md", [
+    "## Task: old | 2026-09-01",
+    "- class: DOC — prose",
+    "- iter 1 PASS: all (evidence: tests/report_p1.png)",
+    "",
+    "## Task: new asset | 2026-09-28",
+    "- class: DOC — report",
+    "- Baseline verified GREEN",
+    "- iter 1 PASS: all",
+  ].join("\n"))
+  const staleBlock = docText.replace("docs-drift: none (README does not describe the edited changelog entry)", "see tests/report_p1.png in the earlier task")
+  const a25t3 = auditProject({ root: root25b, sessionID: "ses_t29t3", sessionText: staleBlock, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18t3 = a25t3.checks.find((c) => c.id === "C18")
+  rec("T25t3 prior-block citation only → C18 BAD (current block must bind)", c18t3 && c18t3.verdict === "BAD", c18t3 ? c18t3.verdict : "missing")
+  const renderedText = docText.replace("docs-drift: none (README does not describe the edited changelog entry)", "render: report.docx — tests/report_p1.png rendered page verified")
+  const a25r = auditProject({ root: root25b, sessionID: "ses_t29r", sessionText: renderedText, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18r = a25r.checks.find((c) => c.id === "C18")
+  rec("T25r per-asset render line + existing page image → C18 OK", c18r && c18r.verdict === "OK", c18r ? c18r.verdict + " — " + c18r.evidence : "missing")
+  const naToolText = docText.replace("docs-drift: none (README does not describe the edited changelog entry)", "render: report.docx — N/A (soffice missing; layout risk flagged to user)")
+  const a25s = auditProject({ root: root25b, sessionID: "ses_t29s", sessionText: naToolText, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18s = a25s.checks.find((c) => c.id === "C18")
+  rec("T25s toolchain-named `render: N/A` → C18 OK", c18s && c18s.verdict === "OK", c18s ? c18s.verdict + " — " + c18s.evidence : "missing")
+  const bareNa = docText.replace("docs-drift: none (README does not describe the edited changelog entry)", "render: report.docx — N/A (fine, checked manually)")
+  const a25u = auditProject({ root: root25b, sessionID: "ses_t29u", sessionText: bareNa, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18u = a25u.checks.find((c) => c.id === "C18")
+  rec("T25u bare `N/A (fine, checked)` ≠ reason → C18 BAD", c18u && c18u.verdict === "BAD", c18u ? c18u.verdict : "missing")
+  const phNa = docText.replace("docs-drift: none (README does not describe the edited changelog entry)", "render: report.docx — N/A (<missing toolchain>)")
+  const a25u2 = auditProject({ root: root25b, sessionID: "ses_t29u2", sessionText: phNa, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18u2 = a25u2.checks.find((c) => c.id === "C18")
+  rec("T25u2 placeholder `<missing toolchain>` copied literally → C18 BAD", c18u2 && c18u2.verdict === "BAD", c18u2 ? c18u2.verdict : "missing")
+  // CONFIG + asset is NOT a misreport (assets are render-gated in every class) —
+  // it must hit the render gate, and pass once evidence is bound (no deadlock).
+  const a25v = auditProject({ root: root25b, sessionID: "ses_t29v", sessionText: cfgText, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18v = a25v.checks.find((c) => c.id === "C18")
+  rec("T25v Class CONFIG + unrendered report.docx → render-gate BAD (not misreport)", c18v && c18v.verdict === "BAD" && /NO RENDER/.test(c18v.evidence), c18v ? c18v.verdict + " — " + c18v.evidence : "missing")
+  const cfgRendered = cfgText.replace("docs-drift: none (README does not describe the edited changelog entry)", "render: report.docx — tests/report_p1.png rendered page verified")
+  const a25v2 = auditProject({ root: root25b, sessionID: "ses_t29v2", sessionText: cfgRendered, tools: docAssetTools, skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18v2 = a25v2.checks.find((c) => c.id === "C18")
+  rec("T25v2 Class CONFIG + rendered asset → C18 OK (escalation path not deadlocked)", c18v2 && c18v2.verdict === "OK", c18v2 ? c18v2.verdict : "missing")
+  // mixed wave: Class CODE shipping an asset owes the same render (file-kind gate)
+  const codeWithAsset = GATE_LINE.replace("memory_gate: pass", "memory_gate: pass") // CODE gate line
+    .replace("code review", "code review")
+  const codeText = [
+    "Verifier: direct read (non-web)",
+    GATE_LINE,
+    "[Covenant Recall] checked: all 13 covenants hold for this completion",
+    "[Memory Gate] Passed: memory written",
+    "[Convergence] x: 1 iter | 1/1 pass | 0 stalls | 0 cap-hits",
+    "A4.9 not triggered — verified via git diff --stat: 1 file, config edit — reason: config edit",
+    "render: report.docx — tests/report_p1.png rendered page verified",
+    "| # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |",
+    "| 1 | fix | none | A | src/a.ts | fixed + sample report.docx | tests/report_p1.png -> ok | abc |",
+  ].join("\n")
+  const a25y = auditProject({ root: root25b, sessionID: "ses_t29y", sessionText: codeText, tools: [...docAssetTools, { tool: "write", filePath: "/x/src/a.ts", t: Date.now() - 2000 }], skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18y = a25y.checks.find((c) => c.id === "C18")
+  rec("T25y Class CODE wave shipping report.docx + bound render → C18 OK", c18y && c18y.verdict === "OK", c18y ? c18y.verdict + " — " + c18y.evidence : "missing")
+  const a25y2 = auditProject({ root: root25b, sessionID: "ses_t29y2", sessionText: codeText.replace("render: report.docx — tests/report_p1.png rendered page verified", "docs-drift: none (nothing stale)"), tools: [...docAssetTools, { tool: "write", filePath: "/x/src/a.ts", t: Date.now() - 2000 }], skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18y2 = a25y2.checks.find((c) => c.id === "C18")
+  rec("T25y2 Class CODE wave shipping UNrendered report.docx → render-gate BAD", c18y2 && c18y2.verdict === "BAD" && /NO RENDER/.test(c18y2.evidence), c18y2 ? c18y2.verdict : "missing")
+  // multi-asset: one page image cannot cover two deliverables
+  const twoAssets = docText.replace("docs-drift: none (README does not describe the edited changelog entry)", "render: report.docx — tests/report_p1.png verified")
+  const a25z = auditProject({ root: root25b, sessionID: "ses_t29z", sessionText: twoAssets, tools: [...docAssetTools, { tool: "write", filePath: "/x/output/appendix.pdf", t: Date.now() - 1000 }], skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18z = a25z.checks.find((c) => c.id === "C18")
+  rec("T25z two assets, one render line → C18 BAD (per-asset binding)", c18z && c18z.verdict === "BAD" && /appendix/.test(c18z.evidence), c18z ? c18z.verdict + " — " + c18z.evidence : "missing")
+
+  // C16-1: an office asset is a deliverable, not a code write — post-log asset
+  // writes must not trip the code-after-log ordering check.
+  const a25w = auditProject({
+    root: root25b, sessionID: "ses_t29w", sessionText: renderedText,
+    tools: [{ tool: "write", filePath: "/x/output/report.docx", t: Date.now() + 60000 }],
+    skillLoaded: true, phase: "final", config: { samplingRate: 0 },
+  })
+  const c16w = a25w.checks.find((c) => c.id === "C16")
+  rec("T25w post-log .docx write + render evidence → C16 NOT code-ordering BAD", c16w && c16w.verdict !== "BAD", c16w ? c16w.verdict + " — " + c16w.evidence : "missing")
+
+  // DEL-1: a deleted asset is not a delivery — the render gate must stay silent.
+  const root25g = newFixture("t25-class-deleted-asset")
+  write(root25g, "tests/verification_log.md", [
+    "## Task: cleanup | 2026-09-28",
+    "- class: DOC — stale draft removed",
+    "- COV-9 skipped — reason: documentation-only change",
+    "- iter 1 PASS: criterion #1 (evidence: git status clean)",
+  ].join("\n"))
+  write(root25g, "tests/acceptance.md", "> cap=5  stall=3×\n1. Stale draft removed\n")
+  write(root25g, "output/old_report.docx", "stale")
+  execFileSync("git", ["init", "-q"], { cwd: root25g })
+  execFileSync("git", ["config", "user.email", "m@t"], { cwd: root25g })
+  execFileSync("git", ["config", "user.name", "m"], { cwd: root25g })
+  execFileSync("git", ["add", "-A"], { cwd: root25g })
+  execFileSync("git", ["commit", "-qm", "baseline"], { cwd: root25g })
+  execFileSync("git", ["rm", "-q", "output/old_report.docx"], { cwd: root25g })
+  const a25x = auditProject({ root: root25g, sessionID: "ses_t29x", sessionText: docText, tools: [{ tool: "bash", command: "git rm output/old_report.docx" }], skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const c18x = a25x.checks.find((c) => c.id === "C18")
+  rec("T25x deleted-only .docx → render gate silent (not a delivery)", c18x && c18x.verdict === "OK", c18x ? c18x.verdict + " — " + c18x.evidence : "missing")
 }
 
 // ---------- summary ----------

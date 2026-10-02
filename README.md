@@ -467,7 +467,7 @@ which is evidence about the mechanism, not about model behavior.
   the asset set is read from the whole change wave rather than the working tree
   (a committed asset is still a delivery), and the exec-check moved to delivery
   time with a log token.
-- **Evidence.** Fixture suite 103 assertions / mutation sweep 41, TDD RED
+- **Evidence.** Fixture suite 112 assertions / mutation sweep 41, TDD RED
   against the pre-change cores, two dual-adversarial review rounds (26 findings
   adjudicated) and three FCV rounds — the first FCV round failed two acceptance
   criteria and named the remaining bypasses; those became the next wave.
@@ -603,8 +603,14 @@ final output against its own claim checks, and re-checks the on-disk evidence.
 A BAD grade latches a **session-scoped** RED state that blocks the agent's writes
 until the evidence is actually fixed. Because the latch is session-scoped, a
 truncated session can never brick a project again: the latch self-releases on
-session change, on TTL expiry, or via legacy-state migration, and every release is
-journaled and surfaced in the audit report (see the 2026-08-21 entry in
+session change, on TTL expiry, via legacy-state migration — or when the latching
+session itself starts its NEXT task (rewriting `tests/acceptance.md` is the
+protocol's own first action, and `tests/` stays writable under the latch), so a
+multi-wave session never needs another session, a TTL wait, or an env-off restart
+to keep working. Stale-buffer re-audits with an unchanged failure signature can
+neither refresh a live latch's timestamp nor resurrect a released one — a new
+completion claim re-arms the teeth honestly. Every release is journaled and
+surfaced in the audit report (see the 2026-08-21 and 2026-10-02 entries in
 [CHANGELOG.md](CHANGELOG.md)). A forbidden raw command (C8) flags only once per
 project — the latch always stays self-clearable on the next clean audit.
 
@@ -868,7 +874,7 @@ the agent's context explode and give up; untested, feedback welcome.
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 103 fixture checks (T24 loop-guard, T25 task-class suite) / 41 mutation checks, including the latch-release regressions                                                      |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 112 fixture checks (T24 loop-guard, T25 task-class suite, T29–T32 latch-release suite) / 41 mutation checks, including the latch-release regressions                                                      |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing
@@ -876,7 +882,7 @@ the agent's context explode and give up; untested, feedback welcome.
 ```bash
 python3 verify_skill.py                     # package integrity: payload, links, markers, syntax
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
-node vibeweaver/scripts/audit_selftest.mjs  # 103 fixture checks (T6 skips without calibration data)
+node vibeweaver/scripts/audit_selftest.mjs  # 112 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 41 mutations, each must be caught
 ```
 

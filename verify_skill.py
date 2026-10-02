@@ -29,7 +29,7 @@ MARKERS = [
     "git repo needs", "FLOW_DESIGN", "README", "Baseline verified GREEN",
     "workflow trace", "media evidence", "diagnosis:",
     "claim without stated coverage", "secret scan", "test-change:",
-    "risk-tier", "secret-approved",
+    "risk-tier", "secret-approved", "DOC-asset render gate", "exec-check",
 ]
 PAYLOAD_FILES = [
     "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",

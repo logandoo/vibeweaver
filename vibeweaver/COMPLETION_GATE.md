@@ -13,7 +13,7 @@
 - **A4.4 Completion Output** — Covenant Recall · 9-item pre-output self-audit ·
   Gate Function · log-discipline rule · gate-line field semantics · E2E depth
   ladder · 8-column table spec + forbidden alternatives
-- **A4.4.1 G-DED Executable Artifact Assertions** — 16-assertion table · flags ·
+- **A4.4.1 G-DED Executable Artifact Assertions** — 18-group assertion table · flags ·
   copy + self-verify
 - **A4.4.3 Artifact Chain** — every artifact names its upstream link; the
   chain is the audit trail
@@ -186,6 +186,9 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only]
 | 14 | **secret scan** — no credential-looking string (AWS access key · `-----BEGIN … PRIVATE KEY-----` block · `ghp_`/`github_pat_`/`xox*`/`sk-` incl. `sk-proj-`/`sk-ant-` tokens · JSON or k=v form `api_key`/`secret`/`password`/`token` `= value` with value ≥12 chars; unquoted reference/call values like `os.environ.get(…)`/`config.x`/`self.x` are NOT flagged) appears on an ADDED line of the change-wave diff (per-commit patches of newest `backup: before changes` commit..HEAD + uncommitted; no backup commit → last commit + uncommitted; untracked non-ignored files are scanned whole). Lines carrying a placeholder marker (example/sample/dummy/placeholder/changeme/redacted/fake/`<…>`) are exempt; `*.md` hits print WARN but do not FAIL; any `assert_artifacts.py` is never scanned. **User-approved credentials:** a `vw-approved` marker exempts a line ONLY when the line also matches a credential pattern (prose mentions are no-ops) AND `verification_log.md` carries the path-scoped pairing `- secret-approved: <path> — <reason>` (marker count per path ≤ approvals; pairing failure FAILs regardless of file type) | A4.4 content gate |
 | 15 | **test-change guard** — no REMOVED assertion line (`assert` · `self.assert*` · `expect(` · `pytest.raises` · `require(` · `def test_` · `it(` · `test(` · `func Test` · `@Test`) in a test code file (path segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*` basename; code extensions only — whole-file deletions included) unless `verification_log.md` carries a `- test-change: <path> — <reason>` line. An agent fixing code must not silently weaken the check on that code; writing NEW tests stays free | A4.8 test integrity |
 | 16 | **risk-tier** — when the change-wave diff or an untracked file touches a risk-tier code path (`auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` path segment; code extensions only — deletions included), `tests/review_package.md` exists and >0 bytes — A4.9 review is non-skippable for risk-tier paths (existence check; package FRESHNESS is enforced by the §A4.9 scoped re-review process) | A4.9 risk tiering |
+| 17a | **DOC-asset render gate (§V11.9)** — when the change wave DELIVERS an office/document asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave scope: `backup: before changes`..HEAD + uncommitted + untracked, deletions excluded), `tests/verification_log.md` carries a `render:` line naming that asset bound to existing >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain: soffice/libreoffice/pymupdf/pdftoppm/poppler/imagemagick>)`. **NO RENDER, NO DONE**; fires in EVERY class (a mixed CODE wave shipping a docx owes the same render) | §V11.9 render gate |
+| 17b | **exec-check (§V11.9)** — every delivered office asset also needs a recorded executable-behavior check: an `exec-check:` line naming the asset with `clean` or `escalat…` (vbaProject.bin / PDF JavaScript / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
+| 18 | **task-class coherence (COV-13)** — `--class DOC\|CONFIG\|CODE` (or the log's `- class:` first entry of the current task block) N/A's only the class's structurally-free groups (DOC: memory 4 + service-lifecycle 5; CONFIG: memory 4 when the log carries `- memory: na (<why>)`); a `--class` flag contradicting the log's class is a NAMED failure (§V11.7 one class per task); a class never weakens an applicable group | COV-13 / §V11 |
 
 The script byte-checks the artifacts behind every Gate Function claim — the
 external verifier for claims mm-sensor cannot see. The **canonical file is
@@ -201,14 +204,15 @@ cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
 ```
 
 The only allowed edit after copying is adding project-specific assertion
-lines — never remove or weaken groups 1-16.
+lines — never remove or weaken groups 1-18.
 
 **Self-verify the copy is complete (MUST do after copying it):** the script
-MUST contain each of these 17 markers — `verification_log` · `cap=5` ·
+MUST contain each of these 19 markers — `verification_log` · `cap=5` ·
 `screenshot` · `MEMORY.md` · `start.sh` · `git repo needs` · `FLOW_DESIGN` ·
 `README` · `Baseline verified GREEN` · `workflow trace` · `media evidence` ·
 `diagnosis:` · `claim without stated coverage` · `secret scan` ·
-`test-change:` · `risk-tier` · `secret-approved`. Grep the file for all 17;
+`test-change:` · `risk-tier` · `secret-approved` · `DOC-asset render gate` ·
+`exec-check`. Grep the file for all 19;
 ANY
 missing marker means an incomplete variant — re-copy from the canonical file.
 A script missing a marker will not catch the missing artifact; a complete

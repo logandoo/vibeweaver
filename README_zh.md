@@ -222,7 +222,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 - **COV-13 / §V11 任务分类**：`Class: CODE > CONFIG > DOC` 由文件种类判定；每类一张 path card（gate↔具名风险）；散文与配置走 lite 完工表；doc-drift 触发器；Class 与 Lane 是两个轴。动因很直白：改一段 CHANGELOG 在走完整验证路径，而路径本身还在自作主张推着 README 更新。
 - **§V11.9 DOC-asset render 门**：office 交付物仍归 Class DOC，但证据改为 render-and-verify（`NO RENDER, NO DONE`）；doc-skill 委托表；交付时点的具名可执行行为检查（vbaProject / PDF JS / 宏表）；工具链缺失带旗标降级并标 `UNVERIFIED-layout`。
 - **盲区加固**：两轮猎杀（自研探针 + 全新上下文语义评审）关掉九个真窟窿——门改按文件种类在任何类触发（混合 CODE 波交付样例 docx 同样欠渲染）、证据绑定到当前任务块并按资产逐件（COV-5 探针图、旧块引用、占位符 `render: N/A`、引用回声一律不许可）、资产集合取整个波次而非工作区（commit 过的资产仍是交付物）、exec-check 移到交付时点并强制日志令牌。
-- **证据**：fixture 103 条断言 / 变异扫描 41，TDD RED 对变更前 core，两轮双对抗评审（26 项发现全部裁决）与三轮 FCV——第一轮 FCV 判了两条验收标准不通过并点名剩余绕过，那些绕过就是下一波的输入。
+- **证据**：fixture 112 条断言 / 变异扫描 41，TDD RED 对变更前 core，两轮双对抗评审（26 项发现全部裁决）与三轮 FCV——第一轮 FCV 判了两条验收标准不通过并点名剩余绕过，那些绕过就是下一波的输入。
 
 ### 说句实话
 
@@ -299,7 +299,7 @@ flowchart TD
 
 **`vibeweaver-audit`：机械审计器。** 会话空闲时它重跑项目的 `tests/assert_artifacts.py`（和门禁用的是同一份脚本），再用自己的声明检查组给最终输出打分、复核磁盘证据。
 
-打出 BAD 就落下一个**会话级**的 RED 锁存，拦住 agent 的写入，直到证据真的补齐。正因为锁存是会话级的，一个被截断的会话永远不会把项目锁死：换会话、TTL 到期、旧格式状态迁移，三条路都会自动释放；而且每次释放都会记进日志并出现在审计报告里（机制详见 [CHANGELOG_zh.md](CHANGELOG_zh.md) 的 2026-08-21 一节）。违禁原始命令（C8）每个项目只标记一次——锁存永远能在下一次干净审计后自解，不会被不可变的历史命令永久钉住。
+打出 BAD 就落下一个**会话级**的 RED 锁存，拦住 agent 的写入，直到证据真的补齐。正因为锁存是会话级的，一个被截断的会话永远不会把项目锁死：换会话、TTL 到期、旧格式状态迁移，三条路都会自动释放——而且锁存会话自己开始**下一个任务**时也会自释（按协议重写 `tests/acceptance.md` 是新任务的第一步，而 `tests/` 在锁存下永远可写），多波会话永远不需要其他会话、TTL 等待或关闭环境变量才能继续干活。签名未变化的陈旧缓冲重审既刷新不了活锁存的时间戳、也复活不了已释放的锁存——新的完成声明则会诚实地重臂牙齿。每次释放都记进日志并出现在审计报告里（机制详见 [CHANGELOG_zh.md](CHANGELOG_zh.md) 的 2026-08-21 与 2026-10-02 两节）。违禁原始命令（C8）每个项目只标记一次——锁存永远能在下一次干净审计后自解，不会被不可变的历史命令永久钉住。
 
 同一观察通道还跑着 **loop-guard**：对助手文本流做有界尾窗扫描，识别跑飞的生成——尾部同一行组复读（块周期按数据推导，≤640 行；多行块 ≥3×，单行 ≥4×，纯标点分隔线豁免）、末尾连续 ≥12 个裸 token 步长 +1（整数或双十进制字母）、无换行流的字符级周期（≥32 字符单元复读 ≥4×）。命中后打断会话（v1 `session.abort` / v2 `session.interrupt({continue:false})`）并投递指出具体模式的纠正提示；一段发作干预一次，每会话至多两次，之后的发作只记日志；编号列表（`1. 步骤`）这类「看着像序列」的正常文本不会触发。
 
@@ -410,7 +410,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |
 | `vibeweaver-audit.js`                               | 三层机械审计器（Tier 0/1/2），会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈                                                                   |
 | `scripts/vibeweaver-audit-core.js`                  | 纯裁决核心（可无头测试）                                                                                                     |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 103 项 fixture 检查（T24 loop-guard、T25 任务分类套件）/ 41 项变异检查，含锁存释放回归                                                    |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 112 项 fixture 检查（T24 loop-guard、T25 任务分类套件、T29–T32 锁存释放套件）/ 41 项变异检查，含锁存释放回归                                                    |
 | `install.sh` / `install.bat`                        | 安装脚本（skill 文件 + 两个插件）                                                                                            |
 
 ## 测试
@@ -420,7 +420,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 ```bash
 python3 verify_skill.py                     # 包完整性：payload、链接、标记、语法
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
-node vibeweaver/scripts/audit_selftest.mjs  # 103 项 fixture 检查（无校准数据时 T6 SKIP）
+node vibeweaver/scripts/audit_selftest.mjs  # 112 项 fixture 检查（无校准数据时 T6 SKIP）
 node vibeweaver/scripts/mutation_sweep.mjs  # 41 项变异，每项都必须被抓到
 ```
 
