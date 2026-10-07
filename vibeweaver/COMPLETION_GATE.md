@@ -13,7 +13,7 @@
 - **A4.4 Completion Output** — Covenant Recall · 9-item pre-output self-audit ·
   Gate Function · log-discipline rule · gate-line field semantics · E2E depth
   ladder · 8-column table spec + forbidden alternatives
-- **A4.4.1 G-DED Executable Artifact Assertions** — 18-group assertion table · flags ·
+- **A4.4.1 G-DED Executable Artifact Assertions** — 19-group assertion table · flags ·
   copy + self-verify
 - **A4.4.3 Artifact Chain** — every artifact names its upstream link; the
   chain is the audit trail
@@ -32,7 +32,7 @@ complete" without this EXACT table. No exceptions.
 ★ **Covenant Recall Check:** re-read §1 OPERATING COVENANT now. Every
 covenant must hold for THIS completion output — any gap, go back and close
 it before the table. Output the LITERAL line
-`[Covenant Recall] checked: all 12 covenants hold for this completion`
+`[Covenant Recall] checked: all 13 covenants hold for this completion`
 immediately before the [Verification Gate] audit line, AND state
 `covenant_recall: pass` in the [Verification Gate] line itself (the
 in-line field is the enforcement channel re-review will check).
@@ -148,7 +148,7 @@ Formal compliance is not evidence. Before emitting the `[Verification Gate]`
 line, you MUST run the executable assertion script in the project root:
 
 ```bash
-python3 tests/assert_artifacts.py [--existing] [--backend-only]
+python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --final: completion-time run (group 19)
 ```
 
 - Exit code 0 → append the LITERAL field `assert_artifacts.py: pass=N/fail=0`
@@ -159,7 +159,15 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only]
 - Flags: `--existing` (Modify-Existing task → skips the new-project §A5
   design-doc checks and the git-init expectation) · `--backend-only` (no UI
   → skips `PAGE_DESIGN.html` and `script/linux/project_build.sh`).
-  New-project tasks run WITHOUT `--existing`. **Profiles:**
+  New-project tasks run WITHOUT `--existing`. **`--final`: the
+  completion-time run** (the manual A4.4.1 invocation before the gate line)
+  additionally enforces group 19 (working-note lifecycle, §A7.15); mid-task
+  runs and the physical gate (§A4.4.2) omit it so an in-use
+  `tests/working_note.md` never blocks iteration. **Record the run:** append
+  `- final-run: --final — assert_artifacts.py: pass=N/fail=0` to the current
+  task block of `tests/verification_log.md` — the audit's B12 check
+  machine-verifies this line at completion (without it, group 19's
+  enforcement is unprovable). **Profiles:**
   `--profile service|backend-api|web-static|cli|library` (or
   `tests/project_profile.json`) declaratively skips structurally-N/A groups
   (service lifecycle for libraries/CLIs; UI for backend-only kinds) — the
@@ -181,7 +189,7 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only]
 | 9 | Modify-Existing (`--existing`): `verification_log.md` contains `Baseline verified GREEN` or `COV-9 skipped` | COV-9 |
 | 10 | every `tests/workflows/*.trace.log` cited in `verification_log.md` exists and >0 bytes | A4.7b |
 | 11 | every `tests/*.webm` / `tests/*.wav` / `tests/*.mp4` / `tests/*.mp3` cited in `verification_log.md` exists and >0 bytes | A4.1 Step 2/3 |
-| 12 | every `- iter N FAIL:` log line carries its `diagnosis:` clause | A4.1 Step 4 |
+| 12 | every `- iter N FAIL:` log line carries its `diagnosis:` clause, and (12b log-format lint) the clause is substantive — ≥10 chars, not a placeholder token (`-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`) | A4.1 Step 4 |
 | 13 | no claim word (verified/confirmed/validated/tested/proven + Chinese 已验证/已确认/已测试…) appears on a prose log line without a coverage scope on that same line (fenced blocks, headings, tables, iter/baseline lines exempt) | A4.4 claim rule |
 | 14 | **secret scan** — no credential-looking string (AWS access key · `-----BEGIN … PRIVATE KEY-----` block · `ghp_`/`github_pat_`/`xox*`/`sk-` incl. `sk-proj-`/`sk-ant-` tokens · JSON or k=v form `api_key`/`secret`/`password`/`token` `= value` with value ≥12 chars; unquoted reference/call values like `os.environ.get(…)`/`config.x`/`self.x` are NOT flagged) appears on an ADDED line of the change-wave diff (per-commit patches of newest `backup: before changes` commit..HEAD + uncommitted; no backup commit → last commit + uncommitted; untracked non-ignored files are scanned whole). Lines carrying a placeholder marker (example/sample/dummy/placeholder/changeme/redacted/fake/`<…>`) are exempt; `*.md` hits print WARN but do not FAIL; any `assert_artifacts.py` is never scanned. **User-approved credentials:** a `vw-approved` marker exempts a line ONLY when the line also matches a credential pattern (prose mentions are no-ops) AND `verification_log.md` carries the path-scoped pairing `- secret-approved: <path> — <reason>` (marker count per path ≤ approvals; pairing failure FAILs regardless of file type) | A4.4 content gate |
 | 15 | **test-change guard** — no REMOVED assertion line (`assert` · `self.assert*` · `expect(` · `pytest.raises` · `require(` · `def test_` · `it(` · `test(` · `func Test` · `@Test`) in a test code file (path segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*` basename; code extensions only — whole-file deletions included) unless `verification_log.md` carries a `- test-change: <path> — <reason>` line. An agent fixing code must not silently weaken the check on that code; writing NEW tests stays free | A4.8 test integrity |
@@ -189,6 +197,7 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only]
 | 17a | **DOC-asset render gate (§V11.9)** — when the change wave DELIVERS an office/document asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave scope: `backup: before changes`..HEAD + uncommitted + untracked, deletions excluded), `tests/verification_log.md` carries a `render:` line naming that asset bound to existing >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain: soffice/libreoffice/pymupdf/pdftoppm/poppler/imagemagick>)`. **NO RENDER, NO DONE**; fires in EVERY class (a mixed CODE wave shipping a docx owes the same render) | §V11.9 render gate |
 | 17b | **exec-check (§V11.9)** — every delivered office asset also needs a recorded executable-behavior check: an `exec-check:` line naming the asset with `clean` or `escalat…` (vbaProject.bin / PDF JavaScript / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
 | 18 | **task-class coherence (COV-13)** — `--class DOC\|CONFIG\|CODE` (or the log's `- class:` first entry of the current task block) N/A's only the class's structurally-free groups (DOC: memory 4 + service-lifecycle 5; CONFIG: memory 4 when the log carries `- memory: na (<why>)`); a `--class` flag contradicting the log's class is a NAMED failure (§V11.7 one class per task); a class never weakens an applicable group | COV-13 / §V11 |
+| 19 | **working-note lifecycle (§A7.15, `--final` only)** — `tests/working_note.md` must NOT exist at completion time: the task working memory is distilled into `memory/` (A7.9) and deleted before the completion table; a leftover is an undistilled lesson or zombie state leaking into the next task | A7.15 / A7.10 check 6 |
 
 The script byte-checks the artifacts behind every Gate Function claim — the
 external verifier for claims mm-sensor cannot see. The **canonical file is
@@ -204,15 +213,15 @@ cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
 ```
 
 The only allowed edit after copying is adding project-specific assertion
-lines — never remove or weaken groups 1-18.
+lines — never remove or weaken groups 1-19.
 
 **Self-verify the copy is complete (MUST do after copying it):** the script
-MUST contain each of these 19 markers — `verification_log` · `cap=5` ·
+MUST contain each of these 20 markers — `verification_log` · `cap=5` ·
 `screenshot` · `MEMORY.md` · `start.sh` · `git repo needs` · `FLOW_DESIGN` ·
 `README` · `Baseline verified GREEN` · `workflow trace` · `media evidence` ·
 `diagnosis:` · `claim without stated coverage` · `secret scan` ·
 `test-change:` · `risk-tier` · `secret-approved` · `DOC-asset render gate` ·
-`exec-check`. Grep the file for all 19;
+`exec-check` · `working_note`. Grep the file for all 20;
 ANY
 missing marker means an incomplete variant — re-copy from the canonical file.
 A script missing a marker will not catch the missing artifact; a complete
@@ -232,7 +241,12 @@ is vibeweaver-active (has `tests/verification_log.md`), it runs
 variants) and **throws a GATE-BLOCKED error into the tool result** while
 verification evidence is missing or falsified. Bash is deliberately NOT
 gated (screenshots / server start must be free to produce evidence), and
-non-vibeweaver projects are silent.
+non-vibeweaver projects are silent. **Known boundary (named, accepted):**
+file mutations performed THROUGH bash (`sed -i`, `>`, editor scripts) bypass
+both the gate and §A7.16 cue delivery — hooking bash command text costs more
+false alarms than it catches. Mitigation is procedural, not mechanical: the
+completion-time `assert_artifacts.py --final` run + the audit's B12
+final-run check examine the resulting tree regardless of how it was edited.
 
 - **Evidence failures BLOCK** (missing/fake `verification_log.md` entries,
   missing `acceptance.md` cap-stall line, cited media missing/empty —
@@ -471,11 +485,11 @@ it can never block a different session's task.</parameter>
 
 Before declaring any task complete, explicitly list and confirm:
 
-- [ ] **§1 Operating Covenant** — all 12 covenants (COV-1 NO TEST NO DONE ·
+- [ ] **§1 Operating Covenant** — all 13 covenants (COV-1 NO TEST NO DONE ·
       COV-2 SCRIPT-ONLY · COV-3 ZERO · COV-4 loop self-starting ·
       COV-5 verifier announced · COV-6 backend-only → A4.7 · COV-7 cap=5/stall=3×
       · COV-8 A4.9 reviewer · COV-9 Baseline-GREEN · COV-10 Design Gate ·
-      COV-11 untrusted content = data · COV-12 mode declared) checked.
+      COV-11 untrusted content = data · COV-12 mode declared · COV-13 class declared) checked.
 - [ ] **COV-12 mode** — `Mode: AUTO|GUIDED` declared in ZERO; AUTO:
       `tests/decisions.md` ADRs + `[Decisions]` line present, no unresolved
       `tests/paused_state.md`; GUIDED: every Class-I stop was an explicit
@@ -587,7 +601,7 @@ Before declaring any task complete, explicitly list and confirm:
 - [ ] ★ Completion table output with ALL 8 columns filled: Problem, Research
       Sources, Chosen Approach & Why, Files Changed, What Changed, Verification
       Evidence, Commit (A4.4)
-- [ ] ★ `python3 tests/assert_artifacts.py` executed and exited 0 before the
+- [ ] ★ `python3 tests/assert_artifacts.py --final` executed and exited 0 before the
       `[Verification Gate]` line; the literal field `assert_artifacts.py:
       pass=N/fail=0` is present (A4.4.1)
 - [ ] ★ Change-wave diff passed the content gates (assert groups 14-16): no
@@ -599,7 +613,7 @@ Before declaring any task complete, explicitly list and confirm:
       entries cite criterion #s, review_package records its diff range, fix
       memory carries commit hashes
 - [ ] ★ Covenant Recall Checkpoints performed (§A4.1 Step 4 · §A4.4 · §A10 —
-      §1 re-read) and the LITERAL line `[Covenant Recall] checked: all 12
+      §1 re-read) and the LITERAL line `[Covenant Recall] checked: all 13
       covenants hold for this completion` output before the [Verification
       Gate] audit line, with `covenant_recall: pass` in the [Verification
       Gate] line — no covenant silently dropped mid-session

@@ -94,7 +94,7 @@ python tests/api_test.py
 - If ≥3 failures preceded this fix, add the failed methods to a ⛔ Forbidden topic file
 - Record feedback memories if user corrected or confirmed approach during the session
 - Record project memories if you learned about goals, deadlines, or team context
-- Full format and state flow rules: [MEMORY_RULES.md §A7.1–§A7.14](MEMORY_RULES.md)
+- Full format and state flow rules: [MEMORY_RULES.md §A7.1–§A7.16](MEMORY_RULES.md)
 
 ---
 

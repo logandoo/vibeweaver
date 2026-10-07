@@ -491,7 +491,7 @@ ONLY when the gate line declares `Class: DOC|CONFIG`.
   LAST task block wins — older blocks are history). Class-NA groups print
   `class: <X> — group N/A …` as gate evidence (DOC structurally N/A's memory
   + service lifecycle groups; a profile never weakens an applicable group;
-  groups 12-16 — claim lint · secret scan · test-change · risk-tier —
+  groups 12-16 — diagnosis+claim lint · secret scan · test-change · risk-tier —
   NEVER skip).
 - audit Group B accepts the lite table header ONLY when the gate line
   declares `Class: DOC|CONFIG` (the field must be a filled single value —

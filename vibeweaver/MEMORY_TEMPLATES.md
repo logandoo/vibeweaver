@@ -1,7 +1,7 @@
 # Memory Templates
 
 > Copy-paste templates for creating `memory/` files in Vibeweaver-managed projects.
-> Full rules: [MEMORY_RULES.md §A7.1–§A7.14](MEMORY_RULES.md)
+> Full rules: [MEMORY_RULES.md §A7.1–§A7.16](MEMORY_RULES.md)
 
 ---
 
@@ -219,6 +219,8 @@ type: fix
 date: YYYY-MM-DD
 status: ⛔
 commit: abc1234   # Commit where this method was finally ruled out; N/A if not tied to one commit
+triggers:          # optional (§A7.16): path globs; the gate plugin cues this topic when a matching file is edited
+  - "src/auth/**"  # keep narrow — a cue that fires everywhere trains cue-blindness
 ---
 
 # ⛔ Forbidden: (Method/Action)
@@ -309,6 +311,8 @@ type: fix
 date: YYYY-MM-DD
 status: ❌
 commit: abc1234   # Short hash of the failed attempt commit; N/A if not yet committed
+triggers:          # optional (§A7.16): path globs; the gate plugin cues this topic when a matching file is edited
+  - "src/<area>/**"
 ---
 
 # Fix: (Bug/Issue Title)
@@ -344,29 +348,27 @@ Create `memory/.consolidation-log.md` when consolidating (see MEMORY_RULES.md §
 
 ---
 
-## Session Scratchpad (Temporary)
+## Task Working Note — tests/working_note.md (§A7.15)
 
-Create `memory/.session-scratchpad.md` only for complex tasks with ≥3 failed attempts or multi-step backtracking. Delete it at session end after writing permanent memory topic files.
+Task-scoped working memory. REWRITE on each update (state, not chronicle);
+≤50 lines; delete at task end after distilling into `memory/` (A7.9).
 
 ```markdown
-# Session Scratchpad — YYYY-MM-DD
+# Working Note — <task> (updated: iter N / <time>)
 
-## Task
-(Brief restatement of the current task.)
+## Hypothesis ledger
+confirmed: <what evidence proved true>
+doubted:   <leaning but unproven>
+excluded:  <falsified directions — one falsifiable clause each>
+open:      <unresolved questions>
+consulted: <memory topics read this task — one line each>
 
-## Memories Consulted
-- `memory/fix_<topic>.md` — (relevance)
-- `memory/feedback_<topic>.md` — (relevance)
+## Key locations
+path/to/file.ts:123 — <one clause why it matters>
 
-## Hypothesis Chain
-1. **Hypothesis:** (what we think will fix it)
-   **Result:** (pass / fail / partial)
-   **Next:** (what to try next)
-2. **Hypothesis:** ...
+## Dead ends this task
+❌ <direction — one clause why it died>
 
-## Current Direction
-(The approach being tried right now.)
-
-## Blockers
-(Anything preventing progress.)
+## Next action
+<one line>
 ```

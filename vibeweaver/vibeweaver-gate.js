@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 // vibeweaver physical gate — https://opencode.ai
@@ -165,18 +165,27 @@ function stallObservation(root, file) {
     if (!st || !Array.isArray(st.ops)) st = { ops: [] }
     st.ops.push({ f: file, p: countPasses(root), t: Date.now() })
     if (st.ops.length > MAX_OPS) st.ops = st.ops.slice(-MAX_OPS)
+    const run = st.ops.slice(-STALL_RUN)
+    let msg = null
+    if (run.length >= STALL_RUN) {
+      const sameFile = run.every((o) => o.f === run[0].f)
+      const noNewPass = run[0].p === run[run.length - 1].p
+      if (sameFile && noNewPass) {
+        // latch: fire ONCE per (file, pass-count) signature — re-firing on
+        // every later edit is alarm flood and trains warning-blindness. A
+        // new PASS changes the signature and re-arms the observer.
+        const firedKey = `${run[0].f}@${run[0].p}`
+        if (st.firedKey !== firedKey) {
+          st.firedKey = firedKey
+          msg = `STALL observed (machine-counted): "${run[0].f}" modified ${STALL_RUN}x with no new "iter N PASS" entry in tests/verification_log.md in between — COV-7 stall=3x is likely reached. Do not retry the same direction: parameterize (finite candidate set + cheapest refuting test) or shift the abstraction/strategy — TESTING_PROTOCOLS.md §A4.10.`
+        }
+      }
+    }
     if (!existsSync(path.join(root, STATE_DIR))) mkdirSync(path.join(root, STATE_DIR), { recursive: true })
     const tmp = p + ".tmp"
     writeFileSync(tmp, JSON.stringify(st))
     renameSync(tmp, p)
-    const run = st.ops.slice(-STALL_RUN)
-    if (run.length < STALL_RUN) return null
-    const sameFile = run.every((o) => o.f === run[0].f)
-    const noNewPass = run[0].p === run[run.length - 1].p
-    if (sameFile && noNewPass) {
-      return `STALL observed (machine-counted): "${run[0].f}" modified ${STALL_RUN}x with no new "iter N PASS" entry in tests/verification_log.md in between — COV-7 stall=3x is likely reached. Do not retry the same direction: parameterize (finite candidate set + cheapest refuting test) or shift the abstraction/strategy — TESTING_PROTOCOLS.md §A4.10.`
-    }
-    return null
+    return msg
   } catch {
     return null
   }
@@ -213,6 +222,109 @@ function isEvidencePath(root, filePath) {
   return seg === "test" || seg === "tests" || seg === "memory"
 }
 
+// ---------- cue-anchored memory triggers (§A7.16) ----------
+
+// glob → RegExp: `**/` crosses directories, `*` stays inside a segment,
+// `?` matches one non-separator char. Anchored to the project-relative path.
+function globToRegExp(glob) {
+  let g = String(glob)
+  g = g.replace(/[.+^${}()|[\]\\]/g, "\\$&")
+  g = g.replace(/\*\*\//g, " ")
+  g = g.replace(/\*\*/g, "")
+  g = g.replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")
+  g = g.replace(/ /g, "(?:.*/)?").replace(//g, ".*")
+  return new RegExp("^" + g + "$")
+}
+
+// Parse a memory topic's frontmatter `triggers:` field — inline form
+// `triggers: ["a/**", "b/**"]`, list form (any indent):
+//   triggers:
+//     - "a/**"
+// and the scalar form `triggers: src/auth/**`. Returns [] when
+// absent/unparseable (a trigger-less topic never cues).
+function parseTriggers(fm) {
+  const out = []
+  const lines = fm.split("\n")
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^triggers:\s*(.*)$/)
+    if (!m) continue
+    const rest = m[1].trim()
+    if (rest.startsWith("[")) {
+      const inner = rest.replace(/^\[/, "").replace(/\]\s*$/, "")
+      for (const part of inner.split(",")) {
+        const v = part.trim().replace(/^["']|["']$/g, "")
+        if (v) out.push(v)
+      }
+    } else if (!rest) {
+      for (let j = i + 1; j < lines.length; j++) {
+        const li = lines[j].match(/^\s*-\s+["']?([^"']+?)["']?\s*(?:#.*)?$/)
+        if (!li) break
+        out.push(li[1])
+      }
+    } else {
+      const scalar = rest.replace(/["']/g, "").replace(/\s+#.*$/, "").trim()
+      if (scalar) out.push(scalar)
+    }
+    break
+  }
+  return out
+}
+
+// Delivery-safety caps: memory topics are agent-authored text that gets
+// COMPILED TO REGEX and executed synchronously in the write hook — a hostile
+// or careless glob (repeated `**/` → combinatorial backtracking) would wedge
+// the event loop. Cap `**` groups (≤2 keeps matching polynomial), cap length,
+// and reject control chars (they double as internal sentinel bytes).
+function safeGlob(t) {
+  return (
+    typeof t === "string" &&
+    t.length > 0 &&
+    t.length <= 200 &&
+    !/[\x00-\x1f]/.test(t) &&
+    (t.match(/\*\*/g) || []).length <= 2
+  )
+}
+
+// One-line cue notes for memory topics whose triggers match the edited
+// path. Delivery, not storage: the cue fires at the edit moment, not at
+// task-start grep. Budgeted (max 3), progressive (pointer line, not the
+// topic body). Never throws.
+function cueNotes(root, filePath) {
+  try {
+    if (typeof filePath !== "string" || !filePath) return []
+    const rel = path.relative(path.resolve(root), path.resolve(filePath))
+    if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return []
+    if (rel.split(path.sep)[0].toLowerCase() === "memory") return []
+    const memDir = path.join(root, "memory")
+    if (!existsSync(memDir)) return []
+    const relPosix = rel.split(path.sep).join("/")
+    const notes = []
+    for (const f of readdirSync(memDir).sort()) {
+      if (!f.endsWith(".md") || f === "MEMORY.md") continue
+      const text = safeRead(path.join(memDir, f)).replace(/\r\n/g, "\n").replace(/^\uFEFF/, "")
+      const fm = text.match(/^---\n([\s\S]*?)\n---/)
+      if (!fm) continue
+      const triggers = parseTriggers(fm[1]).filter(safeGlob)
+      if (!triggers.length) continue
+      const hit = triggers.some((t) => {
+        try {
+          return globToRegExp(t).test(relPosix)
+        } catch {
+          return false
+        }
+      })
+      if (!hit) continue
+      const trust = (fm[1].match(/^(?:trust|status):\s*(\S+)/m) || [])[1] || "?"
+      const heading = (text.match(/^#\s+(.+)$/m) || [])[1] || f
+      notes.push(`[GATE-WARNING (vibeweaver-cue)] memory cue: memory/${f} (${trust}) matches this path — read it before editing: ${heading}`)
+      if (notes.length >= 3) break
+    }
+    return notes
+  } catch {
+    return []
+  }
+}
+
 // ---------- version-agnostic gate logic ----------
 
 // Evaluate one completed write/edit. Returns:
@@ -226,13 +338,21 @@ function gateCheckWrite(directory, filePath) {
   if (process.env.VIBEWEAVER_GATE === "off") return null
   const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
   if (!root) return null
+  // Cue delivery is hoisted ABOVE the gate: a RED gate (e.g. the task's
+  // first write, empty log) is exactly when "read it before editing" must
+  // arrive — delivery must never depend on the gate being green.
+  const cues = cueNotes(root, filePath)
   // evidence-fix path must never be gated (same rule as the audit
   // plugin): writes under tests/ or memory/ ARE the evidence repair
   // itself — gating them creates the first-log catch-22 deadlock.
-  if (isEvidencePath(root, filePath)) return null
+  if (isEvidencePath(root, filePath)) return cues.length ? { notes: cues } : null
   const result = checkGate(root)
-  if (result && result.blocking.length) return { block: blockMessage(root, result) }
-  const notes = []
+  if (result && result.blocking.length) {
+    let msg = blockMessage(root, result)
+    if (cues.length) msg += "\n" + cues.join("\n")
+    return { block: msg }
+  }
+  const notes = [...cues]
   if (result && result.warnings.length) {
     notes.push("[GATE-WARNING (vibeweaver)] non-blocking: " + result.warnings.join("; ") + " — fix before the final [Verification Gate] line.")
   }
@@ -297,12 +417,16 @@ function appendNotesToV2Result(event, notes) {
   } catch {
     /* readonly/frozen result — fall back to reassignment */
   }
-  if (typeof result.content === "string") {
-    event.result = { ...result, content: result.content + "\n" + text }
-  } else if (Array.isArray(result.content)) {
-    event.result = { ...result, content: [...result.content, { type: "text", text }] }
-  } else {
-    event.result = { ...result, metadata: { ...(result.metadata || {}), vibeweaverGate: text } }
+  try {
+    if (typeof result.content === "string") {
+      event.result = { ...result, content: result.content + "\n" + text }
+    } else if (Array.isArray(result.content)) {
+      event.result = { ...result, content: [...result.content, { type: "text", text }] }
+    } else {
+      event.result = { ...result, metadata: { ...(result.metadata || {}), vibeweaverGate: text } }
+    }
+  } catch {
+    /* fully-frozen event — a cue note must never break a landed write */
   }
 }
 

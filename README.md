@@ -120,6 +120,36 @@ checkable.
   with a fresh brain. Vibeweaver builds one from files and rules: an index plus
   topic files, trust tiers (⛔ Forbidden / ❌ Failed / ✅ Verified / ⏳ Unverified),
   and a fix state machine. Full mechanism below.
+- **Working memory between the log and the lessons.** Append-only logs answer
+  "what happened"; curated `memory/` answers "what is true about this project".
+  A task that spans iterations also needs "what holds right now":
+  `tests/working_note.md` keeps the live hypothesis ledger (confirmed / doubted /
+  excluded / open), key file:line discoveries, this task's dead ends and the next
+  action — rewritten each update, read first on any resume, distilled into
+  `memory/` and deleted at task end (the deletion is machine-checked by the
+  completion-time `--final` run).
+- **Memory that arrives at the moment it matters.** A topic file can declare
+  `triggers:` path globs in its frontmatter; when the agent edits a matching
+  file, the gate plugin injects a one-line cue into the tool result — even when
+  the gate is red, even on the task's very first write. Delivery is
+  deterministic, because a memory consulted zero times is indistinguishable
+  from no memory. Globs are capped (≤2 `**` groups, ≤200 chars, no control
+  characters) — memory text compiles to regex, so complexity caps are the
+  injection boundary — and a glob whose literal prefix no longer exists fails
+  the artifact check instead of silently never firing.
+- **An outer loop for backlogs.** Point it at a queue: `tests/backlog.json`
+  (one item, one `passes` flag), an append-only `tests/progress.txt` chronicle,
+  fresh context per item, one small task per iteration, green-before-commit as
+  the loop's immune system, explicit stop signals (COMPLETE / BLOCKED / DECIDE /
+  budget — exhaustion is a top-up, not a failure), supervised first and bounded
+  unattended batches later. `scripts/backlog_check.py` fails any `passes: true`
+  that no executed-test line names.
+- **Enforcement teeth, kept honest.** The artifact checker lints the log itself
+  (a FAIL whose diagnosis is a placeholder is not an iteration); the session
+  auditor requires the completion-time `--final` run to leave its log line
+  (otherwise its checks never provably ran); the stall observer fires once per
+  stall signature and re-arms on a new pass, because a warning that floods
+  trains blindness.
 - **Bounded loops.** Every verification loop is capped at `cap=5` iterations per
   sub-problem with `stall=3×`: the same criterion failing three times in a row
   means stop, change direction, record the dead end.
@@ -172,7 +202,8 @@ checkable.
 - **The whole SDLC, not one slice of it.** New-project scaffolding with design docs
   first (FLOW / PAGE / DATABASE / BACKEND), config management, acceptance
   checklists, task-type routing (build / audit / deploy / ops / CLI-library /
-  feasibility spike), an 8-column completion table, and two enforcement plugins.
+  backlog outer-loop / feasibility spike), an 8-column completion table, and two
+  enforcement plugins.
 
 ## Install
 

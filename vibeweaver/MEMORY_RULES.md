@@ -270,7 +270,7 @@ Before implementing any change:
 5. **Record feedback memories** when user corrects or confirms approach during the session
 6. **Record project memories** when you learn about goals, deadlines, or team context
 7. **Check MEMORY.md caps** — If index exceeds 150 lines or 20KB, consolidate before adding more
-8. **Clean up session scratchpad** — If you created `memory/.session-scratchpad.md`, delete it after permanent topic files are written
+8. **Resolve the task working note** — distill `tests/working_note.md` (§A7.15) into the permanent topic files, then delete it (machine-checked by group 19 on the `--final` run)
 
 **The checklist item "Memory topic file written to memory/" is MANDATORY — do not skip it.**
 
@@ -290,7 +290,8 @@ Before outputting the completion table, you MUST pass this gate. If any check fa
 2. **Index updated** — `memory/MEMORY.md` contains a pointer to the new topic file(s), and the index is under 200 lines / 25KB.
 3. **Fix entries have commit** — Every `type: fix` topic file written this session includes `commit: <short-hash>` in its frontmatter.
 4. **No stale references introduced** — Any file/function/line cited in new memories was verified against current code during this session.
-5. **Scratchpad cleaned** — If `memory/.session-scratchpad.md` was created, it is deleted after permanent memories are written.
+5. **Scratchpad cleaned (legacy)** — the pre-§A7.15 `memory/.session-scratchpad.md` is superseded by tests/working_note.md; if a legacy scratchpad exists, delete it after permanent memories are written.
+6. **Working note resolved** — If `tests/working_note.md` was created (§A7.15), its persistable content was distilled into the topic files written this session and the file itself is deleted. The completion-time `assert_artifacts.py --final` run (group 19) machine-checks the deletion.
 
 **Failure response:**
 - If a memory should have been written but was not, write it now and re-run this gate.
@@ -379,15 +380,121 @@ The memory system is only effective if previous attempts are actively recalled b
 
 2. **Record every direction, not just failures** — When a fix passes tests, the topic file must still include a **Failed Approaches** or **Rejected Alternatives** section listing directions that were considered and rejected, even if they were not fully implemented. This prevents future sessions from independently rediscovering the same dead ends.
 
-3. **Mid-session backtracking scratchpad** — For tasks involving ≥3 failed attempts or complex multi-step reasoning, create a temporary `memory/.session-scratchpad.md` file. Use it to track:
-   - Current hypothesis
-   - What was tried and the result
-   - Next candidate direction
-   - Any memories consulted
-   Delete this file at session end after writing the permanent memory topic files.
+3. **Mid-session backtracking scratchpad** — superseded by the task working note (§A7.15): use `tests/working_note.md` instead of `memory/.session-scratchpad.md`; its hypothesis ledger carries the same four fields (current hypothesis / tried+result / next direction / memories consulted) in a machine-gated form.
 
 4. **Link fixes to commits** — Every fix topic file must include the commit hash of the change in its frontmatter (`commit: abc1234`). This allows future retrospective checks to compare the memory against the exact code state.
 
 5. **Escalate early on repeated dead ends** — If you find yourself considering an approach that was already recorded as ❌ Failed or ⛔ Forbidden, stop. Do not retry it without a genuinely new insight. Document the new insight before proceeding.
 
 6. **Promote ⏳ to ❌ on divergence, not just failure** — If a later task contradicts or supersedes an ⏳ fix (e.g., the user changes requirements, or the architecture shifts), mark the old ⏳ entry as ❌ and explain why it no longer applies.
+---
+
+## A7.15 Task Working Memory — tests/working_note.md ★
+
+The layer between the evidence chronicle and curated memory. `tests/` log
+files answer "what happened" (append-only); `memory/` answers "what is true
+about this project" (curated, session-end). The working note answers **"what
+holds RIGHT NOW in this task"** — the cognitive-state ledger that a context
+reset (compaction / new session / §3.3 re-entry) would otherwise have to
+expensively reconstruct from the log tail.
+
+**When to create:** Lane M/L tasks, and any task that reaches a second
+iteration or a first FAIL. Lane S single-pass tasks may skip (state the
+skip). Class DOC lesson-less tasks may skip.
+
+**Form (≤50 lines, REWRITTEN each update — it is state, not chronicle; git
+history is the audit trail):**
+
+```
+# Working Note — <task> (updated: iter N / <time>)
+## Hypothesis ledger
+confirmed: <what evidence proved true>
+doubted:   <leaning but unproven>
+excluded:  <falsified directions — one falsifiable clause each>
+open:      <unresolved questions>
+consulted: <memory topics read this task>
+## Key locations
+<file:line — one clause why it matters>   (max ~8)
+## Dead ends this task
+❌ <direction — one clause why it died>
+## Next action
+<one line>
+```
+
+**Lifecycle (binding):**
+1. Create after §A4.1 Step 1 (acceptance criteria) when the create-rule
+   above fires.
+2. Update at every FAIL diagnosis, every iteration boundary, and BEFORE any
+   anticipated compaction — the note is what survives it.
+3. §3.3 re-entry reads it FIRST among tests/ artifacts (after
+   `paused_state.md` if present, before `acceptance.md` + log tail).
+4. Task end: distill persistable content into `memory/` topic files per
+   A7.9 (the note is A7.9's primary input), then DELETE the file. The
+   completion-time `python3 tests/assert_artifacts.py --final` run
+   machine-checks the deletion (group 19); mid-task runs (no `--final`,
+   incl. the physical gate) tolerate it. The A7.10 Memory Gate reports the
+   resolution (check 6).
+
+**Relationship to C8 (outer loop):** the working note is ITEM-scoped state
+(dies when the backlog item completes); `tests/progress.txt` is the
+cross-item chronicle (append-only); `memory/` is cross-task curated. Three
+time scales, no overlap.
+
+## A7.16 Cue-Anchored Triggers — memory frontmatter `triggers:` ★
+
+Task-start grep (§3.2) cannot cover the moments that matter MID-task —
+"about to edit a file with a known trap" is exactly when the lesson is
+needed, and voluntary mid-task retrieval is empirically near zero. So the
+trigger is anchored to the PATH and delivered by the gate plugin at the
+edit moment (mechanism, not memory of the rule).
+
+**Declaring triggers** — optional frontmatter field on any topic file,
+both forms accepted:
+
+```
+---
+type: fix
+status: ❌
+triggers:
+  - "src/auth/**"
+---
+```
+or inline: `triggers: ["db/**", "src/repos/**"]`
+
+Glob semantics: `**/` crosses directories, `*` within a path segment,
+`?` one character; matched against the project-relative path.
+
+**Delivery (vibeweaver-gate plugin):** after a successful write/edit, the
+plugin scans `memory/*.md` frontmatter; each matching topic injects ONE
+line into the tool result —
+`[GATE-WARNING (vibeweaver-cue)] memory cue: memory/<file> (<trust>) matches this path — read it before editing: <heading>`
+— budgeted at 3 notes, pointer-only (progressive disclosure: READ the
+topic before continuing; the cue is delivery, the topic is the content).
+Editing a path under `memory/` itself never cues (no self-reference).
+Delivery is hoisted above the gate: a RED gate or an evidence-path write
+(tests/) still carries the cue — the first write of a task is the prime
+cue moment.
+
+**Known boundaries (named, accepted):** (1) the cue is ADVISORY — injection
+is deterministic, but whether the model then reads the topic is not
+machine-enforced (a "must Read first" hard gate cannot cheaply verify
+having read); (2) mutations performed through bash bypass delivery (same
+boundary as §A4.4.2); (3) duplicate `triggers:` keys in one frontmatter
+block are first-wins; (4) a glob's literal leading path is linted by
+`assert_artifacts.py` group 4b — if that prefix no longer exists in the
+repo the trigger is stale (silent non-delivery) and the assert FAILs;
+globs starting with `**` carry no literal prefix and are exempt;
+(5) delivery-safety caps: a glob with >2 `**` groups, >200 chars, or
+control characters is ignored entirely (memory text compiles to regex —
+complexity caps are the injection boundary); (6) end-to-end verified on
+macOS/Linux only — win32 path handling is unit-pinned (CRLF fixture), not
+machine-executed.
+
+**Authoring rules:** triggers are for path-anchored operational facts
+(gotchas, traps, fragile files) — NOT for generic project knowledge (that
+stays grep-loaded per §3.2). Keep globs narrow (a cue that fires on every
+edit is noise and trains cue-blindness). When the anchored code moves,
+update the glob in the same commit (a stale trigger is a silent
+non-delivery, same failure class as a stale reference — A7.6 rule 8
+applies). Trust-tier semantics carry over: ⛔/❌ topics are the prime
+candidates for triggers.

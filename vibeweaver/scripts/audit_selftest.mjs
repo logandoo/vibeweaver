@@ -57,6 +57,24 @@ function writeSh(root, rel) {
   chmodSync(path.join(root, rel), 0o755)
 }
 
+function runAssertFixture(root, flags) {
+  try {
+    const out = execFileSync("python3", [path.join(root, "tests", "assert_artifacts.py"), ...flags], { cwd: root, encoding: "utf8", timeout: 30000, stdio: ["ignore", "pipe", "pipe"] })
+    return { code: 0, out }
+  } catch (e) {
+    return { code: e.status ?? 1, out: String(e.stdout || "") + String(e.stderr || "") }
+  }
+}
+
+function runPy(scriptAbs, args, cwd) {
+  try {
+    const out = execFileSync("python3", [scriptAbs, ...args], { cwd, encoding: "utf8", timeout: 30000, stdio: ["ignore", "pipe", "pipe"] })
+    return { code: 0, out }
+  } catch (e) {
+    return { code: e.status ?? 1, out: String(e.stdout || "") + String(e.stderr || "") }
+  }
+}
+
 function initGit(root, commitAfterLog) {
   execFileSync("git", ["init", "-q"], { cwd: root })
   execFileSync("git", ["config", "user.email", "audit@test"], { cwd: root })
@@ -81,6 +99,7 @@ function scaffoldComplete(root) {
     "- iter 1 FAIL: criterion #2 (field missing) | diagnosis: validator ran before state hydrat | changed: src/form.ts",
     "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
     "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "- final-run: --final — assert_artifacts.py: pass=15/fail=0",
     "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
   ].join("\n")
   write(root, "tests/verification_log.md", log)
@@ -1269,6 +1288,7 @@ if (existsSync(calibDir)) {
     "- class: DOC — CHANGELOG.md prose only",
     "- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)",
     "- iter 1 PASS: criterion #1 — entry added (evidence: read-back of CHANGELOG.md)",
+    "- final-run: --final — assert_artifacts.py: pass=8/fail=0",
   ].join("\n"))
   write(root25, "tests/acceptance.md", "> cap=5  stall=3×\n1. Entry added\n")
   const docTools = [{ tool: "write", filePath: "/x/CHANGELOG.md", t: Date.now() - 2000 }]
@@ -1545,6 +1565,119 @@ if (existsSync(calibDir)) {
   const a25x = auditProject({ root: root25g, sessionID: "ses_t29x", sessionText: docText, tools: [{ tool: "bash", command: "git rm output/old_report.docx" }], skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
   const c18x = a25x.checks.find((c) => c.id === "C18")
   rec("T25x deleted-only .docx → render gate silent (not a delivery)", c18x && c18x.verdict === "OK", c18x ? c18x.verdict + " — " + c18x.evidence : "missing")
+}
+
+// ---- T33: log-format lint (group 12b) — placeholder FAIL diagnosis fails; substantive passes ----
+{
+  const rootP = newFixture("t33-lint-placeholder")
+  scaffoldComplete(rootP)
+  initGit(rootP)
+  write(rootP, "tests/verification_log.md", [
+    "## Task: fixture | 2026-10-07",
+    "- Baseline verified GREEN",
+    "- iter 1 FAIL: criterion #2 | diagnosis: - | changed: src/form.ts",
+    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
+    "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
+  ].join("\n"))
+  const bad = runAssertFixture(rootP, ["--existing"])
+  rec("T33 placeholder FAIL diagnosis → assert exit 1 (12b)", bad.code === 1 && /diagnosis/i.test(bad.out), `code=${bad.code} ${bad.out.split("\n").filter((l) => /diagnosis/i.test(l))[0] || ""}`)
+  write(rootP, "tests/verification_log.md", [
+    "## Task: fixture | 2026-10-07",
+    "- Baseline verified GREEN",
+    "- iter 1 FAIL: criterion #2 | diagnosis: validator ran before state hydrate | changed: src/form.ts",
+    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
+    "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
+  ].join("\n"))
+  const good = runAssertFixture(rootP, ["--existing"])
+  rec("T33b substantive FAIL diagnosis → assert exit 0", good.code === 0, `code=${good.code} ${good.out.trim().split("\n").pop()}`)
+  write(rootP, "tests/verification_log.md", [
+    "## Task: fixture | 2026-10-07",
+    "- Baseline verified GREEN",
+    "- iter 1 FAIL: criterion #2 | diagnosis: tbd | changed: src/form.ts",
+    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
+    "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
+  ].join("\n"))
+  const word = runAssertFixture(rootP, ["--existing"])
+  rec("T33c wordlist placeholder (tbd) → assert exit 1", word.code === 1 && /diagnosis/i.test(word.out), `code=${word.code}`)
+  write(rootP, "tests/verification_log.md", [
+    "## Task: fixture | 2026-10-07",
+    "- Baseline verified GREEN",
+    "- iter 1 FAIL: criterion #2 | diagnosis: regex | vs || confusion in parser caused wrong branch | changed: src/form.ts",
+    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
+    "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
+  ].join("\n"))
+  const pipe = runAssertFixture(rootP, ["--existing"])
+  rec("T33d diagnosis containing | (alternation) is NOT truncated into a false placeholder", pipe.code === 0, `code=${pipe.code} ${pipe.out.trim().split("\n").pop()}`)
+}
+
+// ---- T34: working-note lifecycle (group 19, --final only) ----
+{
+  const rootW = newFixture("t34-working-note")
+  scaffoldComplete(rootW)
+  initGit(rootW)
+  write(rootW, "tests/working_note.md", "# Working Note — fixture\n## open: everything\n")
+  const midTask = runAssertFixture(rootW, ["--existing"])
+  rec("T34 mid-task run (no --final) tolerates working_note.md", midTask.code === 0, `code=${midTask.code} ${midTask.out.trim().split("\n").pop()}`)
+  const finalRun = runAssertFixture(rootW, ["--existing", "--final"])
+  rec("T34b --final + leftover working_note.md → exit 1", finalRun.code === 1 && /working_note/.test(finalRun.out), `code=${finalRun.code} ${finalRun.out.split("\n").filter((l) => /working_note/.test(l))[0] || ""}`)
+  rmSync(path.join(rootW, "tests", "working_note.md"))
+  const clean = runAssertFixture(rootW, ["--existing", "--final"])
+  rec("T34c --final after distil+delete → exit 0", clean.code === 0, `code=${clean.code} ${clean.out.trim().split("\n").pop()}`)
+}
+
+// ---- T35: backlog_check.py — schema + passes:true evidence binding (C8 mechanism) ----
+{
+  const BCK = path.resolve(import.meta.dirname, "backlog_check.py")
+  const rootB = newFixture("t35-backlog")
+  const writeBacklog = (item) => write(rootB, "tests/backlog.json", JSON.stringify({ userStories: [item] }, null, 2))
+  write(rootB, "tests/verification_log.md", "")
+  writeBacklog({ id: "US-001", title: "x", priority: 1 })
+  const schema = runPy(BCK, [rootB], rootB)
+  rec("T35 schema violation (missing passes) → exit 1", schema.code === 1 && /passes/.test(schema.out), `code=${schema.code}`)
+  writeBacklog({ id: "US-001", title: "x", acceptanceCriteria: ["y"], priority: 1, passes: true, dependsOn: [] })
+  const noEv = runPy(BCK, [rootB], rootB)
+  rec("T35b passes:true without an evidence line → exit 1", noEv.code === 1 && /US-001/.test(noEv.out), `code=${noEv.code}`)
+  write(rootB, "tests/verification_log.md", "- iter 1 PASS: US-001 all criteria (evidence: tests/x.log, 3/3)\n")
+  const ev = runPy(BCK, [rootB], rootB)
+  rec("T35c passes:true with id-carrying evidence line → exit 0", ev.code === 0, `code=${ev.code} ${ev.out.trim().split("\n").pop()}`)
+}
+
+// ---- T36: group 4b — trigger literal-prefix lint (a stale glob is silent non-delivery) ----
+{
+  const rootT = newFixture("t36-trigger-prefix")
+  scaffoldComplete(rootT)
+  initGit(rootT)
+  write(rootT, "memory/fix_gone.md", "---\ntype: fix\ntriggers:\n  - \"src/nonexistent_xyz/**\"\n---\n# Gone\n")
+  const miss = runAssertFixture(rootT, ["--existing"])
+  rec("T36 trigger literal prefix absent from repo → assert exit 1", miss.code === 1 && /trigger|prefix|src\/nonexistent_xyz/i.test(miss.out), `code=${miss.code}`)
+  write(rootT, "memory/fix_gone.md", "---\ntype: fix\ntriggers:\n  - \"script/**\"\n---\n# Exists\n")
+  const ok = runAssertFixture(rootT, ["--existing"])
+  rec("T36b trigger literal prefix present → assert exit 0", ok.code === 0, `code=${ok.code} ${ok.out.trim().split("\n").pop()}`)
+}
+
+// ---- T37: audit B12 — completion requires a `- final-run: --final` log line ----
+{
+  const rootF = newFixture("t37-final-run")
+  scaffoldComplete(rootF)
+  initGit(rootF)
+  write(rootF, "tests/verification_log.md", [
+    "## Task: fixture | 2026-10-07",
+    "- Baseline verified GREEN",
+    "- iter 1 PASS: all criteria (evidence: tests/shot.png, 6/6)",
+    "- [Convergence] fixture: 1 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
+  ].join("\n"))
+  const auditBad = auditProject({ root: rootF, sessionID: "ses_t37a", sessionText: cleanSessionText(), tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b12a = auditBad.checks.find((c) => c.id === "B12")
+  rec("T37 completion without `- final-run:` → B12 BAD", b12a && b12a.verdict === "BAD", b12a ? b12a.verdict + " — " + b12a.evidence : "missing")
+  write(rootF, "tests/verification_log.md", readFileSyncSafe(path.join(rootF, "tests", "verification_log.md")) + "\n- final-run: --final — assert_artifacts.py: pass=15/fail=0\n")
+  const auditOk = auditProject({ root: rootF, sessionID: "ses_t37b", sessionText: cleanSessionText(), tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b12b = auditOk.checks.find((c) => c.id === "B12")
+  rec("T37b `- final-run: --final …` present → B12 OK", b12b && b12b.verdict === "OK", b12b ? b12b.verdict + " — " + b12b.evidence : "missing")
 }
 
 // ---------- summary ----------

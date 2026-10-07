@@ -446,6 +446,15 @@ export function auditProject(opts) {
   if (classField && logClass && classField !== logClass) check(checks, "B11", "`Class` field", "BAD", `class mismatch: gate line ${classField} vs log ${logClass} — one class per task (COV-13)`)
   else if (classField) check(checks, "B11", "`Class: DOC|CONFIG|CODE` field", "OK", classField)
   else check(checks, "B11", "`Class: DOC|CONFIG|CODE` field", "BAD", "missing or template left unfilled (COV-13)")
+  // B12 — completion requires final-run EVIDENCE: a `- final-run: --final …`
+  // line in the CURRENT task block. The physical gate can never pass --final
+  // (it cannot know a run is final), so the only machine-anchored proof that
+  // the completion-time run (group 19 et al.) actually executed is this log
+  // line; without it group 19 silently never fires.
+  if (gateLine) {
+    if (/-[ \t]*final-run:[ \t]*--final\b/i.test(curLogBlock)) check(checks, "B12", "final-run evidence (`- final-run: --final …` in current task block)", "OK", "found")
+    else check(checks, "B12", "final-run evidence (`- final-run: --final …` in current task block)", "BAD", "completion claimed without a `- final-run: --final … pass=N/fail=0` log line — the completion-time assert run (group 19) never machine-executed (§A4.4.1)")
+  }
 
   // Group C — claim ↔ artifact cross-checks (triage)
   // gateLine extracted above (Group B) — shared with the Class field.

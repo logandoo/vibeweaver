@@ -2,6 +2,64 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-07: task working memory + cue-anchored triggers + enforcement teeth (wave15–17)
+
+**The gap these waves close.** The evidence chronicle (`tests/` logs) answers
+"what happened"; curated `memory/` answers "what is true about this project".
+Neither answers "what holds right now in this task" — the state a compaction
+or a fresh session would otherwise have to re-derive from the log tail. And
+memory consulted only at task start misses the moments that matter mid-task:
+empirically, voluntary retrieval rounds to zero even when the store is seeded.
+
+**Working memory (§A7.15).** `tests/working_note.md` is the task-level state
+document: a hypothesis ledger (confirmed / doubted / excluded / open), key
+file:line discoveries, this task's dead ends, the next action. Rewritten on
+every update (state, not chronicle — git history is the audit trail), read
+first on any §3.3 re-entry, distilled into `memory/` at task end and then
+deleted — the deletion is machine-checked (group 19) by the completion-time
+`--final` run, which mid-task runs never pass, so an in-use note never blocks
+iteration. The old `.session-scratchpad.md` is retired into it.
+
+**Cue-anchored triggers (§A7.16).** A memory topic can declare `triggers:`
+path globs in its frontmatter; the gate plugin scans them after every
+write/edit and injects a one-line cue into the tool result when the edited
+path matches. Delivery is hoisted above the gate — a RED gate or a tests-path
+write still carries the cue, because the task's first write is exactly when
+"read this before editing" must arrive. The safety caps are the point: memory
+text compiles to regex in-process, so globs are limited (≤2 `**` groups, ≤200
+chars, no control characters) after review measured a tenfold-`**/` glob
+wedging the event loop for 98s; a glob whose literal prefix no longer exists
+fails the artifact check (group 4b) instead of silently never delivering.
+
+**An outer loop for backlogs (C8).** Ralph-style: `tests/backlog.json` with a
+machine-checkable `passes` flag per item, an append-only `tests/progress.txt`
+chronicle, fresh context per iteration, exactly one small item per pass,
+green-before-commit as the loop's immune system, and explicit stop signals
+(COMPLETE / BLOCKED / DECIDE / budget — exhaustion is a top-up, not a
+failure). Supervised first; bounded unattended batches only after the cycle
+proves green. `scripts/backlog_check.py` fails any `passes: true` that no
+executed-test line names — COV-1 enforced at the backlog level.
+
+**Teeth maintenance.** The artifact checker now lints the log it reads: a
+FAIL whose diagnosis is a placeholder (`tbd`, `idk`, a dash) is not an
+iteration (group 12b). The session auditor requires the completion-time
+`--final` run to leave a `- final-run:` log line (B12) — the physical gate
+can never know which run is final, so the log line is the only machine
+anchor that the final checks actually executed. The stall observer latches:
+one warning per (file, pass-count) signature, re-armed by a new PASS — a
+warning that floods trains blindness. Known boundaries are written down where
+they live: bash mutations bypass the write/edit hooks (mitigated by the
+final-run + B12 examining the resulting tree), cue delivery is advisory by
+design, win32 is unit-pinned but not machine-executed.
+
+Verification across the three waves: selftest 126 checks, mutation sweep
+41/41, plugin compat 57/57, repo-self `--final` 30/30, two adversarial review
+rounds (14/14 resolved, zero regressions) plus one scoped re-review (8/8
+SOUND), fresh-context verification 5/5 PASS, SKILL.md held under its 49KB cap
+(48,932B) by net-zero byte discipline, TESTING_PROTOCOLS.md slimmed back
+under its 45KB companion budget (44,993B) with zero requirement loss on
+spot-check.
+
 ## 2026-10-02: audit latch same-session escape + payload reconciliation (wave14)
 
 **The deadlock.** A multi-wave session that latched RED in wave 1 could not

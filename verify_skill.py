@@ -11,7 +11,7 @@ Checks:
   3. SKILL.md entry budget (soft 1400 lines warn / hard 1600 lines fail)
   4. every relative markdown link in SKILL.md resolves (one level deep)
   5. companion files' relative links resolve
-  6. scripts/assert_artifacts.py compiles + carries all 19 markers
+  6. scripts/assert_artifacts.py compiles + carries all 20 markers
   7. COMPLETION_GATE.md's marker LIST (parsed, not substring) matches MARKERS 1:1
   8. install.sh / install.bat install the full file set
    9. payload JS syntax — both plugins + 3 helper scripts (node --check,
@@ -30,6 +30,7 @@ MARKERS = [
     "workflow trace", "media evidence", "diagnosis:",
     "claim without stated coverage", "secret scan", "test-change:",
     "risk-tier", "secret-approved", "DOC-asset render gate", "exec-check",
+    "working_note",
 ]
 PAYLOAD_FILES = [
     "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
@@ -171,12 +172,16 @@ def main():
             fail("install.sh does not install %s" % doc)
     if "scripts/assert_artifacts.py" not in sh:
         fail("install.sh does not install scripts/assert_artifacts.py")
+    if "scripts/backlog_check.py" not in sh:
+        fail("install.sh does not install scripts/backlog_check.py")
     bat = (PAYLOAD / "install.bat").read_text(encoding="utf-8")
     for doc in INSTALLED_DOCS:
         if doc not in bat:
             fail("install.bat does not install %s" % doc)
     if "scripts\\assert_artifacts.py" not in bat:
         fail("install.bat does not install scripts\\assert_artifacts.py")
+    if "scripts\\backlog_check.py" not in bat:
+        fail("install.bat does not install scripts\\backlog_check.py")
 
     # 9) plugin + helper script syntax (best effort — node optional locally, present in CI)
     node = shutil.which("node")

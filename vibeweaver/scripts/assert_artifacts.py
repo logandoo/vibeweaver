@@ -1,6 +1,6 @@
 """G-DED artifact assertions — byte-level check of verification claims.
 Canonical copy: vibeweaver skill `scripts/assert_artifacts.py`.
-Mirrors COMPLETION_GATE.md §A4.4.1 minimum-check table (all 18 groups).
+Mirrors COMPLETION_GATE.md §A4.4.1 minimum-check table (groups 1-19).
 Group 12 enforces the A4.1 diagnosis clause; group 13 is a
 claim-without-scope lint (approach modeled on J-Space Cognition Suite's
 `ship` check at idea level; implementation here is original —
@@ -287,6 +287,8 @@ def main():
     ap.add_argument("--profile", default="", help="project profile: service|backend-api|web-static|cli|library — skips structurally-N/A groups (overrides tests/project_profile.json)")
     ap.add_argument("--class", dest="task_class", default="", choices=["DOC", "CONFIG", "CODE"],
                     help="COV-13 task class (§V11): DOC N/A's memory + service-lifecycle groups; CONFIG N/A's memory when the log carries `- memory: na (<why>)`. Default: auto-detect from the `- class: <X> — <basis>` first entry of the task block in tests/verification_log.md")
+    ap.add_argument("--final", action="store_true",
+                    help="completion-time run (A4.4.1): additionally enforces group 19 — tests/working_note.md must be distilled+deleted (§A7.15). Mid-task / physical-gate runs omit this flag.")
     args = ap.parse_args()
 
     root = pathlib.Path(__file__).resolve().parent.parent
@@ -464,6 +466,51 @@ def main():
             check(any(p.name != "MEMORY.md" for p in topics),
                   "memory/: at least one topic file besides MEMORY.md (A7.9)")
 
+    # 4b) trigger literal-prefix lint (§A7.16) — a trigger glob whose literal
+    #     leading path no longer exists in the repo is a SILENT non-delivery
+    #     (same failure class as a stale reference, A7.6 rule 8). Globs
+    #     starting with `**` carry no literal prefix and are exempt. Runs
+    #     independent of group 4's class skip: a stale trigger is dishonest
+    #     evidence in every class.
+    def _triggers_of(fm):
+        out = []
+        lines = fm.split("\n")
+        for i, ln in enumerate(lines):
+            m = re.match(r"^triggers:\s*(.*)$", ln)
+            if not m:
+                continue
+            rest = m.group(1).strip()
+            if rest.startswith("["):
+                inner = re.sub(r"^\[|\]\s*$", "", rest)
+                out.extend(v.strip().strip("'\"") for v in inner.split(",") if v.strip())
+            elif not rest:
+                for ln2 in lines[i + 1:]:
+                    li = re.match(r"^\s*-\s+[\"']?([^\"']+?)[\"']?\s*(?:#.*)?$", ln2)
+                    if not li:
+                        break
+                    out.append(li.group(1))
+            else:
+                out.append(re.sub(r"[\"']", "", re.sub(r"\s+#.*$", "", rest)).strip())
+            break
+        return out
+
+    mem_dir = root / "memory"
+    if mem_dir.is_dir():
+        for topic in sorted(mem_dir.glob("*.md")):
+            if topic.name == "MEMORY.md":
+                continue
+            text = read(topic).replace("\r\n", "\n").lstrip("﻿")
+            fm = re.match(r"^---\n([\s\S]*?)\n---", text)
+            if not fm:
+                continue
+            for glob_pat in _triggers_of(fm.group(1)):
+                if glob_pat.startswith("**"):
+                    continue
+                prefix = re.split(r"[*?]", glob_pat, 1)[0].rstrip("/")
+                if prefix and not (root / prefix).exists():
+                    check(False,
+                          f"memory/{topic.name}: trigger {glob_pat!r} — literal prefix {prefix!r} no longer exists in the repo (stale trigger = silent non-delivery, §A7.16)")
+
     # 5) scripts — start/stop/restart (+ project_build unless no-UI) (A2/COV-2)
     #    exec-bit is only meaningful on POSIX; on Windows .sh files ride along
     #    and only their existence is enforceable.
@@ -543,6 +590,19 @@ def main():
             check("diagnosis:" in line,
                   f"verification_log.md line {i}: FAIL entry lacks `diagnosis:` clause (A4.1 Step 4)")
 
+    # 12b) diagnosis substance (log-format lint) — the diagnosis must be one
+    #      falsifiable clause, not a placeholder token (§A4.1 Step 4). The
+    #      capture runs to the `| changed:` field (not the first `|`) so a
+    #      diagnosis mentioning alternation is not truncated into a false
+    #      placeholder verdict.
+    for i, line in enumerate(vl.splitlines(), 1):
+        m = re.match(r"^- iter \d+ FAIL:.*?\bdiagnosis:\s*(.*?)\s*(?:\|\s*changed:|$)", line.strip())
+        if m is not None:
+            d = m.group(1).strip()
+            if len(d) < 10 or re.fullmatch(r"(?i)[-?]*|none|n/?a|idk|unknown|tbd", d):
+                check(False,
+                      f"verification_log.md line {i}: FAIL diagnosis is a placeholder — one falsifiable clause required (A4.1 Step 4 log lint)")
+
     # 13) claim-without-coverage — a verification claim must state what it covered
     #     (A4.4 Gate Function — "verified" without a stated scope is not a result)
     for i, snippet in claim_without_coverage(vl):
@@ -564,6 +624,14 @@ def main():
     # 16) risk-tier — risk-tier code paths require the A4.9 review package
     for f in risk_tier(root):
         check(False, f)
+
+    # 19) working-note lifecycle (--final only) — the task working memory is a
+    #     scratch artifact: distilled into memory/ (A7.9) and deleted BEFORE
+    #     the completion table; a leftover means an undistilled lesson or a
+    #     zombie state file leaking into the next task (§A7.15)
+    if args.final:
+        check(not (tests / "working_note.md").exists(),
+              "tests/working_note.md still present at completion — distill into memory/ (A7.9) and delete it first (§A7.15 working-note lifecycle)")
 
     if GIT_TIMEOUT:
         print("WARN groups 14-16: a git call timed out — content gates ran "

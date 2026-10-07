@@ -1,9 +1,9 @@
-# WORKFLOWS_EXTENDED.md — Operating Modes · PAUSED Contract · C4–C7 Workflows
+# WORKFLOWS_EXTENDED.md — Operating Modes · PAUSED Contract · C4–C8 Workflows
 
 > Companion rulebook for [SKILL.md](SKILL.md). **Read IN FULL at the Read
 > Contract R9 trigger** (GUIDED mode chosen · a PAUSED packet issued or
-> resumed · task routed to C4/C5/C6/C7). Holds the full text behind the
-> SKILL.md COV-12 / §3.4 / Part C C4-C7 binding stubs. If in conflict with
+> resumed · task routed to C4/C5/C6/C7/C8). Holds the full text behind the
+> SKILL.md COV-12 / §3.4 / Part C C4-C8 binding stubs. If in conflict with
 > §1 covenants, the covenants prevail.
 
 ## Contents
@@ -16,6 +16,8 @@
 - **C5 Deploy** — pre-deploy gate · Class-E deploy action · smoke + rollback
 - **C6 Ops / Incident** — triage → hotfix → postmortem → memory
 - **C7 Non-Web Runtime** — CLI/library/batch verification loop
+- **C8 Outer-Loop (Backlog / Long-Running Batch)** — ledger · chronicle ·
+  one item per fresh-context iteration · explicit stop signals · HITL→AFK
 - **Profile Reference** — which assert groups each project profile skips
 
 ---
@@ -127,9 +129,10 @@ On resume: delete/clear `tests/paused_state.md`, append
 `- resumed: <chosen option> (user override)` instead.
 
 **Re-entry order after a gap** (SKILL.md §3.3): paused_state.md (if present)
+→ tests/working_note.md (if present, §A7.15 — the live hypothesis ledger)
 → tests/acceptance.md in full → verification_log.md tail (~40 lines; full
 read only if <200 lines or inconsistent) → §1 covenant recall. Name the pass
-(C1/C2/C4-C7) + first action in one line before acting.
+(C1/C2/C4-C8) + first action in one line before acting.
 
 **Batching:** ONE packet per pause, never a drip of questions. In GUIDED,
 all pending Class-I questions of the current phase collapse into the single
@@ -341,6 +344,69 @@ A4.7b ladder reason).
 
 ---
 
+## C8. Outer-Loop Workflow (Backlog / Long-Running Batch)
+
+**Trigger:** the user hands over a QUEUE of many small tasks (PRD with user
+stories, issue list, maintenance backlog) to be executed across multiple
+fresh-context iterations — supervised one-shot runs or bounded AFK batches.
+A single feature/bugfix stays C2; an audit stays C4. If no durable backlog
+file exists yet, create it FIRST (step 1) — the loop's source of truth is on
+disk, never in chat.
+
+**The pattern (state on disk, never in context):** each iteration starts
+with a fresh context window, reorients from disk, completes exactly ONE
+backlog item, proves it, commits, and exits. Progress lives in the ledger +
+chronicle + git history, so a context reset loses nothing. (This is the
+Ralph pattern; vibeweaver's inner loop — §A4.1, cap=5 / stall=3× — bounds
+each single item, while the outer loop's bound is the iteration budget plus
+the empty backlog.)
+
+1. **Backlog ledger (machine-checkable stop condition):**
+   `tests/backlog.json` — one object per item:
+   `{id, title, acceptanceCriteria: [], priority, passes: false, dependsOn: []}`.
+   `passes` flips true ONLY with executed-test evidence (COV-1 applies per
+   item). Items are sized to Lane S; anything bigger is split BEFORE
+   entering the loop — an oversized item exhausts the context mid-item,
+   which is the classic outer-loop failure. **Mechanism:**
+   `python3 scripts/backlog_check.py` (copy from the skill) fails a
+   `passes:true` item that no `tests/verification_log.md` /
+   `tests/progress.txt` line names — run it per iteration and at loop end.
+2. **Progress chronicle (append-only):** `tests/progress.txt` — each
+   iteration APPENDS: item id, what changed, check results, one note for
+   the next iteration. NEVER rewrites history (append-only survives
+   compaction; rewriting loses it). Curated lessons still go to memory/
+   per A7.9 — progress.txt is the raw chronicle, memory/ the distilled one.
+3. **Iteration cycle:** reorient (§3.3: backlog.json → progress.txt tail →
+   git log; an item that hits a FAIL opens a `tests/working_note.md` per
+   §A7.15 — item-scoped, deleted when the item completes) → pick the
+   highest-priority item with `passes:false` and all
+   `dependsOn` satisfied — COMPUTE the frontier (a jq/gh query), never
+   reconstruct it from prose → work ONLY that item under the full §1
+   covenant (COV-9 baseline, §A4.1/§A4.7 loop, §A4.8 RED) → commit ONLY
+   when green. A red commit poisons every later iteration's baseline;
+   CI-green-per-commit is the loop's immune system.
+4. **Stop conditions (explicit, never vibes):** `COMPLETE` — every item
+   `passes:true` · `BLOCKED` — needs a human → §3.4 PAUSED packet ·
+   `DECIDE` — ambiguity → ADR (AUTO) / ask (GUIDED) · iteration budget
+   exhausted — NOT a failure: read the chronicle, top up the budget, rerun.
+5. **HITL before AFK:** run the first iteration(s) supervised (one item,
+   review the diff, refine the backlog). Only after the cycle proves green
+   run bounded batches (e.g. 5–10 iterations). Never an unbounded
+   while-true loop.
+6. **Feedback-loop ceiling:** the loop ships exactly what the repo's checks
+   can prove. Weak typecheck/tests/Playwright → confident garbage at
+   scale. Invest in checks BEFORE widening the batch size.
+7. **Steering mid-run:** corrections land where the next iteration actually
+   reads them — a memory/ topic, a decisions.md ADR, or the backlog item
+   itself — never only in a chat message the next fresh context won't see.
+
+**Anti-patterns:** unbounded loops · updating instead of appending the
+chronicle · `passes:true` without executed evidence · items bigger than
+Lane S · the agent picking tasks by re-reading all prose instead of a
+computed frontier · completing several items in one iteration.
+
+---
+
 ## Profile Reference (assert_artifacts.py groups vs profiles)
 
 | Group | What it checks | `service` | `backend-api` | `web-static` | `cli` | `library` |
@@ -353,8 +419,11 @@ A4.7b ladder reason).
 | 8 | README + requirements/package | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 9 | COV-9 baseline entry (--existing) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 10-11 | workflow traces · cited media | ✅ | ✅ | ✅ | as cited | as cited |
-| 12-13 | diagnosis · claim-with-scope lint | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 12-13 | diagnosis + substance · claim-with-scope lint | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 14-16 | secret scan · test-change · risk-tier | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 17a/17b | office-asset render gate · exec-check | as delivered | as delivered | as delivered | as delivered | as delivered |
+| 18 | task-class coherence (COV-13) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 19 | working-note lifecycle (completion `--final` run only) | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Profile sources: `--profile <name>` flag overrides `tests/project_profile.json`
 (`{"profile": "<name>", "no_service": bool?, "no_ui": bool?,

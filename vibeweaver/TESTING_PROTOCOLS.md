@@ -33,7 +33,7 @@
 
 A **convergent** loop: verifiable stop condition · independent verifier
 (maker/checker split) · iteration cap · stall detection. REQUIRED for every
-frontend/UI/runtime-affecting change — no exceptions.
+frontend/UI/runtime-affecting change.
 
 **Step 0 — Detect + announce the media verifier (AT TASK START, before any code, in ZERO):**
 Three verifier modes exist — `model-native [image]` (the current model is
@@ -49,33 +49,29 @@ probe is the single source of truth, not a filesystem/config guess).
   ★ **Precedence:** this probe runs BEFORE any mm-sensor invocation. When it
   PASSES, mm-sensor's blanket "never use your own vision / Read tool on
   media" mandate does NOT apply to screenshot grading in this task — the
-  §A4.1.1 protocol governs instead (mm-sensor still grades video/audio
-  evidence per the hybrid rule below, and remains the verifier whenever the
-  probe fails). Do NOT let mm-sensor's description trigger before this
-  probe runs.
+  §A4.1.1 protocol governs instead (mm-sensor still grades video/audio per
+  the hybrid rule below, and remains the verifier whenever the probe
+  fails).
   1. Run `python3 {VW_DIR}/scripts/mm_probe.py --generate` → writes
      `tests/probe_vision.png` (random 6-char token + one of 5 palette
      colors) and `tests/probe_vision.expected` (ground truth).
   2. Read `tests/probe_vision.png` with the Read tool. **Media-Read is
-     ALLOWED for this probe artifact only** — it is a vibeweaver probe
-     artifact, not media being graded; the mm-sensor Read-ban applies to
-     grading captured media, not to the probe. Read the PNG BEFORE running
-     `--check` (the token is random per run — nothing to recall).
+     ALLOWED for this probe artifact only** — the mm-sensor Read-ban applies
+     to grading captured media, not to the probe. Read the PNG BEFORE
+     running `--check` (the token is random per run — nothing to recall).
   3. Report what you actually perceive: exact token + color name. If the
      Read errors (`Cannot read image …`) or you genuinely cannot extract the
      token/color, report that honestly — a failed probe is a valid result.
    4. Validate: `python3 {VW_DIR}/scripts/mm_probe.py --check <token> <color>`.
       - **exit 0 (PASS)** → the model IS image-perceptive → announce
         `Verifier: model-native [image]`. PASS criterion: color exact AND
-        >= 5 of 6 token chars in exact positions (the 5x7 font is
-        ambiguity-pruned; a blind guesser scores ~0-1/6, so the gate is
-        unpassable without real perception, while one isolated slip no
-        longer disqualifies a vision-capable model).
+        >= 5 of 6 token chars in exact positions (a blind guesser scores
+        ~0-1/6, so the gate is unpassable without real perception, while one
+        isolated slip no longer disqualifies a vision-capable model).
         Screenshots are graded via the
         Read tool under **§A4.1.1 Visual Verification Protocol**
         (observation-first · per-criterion verdicts · DOM/log cross-check ·
-        UNCERTAIN=FAIL). The §A4.1.1 chain is the countermeasure to
-        self-grading bias (the maker is the checker in this mode).
+        UNCERTAIN=FAIL) — the countermeasure to self-grading bias.
      - **exit 1 (FAIL)** → the model is NOT image-perceptive → Step 0b.
      - **exit 2 / error** → fix the probe invocation, re-run; on repeat
        failure treat as FAIL (0b).
@@ -83,8 +79,7 @@ probe is the single source of truth, not a filesystem/config guess).
      `- probe: model-native PASS (probe_vision.png)` or
      `- probe: model-native FAIL → mm-sensor`.
 - **Step 0b — mm-sensor probe (only when 0a FAILED):** check `available_skills`
-  for `mm-sensor` (opencode injects this list; it is authoritative — not a
-  filesystem guess).
+  for `mm-sensor` (opencode injects this list; it is authoritative).
   - **`mm-sensor` IS in available_skills** → MANDATORY independent verifier.
     - Derive `SKILL_DIR` from the `<location>` in available_skills.
     - Run the capability probe (cheap, no tokens):
@@ -95,14 +90,12 @@ probe is the single source of truth, not a filesystem/config guess).
       `Verifier: mm-sensor [video+audio]` · `Verifier: mm-sensor [video]` ·
       `Verifier: mm-sensor [image]` — the mode decides the capture set in
       Step 2 and the grading set in Step 3.
-    - Invoke with `--detail high` for EVERY captured media file (video /
-      audio / screenshots alike):
+    - Invoke with `--detail high` for EVERY captured media file:
       `python3 {SKILL_DIR}/vision.py --detail high /path/to/file.webm`.
     - NEVER use the model's own vision or the Read tool on media while
       mm-sensor is the verifier — that is self-grading and a violation.
       There is no fallback to self-grading: on call errors, fix the config
-      (missing API key etc.) and retry; only after repeated failure escalate
-      to the user.
+      and retry; only after repeated failure escalate to the user.
   - **`mm-sensor` NOT in available_skills** → Step 0c.
 - **Step 0c — direct read fallback (0a FAILED and no mm-sensor):** announce
   `Verifier: direct read (no multimodal model, no mm-sensor)`. **This is the
@@ -110,8 +103,8 @@ probe is the single source of truth, not a filesystem/config guess).
   screenshot is NOT the evidence channel here. Verification must lean on
   DOM queries (`querySelector` / `getComputedStyle` / `textContent` /
   `boundingClientRect`), log inspection, and API responses; screenshots are
-  kept as artifacts for human/mm-sensor review later. Be extra strict and
-  cross-check everything.
+  kept as artifacts for human review later. Be extra strict and cross-check
+  everything.
 - **Hybrid (model-native + mm-sensor):** when the verifier is `model-native
   [image]` but acceptance criteria require video/audio evidence and mm-sensor
   is installed → grade THOSE files via mm-sensor (`vision.py --detail high`)
@@ -126,12 +119,11 @@ probe is the single source of truth, not a filesystem/config guess).
 `model-native [image]` means the SAME model that wrote the code grades the
 captures with its own vision — the maker/checker split is weakened by
 construction, and the chain below is the MANDATORY countermeasure. SOTA
-basis (2026): MJ1 grounded verification chain observations → claims →
-verification → evaluation (arXiv 2603.07990); WebDevJudge query-grounded
-rubric trees + code-as-critical-modality (arXiv 2510.18560); Vision2Web
-component-level rubrics (arXiv 2603.26648); IRA environment-state
-verification (arXiv 2607.25904); CUAAudit abstention/calibration
-(arXiv 2603.10577); MM-JudgeBias compositional bias (ACL 2026).
+basis (2026): MJ1 grounded verification chain (arXiv 2603.07990) ·
+WebDevJudge rubric trees + code-as-critical-modality (2510.18560) ·
+Vision2Web rubrics (2603.26648) · IRA environment-state
+verification (2607.25904) · CUAAudit abstention/calibration (2603.10577) ·
+MM-JudgeBias (ACL 2026).
 
 **A bare judgment is NEVER valid.** "Meets criteria", "looks good", "layout
 is fine" — not verdicts. Every verdict is produced by this chain, IN ORDER:
@@ -141,18 +133,17 @@ enumerate what IS on screen, zone by zone (header / nav / main / sidebar /
 footer / modals): every element with position, rendered text, colors, and
 state (visible / disabled / empty). Only what is actually visible — no
 inference, no "should be"; absence is recorded as absence ("no modal is
-open"). Observation extraction comes FIRST because visual attention is
-highest then and open-ended judgment later loses pixel detail (MJ1).
+open"). Observation comes first because visual attention is highest then
+(MJ1).
 
 **2. CLAIM EXTRACTION (rubric tree).** Decompose every acceptance criterion
-into atomic, individually-verifiable claims (WebDevJudge): criterion #2
-"password field exists and is empty" → claims "a text input is present in
-the form zone" · "it is of type password" · "it renders empty".
+into atomic, individually-verifiable claims (WebDevJudge): criterion #1
+"username field exists and is empty" → claims "a text input is present in
+the form zone" · "it is labelled for username" · "it renders empty".
 
 **3. CLAIM↔OBSERVATION VERIFICATION.** Match each claim against the
-observations. A claim with no matching observation = FAIL for that
-criterion — not "close enough", not "probably". An observation that
-contradicts a claim = FAIL.
+observations. A claim with no matching observation = FAIL — not "close
+enough". An observation contradicting a claim = FAIL.
 
 **4. DOM/STATE CROSS-CHECK (MANDATORY for state-dependent criteria).**
 Pixels cannot prove state (IRA hidden-state tasks; WebDevJudge: code is the
@@ -160,9 +151,8 @@ most critical modality). Every criterion whose truth depends on behavior —
 persisted data, navigation, async rendering, computed styles, hidden or
 overflowing elements, response codes — MUST additionally be checked via
 `page.evaluate` (querySelector / getComputedStyle / textContent /
-boundingClientRect), API response, or log inspection. The screenshot is
-necessary but never sufficient for state-dependent criteria. Record both
-evidence legs in the verdict.
+boundingClientRect), API response, or log inspection. Record both evidence
+legs in the verdict.
 
 **5. ABSTAIN ON UNCERTAINTY (UNCERTAIN = FAIL).** If the screenshot or DOM
 cannot determine a criterion — clipped viewport, resolution, unreadable
@@ -187,9 +177,8 @@ load-bearing and mm-sensor is installed, run BOTH and reconcile
 (DUAL-PATH RECONCILE §A4.10) — disagreement locates the faulty judgment.
 
 **Video/audio in model-native mode:** screenshots are graded natively;
-video/audio evidence is graded via mm-sensor if installed (hybrid, recorded
-in the log), else recorded `video/audio: not gradeable` and the underlying
-state verified via DOM/API/log.
+video/audio via mm-sensor if installed (hybrid, recorded in the log), else
+recorded `video/audio: not gradeable` with state verified via DOM/API/log.
 
 ---
 
@@ -205,11 +194,8 @@ criteria. ONE criterion = ONE pass/fail sentence a verifier can answer yes/no.
 
    # Acceptance Criteria — Login Page
    1. Username input field exists and is empty on load
-   2. Password input field exists and is empty on load
-   3. "Sign In" button is visible and enabled
-   4. No error/warning banner is shown on initial load
-   5. Page title is "Login"
-   6. Layout has no horizontal scroll at mobile breakpoint (375px)
+   2. "Sign In" button is visible and enabled
+   3. No error/warning banner is shown on initial load
    ```
 2. Gate on clarity:
    - **Vague/ambiguous** (criteria not derived confidently) → STOP and ask the
@@ -245,19 +231,16 @@ Capture set per mode (mm-sensor loaded):
 | `direct read` | screenshots only as artifacts — the EVIDENCE channel is DOM/log inspection (Step 0c) |
 
 Capture rules:
-- **Video**: `context.record_video` (webm, e.g. 1280×720, ~fps 25-30); one
-  video per user flow, recording the WHOLE Act sequence. Transcode webm → mp4
-  (ffmpeg) for grading (several gateways accept mp4 only; keep the raw webm);
-  no ffmpeg → grade the webm directly (frame-sampling, lossy). Stable name:
-  `tests/<flow>.mp4` (APPENDIX §A1).
+- **Video**: `context.record_video` (webm, e.g. 1280×720); one video per
+  user flow, recording the WHOLE Act sequence. Transcode webm → mp4 (ffmpeg)
+  for grading (keep the raw webm); no ffmpeg → grade the webm directly
+  (frame-sampling, lossy). Stable name: `tests/<flow>.mp4` (APPENDIX §A1).
 - **Audio**: inject the Web Audio capture script BEFORE page load
   (`add_init_script`), dump via `page.evaluate` at flow end, assemble a WAV
-  in Python (`wave` module) — captures Web Audio API + `<audio>`/`<video>`
-  element output. Requires Chromium flag
+  in Python (`wave` module). Requires Chromium flag
   `--autoplay-policy=no-user-gesture-required`. If the page produced no
-  audio (empty buffer / no AudioContext), write no wav and note
-  `audio: none produced` in the log — do NOT grade silence as a failure
-  unless an acceptance criterion requires sound.
+  audio, write no wav and note `audio: none produced` in the log — do NOT
+  grade silence as a failure unless an acceptance criterion requires sound.
 - **Screenshots**: terminal-state `tests/<flow>_final.png` for EVERY mode
   (acceptance.md cites it; assert_artifacts.py checks cited pngs exist).
   For `[image]` mode also before/during shots.
@@ -306,7 +289,9 @@ Append EVERY iteration to `tests/verification_log.md` (create if absent):
 falsifiable clause>` (the §A4.6 Phase 3 hypothesis compressed to one line,
 stating what you believe broke and why). A retry that does not carry its
 diagnosis is the same attempt again — same cost, buys nothing. Machine-
-checked: `assert_artifacts.py` group 12. PASS lines state evidence + scope
+checked: `assert_artifacts.py` group 12 (presence) + 12b (substance: ≥10
+chars, not a placeholder token — `-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`).
+PASS lines state evidence + scope
 (`6/6`, screenshot/log path), because a claim without stated coverage is not
 a result (group 13).
 
@@ -389,11 +374,8 @@ boundary diagnostics. Complete each phase before the next.
 - Form ONE explicit hypothesis: "I think X is the root cause because Y".
   Write it down — it is the `diagnosis:` clause that A4.1 Step 4 requires
   on every FAIL log line.
-- **Dual-path reconcile:** if two cheap, independent verification routes
-  exist (e.g. read the state through the API AND directly from the DB),
-  take BOTH before declaring the root cause — agreement earns the
-  conclusion; disagreement LOCATES the faulty assumption
-  (§A4.10 DUAL-PATH RECONCILE).
+- **Dual-path reconcile** (§A4.10): two cheap independent routes → take
+  BOTH; disagreement locates the faulty assumption.
 - Test with the **smallest possible change** — one variable at a time.
 - If it doesn't work: **revert**, form a NEW hypothesis. Never stack a second
   fix on top of a failed one.
@@ -410,15 +392,13 @@ boundary diagnostics. Complete each phase before the next.
 
 **Escalation — 3+ failed fixes = question the architecture:**
 After **3 failed fixes on the same problem** (or each fix reveals a NEW
-problem in a different place, or every fix demands "massive refactoring"),
-STOP — this signals an **architectural** problem, not a wrong hypothesis. Do
-NOT attempt fix #4 in the same direction. Record the failed methods in
-memory (❌/⛔ per [MEMORY_RULES.md §A7.7](MEMORY_RULES.md)), then escalate to
-the user: is the pattern fundamentally sound, or should the architecture
-change? This complements A4.1's stall rule (3× same criterion): stall stops
-the loop; this rule escalates the **direction**. The next direction is
-generated by §A4.10 PARAMETRIZE (finite candidate set + cheapest refuting
-test) — not by trying harder in the same frame.
+problem elsewhere, or every fix demands "massive refactoring"), STOP — an
+**architectural** problem, not a wrong hypothesis. Do NOT attempt fix #4 in
+the same direction. Record the failed methods in memory (❌/⛔ per
+[MEMORY_RULES.md §A7.7](MEMORY_RULES.md)), then escalate to the user. This
+complements A4.1's stall rule (3× same criterion): stall stops the loop;
+this rule escalates the **direction** — generated by §A4.10 PARAMETRIZE,
+not by trying harder in the same frame.
 
 ---
 
@@ -451,14 +431,12 @@ validation failures, auth failures, boundary inputs. Persist test cases
 **Step 5 — Run the test→fix→test loop:** start backend via `script/` (COV-2).
 All tests MUST produce log files (A4.2). **Any failure** → diagnose root cause
 (§A4.6), modify code, re-run the SAME failing test first then the full suite.
-Repeat `test → modify → test → modify …` until ALL test cases pass. Log each
-iteration to `tests/verification_log.md` (same format as A4.1 Step 4 — every
-FAIL line carries its `diagnosis:` clause). Same iteration cap=5 / stall=3×
-(COV-7) — on cap/stall apply §A4.10 (parameterize or shift; never retry
-"again but slightly different"), record the failure in memory and report to
-the user instead of looping forever. If a test failure reveals the doc was
-wrong (not the code), update the doc, re-do the Step 3 consistency audit,
-then continue the loop.
+Repeat until ALL test cases pass. Log each iteration to
+`tests/verification_log.md` (A4.1 Step 4 format — every FAIL line carries its
+`diagnosis:` clause). Same cap=5 / stall=3× (COV-7) — on cap/stall apply
+§A4.10, record the failure in memory and report to the user. If a test
+failure reveals the doc was wrong (not the code), update the doc, re-do the
+Step 3 consistency audit, then continue the loop.
 
 **Completion evidence for A4.4:** chosen HTTP client, API doc path, test-case
 file path, test log file, and convergence line `[Convergence] <task>: N iters
@@ -512,10 +490,9 @@ def test_register_then_create_then_persist(base_url, clean_state):
    The trace is the loop's convergence evidence and the A4.9 reviewer's raw
    material. **A service-level direct call (importing the service class and
    calling it in-process) is NOT a workflow trace**: it bypasses routing,
-   auth middleware, request parsing, and serialization — the layers where
-   integration bugs actually live. If the change flows through the HTTP API
-   (request → handler → DB → response), the workflow MUST be a real HTTP
-   workflow against the server started via `script/` (COV-2).
+   auth middleware, and serialization — the layers where integration bugs
+   live. If the change flows through the HTTP API, the workflow MUST run
+   real HTTP against the server started via `script/` (COV-2).
 
 **Step 4 — Run the workflow loop:** start backend via `script/` (COV-2), run
 the workflow suite, and iterate with the SAME loop discipline as A4.7 Step 5:
@@ -529,10 +506,7 @@ whole scenario 120s, to prevent async issues from stalling the loop.
 convergence line extended with workflow counts, and the E2E depth value:
 `[Convergence] <task>: N iters | X/Y test cases pass | Z/W workflow cases pass | stalls | cap-hits`
 plus `E2E depth: real-HTTP` (or `workflow-trace`) in the `[Verification
-Gate]` line. Example: `[Convergence] memory recall fix: 6 iters | 15/15
-test cases | 2/2 workflow cases pass | 0 stalls | 0 cap-hits` +
-`E2E depth: workflow-trace` — and a real-user chat verification qualifies
-as `real-HTTP`.
+Gate]` line (a real-user chat verification qualifies as `real-HTTP`).
 
 **Skip only if:** the change has no cross-endpoint behavior AND no
 state-transition semantics (pure function or single-endpoint tweak) — then
@@ -561,20 +535,18 @@ generated code — exempt (state the reason).
 
 **Trusted oracle (what may certify a task, in order):** ① project/external
 acceptance tests — the only certifying tier (greenfield: render the acceptance
-criteria executable; if that is impossible the task cannot be certified — the
-log records `- oracle: self-tests (weak)` and the claim is flagged);
-② independently generated + **qualified** tests (fail on the stub, pass on a
-known-correct solution, fail on a plausible wrong solution) — weak tier:
-catches gross errors, never certifies; ③ self-written tests — weakest. Record
-the tier in `verification_log.md`: `- oracle: project-tests |
-executable-acceptance | qualified-generated | self-tests (weak)`.
+criteria executable; else the log records `- oracle: self-tests (weak)` and
+the claim is flagged); ② independently generated + **qualified** tests (fail
+on the stub, pass on a known-correct solution, fail on a plausible wrong
+solution) — weak tier: catches gross errors, never certifies; ③ self-written
+tests — weakest. Record the tier in `verification_log.md`:
+`- oracle: project-tests | executable-acceptance | qualified-generated | self-tests (weak)`.
 **Under-specified contract:** a required behavior whose interface/semantics are
 not visible in the spec/starter is NOT invented — record it as an open question
 and resolve it (GUIDED) or mark the criterion unverified (AUTO ADR); a test
 that invents an interface is a false oracle. **Checker contract:** a project
 checker (`script/check.sh` / `tests/check.py`) is the loop's feedback — quote
-its pass line, hash-guard the tests (a discipline aid, not a security
-boundary), never edit tests to pass. Templates: APPENDIX.md §A11.
+its pass line, never edit tests to pass. Templates: APPENDIX.md §A11.
 
 **The cycle (RED → GREEN → minimal):**
 1. **RED — write ONE failing test** for the next small behavior. One
@@ -601,8 +573,7 @@ A regression test never watched failing on the buggy code is unproven.
 **Red flags — STOP:** code before test · test passes on first run with no
 nameable production change that would break it · "too simple to test" /
 "test after" / "already verified manually" · **the verification reference
-shares the candidate's assumptions** — an oracle inheriting the same
-cleverness inherits the same bug (§A4.10 TRUST-AND-VERIFY).
+shares the candidate's assumptions** (§A4.10 TRUST-AND-VERIFY).
 
 ---
 
@@ -618,8 +589,7 @@ line and proceed. **Lane L default: TWO adversarial fresh-context reviewers
 adjudicated, reviewer disagreement escalates.
 
 **Trigger ANY of:** new feature · ≥3 files changed · schema/API-surface change ·
-security-sensitive area · **behavior-semantic change** (a runtime pipeline /
-write-path / type-distinction semantic is altered — a one-line diff can
+security-sensitive area · **behavior-semantic change** (a one-line diff can
 still be a behavior change).
 **"Files changed" counts EVERY path in `git diff --stat $BASE..$HEAD`** —
 tests, docs, and config included; "only core logic files changed" is NOT a
@@ -629,8 +599,7 @@ config edits — each `A4.9 not triggered` reason in the gate line must cite
 `git diff --stat` output, not self-recollection. **Risk-tier paths —
 non-skippable:** when the diff touches a code path matching
 `(?i)(^|/)(auth|security|payments?|billing|crypto|migrations?|permissions?|acl)(/|\.|_|$)`
-(code extensions only), the trigger fires REGARDLESS of file count —
-`A4.9 not triggered` is not a valid gate-line reason for these; assert
+(code extensions only), the trigger fires REGARDLESS of file count; assert
 group 16 machine-checks `tests/review_package.md` exists on disk.
 
 **How:**
@@ -644,15 +613,13 @@ group 16 machine-checks `tests/review_package.md` exists on disk.
    this verdict contract — **Strengths · Issues (Critical / Important / Minor,
    each tagged with its dimension — `Bugs` (logic/edge cases) · `Security`
    (injection/authz/secrets/attacker-controlled input) · `Compliance`
-   (matches acceptance criteria / plan / design principles — reported as the
-   spec-fidelity triad: requirements missing/partial · scope creep ·
-   looks-implemented-but-wrong, each quoting the criterion/spec line) — with
+   (spec-fidelity: requirements missing/partial · scope creep ·
+   looks-implemented-but-wrong, quoting the criterion/spec line) — with
    file:line + why it matters) · Assessment (ready / ready-with-fixes / not ready)**.
    **Minor findings are itemized at
-   most 5, the rest summarized as a count** (nit cap — review must not become
-   noise); generated paths and anything already mechanically enforced (hooks,
-   assert groups) are out of scope for findings. The reviewer is READ-ONLY:
-   it inspects, never mutates the working tree.
+   most 5, the rest summarized as a count** (nit cap); generated paths and
+   anything already mechanically enforced (hooks, assert groups) are out of
+   scope. The reviewer is READ-ONLY.
 3. Act on the verdict (fix-round loop):
    - **Critical** → fix now; re-run covering tests; scoped re-review (Step 4).
    - **Important** → fix before the completion table; re-run covering tests;
@@ -661,8 +628,7 @@ group 16 machine-checks `tests/review_package.md` exists on disk.
      table. Minor never enters the fix loop.
    - **Fix-round loop:** one round = one fix dispatch + one scoped re-review
      (Step 4). Max **5 rounds** per review wave. Reuse A4.1's stall rule
-     (same finding ≥3 consecutive rounds → STOP retrying that direction;
-     apply §A4.10 to generate the genuinely different direction). At the cap,
+     (same finding ≥3 consecutive rounds → apply §A4.10). At the cap,
      **adjudicate each open finding yourself** — you hold the cross-task
      context the reviewer lacks: park with a ruling (`parked — <finding> —
      ruling: <why the code stands>`), or if load-bearing (a later task builds
@@ -691,25 +657,23 @@ codebase.
 ## A4.10 Stall Escape: Parameterize · Differential-Test · Dual-Path
 
 Companion to COV-7 (`cap=5 stall=3×`). COV-7 decides WHEN a loop must stop;
-this section decides WHAT TO DO at that stop. A stall followed by
-"retry, again but slightly different" is not an escape — it is the same spin
-with new vowels. Mechanisms adapted from J-Space Cognition Suite (see repo
-README → Attribution).
+this section decides WHAT TO DO at that stop. A stall followed by "retry,
+slightly different" is the same spin with new vowels. Mechanisms adapted
+from J-Space Cognition Suite (see repo README → Attribution).
 
 ### DROWNING DETECTION — recognize it early
 
 Stall signals: the same sub-problem re-derived with no new constraint ·
 constraints flip-flopping between iterations · the same test failing with a
-mobile but related error · three failed fixes on the same problem (see
-§A4.6 escalation) · **≥4 consecutive no-op bash calls** — bare `echo`/
-`printf` narration markers ("use Read now", "final", "grading") standing in
-for an announced tool call; the loop-guard's `noop-bash` finding interrupts
-this mechanically, and the interrupt itself IS a stall declaration (log
-`- stall: noop-bash echo narration — …` and take the escape below; never
-resume by echoing again). **Any two signals → declare the stall explicitly in
-the log** (`- stall: <signals> — stopping pure iteration`). An undeclared stall
-becomes silent guessing, which looks exactly like reasoning right up until it
-is wrong.
+mobile but related error · three failed fixes on the same problem (§A4.6
+escalation) · **≥4 consecutive no-op bash calls** — bare `echo`/`printf`
+narration markers standing in for an announced tool call; the loop-guard's
+`noop-bash` finding interrupts this mechanically, and the interrupt itself
+IS a stall declaration (log `- stall: noop-bash …` and take the escape
+below). **Any two signals → declare the stall explicitly in the log**
+(`- stall: <signals> — stopping pure iteration`). An undeclared stall
+becomes silent guessing, which looks exactly like reasoning right up until
+it is wrong.
 
 ### PARAMETRIZE — make the unknown finite (before the next direction is chosen)
 
@@ -718,8 +682,8 @@ is wrong.
 2. Enumerate plausible values as a **finite candidate set** (`timeout ∈
    {30s, 60s, 120s}`; `the bug is in {routing, auth middleware, handler,
    serializer}`). If the set will not go finite, discretize the dimension
-   that matters and say explicitly what was dropped — an unbounded unknown
-   cannot be tested and will not settle by a fourth guessing iteration.
+   that matters and say what was dropped — an unbounded unknown cannot be
+   tested.
 3. Every candidate stays live until evidence kills it. A killed candidate
    gets recorded with the evidence that killed it (→ memory ❌ per
    MEMORY_RULES.md §A7.7). No premature favourites.
@@ -735,26 +699,23 @@ cannot trust the check):
    assumptions are explicit and separately checked: brute force, exhaustive
    enumeration, a second data path, a hand-worked example.
 2. **The reference must NOT share the candidate's cleverness.** If it
-   inherits the same assumption (same SQL dialect quirk, same off-by-one
-   window, same trigger condition), it inherits the same bug and will agree
+   inherits the same assumption, it inherits the same bug and will agree
    with the candidate beautifully while both are wrong. Where they must
    share an assumption, test that assumption separately and say so.
-3. **Differential-test:** same inputs to both. Compare outputs. Sweep small
-   cases, edge cases (empty, single, maximum, degenerate) and randomized
-   cases wherever they are cheap.
+3. **Differential-test:** same inputs to both. Compare outputs. Sweep small,
+   edge (empty, single, maximum, degenerate) and randomized cases where
+   cheap.
 4. **Every mismatch is a gift** — it localizes the false assumption better
    than any amount of re-reading. Study the mismatch, refine, re-test.
-5. **State the coverage with the conclusion** — what the sweep covered and
-   what it did not. "Verified" without a stated scope is not a result.
-   (This is machine-checked: `assert_artifacts.py` group 13 flags claimed
-   coverage in `verification_log.md` that lacks a scope.)
+5. **State the coverage with the conclusion** — "verified" without a stated
+   scope is not a result (machine-checked: `assert_artifacts.py` group 13).
 
 ### DUAL-PATH RECONCILE — two cheap routes, compare, then commit
 
-When two independent, cheap verification routes are available (e.g. read the
-state **through the API** AND **directly from the database**; run the build
-in `.venv` AND with system python; `git diff` AND `git diff --stat`
-cross-check on file count), take BOTH before declaring a conclusion:
+When two independent, cheap verification routes are available (read state
+**through the API** AND **from the database**; build in `.venv` AND system
+python; `git diff` AND `git diff --stat`), take BOTH before declaring a
+conclusion:
 
 - Where they agree → confidence is earned; record both routes in the log.
 - Where they disagree → you have located the faulty assumption — the
