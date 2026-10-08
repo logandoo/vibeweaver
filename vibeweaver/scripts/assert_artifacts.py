@@ -635,20 +635,31 @@ def main():
 
     # 20) working-note creation side (§A7.15) — group 19 checks the note is
     #     GONE at completion; this group checks it EXISTED during the work.
-    #     Scoped to the CURRENT task block (last `## ` block — same log
-    #     grammar as class detection): a block with ≥2 iteration entries or
-    #     ≥1 FAIL owes `- working-note:` lifecycle lines (created → updated →
-    #     distilled → deleted) or a stated `- working-note: na (<why>)` skip.
-    #     The block's iter count is the machine proxy for §A7.15's create rule.
-    blocks = re.split(r"(?m)^(?=## )", vl)
-    cur = blocks[-1] if blocks else vl
-    iters = len(re.findall(r"(?m)^- iter \d+ (?:PASS|FAIL):", cur))
-    has_fail = bool(re.search(r"(?m)^- iter \d+ FAIL:", cur))
-    if iters >= 2 or has_fail:
-        check(bool(re.search(r"(?m)^- working-note:\s*\S", cur)),
-              "verification_log.md current task block: ≥2 iterations / a FAIL without "
-              "`- working-note:` lifecycle lines (created → updated → distilled → deleted) "
-              "or a stated `- working-note: na (<why>)` (§A7.15 creation side)")
+    #     Fence-aware (a quoted example launders nothing) and scoped to the
+    #     LAST ITER-BEARING block — a trailing non-task `## ` heading must not
+    #     truncate the current task into silence (fail-open guard).
+    live = []
+    in_fence = False
+    for _l in vl.splitlines():
+        if FENCE.match(_l):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        live.append(_l)
+    blocks = re.split(r"(?m)^(?=## )", "\n".join(live))
+    cur = ""
+    for _b in blocks:
+        if re.search(r"(?m)^- iter \d+ (?:PASS|FAIL):", _b):
+            cur = _b
+    if cur:
+        iters = len(re.findall(r"(?m)^- iter \d+ (?:PASS|FAIL):", cur))
+        has_fail = bool(re.search(r"(?m)^- iter \d+ FAIL:", cur))
+        if iters >= 2 or has_fail:
+            check(bool(re.search(r"(?m)^- working-note:\s*\S", cur)),
+                  "verification_log.md current task block: ≥2 iterations / a FAIL without "
+                  "`- working-note:` lifecycle lines (created → updated → distilled → deleted) "
+                  "or a stated `- working-note: na (<why>)` (§A7.15 creation side)")
 
     if GIT_TIMEOUT:
         print("WARN groups 14-16: a git call timed out — content gates ran "

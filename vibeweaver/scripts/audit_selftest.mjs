@@ -1699,6 +1699,32 @@ if (existsSync(calibDir)) {
   write(rootN, "tests/verification_log.md", readFileSyncSafe(path.join(rootN, "tests", "verification_log.md")).replace(/\n- working-note:[^\n]*\n/, "\n") + "\n- working-note: na (Lane S single-pass, no FAIL)\n")
   const na = runAssertFixture(rootN, ["--existing"])
   rec("T38c stated `na (why)` skip line satisfies group 20", na.code === 0, `code=${na.code} ${na.out.trim().split("\n").pop()}`)
+  // fence laundering: a fenced `- working-note:` EXAMPLE must not satisfy the
+  // demand, and a fenced `- iter 9 FAIL:` example must not trigger it.
+  write(rootN, "tests/verification_log.md", [
+    "## Task: fixture | 2026-10-07",
+    "- Baseline verified GREEN",
+    "- iter 1 PASS: all criteria (evidence: tests/shot.png, 6/6)",
+    "- final-run: --final — assert_artifacts.py: pass=15/fail=0",
+    "```",
+    "- iter 9 FAIL: quoted example inside a fence | diagnosis: not real, quoted | changed: x.ts",
+    "```",
+  ].join("\n"))
+  const fenced = runAssertFixture(rootN, ["--existing"])
+  rec("T38d fenced FAIL example does NOT trigger the group-20 demand", fenced.code === 0, `code=${fenced.code} ${fenced.out.trim().split("\n").pop()}`)
+  write(rootN, "tests/verification_log.md", [
+    "## Task: fixture | 2026-10-07",
+    "- Baseline verified GREEN",
+    "- iter 1 FAIL: criterion #2 | diagnosis: validator ran before state hydrate | changed: src/form.ts",
+    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
+    "```",
+    "- working-note: na (quoted example — not a real lifecycle line)",
+    "```",
+    "## Scratch notes",
+    "(trailing non-task heading must not launder the demand either)",
+  ].join("\n"))
+  const launder = runAssertFixture(rootN, ["--existing"])
+  rec("T38e fenced working-note example + trailing heading do NOT satisfy group 20", launder.code === 1 && /working-note/.test(launder.out), `code=${launder.code}`)
 }
 
 // ---------- summary ----------
