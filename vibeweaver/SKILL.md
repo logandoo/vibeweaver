@@ -175,7 +175,8 @@ and in your final answer (Class-scaled per COV-13 / §V11.3):`
 - `tests/verification_log.md` — ≥1 per-iteration entry (format: §A4.1 Step 4);
   first entry of the task block carries `- class: <DOC|CONFIG|CODE> — <basis>`.
 - `tests/working_note.md` — Lane M/L or any 2nd-iteration task: live task
-  state (§A7.15); distilled + deleted at task end (group 19, `--final`).
+  state (§A7.15); lifecycle logged as `- working-note:` lines (group 20);
+  distilled + deleted at task end (group 19, `--final`).
 - `[Convergence] <task>: N iters | X/Y pass | N stalls | N cap-hits`
 - `[Coverage] criteria: N/M covered | unchecked: <names|none>` — §V3
   (VERIFICATION_UPGRADES); unchecked items are named, never laundered into `na`.

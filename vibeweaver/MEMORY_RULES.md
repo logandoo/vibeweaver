@@ -426,7 +426,10 @@ consulted: <memory topics read this task>
    above fires.
 2. Update at every FAIL diagnosis, every iteration boundary, and BEFORE any
    anticipated compaction — the note is what survives it.
-3. §3.3 re-entry reads it FIRST among tests/ artifacts (after
+3. Log lifecycle events as `- working-note:` lines in the current task block
+   (group 20 machine-checks the create rule: ≥2 iterations or a FAIL owes
+   them, or a stated `- working-note: na (<why>)`). §3.3 re-entry reads it
+   FIRST among tests/ artifacts (after
    `paused_state.md` if present, before `acceptance.md` + log tail).
 4. Task end: distill persistable content into `memory/` topic files per
    A7.9 (the note is A7.9's primary input), then DELETE the file. The

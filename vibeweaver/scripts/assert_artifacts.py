@@ -633,6 +633,23 @@ def main():
         check(not (tests / "working_note.md").exists(),
               "tests/working_note.md still present at completion — distill into memory/ (A7.9) and delete it first (§A7.15 working-note lifecycle)")
 
+    # 20) working-note creation side (§A7.15) — group 19 checks the note is
+    #     GONE at completion; this group checks it EXISTED during the work.
+    #     Scoped to the CURRENT task block (last `## ` block — same log
+    #     grammar as class detection): a block with ≥2 iteration entries or
+    #     ≥1 FAIL owes `- working-note:` lifecycle lines (created → updated →
+    #     distilled → deleted) or a stated `- working-note: na (<why>)` skip.
+    #     The block's iter count is the machine proxy for §A7.15's create rule.
+    blocks = re.split(r"(?m)^(?=## )", vl)
+    cur = blocks[-1] if blocks else vl
+    iters = len(re.findall(r"(?m)^- iter \d+ (?:PASS|FAIL):", cur))
+    has_fail = bool(re.search(r"(?m)^- iter \d+ FAIL:", cur))
+    if iters >= 2 or has_fail:
+        check(bool(re.search(r"(?m)^- working-note:\s*\S", cur)),
+              "verification_log.md current task block: ≥2 iterations / a FAIL without "
+              "`- working-note:` lifecycle lines (created → updated → distilled → deleted) "
+              "or a stated `- working-note: na (<why>)` (§A7.15 creation side)")
+
     if GIT_TIMEOUT:
         print("WARN groups 14-16: a git call timed out — content gates ran "
               "on partial data (fail-open); re-run to confirm")

@@ -198,6 +198,7 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
 | 17b | **exec-check (§V11.9)** — every delivered office asset also needs a recorded executable-behavior check: an `exec-check:` line naming the asset with `clean` or `escalat…` (vbaProject.bin / PDF JavaScript / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
 | 18 | **task-class coherence (COV-13)** — `--class DOC\|CONFIG\|CODE` (or the log's `- class:` first entry of the current task block) N/A's only the class's structurally-free groups (DOC: memory 4 + service-lifecycle 5; CONFIG: memory 4 when the log carries `- memory: na (<why>)`); a `--class` flag contradicting the log's class is a NAMED failure (§V11.7 one class per task); a class never weakens an applicable group | COV-13 / §V11 |
 | 19 | **working-note lifecycle (§A7.15, `--final` only)** — `tests/working_note.md` must NOT exist at completion time: the task working memory is distilled into `memory/` (A7.9) and deleted before the completion table; a leftover is an undistilled lesson or zombie state leaking into the next task | A7.15 / A7.10 check 6 |
+| 20 | **working-note creation side (§A7.15)** — group 19 checks the note is GONE at completion; this group checks it EXISTED during the work. Current task block (last `## ` block) with ≥2 iteration entries or ≥1 FAIL owes `- working-note:` lifecycle lines (`created → updated → distilled → deleted`) or a stated `- working-note: na (<why>)` — the block's iter count is the machine proxy for the §A7.15 create rule | A7.15 creation side |
 
 The script byte-checks the artifacts behind every Gate Function claim — the
 external verifier for claims mm-sensor cannot see. The **canonical file is
@@ -216,12 +217,12 @@ The only allowed edit after copying is adding project-specific assertion
 lines — never remove or weaken groups 1-19.
 
 **Self-verify the copy is complete (MUST do after copying it):** the script
-MUST contain each of these 20 markers — `verification_log` · `cap=5` ·
+MUST contain each of these 21 markers — `verification_log` · `cap=5` ·
 `screenshot` · `MEMORY.md` · `start.sh` · `git repo needs` · `FLOW_DESIGN` ·
 `README` · `Baseline verified GREEN` · `workflow trace` · `media evidence` ·
 `diagnosis:` · `claim without stated coverage` · `secret scan` ·
 `test-change:` · `risk-tier` · `secret-approved` · `DOC-asset render gate` ·
-`exec-check` · `working_note`. Grep the file for all 20;
+`exec-check` · `working_note` · `working-note`. Grep the file for all 21;
 ANY
 missing marker means an incomplete variant — re-copy from the canonical file.
 A script missing a marker will not catch the missing artifact; a complete

@@ -285,6 +285,36 @@ function safeGlob(t) {
   )
 }
 
+// Cue telemetry (wave19): every fire increments .vibeweaver/cue-stats.json
+// per topic. Delivery counts are the feedback loop for tuning glob
+// precision (a trigger that never fires / fires on everything is noise).
+// Best-effort: telemetry must never break delivery.
+function recordCueFires(root, notes) {
+  try {
+    const dir = path.join(root, STATE_DIR)
+    const p = path.join(dir, "cue-stats.json")
+    let stats = {}
+    if (existsSync(p)) {
+      try {
+        stats = JSON.parse(readFileSync(p, "utf8"))
+      } catch {
+        stats = {}
+      }
+    }
+    if (!stats || typeof stats !== "object") stats = {}
+    for (const n of notes) {
+      const m = n.match(/memory\/(\S+\.md)/)
+      if (m) stats[m[1]] = (typeof stats[m[1]] === "number" ? stats[m[1]] : 0) + 1
+    }
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    const tmp = p + ".tmp"
+    writeFileSync(tmp, JSON.stringify(stats))
+    renameSync(tmp, p)
+  } catch {
+    /* never throws */
+  }
+}
+
 // One-line cue notes for memory topics whose triggers match the edited
 // path. Delivery, not storage: the cue fires at the edit moment, not at
 // task-start grep. Budgeted (max 3), progressive (pointer line, not the
@@ -319,6 +349,7 @@ function cueNotes(root, filePath) {
       notes.push(`[GATE-WARNING (vibeweaver-cue)] memory cue: memory/${f} (${trust}) matches this path — read it before editing: ${heading}`)
       if (notes.length >= 3) break
     }
+    if (notes.length) recordCueFires(root, notes)
     return notes
   } catch {
     return []

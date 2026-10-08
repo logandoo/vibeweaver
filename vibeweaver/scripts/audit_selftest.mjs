@@ -100,6 +100,7 @@ function scaffoldComplete(root) {
     "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
     "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
     "- final-run: --final — assert_artifacts.py: pass=15/fail=0",
+    "- working-note: created → updated → distilled → deleted (fixture)",
     "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
   ].join("\n")
   write(root, "tests/verification_log.md", log)
@@ -1578,6 +1579,7 @@ if (existsSync(calibDir)) {
     "- iter 1 FAIL: criterion #2 | diagnosis: - | changed: src/form.ts",
     "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
     "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "- working-note: na (fixture: lint-focused block)",
     "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
   ].join("\n"))
   const bad = runAssertFixture(rootP, ["--existing"])
@@ -1588,6 +1590,7 @@ if (existsSync(calibDir)) {
     "- iter 1 FAIL: criterion #2 | diagnosis: validator ran before state hydrate | changed: src/form.ts",
     "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
     "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "- working-note: na (fixture: lint-focused block)",
     "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
   ].join("\n"))
   const good = runAssertFixture(rootP, ["--existing"])
@@ -1598,6 +1601,7 @@ if (existsSync(calibDir)) {
     "- iter 1 FAIL: criterion #2 | diagnosis: tbd | changed: src/form.ts",
     "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
     "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "- working-note: na (fixture: lint-focused block)",
     "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
   ].join("\n"))
   const word = runAssertFixture(rootP, ["--existing"])
@@ -1608,6 +1612,7 @@ if (existsSync(calibDir)) {
     "- iter 1 FAIL: criterion #2 | diagnosis: regex | vs || confusion in parser caused wrong branch | changed: src/form.ts",
     "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
     "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
+    "- working-note: na (fixture: lint-focused block)",
     "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
   ].join("\n"))
   const pipe = runAssertFixture(rootP, ["--existing"])
@@ -1678,6 +1683,22 @@ if (existsSync(calibDir)) {
   const auditOk = auditProject({ root: rootF, sessionID: "ses_t37b", sessionText: cleanSessionText(), tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
   const b12b = auditOk.checks.find((c) => c.id === "B12")
   rec("T37b `- final-run: --final …` present → B12 OK", b12b && b12b.verdict === "OK", b12b ? b12b.verdict + " — " + b12b.evidence : "missing")
+}
+
+// ---- T38: group 20 — working-note creation-side check (§A7.15) ----
+{
+  const rootN = newFixture("t38-working-note-create")
+  scaffoldComplete(rootN)  // its block carries FAIL + 2 iters → rule fires
+  initGit(rootN)
+  write(rootN, "tests/verification_log.md", readFileSyncSafe(path.join(rootN, "tests", "verification_log.md")).replace(/\n- working-note:[^\n]*/g, ""))
+  const none = runAssertFixture(rootN, ["--existing"])
+  rec("T38 ≥2 iters + FAIL block without working-note lifecycle line → exit 1", none.code === 1 && /working-note|working_note/.test(none.out), `code=${none.code}`)
+  write(rootN, "tests/verification_log.md", readFileSyncSafe(path.join(rootN, "tests", "verification_log.md")) + "\n- working-note: created → updated ×2 → distilled → deleted (tests/working_note.md)\n")
+  const ok = runAssertFixture(rootN, ["--existing"])
+  rec("T38b lifecycle line present → exit 0", ok.code === 0, `code=${ok.code} ${ok.out.trim().split("\n").pop()}`)
+  write(rootN, "tests/verification_log.md", readFileSyncSafe(path.join(rootN, "tests", "verification_log.md")).replace(/\n- working-note:[^\n]*\n/, "\n") + "\n- working-note: na (Lane S single-pass, no FAIL)\n")
+  const na = runAssertFixture(rootN, ["--existing"])
+  rec("T38c stated `na (why)` skip line satisfies group 20", na.code === 0, `code=${na.code} ${na.out.trim().split("\n").pop()}`)
 }
 
 // ---------- summary ----------

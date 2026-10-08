@@ -10,3 +10,4 @@ AssertionError: expected status_code 401, got 200 — ttl verified path mismatch
 ```
 
 - endpoint sweep: all 3 auth endpoints re-tested, coverage 3/3, trace tests/workflows/flow.trace.log
+- working-note: created → updated ×2 → distilled → deleted (fixture lifecycle)
