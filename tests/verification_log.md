@@ -32,3 +32,9 @@ process, EN de-translationese, readme-weaver pass). Documentation-only change.
 - COV-1 =na — reason: documentation-only change (README.md / README_zh.md); no runtime behavior to test.
 - COV-9 skipped — reason: documentation-only change (no runtime to baseline-test).
 - Code review: A4.9 not triggered — `git diff --stat` for this session: 3 files (README.md, README_zh.md, tests/readme_lint_evidence.json), docs-only, no behavior-semantic change.
+
+## Task: README 首段重写（wave20 微波）
+- class: DOC — 纯散文编辑
+- audit-fix: 波际 latch → 按新任务协议写 acceptance 块释放
+- working-note: na (Lane S 单波两段散文)
+- iter 1 PASS: 首段重写双语落地——科学方法隐喻四映射（预注册=判据先立不可放松/双盲=评审者不见推理只见 diff/台账=log+working_note→memory/发表门槛=GATE-BLOCKED）置于 Why 章开头；首屏 lint 约束（H1→首 H2 散文 ≤120 字符）实证后签名句归位；EN +3.5 / ZH +0（罚分帽饱和，破折号置换归零新增罚分） (evidence: readme_lint --compare 输出)
