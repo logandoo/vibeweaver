@@ -45,3 +45,4 @@ process, EN de-translationese, readme-weaver pass). Documentation-only change.
 - audit-fix: 波际 latch → 新任务 acceptance 块释放
 - working-note: na (Lane S)
 - iter 1 PASS: EN 去直译腔重写（free rein / countermeasure / making up its reasoning / puts coding work under the same discipline / has to hold up）；lint EN 78.4 vs 基线 75.2（+3.2，零新增罚分）；verify 9 checks OK (evidence: lint --compare 输出)
+- iter 1 PASS(wave20b dev 侧）: 证据行如上，repo 已提交推送 (evidence: repo tests/verification_log.md 末条)
