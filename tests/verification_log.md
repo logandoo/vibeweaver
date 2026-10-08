@@ -39,3 +39,9 @@ process, EN de-translationese, readme-weaver pass). Documentation-only change.
 - working-note: na (Lane S 单波两段散文)
 - iter 1 PASS: 首段重写双语落地——科学方法隐喻四映射（预注册=判据先立不可放松/双盲=评审者不见推理只见 diff/台账=log+working_note→memory/发表门槛=GATE-BLOCKED）置于 Why 章开头；首屏 lint 约束（H1→首 H2 散文 ≤120 字符）实证后签名句归位；EN +3.5 / ZH +0（罚分帽饱和，破折号置换归零新增罚分） (evidence: readme_lint --compare 输出)
 - iter 2 PASS: 增补能力无关性收束句（无论多聪明的人也需要纸和笔 → 约束不随能力退场）双语落位；lint 零回归（ZH +0.0 / EN +3.2 vs 基线） (evidence: lint --compare 输出)
+
+## Task: wave20b EN 可读性重写
+- class: DOC — 纯散文
+- audit-fix: 波际 latch → 新任务 acceptance 块释放
+- working-note: na (Lane S)
+- iter 1 PASS: EN 去直译腔重写（free rein / countermeasure / making up its reasoning / puts coding work under the same discipline / has to hold up）；lint EN 78.4 vs 基线 75.2（+3.2，零新增罚分）；verify 9 checks OK (evidence: lint --compare 输出)

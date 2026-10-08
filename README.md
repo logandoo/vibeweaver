@@ -17,13 +17,13 @@ essentially certain. Plugins, optional extras, and the Windows path:
 
 ## Why it exists
 
-Left to its stream of consciousness, the human brain is a machine of cognitive
-biases and post-hoc rationalization — the scientific method exists to constrain
-exactly that machine: preregistration, blind review, lab notebooks,
-reproducibility. An LLM is the same kind of machine: fast at pattern
-completion, just as fast at inventing its reasoning afterwards.
+Give the human brain free rein and it runs on cognitive bias and
+after-the-fact rationalization. Science is the countermeasure we built for it:
+preregistration, blind review, lab notebooks, reproducibility. An LLM is the
+same kind of machine — brilliant at pattern completion, and just as good at
+making up its reasoning after the fact.
 
-Vibeweaver carries that constraint system into coding work:
+Vibeweaver puts coding work under the same discipline:
 
 - Acceptance criteria are written before any action and cannot be relaxed
   mid-loop — preregistration.
@@ -33,9 +33,9 @@ Vibeweaver carries that constraint system into coding work:
   distilled into memory at task end — the lab notebook.
 - Missing evidence blocks delivery mechanically — the publication gate.
 
-None of this ages with model capability. The constraint stays no matter how
-strong the model gets — the way even the smartest person still reaches for pen
-and paper when the reasoning has to be real.
+None of this ages with model capability. The discipline stays no matter how
+strong the model gets — even the smartest person still reaches for pen and
+paper when the reasoning has to hold up.
 
 A coding agent should be able to bring this discipline on its own, but opencode
 and Codex don't ship it as a default: they hand you hooks and permissions, and

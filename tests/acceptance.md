@@ -11,3 +11,8 @@
 1. README_zh.md 首段：意识流→科学方法（预注册/双盲评审/实验台账/可复现）→ vibeweaver 机制映射（判据预注册/盲审/台账蒸馏/机械拦截），保留原签名句。
 2. README.md 英文同构镜像，结构一致。
 3. 机制映射全部有实物依据（§A4.1 Step1 / A4.9+FCV / verification_log+working_note→memory/ / GATE-BLOCKED）；lint 不新增事实类告警。
+
+# Acceptance Criteria — EN 段落可读性重写（wave20b）
+
+1. README.md Why 章开头两段改为地道英文（去直译腔），信息不变。
+2. lint 对比无新增罚分；verify_skill 绿。
