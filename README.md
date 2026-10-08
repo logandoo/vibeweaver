@@ -33,6 +33,10 @@ Vibeweaver carries that constraint system into coding work:
   distilled into memory at task end — the lab notebook.
 - Missing evidence blocks delivery mechanically — the publication gate.
 
+None of this ages with model capability. The constraint stays no matter how
+strong the model gets — the way even the smartest person still reaches for pen
+and paper when the reasoning has to be real.
+
 A coding agent should be able to bring this discipline on its own, but opencode
 and Codex don't ship it as a default: they hand you hooks and permissions, and
 leave the policy to skills and plugins.
