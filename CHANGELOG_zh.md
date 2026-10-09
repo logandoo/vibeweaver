@@ -2,6 +2,23 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-09: stop-guard —— 假停防线（§V12）
+
+**缺口。** 模型在任务中途宣称"上下文耗尽，先到这里"对所有执法层隐形：字节级
+loop-guard 只抓退化重复，gate 只在写入时触发，audit 只审计完成声明——裸停机
+声明没有牙齿。Cognition 的 context-anxiety 报告与 arXiv:2609.36322（分块
+KV-cache 压缩下的相位敏感性）解释了成因：模型作用于一个它无法测量的感知上限。
+
+**机制。** §V12 定义四个合法停点（ALL-PASS · cap/stall 记 ❌ · PAUSED 包 ·
+`[Coverage]` 诚实部分完成），"上下文耗尽"是必须有 §V9 依据的预算声明。audit 插件
+新增 stop 通道：语法级遁词检测器（中英、剥离引用、元讨论感知、要求终止意图）作用
+于最后一条 assistant 消息，会话级终态白名单，每 episode 一次纠正 prompt（预算
+2/会话、episode 键控武装、绝不 abort 已完成轮次）、stop-debt 日志（cap 5）重放进
+`tests/gate_audit.md`，v1 遥测接线（`message.updated` role/tokens/finish）引用实测
+填充率（≥90% 时转为收敛措辞）。v2 降级为仅债务模式（白名单在 v2 不可证）。
+`finish:"length"` 截断走同一通道。双对抗评审两轮（22 项发现全部裁决——Critical
+是守卫被自己的纠正 prompt 反噬）+ FCV 8/8；fixture 166 / 变异扫描 41。
+
 ## 2026-10-07：任务级工作记忆 + cue 锚定触发 + 执行层牙齿（wave15–17）
 
 **这三波补的缺口。** 证据编年（tests/ 日志）回答「发生了什么」，策展的 memory/

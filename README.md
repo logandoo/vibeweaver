@@ -518,7 +518,17 @@ which is evidence about the mechanism, not about model behavior.
   the asset set is read from the whole change wave rather than the working tree
   (a committed asset is still a delivery), and the exec-check moved to delivery
   time with a log token.
-- **Evidence.** Fixture suite 112 assertions / mutation sweep 41, TDD RED
+- **§V12 stop-guard.** A coherent "context exhausted, stopping here" slips past
+  every byte-level loop detector, so it gets its own syntax-level guard: the
+  audit plugin spots stop-euphemisms in the last assistant message
+  (quote-stripped, meta-discussion-aware, cessation intent required), consults a
+  session-scoped terminal-state whitelist (PAUSED packet · Class-E stop · gate
+  marker · explicit user directive), then posts ONE corrective prompt — budget
+  2/session, never thrash, four legal stops named. v1 hosts quote the measured
+  context fill; v2 degrades to a journaled stop-debt replayed into every audit
+  report. Output-limit truncations (`finish:"length"`) count as continuations,
+  not completions.
+- **Evidence.** Fixture suite 166 assertions / mutation sweep 41, TDD RED
   against the pre-change cores, two dual-adversarial review rounds (26 findings
   adjudicated) and three FCV rounds — the first FCV round failed two acceptance
   criteria and named the remaining bypasses; those became the next wave.
@@ -925,7 +935,7 @@ the agent's context explode and give up; untested, feedback welcome.
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 112 fixture checks (T24 loop-guard, T25 task-class suite, T29–T32 latch-release suite) / 41 mutation checks, including the latch-release regressions                                                      |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 166 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T32 latch-release suites) / 41 mutation checks, including the latch-release regressions                                                      |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing
@@ -933,7 +943,7 @@ the agent's context explode and give up; untested, feedback welcome.
 ```bash
 python3 verify_skill.py                     # package integrity: payload, links, markers, syntax
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
-node vibeweaver/scripts/audit_selftest.mjs  # 112 fixture checks (T6 skips without calibration data)
+node vibeweaver/scripts/audit_selftest.mjs  # 166 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 41 mutations, each must be caught
 ```
 

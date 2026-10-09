@@ -2,6 +2,31 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-09: stop-guard — false-stop resistance (§V12)
+
+**The gap.** A model declaring "context exhausted, stopping here" mid-task was
+invisible to every enforcement layer: the byte-level loop-guard only catches
+degenerate repetition, the gate only fires on writes, and the audit only
+scores completion CLAIMS — a plain stop claim had no teeth. Cognition's
+context-anxiety report and arXiv:2609.36322 (phase sensitivity under chunked
+KV-cache compression) frame the why: the model acts on a perceived limit it
+cannot measure.
+
+**The mechanism.** §V12 defines the four legal stops (ALL-PASS · cap/stall
+with a ❌ memory record · PAUSED packet · `[Coverage]`-honest partial) and
+makes "context exhausted" a budget claim that needs its §V9 basis. The audit
+plugin gains a stop channel: a syntax-level euphemism detector (zh/en,
+quote-stripped, meta-discussion-aware, cessation intent required) over the
+last assistant message, a session-scoped terminal-state whitelist, one
+corrective prompt per episode (budget 2/session, episode-keyed arming, no
+abort of completed turns), a stop-debt journal (cap 5) replayed into
+`tests/gate_audit.md`, and v1 telemetry wiring (`message.updated`
+role/tokens/finish) that quotes the measured fill — or softens at ≥90%. v2
+hosts degrade to debt-only (the whitelist is unverifiable there). `finish:
+"length"` truncations route through the same channel. Two adversarial review
+rounds (22 findings adjudicated — self-whitelisting by the guard's own
+prompt was the Critical) + FCV 8/8; fixture suite 166 / mutation sweep 41.
+
 ## 2026-10-07: task working memory + cue-anchored triggers + enforcement teeth (wave15–17)
 
 **The gap these waves close.** The evidence chronicle (`tests/` logs) answers
