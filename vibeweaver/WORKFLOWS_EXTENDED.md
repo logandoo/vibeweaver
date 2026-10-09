@@ -359,7 +359,10 @@ backlog item, proves it, commits, and exits. Progress lives in the ledger +
 chronicle + git history, so a context reset loses nothing. (This is the
 Ralph pattern; vibeweaver's inner loop — §A4.1, cap=5 / stall=3× — bounds
 each single item, while the outer loop's bound is the iteration budget plus
-the empty backlog.)
+the empty backlog.) Advisory: a task estimated beyond ~10 inner-loop
+iterations SHOULD route here by default — shallow-fill contexts retrieve
+best, and each fresh window dodges accumulated retrieval degradation
+(arXiv:2609.36322 phase sensitivity); this is guidance, not a gate.
 
 1. **Backlog ledger (machine-checkable stop condition):**
    `tests/backlog.json` — one object per item:

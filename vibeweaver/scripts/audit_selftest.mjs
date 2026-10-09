@@ -14,7 +14,7 @@ import path from "node:path"
 
 const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
 const CORE_MODULE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
-const { auditProject, buildReport, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding } = await import(pathToFileURL(CORE_MODULE))
+const { auditProject, buildReport, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopGuardDecision, stopGuardPrompt } = await import(pathToFileURL(CORE_MODULE))
 // Dual-compat module surface: current plugin default-exports { id, server, setup };
 // fall back to the legacy named export when testing an older copy.
 const auditModule = await import(pathToFileURL(AUDIT_MODULE))
@@ -57,24 +57,6 @@ function writeSh(root, rel) {
   chmodSync(path.join(root, rel), 0o755)
 }
 
-function runAssertFixture(root, flags) {
-  try {
-    const out = execFileSync("python3", [path.join(root, "tests", "assert_artifacts.py"), ...flags], { cwd: root, encoding: "utf8", timeout: 30000, stdio: ["ignore", "pipe", "pipe"] })
-    return { code: 0, out }
-  } catch (e) {
-    return { code: e.status ?? 1, out: String(e.stdout || "") + String(e.stderr || "") }
-  }
-}
-
-function runPy(scriptAbs, args, cwd) {
-  try {
-    const out = execFileSync("python3", [scriptAbs, ...args], { cwd, encoding: "utf8", timeout: 30000, stdio: ["ignore", "pipe", "pipe"] })
-    return { code: 0, out }
-  } catch (e) {
-    return { code: e.status ?? 1, out: String(e.stdout || "") + String(e.stderr || "") }
-  }
-}
-
 function initGit(root, commitAfterLog) {
   execFileSync("git", ["init", "-q"], { cwd: root })
   execFileSync("git", ["config", "user.email", "audit@test"], { cwd: root })
@@ -99,9 +81,8 @@ function scaffoldComplete(root) {
     "- iter 1 FAIL: criterion #2 (field missing) | diagnosis: validator ran before state hydrat | changed: src/form.ts",
     "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
     "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
-    "- final-run: --final — assert_artifacts.py: pass=15/fail=0",
-    "- working-note: created → updated → distilled → deleted (fixture)",
     "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
+    "- final-run: --final — pass=19/fail=0",
   ].join("\n")
   write(root, "tests/verification_log.md", log)
   write(root, "tests/acceptance.md", "> cap=5  stall=3×\n\n# Acceptance — Fixture\n1. Username field exists\n2. No error banner\n")
@@ -1289,7 +1270,7 @@ if (existsSync(calibDir)) {
     "- class: DOC — CHANGELOG.md prose only",
     "- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)",
     "- iter 1 PASS: criterion #1 — entry added (evidence: read-back of CHANGELOG.md)",
-    "- final-run: --final — assert_artifacts.py: pass=8/fail=0",
+    "- final-run: --final — pass=19/fail=0",
   ].join("\n"))
   write(root25, "tests/acceptance.md", "> cap=5  stall=3×\n1. Entry added\n")
   const docTools = [{ tool: "write", filePath: "/x/CHANGELOG.md", t: Date.now() - 2000 }]
@@ -1568,163 +1549,324 @@ if (existsSync(calibDir)) {
   rec("T25x deleted-only .docx → render gate silent (not a delivery)", c18x && c18x.verdict === "OK", c18x ? c18x.verdict + " — " + c18x.evidence : "missing")
 }
 
-// ---- T33: log-format lint (group 12b) — placeholder FAIL diagnosis fails; substantive passes ----
+// =====================================================================
+// T26 — B12 final-run evidence: completion claim requires the
+// `- final-run: --final …` line in the CURRENT task block (§A4.4.1)
+// =====================================================================
 {
-  const rootP = newFixture("t33-lint-placeholder")
-  scaffoldComplete(rootP)
-  initGit(rootP)
-  write(rootP, "tests/verification_log.md", [
-    "## Task: fixture | 2026-10-07",
-    "- Baseline verified GREEN",
-    "- iter 1 FAIL: criterion #2 | diagnosis: - | changed: src/form.ts",
-    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
-    "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
-    "- working-note: na (fixture: lint-focused block)",
-    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
-  ].join("\n"))
-  const bad = runAssertFixture(rootP, ["--existing"])
-  rec("T33 placeholder FAIL diagnosis → assert exit 1 (12b)", bad.code === 1 && /diagnosis/i.test(bad.out), `code=${bad.code} ${bad.out.split("\n").filter((l) => /diagnosis/i.test(l))[0] || ""}`)
-  write(rootP, "tests/verification_log.md", [
-    "## Task: fixture | 2026-10-07",
-    "- Baseline verified GREEN",
-    "- iter 1 FAIL: criterion #2 | diagnosis: validator ran before state hydrate | changed: src/form.ts",
-    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
-    "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
-    "- working-note: na (fixture: lint-focused block)",
-    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
-  ].join("\n"))
-  const good = runAssertFixture(rootP, ["--existing"])
-  rec("T33b substantive FAIL diagnosis → assert exit 0", good.code === 0, `code=${good.code} ${good.out.trim().split("\n").pop()}`)
-  write(rootP, "tests/verification_log.md", [
-    "## Task: fixture | 2026-10-07",
-    "- Baseline verified GREEN",
-    "- iter 1 FAIL: criterion #2 | diagnosis: tbd | changed: src/form.ts",
-    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
-    "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
-    "- working-note: na (fixture: lint-focused block)",
-    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
-  ].join("\n"))
-  const word = runAssertFixture(rootP, ["--existing"])
-  rec("T33c wordlist placeholder (tbd) → assert exit 1", word.code === 1 && /diagnosis/i.test(word.out), `code=${word.code}`)
-  write(rootP, "tests/verification_log.md", [
-    "## Task: fixture | 2026-10-07",
-    "- Baseline verified GREEN",
-    "- iter 1 FAIL: criterion #2 | diagnosis: regex | vs || confusion in parser caused wrong branch | changed: src/form.ts",
-    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
-    "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
-    "- working-note: na (fixture: lint-focused block)",
-    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
-  ].join("\n"))
-  const pipe = runAssertFixture(rootP, ["--existing"])
-  rec("T33d diagnosis containing | (alternation) is NOT truncated into a false placeholder", pipe.code === 0, `code=${pipe.code} ${pipe.out.trim().split("\n").pop()}`)
-}
-
-// ---- T34: working-note lifecycle (group 19, --final only) ----
-{
-  const rootW = newFixture("t34-working-note")
-  scaffoldComplete(rootW)
-  initGit(rootW)
-  write(rootW, "tests/working_note.md", "# Working Note — fixture\n## open: everything\n")
-  const midTask = runAssertFixture(rootW, ["--existing"])
-  rec("T34 mid-task run (no --final) tolerates working_note.md", midTask.code === 0, `code=${midTask.code} ${midTask.out.trim().split("\n").pop()}`)
-  const finalRun = runAssertFixture(rootW, ["--existing", "--final"])
-  rec("T34b --final + leftover working_note.md → exit 1", finalRun.code === 1 && /working_note/.test(finalRun.out), `code=${finalRun.code} ${finalRun.out.split("\n").filter((l) => /working_note/.test(l))[0] || ""}`)
-  rmSync(path.join(rootW, "tests", "working_note.md"))
-  const clean = runAssertFixture(rootW, ["--existing", "--final"])
-  rec("T34c --final after distil+delete → exit 0", clean.code === 0, `code=${clean.code} ${clean.out.trim().split("\n").pop()}`)
-}
-
-// ---- T35: backlog_check.py — schema + passes:true evidence binding (C8 mechanism) ----
-{
-  const BCK = path.resolve(import.meta.dirname, "backlog_check.py")
-  const rootB = newFixture("t35-backlog")
-  const writeBacklog = (item) => write(rootB, "tests/backlog.json", JSON.stringify({ userStories: [item] }, null, 2))
-  write(rootB, "tests/verification_log.md", "")
-  writeBacklog({ id: "US-001", title: "x", priority: 1 })
-  const schema = runPy(BCK, [rootB], rootB)
-  rec("T35 schema violation (missing passes) → exit 1", schema.code === 1 && /passes/.test(schema.out), `code=${schema.code}`)
-  writeBacklog({ id: "US-001", title: "x", acceptanceCriteria: ["y"], priority: 1, passes: true, dependsOn: [] })
-  const noEv = runPy(BCK, [rootB], rootB)
-  rec("T35b passes:true without an evidence line → exit 1", noEv.code === 1 && /US-001/.test(noEv.out), `code=${noEv.code}`)
-  write(rootB, "tests/verification_log.md", "- iter 1 PASS: US-001 all criteria (evidence: tests/x.log, 3/3)\n")
-  const ev = runPy(BCK, [rootB], rootB)
-  rec("T35c passes:true with id-carrying evidence line → exit 0", ev.code === 0, `code=${ev.code} ${ev.out.trim().split("\n").pop()}`)
-}
-
-// ---- T36: group 4b — trigger literal-prefix lint (a stale glob is silent non-delivery) ----
-{
-  const rootT = newFixture("t36-trigger-prefix")
-  scaffoldComplete(rootT)
-  initGit(rootT)
-  write(rootT, "memory/fix_gone.md", "---\ntype: fix\ntriggers:\n  - \"src/nonexistent_xyz/**\"\n---\n# Gone\n")
-  const miss = runAssertFixture(rootT, ["--existing"])
-  rec("T36 trigger literal prefix absent from repo → assert exit 1", miss.code === 1 && /trigger|prefix|src\/nonexistent_xyz/i.test(miss.out), `code=${miss.code}`)
-  write(rootT, "memory/fix_gone.md", "---\ntype: fix\ntriggers:\n  - \"script/**\"\n---\n# Exists\n")
-  const ok = runAssertFixture(rootT, ["--existing"])
-  rec("T36b trigger literal prefix present → assert exit 0", ok.code === 0, `code=${ok.code} ${ok.out.trim().split("\n").pop()}`)
-}
-
-// ---- T37: audit B12 — completion requires a `- final-run: --final` log line ----
-{
-  const rootF = newFixture("t37-final-run")
-  scaffoldComplete(rootF)
-  initGit(rootF)
-  write(rootF, "tests/verification_log.md", [
-    "## Task: fixture | 2026-10-07",
+  // T26a: completion text + log WITHOUT final-run → B12 BAD
+  const root26 = newFixture("t26-b12-no-finalrun")
+  scaffoldComplete(root26)
+  write(root26, "tests/verification_log.md", [
+    "## Task: fixture | 2026-08-19",
     "- Baseline verified GREEN",
     "- iter 1 PASS: all criteria (evidence: tests/shot.png, 6/6)",
-    "- [Convergence] fixture: 1 iters | 6/6 pass | 0 stalls | 0 cap-hits",
-    "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
   ].join("\n"))
-  const auditBad = auditProject({ root: rootF, sessionID: "ses_t37a", sessionText: cleanSessionText(), tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
-  const b12a = auditBad.checks.find((c) => c.id === "B12")
-  rec("T37 completion without `- final-run:` → B12 BAD", b12a && b12a.verdict === "BAD", b12a ? b12a.verdict + " — " + b12a.evidence : "missing")
-  write(rootF, "tests/verification_log.md", readFileSyncSafe(path.join(rootF, "tests", "verification_log.md")) + "\n- final-run: --final — assert_artifacts.py: pass=15/fail=0\n")
-  const auditOk = auditProject({ root: rootF, sessionID: "ses_t37b", sessionText: cleanSessionText(), tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
-  const b12b = auditOk.checks.find((c) => c.id === "B12")
-  rec("T37b `- final-run: --final …` present → B12 OK", b12b && b12b.verdict === "OK", b12b ? b12b.verdict + " — " + b12b.evidence : "missing")
+  const a26a = auditProject({ root: root26, sessionID: "ses_t30a", sessionText: cleanSessionText(), tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b12a = a26a.checks.find((c) => c.id === "B12")
+  rec("T26a completion claim WITHOUT final-run line → B12 BAD", b12a && b12a.verdict === "BAD", b12a ? b12a.verdict : "missing")
+
+  // T26b: scaffoldComplete carries the line → B12 OK
+  const root26b = newFixture("t26-b12-with-finalrun")
+  scaffoldComplete(root26b)
+  const a26b = auditProject({ root: root26b, sessionID: "ses_t30b", sessionText: cleanSessionText(), tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b12b = a26b.checks.find((c) => c.id === "B12")
+  rec("T26b final-run line in current block → B12 OK", b12b && b12b.verdict === "OK", b12b ? b12b.verdict : "missing")
+
+  // T26c: final-run only in a PRIOR task block ≠ current-block evidence (scoping)
+  const root26c = newFixture("t26-b12-stale-block")
+  scaffoldComplete(root26c)
+  write(root26c, "tests/verification_log.md", [
+    "## Task: old | 2026-09-01",
+    "- iter 1 PASS: all",
+    "- final-run: --final — pass=19/fail=0",
+    "",
+    "## Task: new | 2026-09-28",
+    "- Baseline verified GREEN",
+    "- iter 1 PASS: all",
+  ].join("\n"))
+  const a26c = auditProject({ root: root26c, sessionID: "ses_t30c", sessionText: cleanSessionText(), tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+  const b12c = a26c.checks.find((c) => c.id === "B12")
+  rec("T26c final-run only in prior block → B12 BAD (current block must bind)", b12c && b12c.verdict === "BAD", b12c ? b12c.verdict : "missing")
+
+  // T26d: no gate line (mid-task / no completion claim) → B12 does not fire
+  const a26d = auditProject({ root: root26b, sessionID: "ses_t30d", sessionText: "Verifier: direct read\nworking on it, no completion claim here", tools: baseTools(), skillLoaded: true, phase: "mid", config: { samplingRate: 0 } })
+  const b12d = a26d.checks.find((c) => c.id === "B12")
+  rec("T26d mid-phase without gate line → B12 silent (no mid-task interference)", b12d === undefined, b12d ? b12d.verdict : "absent")
 }
 
-// ---- T38: group 20 — working-note creation-side check (§A7.15) ----
+// =====================================================================
+// T27 — stop-guard (§V12): false-stop detector + whitelist + budget + debt
+// =====================================================================
+const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDecision === "function" && typeof stopGuardPrompt === "function"
 {
-  const rootN = newFixture("t38-working-note-create")
-  scaffoldComplete(rootN)  // its block carries FAIL + 2 iters → rule fires
-  initGit(rootN)
-  write(rootN, "tests/verification_log.md", readFileSyncSafe(path.join(rootN, "tests", "verification_log.md")).replace(/\n- working-note:[^\n]*/g, ""))
-  const none = runAssertFixture(rootN, ["--existing"])
-  rec("T38 ≥2 iters + FAIL block without working-note lifecycle line → exit 1", none.code === 1 && /working-note|working_note/.test(none.out), `code=${none.code}`)
-  write(rootN, "tests/verification_log.md", readFileSyncSafe(path.join(rootN, "tests", "verification_log.md")) + "\n- working-note: created → updated ×2 → distilled → deleted (tests/working_note.md)\n")
-  const ok = runAssertFixture(rootN, ["--existing"])
-  rec("T38b lifecycle line present → exit 0", ok.code === 0, `code=${ok.code} ${ok.out.trim().split("\n").pop()}`)
-  write(rootN, "tests/verification_log.md", readFileSyncSafe(path.join(rootN, "tests", "verification_log.md")).replace(/\n- working-note:[^\n]*\n/, "\n") + "\n- working-note: na (Lane S single-pass, no FAIL)\n")
-  const na = runAssertFixture(rootN, ["--existing"])
-  rec("T38c stated `na (why)` skip line satisfies group 20", na.code === 0, `code=${na.code} ${na.out.trim().split("\n").pop()}`)
-  // fence laundering: a fenced `- working-note:` EXAMPLE must not satisfy the
-  // demand, and a fenced `- iter 9 FAIL:` example must not trigger it.
-  write(rootN, "tests/verification_log.md", [
-    "## Task: fixture | 2026-10-07",
-    "- Baseline verified GREEN",
-    "- iter 1 PASS: all criteria (evidence: tests/shot.png, 6/6)",
-    "- final-run: --final — assert_artifacts.py: pass=15/fail=0",
-    "```",
-    "- iter 9 FAIL: quoted example inside a fence | diagnosis: not real, quoted | changed: x.ts",
-    "```",
-  ].join("\n"))
-  const fenced = runAssertFixture(rootN, ["--existing"])
-  rec("T38d fenced FAIL example does NOT trigger the group-20 demand", fenced.code === 0, `code=${fenced.code} ${fenced.out.trim().split("\n").pop()}`)
-  write(rootN, "tests/verification_log.md", [
-    "## Task: fixture | 2026-10-07",
-    "- Baseline verified GREEN",
-    "- iter 1 FAIL: criterion #2 | diagnosis: validator ran before state hydrate | changed: src/form.ts",
-    "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
-    "```",
-    "- working-note: na (quoted example — not a real lifecycle line)",
-    "```",
-    "## Scratch notes",
-    "(trailing non-task heading must not launder the demand either)",
-  ].join("\n"))
-  const launder = runAssertFixture(rootN, ["--existing"])
-  rec("T38e fenced working-note example + trailing heading do NOT satisfy group 20", launder.code === 1 && /working-note/.test(launder.out), `code=${launder.code}`)
+  const eu = (t) => (hasStopGuard ? stopEuphemism(t) : undefined)
+  const det = (label, text, want) =>
+    rec(label, hasStopGuard ? !!eu(text) === want : false, hasStopGuard ? (eu(text) ? `match=${eu(text).match}` : "null") : "detector missing (RED)")
+
+  // ---- core detector: exhaustion vocabulary × context proximity ----
+  det("T27a1 zh claim 上下文快耗尽 → hit", "工作量太大了，上下文快耗尽了，我们先到这里吧。", true)
+  det("T27a2 zh claim 上下文已耗尽 → hit", "由于上下文已耗尽，我无法继续编码。", true)
+  det("T27a3 en claim running out of context → hit", "I'm running out of context — stopping here.", true)
+  det("T27a4 en claim window almost full → hit", "The context window is almost full, let me wrap up.", true)
+  det("T27a5 en claim hit the context limit → hit", "We've hit the context limit, so I'll stop here.", true)
+  det("T27b1 normal work narration → miss", "接下来修改 form.ts 并跑测试。", false)
+  det("T27b2 'context' without exhaustion → miss", "The context of this function is complex.", false)
+  det("T27b3 'out of context' idiom → miss", "That quote is out of context — it means something else.", false)
+  det("T27b4 'full of' idiom → miss", "The context is full of useful details.", false)
+  det("T27b5 meta-discussion multi-hit → miss (review F2)", "Added detector tests: T27a1 上下文快耗尽 → hit; covered running out of context too.", false)
+  det("T27b6 quoted claim → miss (review F2)", '用户说"上下文快耗尽了"，但我们会继续。', false)
+  det("T27b7 mid-text single mention, no cessation, far from end → miss (review F2)", "注意：上下文快耗尽是重点监控对象。接下来还有三件事要做：第一……第二……第三……我们还要继续验证很多内容。", false)
+  det("T27a6 zh 满了 → hit", "上下文满了，只能先到这里。", true)
+  det("T27a7 en % full + terminal → hit", "The context is 95% full, stopping.", true)
+  det("T27b8 'wrap up the component' is work, not cessation → miss (review N1)", "注意：上下文快耗尽是误报重点。接下来 wrap up the component refactor，还有很多工作。", false)
+  det("T27b9 label-colon prefixed terminal mention → miss (review N2)", "重点监控模式：上下文快耗尽", false)
+
+  // ---- decision: whitelist priority + telemetry modes ----
+  const dec = (o) => (hasStopGuard ? stopGuardDecision(o) : undefined)
+  const trig = { kind: "euphemism", match: "上下文快耗尽" }
+  const base = { trigger: trig, taskActive: true, pausedState: false, classE: false, gateMarker: false, tailQuestion: false, userStop: false, telemetry: true }
+  const dExpect = (label, opts, action) => {
+    const d = dec(opts)
+    rec(label, hasStopGuard ? d && d.action === action : false, hasStopGuard ? `action=${d && d.action} why=${d && d.why}` : "decision missing (RED)")
+  }
+  dExpect("T27c1 no trigger → ignore", { ...base, trigger: null }, "ignore")
+  dExpect("T27c2 no active task → ignore", { ...base, taskActive: false }, "ignore")
+  dExpect("T27c3 paused_state whitelist → ignore", { ...base, pausedState: true }, "ignore")
+  dExpect("T27c4 Class-E whitelist → ignore", { ...base, classE: true }, "ignore")
+  dExpect("T27c5 gate-marker whitelist → ignore", { ...base, gateMarker: true }, "ignore")
+  dExpect("T27c6 user-stop whitelist → ignore", { ...base, userStop: true }, "ignore")
+  dExpect("T27c7 tail-question whitelist → ignore", { ...base, tailQuestion: true }, "ignore")
+  dExpect("T27c8 clean trigger on v1 → prompt", base, "prompt")
+  dExpect("T27c9 clean trigger on v2 (no telemetry) → debt, never prompt", { ...base, telemetry: false }, "debt")
+  dExpect("T27c10 truncation trigger → prompt", { ...base, trigger: { kind: "truncation", match: "length" } }, "prompt")
+
+  // ---- corrective prompt contract ----
+  const pt = hasStopGuard ? stopGuardPrompt({ kind: "euphemism", fill: 0.15, fillKnown: true }) : ""
+  rec("T27d1 prompt names the four legal stops", hasStopGuard ? /ALL-PASS/.test(pt) && /PAUSED/.test(pt) && /Coverage/.test(pt) && /stall/i.test(pt) : false, pt.slice(0, 120))
+  rec("T27d2 prompt quotes measured fill when known", hasStopGuard ? /15%/.test(pt) : false, pt.slice(0, 120))
+  const pt2 = hasStopGuard ? stopGuardPrompt({ kind: "euphemism", fillKnown: false }) : ""
+  rec("T27d3 prompt without telemetry never fabricates a fill number", hasStopGuard ? !/%/.test(pt2) : false, pt2.slice(0, 120))
+  rec("T27d4 prompt points at working_note for resume", hasStopGuard ? /working_note/.test(pt) : false, "")
+  const pt3 = hasStopGuard ? stopGuardPrompt({ kind: "truncation", fillKnown: false }) : ""
+  rec("T27d5 truncation prompt names output-limit truncation ≠ complete", hasStopGuard ? /truncat|length|output.limit/i.test(pt3) : false, pt3.slice(0, 120))
+
+  // ---- v1 adapter integration: idle-triggered prompt, budget, arming, debt ----
+  {
+    const root27 = newFixture("t27-stopguard")
+    write(root27, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n")
+    write(root27, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+    const calls = { abort: 0, prompts: [], logs: [] }
+    const plugin27 = await VibeweaverAudit({
+      client: {
+        app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async (args) => {
+            const parts = args && args.body && args.body.parts
+            calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+          },
+        },
+      },
+      directory: root27,
+    })
+    const sid = "ses_t27"
+    const ev = (type, properties) => plugin27.event({ event: { type, properties } })
+    const emitMsg = (info) => ev("message.updated", { sessionID: sid, info })
+    const emitText = (pid, mid, text) => ev("message.part.updated", { sessionID: sid, part: { id: pid, messageID: mid, type: "text", text } })
+    const emitTool = (pid, tool, input) => ev("message.part.updated", { sessionID: sid, part: { id: pid, type: "tool", tool, state: { status: "completed", input } } })
+    const idle = () => ev("session.idle", { sessionID: sid })
+    const asst = (id, finish, tokens) => ({ id, role: "assistant", modelID: "m", finish, tokens: tokens || { input: 1500, output: 100, reasoning: 0, cache: { read: 1000, write: 0 } } })
+
+    await emitTool("sk", "skill", { name: "vibeweaver" })
+    await emitTool("t1", "bash", { command: "ls" })
+    await emitMsg(asst("m1", "stop"))
+    await emitText("p1", "m1", "试了几次都不行，上下文快耗尽了，先到这里吧。")
+    await idle()
+    rec("T27e1 euphemism + incomplete + idle → exactly one corrective prompt (no abort)", calls.prompts.length === 1 && calls.abort === 0, `prompts=${calls.prompts.length} abort=${calls.abort}`)
+    rec("T27e2 prompt contains four legal stops + working_note", /ALL-PASS/.test(calls.prompts[0] || "") && /working_note/.test(calls.prompts[0] || ""), (calls.prompts[0] || "").slice(0, 120))
+    await idle()
+    rec("T27e3 same tail second idle → no thrash (episode disarmed)", calls.prompts.length === 1, `prompts=${calls.prompts.length}`)
+    // review F1 regression: the plugin's own corrective prompt returns as a
+    // USER-role message containing "stop" — it must NOT whitelist episode 2
+    await ev("message.updated", { sessionID: sid, info: { id: "inj1", role: "user" } })
+    await emitText("pinj1", "inj1", calls.prompts[0] || "")
+    await emitMsg(asst("m2", "stop"))
+    await emitText("p2", "m2", "好，继续修改 src/a.ts。")
+    await emitMsg(asst("m3", "stop"))
+    await emitText("p3", "m3", "还是不行，上下文真的快耗尽了。")
+    await idle()
+    rec("T27e4 plugin-prompt echo must NOT self-whitelist → 2nd intervention (budget 2, review F1)", calls.prompts.length === 2, `prompts=${calls.prompts.length}`)
+    await emitMsg(asst("m4", "stop"))
+    await emitText("p4", "m4", "上下文耗尽了。")
+    await idle()
+    const budgetLog = calls.logs.some((m) => /budget exhausted/i.test(m) && /stop/i.test(m))
+    rec("T27e5 3rd episode beyond budget → log-only + debt journaled", calls.prompts.length === 2 && budgetLog, `prompts=${calls.prompts.length} budgetLog=${budgetLog}`)
+    const st = JSON.parse(readFileSync(path.join(root27, ".vibeweaver", "audit-state.json"), "utf8"))
+    const debt = st.roots && st.roots[root27] && st.roots[root27].stopDebt
+    rec("T27e6 stop-debt persisted in state (cap-bounded)", Array.isArray(debt) && debt.length >= 1, JSON.stringify(debt || null).slice(0, 140))
+    // episode dedup: a NEW distinct match journals once; a repeat idle does not re-journal
+    await emitMsg(asst("m5", "stop"))
+    await emitText("p5", "m5", "I'm running out of context — stopping here.")
+    await idle()
+    await idle()
+    const st2 = JSON.parse(readFileSync(path.join(root27, ".vibeweaver", "audit-state.json"), "utf8"))
+    const debt2 = st2.roots[root27].stopDebt
+    rec("T27e7 debt dedup: distinct episode +1, repeat idle +0", Array.isArray(debt2) && debt2.length === 2, `len=${debt2 && debt2.length}`)
+    await idle()
+    const report = readFileSync(path.join(root27, "tests", "gate_audit.md"), "utf8")
+    rec("T27e8 debt replayed into gate_audit.md stop-debt section", /## Stop-debt/.test(report) && /stop-debt:/.test(report), report.split("\n").filter((l) => /stop-debt/i.test(l)).join(" | ").slice(0, 140))
+  }
+
+  // ---- user stop directive → whitelisted, no prompt ----
+  {
+    const root27b = newFixture("t27-userstop")
+    write(root27b, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n")
+    write(root27b, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+    const calls = { prompts: [] }
+    const plugin27b = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: { abort: async () => {}, prompt: async (a) => calls.prompts.push((a && a.body && a.body.parts && a.body.parts[0] && a.body.parts[0].text) || "") },
+      },
+      directory: root27b,
+    })
+    const sid = "ses_t27b"
+    const ev = (type, properties) => plugin27b.event({ event: { type, properties } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "bash", state: { status: "completed", input: { command: "ls" } } } })
+    await ev("message.updated", { sessionID: sid, info: { id: "u1", role: "user" } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "pu1", messageID: "u1", type: "text", text: "停下来吧，今天到此为止，明天继续。" } })
+    await ev("message.updated", { sessionID: sid, info: { id: "m1", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "p1", messageID: "m1", type: "text", text: "好的，上下文快耗尽了，先停在这里。" } })
+    await ev("session.idle", { sessionID: sid })
+    rec("T27f user stop directive before claim → whitelisted, no prompt", calls.prompts.length === 0, `prompts=${calls.prompts.length}`)
+  }
+
+  // ---- truncation (finish:"length") fires the same channel ----
+  {
+    const root27c = newFixture("t27-trunc")
+    write(root27c, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n")
+    write(root27c, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+    const calls = { prompts: [] }
+    const plugin27c = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: { abort: async () => {}, prompt: async (a) => calls.prompts.push((a && a.body && a.body.parts && a.body.parts[0] && a.body.parts[0].text) || "") },
+      },
+      directory: root27c,
+    })
+    const sid = "ses_t27c"
+    const ev = (type, properties) => plugin27c.event({ event: { type, properties } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "bash", state: { status: "completed", input: { command: "ls" } } } })
+    await ev("message.updated", { sessionID: sid, info: { id: "m1", role: "assistant", modelID: "m", finish: "length", tokens: { input: 100, output: 16384, reasoning: 0, cache: { read: 0, write: 0 } } } })
+    await ev("session.idle", { sessionID: sid })
+    rec("T27g finish:length + incomplete → corrective prompt (truncation ≠ complete)", calls.prompts.length === 1 && /truncat|length|output.limit/i.test(calls.prompts[0] || ""), `prompts=${calls.prompts.length} ${(calls.prompts[0] || "").slice(0, 100)}`)
+  }
+
+  // ---- measured fill quoted when audit.json configures contextLimitTokens ----
+  {
+    const root27d = newFixture("t27-fill")
+    write(root27d, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n")
+    write(root27d, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+    write(root27d, "audit-config.json", JSON.stringify({ contextLimitTokens: 10000 }))
+    process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root27d, "audit-config.json")
+    const calls = { prompts: [] }
+    const plugin27d = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: { abort: async () => {}, prompt: async (a) => calls.prompts.push((a && a.body && a.body.parts && a.body.parts[0] && a.body.parts[0].text) || "") },
+      },
+      directory: root27d,
+    })
+    const sid = "ses_t27d"
+    const ev = (type, properties) => plugin27d.event({ event: { type, properties } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "bash", state: { status: "completed", input: { command: "ls" } } } })
+    await ev("message.updated", { sessionID: sid, info: { id: "m1", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 1000, output: 100, reasoning: 0, cache: { read: 500, write: 0 } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "p1", messageID: "m1", type: "text", text: "上下文快耗尽了，先到这里。" } })
+    await ev("session.idle", { sessionID: sid })
+    delete process.env.VIBEWEAVER_AUDIT_CONFIG
+    rec("T27h fill 15% quoted in corrective (input 1000 + cache.read 500 / 10000)", calls.prompts.length === 1 && /15%/.test(calls.prompts[0] || ""), `prompts=${calls.prompts.length} ${(calls.prompts[0] || "").slice(0, 160)}`)
+  }
+
+  // ---- userStop negation/directive shape (review F6) + final-run wave scope (R1#3) + gate-marker message scope (F4) + env off (R1#10) + high-fill phrasing (R1#8) ----
+  {
+    const mk = async (name, log) => {
+      const root = newFixture(name)
+      write(root, "tests/verification_log.md", log)
+      write(root, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+      const calls = { prompts: [] }
+      const plugin = await VibeweaverAudit({
+        client: {
+          app: { log: async () => {} },
+          session: { abort: async () => {}, prompt: async (a) => calls.prompts.push((a && a.body && a.body.parts && a.body.parts[0] && a.body.parts[0].text) || "") },
+        },
+        directory: root,
+      })
+      return { root, calls, plugin }
+    }
+    const ACTIVE_LOG = "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n"
+    const drive = async (plugin, sid, userText, asstText, tokens) => {
+      const ev = (type, properties) => plugin.event({ event: { type, properties } })
+      await ev("message.part.updated", { sessionID: sid, part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+      await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "bash", state: { status: "completed", input: { command: "ls" } } } })
+      if (userText != null) {
+        await ev("message.updated", { sessionID: sid, info: { id: "u1", role: "user" } })
+        await ev("message.part.updated", { sessionID: sid, part: { id: "pu1", messageID: "u1", type: "text", text: userText } })
+      }
+      await ev("message.updated", { sessionID: sid, info: { id: "m1", role: "assistant", modelID: "m", finish: "stop", tokens: tokens || { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } } })
+      await ev("message.part.updated", { sessionID: sid, part: { id: "p1", messageID: "m1", type: "text", text: asstText } })
+      await ev("session.idle", { sessionID: sid })
+    }
+
+    const n1 = await mk("t27-neg-stop", ACTIVE_LOG)
+    await drive(n1.plugin, "ses_n1", "Don't stop until all criteria pass.", "上下文快耗尽了，先到这里。")
+    rec("T27i1 negated 'don't stop' is NOT a stop directive → prompt fires (review F6)", n1.calls.prompts.length === 1, `prompts=${n1.calls.prompts.length}`)
+    const n2 = await mk("t27-cancel-button", ACTIVE_LOG)
+    await drive(n2.plugin, "ses_n2", "The cancel button should rollback the form.", "上下文快耗尽了，先到这里。")
+    rec("T27i2 'cancel button' non-directive → prompt fires (review F6)", n2.calls.prompts.length === 1, `prompts=${n2.calls.prompts.length}`)
+    const n2b = await mk("t27-quit-server", ACTIVE_LOG)
+    await drive(n2b.plugin, "ses_n2b", "quit the dev server and restart it with pm2", "上下文快耗尽了，先到这里。")
+    rec("T27i2b 'quit the dev server' process instruction → prompt fires (review N3)", n2b.calls.prompts.length === 1, `prompts=${n2b.calls.prompts.length}`)
+    const n3 = await mk("t27-user-quit", ACTIVE_LOG)
+    await drive(n3.plugin, "ses_n3", "stop here please, we continue tomorrow.", "上下文快耗尽了，先到这里。")
+    rec("T27i3 explicit 'stop here please' → whitelisted, no prompt", n3.calls.prompts.length === 0, `prompts=${n3.calls.prompts.length}`)
+
+    const c1 = await mk("t27-wave-complete", "## Task: fixture\n- iter 1 PASS: all\n- final-run: --final — pass=19/fail=0\n")
+    await drive(c1.plugin, "ses_c1", "继续", "上次误判过上下文快耗尽的问题，复盘一下。")
+    rec("T27i4 wave completed on disk (final-run) → taskActive false, no prompt (R1#3)", c1.calls.prompts.length === 0, `prompts=${c1.calls.prompts.length}`)
+
+    const g1 = await mk("t27-gatemarker-scope", ACTIVE_LOG)
+    {
+      const ev = (type, properties) => g1.plugin.event({ event: { type, properties } })
+      await ev("message.part.updated", { sessionID: "ses_g1", part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+      await ev("message.part.updated", { sessionID: "ses_g1", part: { id: "t1", type: "tool", tool: "bash", state: { status: "completed", input: { command: "ls" } } } })
+      await ev("message.updated", { sessionID: "ses_g1", info: { id: "m0", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 1, output: 1, cache: { read: 0 } } } })
+      await ev("message.part.updated", { sessionID: "ses_g1", part: { id: "p0", messageID: "m0", type: "text", text: "[Verification Gate] … earlier wave completion …" } })
+      await ev("message.updated", { sessionID: "ses_g1", info: { id: "m1", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 1, output: 1, cache: { read: 0 } } } })
+      await ev("message.part.updated", { sessionID: "ses_g1", part: { id: "p1", messageID: "m1", type: "text", text: "上下文快耗尽了，先到这里。" } })
+      await ev("session.idle", { sessionID: "ses_g1" })
+      rec("T27i5 gate marker in an OLDER message does NOT whitelist the new wave (review F4)", g1.calls.prompts.length === 1, `prompts=${g1.calls.prompts.length}`)
+    }
+
+    const e1 = await mk("t27-env-off", ACTIVE_LOG)
+    process.env.VIBEWEAVER_STOPGUARD = "off"
+    await drive(e1.plugin, "ses_e1", null, "上下文快耗尽了，先到这里。")
+    delete process.env.VIBEWEAVER_STOPGUARD
+    rec("T27i6 VIBEWEAVER_STOPGUARD=off → fully silent (R1#10)", e1.calls.prompts.length === 0, `prompts=${e1.calls.prompts.length}`)
+
+    const f1 = await mk("t27-highfill", ACTIVE_LOG)
+    write(f1.root, "audit-config.json", JSON.stringify({ contextLimitTokens: 10000 }))
+    process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(f1.root, "audit-config.json")
+    await drive(f1.plugin, "ses_f1", null, "上下文快耗尽了，先到这里。", { input: 9000, output: 100, cache: { read: 500 } })
+    delete process.env.VIBEWEAVER_AUDIT_CONFIG
+    const ftext = f1.calls.prompts[0] || ""
+    rec("T27i7 fill 95% → softened phrasing, no 'has no basis' accusation (R1#8)", f1.calls.prompts.length === 1 && /95%/.test(ftext) && !/has no basis/.test(ftext), ftext.slice(0, 160))
+  }
 }
 
 // ---------- summary ----------

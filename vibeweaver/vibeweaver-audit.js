@@ -306,8 +306,10 @@ function loopRecoveryText(finding) {
 
 // ---------- audit machine (shared by the v1 + v2 adapters) ----------
 
-function createAuditMachine({ directory, core, log, onDegenerate }) {
+function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, capabilities }) {
   const { auditProject, buildReport } = core
+  const caps = capabilities && typeof capabilities === "object" ? capabilities : {}
+  const hasTelemetry = caps.telemetry === true
 
   let state = { sessions: {}, roots: {} }
   const statePath = path.join(directory, STATE_DIR, STATE_FILE)
@@ -338,7 +340,13 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
 
   const touchSession = (sessionID) => {
     if (!state.sessions[sessionID]) state.sessions[sessionID] = { text: "", textParts: {}, tools: [], skillLoaded: false }
-    return state.sessions[sessionID]
+    const s = state.sessions[sessionID]
+    if (!s.roles) s.roles = {} // messageID → role (stop-guard, bounded)
+    if (!s.partMsg) s.partMsg = {} // text-partID → messageID (stop-guard, bounded)
+    if (s.lastUserMid === undefined) s.lastUserMid = null
+    if (s.usage === undefined) s.usage = null // last assistant message telemetry
+    if (!Number.isFinite(s.createdTs)) s.createdTs = Date.now() // session-scope anchor for stop-guard whitelists (F5)
+    return s
   }
 
   const capText = (s) =>
@@ -479,11 +487,15 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
     }
     const packets = makePackets(audit, sess)
     const releases = Array.isArray(state.roots[root].redReleases) ? state.roots[root].redReleases : []
+    const stopDebts = Array.isArray(state.roots[root].stopDebt) ? state.roots[root].stopDebt : []
     const footer = releases.map(
       (r) =>
         `- ${new Date(r.ts).toISOString()} released: latched RED (BAD=${r.bad == null ? "?" : r.bad}, session ${r.from}) → cleared via ${r.reason} (via ${r.via}, by ${r.by})`
     )
-    const report = buildReport(audit, sessionID, packets, footer)
+    const debtFooter = stopDebts.map(
+      (d) => `- ${new Date(d.ts).toISOString()} stop-debt: ${d.kind} "${d.match}" — ${d.why} (session ${d.sessionID}) — §V12 false-stop; adjudicate in Tier-2 review`
+    )
+    const report = buildReport(audit, sessionID, packets, footer, debtFooter)
     try {
       if (!existsSync(path.join(root, "tests"))) mkdirSync(path.join(root, "tests"), { recursive: true })
       writeFileSync(path.join(root, "tests", AUDIT_FILE), report)
@@ -606,6 +618,160 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
   const maybeLoopCheck = (sessionID) => maybeGuardCheck(sessionID, "text")
   const maybeToolLoopCheck = (sessionID) => maybeGuardCheck(sessionID, "tool")
 
+  // ---- stop-guard (§V12): false-stop detection at session idle ----
+  // Trigger = stop-euphemism in the LAST assistant message's text (or
+  // finish:"length" truncation). Whitelist first, budget 2/session, debt
+  // journaled when no corrective follows. Never throws.
+  const STOP_DEBT_CAP = 5
+  const STOP_GUARD_MAX_DEFAULT = 2
+
+  const msgText = (sess, mid) => {
+    if (!mid) return ""
+    const parts = []
+    // iterate partMsg (bounded ≤400), never the uncapped textParts (R2#10)
+    for (const pid of Object.keys(sess.partMsg)) {
+      if (sess.partMsg[pid] === mid && typeof sess.textParts[pid] === "string") parts.push(sess.textParts[pid])
+    }
+    return parts.join("\n")
+  }
+
+  const journalStopDebt = (root, sessionID, trigger, why) => {
+    try {
+      if (!state.roots[root]) state.roots[root] = {}
+      const entry = state.roots[root]
+      if (!Array.isArray(entry.stopDebt)) entry.stopDebt = []
+      const last = entry.stopDebt[entry.stopDebt.length - 1]
+      if (last && last.kind === trigger.kind && last.match === String(trigger.match || "").slice(0, 80) && last.why === why) return // episode dedup
+      entry.stopDebt.push({ ts: Date.now(), sessionID, kind: trigger.kind, match: String(trigger.match || "").slice(0, 80), why })
+      if (entry.stopDebt.length > STOP_DEBT_CAP) entry.stopDebt = entry.stopDebt.slice(-STOP_DEBT_CAP)
+      flush()
+    } catch {
+      /* debt is advisory */
+    }
+  }
+
+  const maybeStopGuard = (sessionID) => {
+    try {
+      if (process.env.VIBEWEAVER_STOPGUARD === "off") return
+      if (typeof core.stopEuphemism !== "function" || typeof core.stopGuardDecision !== "function") return
+      const sess = state.sessions[sessionID]
+      if (!sess) return
+      const root = findProjectRoot([directory])
+      if (!root) return
+      if (!skillLoaded(sess)) return
+      if (!sess.stopGuard) sess.stopGuard = { interventions: 0, armed: true, disarmedKey: null }
+      const sg = sess.stopGuard
+      if (!Number.isFinite(sg.interventions)) sg.interventions = 0
+      const lastMid = sess.usage && typeof sess.usage.messageID === "string" ? sess.usage.messageID : null
+      const aTail = lastMid ? msgText(sess, lastMid) : (sess.text || "").slice(-2048) // v2 fallback: assistant-sourced deltas
+      // episode key: the assistant message id when known, else a tail snapshot
+      // (null-lastMid hosts must not re-arm on every idle — review F3)
+      const armKey = lastMid || "tail:" + aTail.slice(-256)
+      if (sg.disarmedKey && armKey !== sg.disarmedKey) {
+        sg.armed = true
+        sg.disarmedKey = null
+      }
+      let trigger = core.stopEuphemism(aTail)
+      if (!trigger && sess.usage && sess.usage.finish === "length") trigger = { kind: "truncation", match: "length" }
+      if (!trigger) return
+      // whitelist — every leg scoped so history can never immunize the present:
+      // paused/Class-E only count when recorded DURING this session (review F5);
+      // the gate marker only counts in the SAME message as the claim (F4).
+      const sessionStart = Number.isFinite(sess.createdTs) ? sess.createdTs : 0
+      let pausedState = false
+      let classE = false
+      try {
+        pausedState = Math.floor(statSync(path.join(root, "tests", "paused_state.md"), { throwIfNoEntry: false })?.mtimeMs ?? 0) >= sessionStart && sessionStart > 0
+      } catch {
+        /* absent */
+      }
+      try {
+        const dp = path.join(root, "tests", "decisions.md")
+        classE = Math.floor(statSync(dp, { throwIfNoEntry: false })?.mtimeMs ?? 0) >= sessionStart && sessionStart > 0 && /Class-E/i.test(safeRead(dp))
+      } catch {
+        /* absent */
+      }
+      const gateMarker = /\[Verification Gate\]/.test(aTail)
+      const tailQuestion = /[?？]\s*$/.test(aTail.trim())
+      // userStop: plugin-authored prompts are stripped first (review F1 — the
+      // guard must never whitelist itself), then a DIRECTIVE-shaped match with
+      // negation exclusion ("don't stop" is not a stop directive — F6).
+      const uText = msgText(sess, sess.lastUserMid).replace(/^\[(stop-guard|loop-guard)\][^\n]*/gm, "")
+      const userStop =
+        /(^\s*(?:please\s+)?(?:stop|cancel|quit)\b(?!\s+(?:the|a|an)\s)|\bplease\s+(?:stop|cancel|quit)\b|\b(?:stop|cancel|quit)\s+(?:here|now|it|this|coding|working|for today)\b|停一下|停下来|停止吧|别做了|别再做|取消吧|到此为止|今天到这)/i.test(
+          uText
+        ) && !/((?:don't|do not|never)\s+(?:stop|cancel|quit)|不要停|别停|不能停)/i.test(uText)
+      const curBlock = typeof core.currentLogBlock === "function" ? core.currentLogBlock(safeRead(path.join(root, "tests", "verification_log.md"))) : ""
+      const waveComplete = /-[ \t]*final-run:[ \t]*--final\b/i.test(curBlock)
+      const taskActive = existsSync(path.join(root, "tests", "acceptance.md")) && sess.tools.length > 0 && !waveComplete
+      const decision = core.stopGuardDecision({ trigger, taskActive, pausedState, classE, gateMarker, tailQuestion, userStop, telemetry: hasTelemetry })
+      if (decision.action === "ignore") return
+      if (!sg.armed) return
+      sg.armed = false
+      sg.disarmedKey = armKey
+      const cfg = readConfig()
+      const maxI = Number.isFinite(cfg.stopGuardMaxInterventions) ? cfg.stopGuardMaxInterventions : STOP_GUARD_MAX_DEFAULT
+      const canPrompt = typeof onStopPrompt === "function"
+      if (decision.action === "debt" || sg.interventions >= maxI || !canPrompt) {
+        const why = decision.action === "debt" ? decision.why : !canPrompt ? "no-prompt-channel" : "budget-exhausted"
+        journalStopDebt(root, sessionID, trigger, why)
+        void log({
+          service: "vibeweaver-stopguard",
+          level: "info",
+          message: `false-stop episode (${trigger.kind}: ${String(trigger.match).slice(0, 60)}) — intervention budget exhausted (${maxI}/session/stop) or no prompt channel — journaled as stop-debt (${why})`,
+          extra: { sessionID, trigger, why },
+        })
+        return
+      }
+      sg.interventions++
+      let fill = null
+      let fillKnown = false
+      if (Number.isFinite(cfg.contextLimitTokens) && cfg.contextLimitTokens > 0 && sess.usage && (sess.usage.input > 0 || sess.usage.cacheRead > 0)) {
+        fill = ((sess.usage.input || 0) + (sess.usage.cacheRead || 0)) / cfg.contextLimitTokens
+        fillKnown = Number.isFinite(fill)
+      }
+      flush() // arming + budget must survive a mid-episode restart (loop-guard F9)
+      void log({
+        service: "vibeweaver-stopguard",
+        level: "warn",
+        message: `false-stop detected (${trigger.kind}: ${String(trigger.match).slice(0, 60)}) — posting corrective prompt (${sg.interventions}/${maxI}/stop)`,
+        extra: { sessionID, trigger, fillKnown: fillKnown ? fill : undefined },
+      })
+      const text = core.stopGuardPrompt({ kind: trigger.kind, fill, fillKnown })
+      void Promise.resolve(onStopPrompt(sessionID, text)).catch(() => {})
+    } catch {
+      /* stop-guard must never break observation */
+    }
+  }
+
+  // ---- v1 observation: message.updated (roles + telemetry for stop-guard) ----
+  const observeMessage = (sessionID, info) => {
+    if (!info || typeof info !== "object") return
+    const sess = touchSession(sessionID)
+    if (typeof info.id === "string" && typeof info.role === "string") {
+      sess.roles[info.id] = info.role
+      const ids = Object.keys(sess.roles)
+      if (ids.length > 400) delete sess.roles[ids[0]]
+      if (info.role === "user") sess.lastUserMid = info.id
+      if (info.role === "assistant") {
+        // merge, never overwrite wholesale (review F7): a token-less or
+        // finish-less field update must not zero the last real measurement.
+        const t = info.tokens && typeof info.tokens === "object" ? info.tokens : null
+        const cache = t && typeof t.cache === "object" ? t.cache : {}
+        const prev = sess.usage && typeof sess.usage === "object" ? sess.usage : {}
+        sess.usage = {
+          messageID: info.id,
+          input: t && Number.isFinite(t.input) ? t.input : prev.input || 0,
+          output: t && Number.isFinite(t.output) ? t.output : prev.output || 0,
+          cacheRead: t && Number.isFinite(cache.read) ? cache.read : prev.cacheRead || 0,
+          finish: typeof info.finish === "string" && info.finish ? info.finish : prev.finish || "",
+          modelID: typeof info.modelID === "string" && info.modelID ? info.modelID : prev.modelID || "",
+          t: Date.now(),
+        }
+      }
+    }
+  }
+
   // ---- v1 observation: message.part.updated parts ----
   const observePart = (sessionID, part) => {
     if (!part || typeof part !== "object") return
@@ -617,6 +783,11 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
       //   buffer inside newText  -> cumulative update, replace
       //   neither                -> delta chunk, append
       const pid = part.id || "text"
+      if (typeof part.messageID === "string") {
+        sess.partMsg[pid] = part.messageID
+        const pids = Object.keys(sess.partMsg)
+        if (pids.length > 400) delete sess.partMsg[pids[0]]
+      }
       const buf = sess.textParts[pid] || ""
       if (buf.includes(part.text)) {
         // duplicate/partial re-emission — nothing to do
@@ -763,10 +934,12 @@ function createAuditMachine({ directory, core, log, onDegenerate }) {
         extra: { escalateReasons: result.audit.escalateReasons },
       })
     }
+    maybeStopGuard(sessionID)
   }
 
   return {
     observePart,
+    observeMessage,
     observeToolStart,
     observeToolEnd,
     observeTextDelta,
@@ -810,6 +983,19 @@ async function server({ client, directory }) {
             }
           }
         : undefined,
+    // stop-guard intervention (v1): idle-time corrective prompt — NO abort
+    // (the turn already ended; aborting an idle session is meaningless).
+    onStopPrompt:
+      client && client.session && typeof client.session.prompt === "function"
+        ? async (sessionID, text) => {
+            try {
+              await client.session.prompt({ path: { id: sessionID }, body: { parts: [{ type: "text", text }] } })
+            } catch {
+              /* best-effort */
+            }
+          }
+        : undefined,
+    capabilities: { telemetry: true }, // v1 message.updated carries role/tokens/finish (spike W0)
   })
   return {
     // Block BEFORE the write lands. The RED latch is scoped to the session
@@ -833,6 +1019,8 @@ async function server({ client, directory }) {
       const sessionID = props.sessionID
       if (event.type === "message.part.updated" && sessionID) {
         m.observePart(sessionID, props.part)
+      } else if (event.type === "message.updated" && sessionID) {
+        m.observeMessage(sessionID, props.info)
       } else if (event.type === "session.idle" && sessionID) {
         await m.handleIdle(sessionID)
       }
@@ -881,6 +1069,10 @@ async function setup(ctx) {
             }
           }
         : undefined,
+    // stop-guard (v2): no message-level telemetry (spike W0) — the whitelist
+    // is unverifiable, so v2 never auto-prompts (debt + notes mode only).
+    onStopPrompt: undefined,
+    capabilities: { telemetry: false },
   })
   const registrations = []
 

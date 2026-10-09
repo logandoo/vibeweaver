@@ -145,7 +145,7 @@ run("C18-doc-class-code-write", () => ({
     "- class: DOC — CHANGELOG.md prose only",
     "- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)",
     "- iter 1 PASS: criterion #1 — entry added (evidence: read-back of CHANGELOG.md)",
-    "- final-run: --final — assert_artifacts.py: pass=8/fail=0",
+    "- final-run: --final — pass=19/fail=0",
   ].join("\n"))
   writeFileSync(path.join(root, "tests/acceptance.md"), "> cap=5  stall=3×\n1. Entry added in the release-notes format\n")
   const assertSrc = path.resolve(import.meta.dirname, "assert_artifacts.py")

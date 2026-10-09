@@ -84,7 +84,7 @@ ONCE → write test cases FROM the doc → run test→fix→test until ALL pass.
 `iteration cap = 5 per sub-problem` and `stall = same criterion fails 3×
 consecutive iterations`. On cap/stall: STOP retrying that direction,
 record the failed attempt in `memory/` as ❌, try a genuinely different
-direction (or fresh-brain retry / escalate to user). The string
+direction (or fresh-brain retry / escalate to user). "context exhausted" is never a stop — legal stops: §V12. The string
 `cap=5  stall=3×` MUST appear as the top-line of every `tests/acceptance.md`
 you write.
 
@@ -175,8 +175,7 @@ and in your final answer (Class-scaled per COV-13 / §V11.3):`
 - `tests/verification_log.md` — ≥1 per-iteration entry (format: §A4.1 Step 4);
   first entry of the task block carries `- class: <DOC|CONFIG|CODE> — <basis>`.
 - `tests/working_note.md` — Lane M/L or any 2nd-iteration task: live task
-  state (§A7.15); lifecycle logged as `- working-note:` lines (group 20);
-  distilled + deleted at task end (group 19, `--final`).
+  state (§A7.15); distilled + deleted at task end (group 19, `--final`).
 - `[Convergence] <task>: N iters | X/Y pass | N stalls | N cap-hits`
 - `[Coverage] criteria: N/M covered | unchecked: <names|none>` — §V3
   (VERIFICATION_UPGRADES); unchecked items are named, never laundered into `na`.

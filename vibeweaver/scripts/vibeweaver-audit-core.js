@@ -279,6 +279,127 @@ export function noopBashFinding(tools, minRun = NOOP_RUN_MIN) {
   return null
 }
 
+// ---------------- stop-guard (§V12) ----------------
+// False-stop detection: a coherent "context exhausted" stop is invisible to
+// byte-level degeneration detectors (loop-guard), so it gets its own
+// SYNTAX-level detector. Conservative by construction — every pattern
+// requires exhaustion vocabulary near a context word; idioms ("out of
+// context", "full of …") and bare "context limit" mentions stay clean. A
+// missed paraphrase is acceptable, a false positive is not.
+const STOP_EUPHEMISM_RES = [
+  /上下文[^。\n]{0,20}(耗尽|用尽|不足|不够|快满|已满|达到?上限|满了|撑不住)/,
+  /(耗尽|用尽)[^。\n]{0,10}上下文/,
+  /running out of (the )?context/i,
+  /out of context (window|tokens?|space|budget)/i,
+  /context (window )?(is |was |gets? |getting )?(almost |nearly |about to be )?\d{0,3}\s?%?\s?(exhausted|full)(?!\s+of)/i,
+  /context (window )?(is |was )?running low/i,
+  /(hit|hits|hitting|reached?|reaching) (the )?context (window )?limit/i,
+  /context limit (reached|hit|exceeded)/i,
+]
+
+// A real stop declaration carries cessation intent; a quoted/mid-text
+// pattern without it is meta-discussion (tests, docs, this contract).
+// Cessation shapes are agent-addressed: "wrap up" only counts bare/at-end
+// ("wrap up the component" is work, not a stop — review N1).
+const STOP_CESSATION_RES = [
+  /先到这里|先停在这|先停一下|到此为止|无法继续|不能再继续/,
+  /stopping here|stop here|pausing here|let me stop|i('ll| will) stop|i have to stop/i,
+  /wrap(ing)? up(?=\s*[。.!]?\s*$|\s+(here|now|today|for now))/i,
+  /(?:^|[\s,.，。])(?:stopping|wrapping up|pausing|giving up)\s*[.!…]?\s*$/i,
+]
+
+// Quoted spans (code, tests, citations) never count as a declaration.
+// Straight SINGLE quotes are NOT stripped — they'd eat contractions
+// ("We've hit the context limit, so I'll stop").
+function stripQuotedSpans(s) {
+  return s
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`\n]*`/g, " ")
+    .replace(/"[^"\n]*"/g, " ")
+    .replace(/“[^”\n]*”/g, " ")
+    .replace(/「[^」\n]*」/g, " ")
+}
+
+// Returns { kind: "euphemism", match } | null. Scans the tail only.
+// Meta-guard (review F2): quoted spans are stripped first; ≥2 DISTINCT
+// pattern hits = a discussion OF the pattern, not a stop; a single hit must
+// carry cessation intent or end within 120 chars of the tail's end.
+export function stopEuphemism(text) {
+  if (!text || typeof text !== "string") return null
+  const tail = stripQuotedSpans(text.slice(-4096))
+  let hit = null
+  let hits = 0
+  for (const re of STOP_EUPHEMISM_RES) {
+    const m = tail.match(re)
+    if (m) {
+      hits++
+      if (!hit) hit = m
+    }
+  }
+  if (hits !== 1) return null
+  const after = tail.slice(tail.indexOf(hit[0]) + hit[0].length)
+  // cessation intent, proximity-bounded (≤80 chars after the hit — review
+  // N1: an unbounded remainder lets a later "wrap up the component" fire);
+  // the bare-terminal leg requires only closing punctuation after the hit
+  // and no label-colon before it ("重点监控模式：上下文快耗尽" — review N2)
+  const near = after.slice(0, 80)
+  const before = tail.slice(0, tail.indexOf(hit[0]))
+  const cessation =
+    STOP_CESSATION_RES.some((re) => re.test(near)) || (/^\s*[了啦吧呢啊嘛]?[。.!…~]*\s*$/.test(after) && !/[:：]\s*$/.test(before))
+  if (!cessation) return null
+  return { kind: "euphemism", match: hit[0].slice(0, 80) }
+}
+
+// Current task block of a verification log (same split as B12).
+export function currentLogBlock(logText) {
+  if (!logText || typeof logText !== "string") return ""
+  const blocks = logText.split(/^(?=## )/m)
+  return blocks.length ? blocks[blocks.length - 1] : logText
+}
+
+// Pure verdict over a trigger + the terminal-state whitelist. Never throws.
+//   trigger    {kind:"euphemism"|"truncation", match} | null
+//   taskActive acceptance.md exists AND the session produced tool calls AND
+//              the current log block has no final-run (wave not completed)
+//   pausedState / classE / gateMarker / userStop / tailQuestion — whitelist
+//   telemetry  host carries message-level usage (v1 yes, v2 no)
+// → { action: "prompt"|"debt"|"ignore", why, kind? }
+export function stopGuardDecision(o) {
+  const t = o && o.trigger
+  if (!t) return { action: "ignore", why: "no-trigger" }
+  if (!o.taskActive) return { action: "ignore", why: "no-active-task" }
+  if (o.pausedState) return { action: "ignore", why: "whitelisted:paused-state" }
+  if (o.classE) return { action: "ignore", why: "whitelisted:class-e" }
+  if (o.gateMarker) return { action: "ignore", why: "whitelisted:gate-marker" }
+  if (o.userStop) return { action: "ignore", why: "whitelisted:user-stop" }
+  if (o.tailQuestion) return { action: "ignore", why: "whitelisted:tail-question" }
+  if (!o.telemetry) return { action: "debt", why: "v2-no-telemetry", kind: t.kind }
+  return { action: "prompt", kind: t.kind }
+}
+
+// Corrective prompt (§V12 contract): names the contradiction, lists the four
+// legal stops, points at working_note — never fabricates a fill number, and
+// never denies a claim the measurement supports (fill ≥ 90% → consolidate).
+export function stopGuardPrompt({ kind, fill, fillKnown }) {
+  const what =
+    kind === "truncation"
+      ? 'Your last turn ended with finish:"length" (output-limit truncation) — a truncated turn is NOT a completed task (host bug class opencode#40146).'
+      : "Your last message declared context exhaustion and stopped mid-task."
+  const known = fillKnown && Number.isFinite(fill)
+  const fillLine = known
+    ? fill < 0.9
+      ? ` Measured context fill ≈ ${Math.round(fill * 100)}% (harness telemetry, one turn stale) — an exhaustion claim far below the limit has no basis.`
+      : ` Measured context fill ≈ ${Math.round(fill * 100)}% (harness telemetry, one turn stale) — near the limit: consolidate per §V9 ship-order ①–③ or write the PAUSED packet NOW.`
+    : ""
+  return (
+    `[stop-guard] ${what}${fillLine} That is NOT a legal stop. Legal stops are exactly four: ` +
+    `(1) ALL-PASS on every acceptance criterion in tests/acceptance.md; (2) cap/stall with a ❌ record in memory/ (COV-7); ` +
+    `(3) a PAUSED packet in tests/paused_state.md (§3.4); (4) a [Coverage]-honest partial completion naming every unchecked item (§V9). ` +
+    `Resume now: read tests/working_note.md (if present) + tests/acceptance.md + the last entries of tests/verification_log.md, then continue the loop. ` +
+    `If the budget is genuinely nearly exhausted, consolidate per §V9 ship-order ①–③ or write the PAUSED packet — never abandon silently.`
+  )
+}
+
 // ---------------- triage core ----------------
 
 function check(checks, id, name, v, evidence) {
@@ -684,7 +805,7 @@ export function auditProject(opts) {
 
 // ---------------- report ----------------
 
-export function buildReport(audit, sessionID, packets = [], footerLines = []) {
+export function buildReport(audit, sessionID, packets = [], footerLines = [], stopDebtLines = []) {
   const lines = [
     `# Gate Audit — ${sessionID} | ${new Date().toISOString()}`,
     `AUDIT: BAD=${audit.bad} UNCERTAIN=${audit.uncertain} escalate=${audit.escalate}${audit.escalateReasons.length ? ` reasons=[${audit.escalateReasons.join(",")}]` : ""}${audit.red ? " BLOCKING=yes" : ""}`,
@@ -702,6 +823,10 @@ export function buildReport(audit, sessionID, packets = [], footerLines = []) {
   if (footerLines.length) {
     lines.push("", "## Stale RED releases (auto-cleared latches — audit trail, never delete)", "")
     for (const l of footerLines) lines.push(l)
+  }
+  if (stopDebtLines.length) {
+    lines.push("", "## Stop-debt (§V12 false-stop journal — advisory, Tier-2 adjudicates)", "")
+    for (const l of stopDebtLines) lines.push(l)
   }
   return lines.join("\n") + "\n"
 }
