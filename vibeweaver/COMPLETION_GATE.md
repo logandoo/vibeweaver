@@ -438,13 +438,17 @@ repeated line needs ≥4× and punctuation-only separator lines are ignored
 letters (`a,b,…,kf`); (c) line-sparse (no-newline) tails — a char-level
 suffix period: the same ≥32-char string repeated ≥4× (with a letter/digit;
 short sub-period streams are caught at their ≥32-char super-period), e.g. a
-sentence streamed back-to-back with no line breaks. Repeated JSX/HTML
+sentence streamed back-to-back with no line breaks; trailing whitespace/newline
+noise is normalized at scan entry on every detector path, and a ≥256-char last
+line enters the scan even under newline-rich context). Repeated JSX/HTML
 elements ×3 and pure-punctuation runs stay clean by the same bar. On trigger
 the plugin interrupts the session (v1 `session.abort` / v2
 `session.interrupt({continue:false})`) and posts a corrective prompt naming
 the pattern (restate the task in one line + the single next concrete step).
-One intervention per degeneration episode (re-arms only after clean text),
-budget 2 per session (further episodes are log-only, config
+One intervention per degeneration episode (re-arms after clean text or a NEW
+assistant turn — a stubborn model re-degenerating in fresh turns gets its own
+intervention; same-turn continuation never re-fires), budget 2 per session per
+channel (further episodes are log-only, config
 `loopGuardMaxInterventions` in `audit.json`). Near-misses are excluded by
 construction: numbered lists with content (`1. step`) are not bare tokens;
 a 2× repetition is below the bar. Disable per-run:

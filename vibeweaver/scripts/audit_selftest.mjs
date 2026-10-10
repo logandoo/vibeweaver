@@ -1031,6 +1031,178 @@ async function tryWrite(plugin, root, relPath, sessionId) {
       rec("T24j unit: truncated flag breaks the run", false, "detector missing (RED)")
     }
   }
+
+  // ---- T24k — text tail-noise + turn-boundary episode ("Stop it." wall, 2026-10-10) ----
+  // Reported failure: a model streaming "Stop it. " forever produced a full
+  // wall despite the loop-guard. Three holes (probe-reproduced):
+  //   G1 trailing whitespace/newline after a single-line runaway breaks the
+  //      end-anchored period seed (the noisy end is the seed's only
+  //      occurrence) -> MISS;
+  //   G2 the char-path gate's 512-monster-line threshold hides inline
+  //      runaways <=512 chars in newline-rich context -> MISS;
+  //   G3 the episode latch only re-arms on CLEAN text, so a model that
+  //      degenerates again in a fresh turn gets no further intervention.
+  // Bars unchanged: block x3 / 2x repeat / short-unit runs stay clean.
+  {
+    const mkT24k = async (name) => {
+      const root = newFixture(name)
+      write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+      const calls = { abort: 0, prompts: [], logs: [] }
+      const plugin = await VibeweaverAudit({
+        client: {
+          app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+          session: {
+            abort: async () => {
+              calls.abort++
+            },
+            prompt: async (args) => {
+              const parts = args && args.body && args.body.parts
+              calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+            },
+          },
+        },
+        directory: root,
+      })
+      const emitText = (sid, id, text, mid) =>
+        plugin.event({
+          event: {
+            type: "message.part.updated",
+            properties: { sessionID: sid, part: mid ? { id, type: "text", text, messageID: mid } : { id, type: "text", text } },
+          },
+        })
+      const emitBash = (sid, id, command, mid) =>
+        plugin.event({
+          event: {
+            type: "message.part.updated",
+            properties: { sessionID: sid, part: mid ? { id, type: "tool", tool: "bash", messageID: mid, state: { status: "completed", input: { command } } } : { id, type: "tool", tool: "bash", state: { status: "completed", input: { command } } } },
+          },
+        })
+      return { calls, emitText, emitBash }
+    }
+    const wall = (n) => "Stop it. ".repeat(n)
+
+    {
+      const { calls, emitText } = await mkT24k("t24k-nl")
+      await emitText("s_nl", "t1", wall(300) + "\n")
+      rec("T24k single-line runaway ending in \\n -> intervention (G1 tail-noise)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-sp")
+      await emitText("s_sp", "t1", wall(300) + " ")
+      rec("T24k single-line runaway ending in extra space -> intervention (G1 tail-noise)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-dnl")
+      await emitText("s_dnl", "t1", wall(300) + "\n\n")
+      rec("T24k runaway ending in blank line -> intervention (G1 tail-noise)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-inline")
+      await emitText("s_in", "t1", "a line here\nb line there\nc line x\nd line y\n" + wall(50) + "\n")
+      rec("T24k prose + 450-char inline runaway + newline -> intervention (G2 gate)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-inline-blank")
+      await emitText("s_ib", "t1", "a line here\nb line there\nc line x\nd line y\n" + wall(50) + "\n\n")
+      rec("T24k prose + inline runaway + trailing BLANK line -> intervention (review C1 gate/trim)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-inline-ws")
+      await emitText("s_iw", "t1", "a line here\nb line there\nc line x\nd line y\n" + wall(50) + "\n   ")
+      rec("T24k prose + inline runaway + whitespace-only last line -> intervention (review C1)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-crlf")
+      await emitText("s_cr", "t1", wall(300) + "\r\n")
+      rec("T24k runaway ending in \\r\\n -> intervention (review M2 trim class)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-nbsp")
+      await emitText("s_nb", "t1", wall(300) + "\u00a0")
+      rec("T24k runaway ending in NBSP -> intervention (review M2 trim class)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-thresh")
+      await emitText("s_lo", "t1", "a line here\nb line there\nc line x\nd line y\n" + wall(28) + "\n")
+      rec("T24k 252-char inline run below the 256 context gate -> stays clean (review I3 pin)", calls.abort === 0, `abort=${calls.abort}`)
+      await emitText("s_lo", "t2", "a line here\nb line there\nc line x\nd line y\n" + wall(29) + "\n")
+      rec("T24k 261-char inline run at/above the 256 context gate -> intervention (review I3 pin)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-thresh-exact")
+      await emitText("s_te", "t1", "a line here\nb line there\nc line x\nd line y\n" + "abcde".repeat(51) + "\n")
+      rec("T24k 255-char last line below the 256 gate -> clean (review N5 exact pin)", calls.abort === 0, `abort=${calls.abort}`)
+      await emitText("s_te", "t2", "a line here\nb line there\nc line x\nd line y\n" + "abcdefgh".repeat(32) + "\n")
+      rec("T24k 256-char last line at the 256 gate -> intervention (review N5 exact pin)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-part")
+      await emitText("s_pt", "t1", wall(300) + "Stop it")
+      rec("T24k runaway truncated mid-unit -> intervention (pin)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-fp3")
+      await emitText("s_fp3", "t1", '<div className="foo">bar</div>\n'.repeat(3))
+      rec("T24k repeated JSX line x3 stays clean (FP bar)", calls.abort === 0, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-fp2")
+      await emitText("s_fp2", "t1", "the same trailing line repeated twice only\n".repeat(2))
+      rec("T24k 2x line repetition stays clean (below bar)", calls.abort === 0, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-fpx")
+      await emitText("s_fpx", "t1", "xylo. ".repeat(15))
+      rec("T24k short-unit inline run below x4-of-32 floor stays clean", calls.abort === 0, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-turn")
+      await emitText("s_tr", "t1", wall(300), "m1")
+      rec("T24k wall in turn m1 -> 1 intervention", calls.abort === 1, `abort=${calls.abort}`)
+      await emitText("s_tr", "t2", wall(300), "m1")
+      rec("T24k same-turn continuation never re-fires (no-thrash)", calls.abort === 1, `abort=${calls.abort}`)
+      await emitText("s_tr", "t3", wall(300), "m2")
+      rec("T24k wall recurring in NEW turn m2 -> 2nd intervention (G3)", calls.abort === 2, `abort=${calls.abort}`)
+      await emitText("s_tr", "t4", wall(300), "m3")
+      const budgetLog = calls.logs.some((m) => /budget exhausted/i.test(m) && /\/text\)/.test(m))
+      rec("T24k 3rd turn beyond budget -> log-only (budget 2/channel)", calls.abort === 2 && budgetLog, `abort=${calls.abort} budgetLog=${budgetLog}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-zwsp")
+      await emitText("s_zw", "t1", wall(300) + "\u200b")
+      rec("T24k runaway ending in ZWSP -> intervention (review M2 trim class)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText, emitBash } = await mkT24k("t24k-xchan")
+      await emitText("s_x", "t1", wall(300), "m1")
+      for (let i = 0; i < 4; i++) await emitBash("s_x", `k${i}`, `echo "xchan ${i}"`, "m2")
+      rec("T24k cross-channel: text fire(m1) then tool fire(m2) both intervene", calls.abort === 2, `abort=${calls.abort}`)
+      await emitText("s_x", "t2", wall(300), "m2")
+      rec("T24k cross-channel turn re-arm not masked by tool-channel fire (review I1 fireMsgID)", calls.abort === 3, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-hardbreak")
+      await emitText("s_hb", "t1", "Note: the request failed.  \n".repeat(60))
+      rec("T24k markdown hard-break wall (uniform trailing spaces x60) -> intervention (review N1 line-align pin)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-padlog")
+      await emitText("s_pl", "t1", "WARN retry scheduled for job id=42  \n".repeat(50))
+      rec("T24k padded log wall (uniform trailing spaces x50) -> intervention (review N1 line-align pin)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-blankblk")
+      await emitText("s_bb", "t1", "## Summary\n\nThe same summary text here.\n\n".repeat(3))
+      rec("T24k blank-terminated block x3 -> intervention (multi-line >=3x bar, review N1 pin)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+    {
+      const { calls, emitText } = await mkT24k("t24k-dup")
+      await emitText("d1", "t1", wall(300), "m1")
+      rec("T24k dup setup: wall fires once", calls.abort === 1, `abort=${calls.abort}`)
+      await emitText("d1", "t1", wall(300), "u1")
+      rec("T24k duplicate re-emission with flipped messageID never re-fires (review C2 unchanged-state)", calls.abort === 1, `abort=${calls.abort}`)
+    }
+  }
 }
 
 // T29-T31 — same-session latch escape (multi-wave DOC→CODE deadlock,

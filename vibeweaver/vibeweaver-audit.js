@@ -179,6 +179,7 @@ const LOOP_MAX_INTERVENTIONS_DEFAULT = 2
 const LOOP_CHAR_SEED = 32
 const LOOP_CHAR_MIN_PERIOD = 32
 const LOOP_CHAR_MAX_CANDIDATES = 16
+const LOOP_CHAR_GATE_LINE = 256
 const LOOP_MAX_LINE_PERIOD = 640
 
 function lettersToIndex(s) {
@@ -192,11 +193,18 @@ function lettersToIndex(s) {
 // periods come from re-occurrences of the last 32 chars (native lastIndexOf,
 // ≤16 candidates); a seed that is itself short-periodic ("very very…")
 // probes its ≥32-char super-period multiples instead of walking off empty.
+// Tail-noise tolerance: streams and part joins leave trailing whitespace
+// ("\n" message ender, double space) that makes the end-anchored seed its
+// own only occurrence — the reported "Stop it." wall ended exactly so and
+// was invisible. Normalize trailing whitespace before seed discovery AND
+// the 4-copy verification (same normalized tail), so a runaway ending in
+// noise is judged on its periodic ground.
 // Same bar as the line path: a single repeated unit needs ≥4 copies and
 // real letter/digit content — repeated JSX/HTML elements ×3 are legitimate
 // codegen and stay clean.
-function charPeriodRepeat(tail) {
+function charPeriodRepeat(tailIn) {
   const minP = LOOP_CHAR_MIN_PERIOD
+  const tail = tailIn.replace(/[\s\u200B-\u200D]+$/, "")
   if (tail.length < minP * 4) return null
   const seed = tail.slice(-LOOP_CHAR_SEED)
   if (!/[\p{L}\p{N}]/u.test(seed)) return null
@@ -228,6 +236,15 @@ function charPeriodRepeat(tail) {
 // 3rd copy lands.
 function loopFinding(text) {
   if (!text || text.length < 48) return null
+  // Line path runs on RAW lines (exact match, trailing spaces included —
+  // uniform per-line whitespace is structure and must stay aligned across
+  // copies). A whole-tail rtrim is deliberately NOT applied here: it strips
+  // only the FINAL copy's trailing whitespace and breaks line-group
+  // alignment for hard-break/padded walls and blank-terminated blocks
+  // (review N1 — `"Note: …  \n"×60` regressed from FIRE to MISS). Tail
+  // noise is normalized INSIDE charPeriodRepeat for the char path; the
+  // gate below reads the last CONTENT line so trailing blank/whitespace
+  // lines cannot mask an inline runaway (review C1).
   const tail = text.slice(-LOOP_TAIL_SCAN)
   const lines = tail.split("\n")
   // a trailing newline yields a spurious empty final element that would
@@ -265,9 +282,21 @@ function loopFinding(text) {
   }
   // line-sparse tail (generation without newlines): char-level suffix
   // period. Gated on the RECENT window so newline-rich history further back
-  // cannot mask a no-newline runaway happening right now.
+  // cannot mask a no-newline runaway happening right now; a last line at
+  // the context gate (≥256 chars) enters the scan even under newline-rich
+  // context. The gate trades inline-runaway latency below 256 chars for
+  // table-row FP safety: numeric/minified rows of 128..256 chars with an
+  // exact period are legitimate output (review I3 — the ×4-of-32-char BAR
+  // itself is unchanged).
   const recent = tail.slice(-2048)
-  if ((recent.match(/\n/g) || []).length < 4 || lines[lines.length - 1].length > 512) {
+  let lastContentLen = 0
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (/\S/.test(lines[i])) {
+      lastContentLen = lines[i].length
+      break
+    }
+  }
+  if ((recent.match(/\n/g) || []).length < 4 || lastContentLen >= LOOP_CHAR_GATE_LINE) {
     const hit = charPeriodRepeat(tail)
     if (hit) return hit
   }
@@ -566,13 +595,18 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (typeof onDegenerate !== "function") return
       const sess = state.sessions[sessionID]
       if (!sess) return
-      if (!sess.loopGuard) sess.loopGuard = { interventions: 0, interventionsNoop: 0, armed: true, armedNoop: true }
+      if (!sess.loopGuard || typeof sess.loopGuard !== "object") sess.loopGuard = { interventions: 0, interventionsNoop: 0, armed: true, armedNoop: true }
       const lg = sess.loopGuard
-      if (lg.interventionsNoop === undefined) lg.interventionsNoop = 0
-      if (lg.armedNoop === undefined) lg.armedNoop = true
+      // NaN-safe backfill (D-6): corrupt/hand-edited state lacking these
+      // fields must never bypass the budget (NaN >= max is always false).
+      if (!Number.isFinite(lg.interventions)) lg.interventions = 0
+      if (!Number.isFinite(lg.interventionsNoop)) lg.interventionsNoop = 0
+      if (typeof lg.armed !== "boolean") lg.armed = true
+      if (typeof lg.armedNoop !== "boolean") lg.armedNoop = true
       const toolChannel = channel === "tool"
       const armedKey = toolChannel ? "armedNoop" : "armed"
       const usedKey = toolChannel ? "interventionsNoop" : "interventions"
+      const fireKey = toolChannel ? "fireMsgIDNoop" : "fireMsgID"
       const finding = toolChannel
         ? typeof core.noopBashFinding === "function"
           ? core.noopBashFinding(sess.tools)
@@ -581,19 +615,32 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       // one intervention per degeneration EPISODE: after firing, stay
       // disarmed while the same pattern still sits at the tail (the
       // interrupt stops generation; the remaining history must not
-      // re-trigger). Re-arm only after a clean observation.
+      // re-trigger). Re-arm after a clean observation OR a NEW turn
+      // (message boundary) — a fresh assistant message that degenerates
+      // again is a new episode (the stubborn "Stop it." model kept
+      // re-degenerating in new turns and the old clean-only latch went
+      // silent forever). The per-channel budget still caps interventions,
+      // so no-thrash holds absolutely.
       if (!finding) {
-        lg[armedKey] = true
+        if (!lg[armedKey]) {
+          lg[armedKey] = true
+          flush() // persist the re-arm (crash symmetry: the fire direction already flushes)
+        }
         return
       }
-      if (!lg[armedKey]) return
+      if (!lg[armedKey]) {
+        const newTurn = Boolean(lg[fireKey]) && Boolean(sess.lastMsgID) && sess.lastMsgID !== lg[fireKey]
+        if (!newTurn) return
+      }
       lg[armedKey] = false
+      lg[fireKey] = sess.lastMsgID
       const cfg = readConfig()
       const maxInterventions = Number.isFinite(cfg.loopGuardMaxInterventions) ? cfg.loopGuardMaxInterventions : LOOP_MAX_INTERVENTIONS_DEFAULT
       if (lg[usedKey] >= maxInterventions) {
         // budget exhausted for THIS channel: never interrupt again on it,
         // but log every NEW episode (armed semantics guarantee this is a
         // distinct episode, not the same tail re-flagged)
+        flush()
         void log({
           service: "vibeweaver-loopguard",
           level: "info",
@@ -783,15 +830,21 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       //   buffer inside newText  -> cumulative update, replace
       //   neither                -> delta chunk, append
       const pid = part.id || "text"
-      if (typeof part.messageID === "string") {
+      const buf = sess.textParts[pid] || ""
+      if (buf.includes(part.text)) {
+        // duplicate/partial re-emission — state unchanged: skip the
+        // re-check AND the episode-clock advance (re-checking unchanged
+        // text can re-fire on a stale tail; advancing lastMsgID on a
+        // re-associated id fakes a new turn — review C2/N3)
+        return
+      }
+      if (typeof part.messageID === "string" && part.messageID) {
         sess.partMsg[pid] = part.messageID
+        sess.lastMsgID = part.messageID
         const pids = Object.keys(sess.partMsg)
         if (pids.length > 400) delete sess.partMsg[pids[0]]
       }
-      const buf = sess.textParts[pid] || ""
-      if (buf.includes(part.text)) {
-        // duplicate/partial re-emission — nothing to do
-      } else if (part.text.includes(buf)) {
+      if (part.text.includes(buf)) {
         sess.textParts[pid] = part.text
         sess.text = capText(Object.values(sess.textParts).join("\n"))
       } else {
@@ -802,6 +855,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     } else if (part.type === "tool" && part.tool) {
       const st = part.state || {}
       const t = { tool: part.tool, t: Date.now() }
+      if (typeof part.messageID === "string" && part.messageID) sess.lastMsgID = part.messageID
       if (typeof part.id === "string" && part.id) t.pid = part.id
       const inp = st.input || {}
       if (typeof inp.filePath === "string") t.filePath = inp.filePath
@@ -819,9 +873,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   }
 
   // ---- v2 observation: tool hooks + session.* events ----
-  const observeToolStart = (sessionID, tool, input) => {
+  const observeToolStart = (sessionID, tool, input, messageID) => {
     if (typeof sessionID !== "string" || !sessionID || typeof tool !== "string" || !tool) return
     const sess = touchSession(sessionID)
+    if (typeof messageID === "string" && messageID) sess.lastMsgID = messageID
     const t = { tool, t: Date.now() }
     const inp = input && typeof input === "object" ? input : {}
     if (typeof inp.filePath === "string") t.filePath = inp.filePath
@@ -863,6 +918,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const sess = touchSession(sessionID)
     const pid = typeof messageID === "string" && messageID ? messageID : "text"
     // session.text.delta events are pure increments in emission order
+    if (typeof messageID === "string" && messageID) sess.lastMsgID = messageID
     sess.textParts[pid] = (sess.textParts[pid] || "") + delta
     sess.text = capText(Object.values(sess.textParts).join("\n"))
     maybeLoopCheck(sessionID)
@@ -877,6 +933,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     if (!text) return
     const sess = touchSession(sessionID)
     const pid = typeof messageID === "string" && messageID ? messageID : "text"
+    if (typeof messageID === "string" && messageID) sess.lastMsgID = messageID
     const buf = sess.textParts[pid] || ""
     // same three-shape robustness as the v1 cumulative-update branch
     if (buf.includes(text)) return
@@ -1090,7 +1147,7 @@ async function setup(ctx) {
         })
         if (msg) throw new Error(msg)
       }
-      m.observeToolStart(event.sessionID, event.tool, input)
+      m.observeToolStart(event.sessionID, event.tool, input, typeof event.messageID === "string" ? event.messageID : "")
     })
   )
   // Bash output capture (v1 got it from tool-part state.output).
