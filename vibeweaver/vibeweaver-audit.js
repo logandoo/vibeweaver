@@ -181,6 +181,9 @@ const LOOP_CHAR_MIN_PERIOD = 32
 const LOOP_CHAR_MAX_CANDIDATES = 16
 const LOOP_CHAR_GATE_LINE = 256
 const LOOP_MAX_LINE_PERIOD = 640
+const LOOP_SHAPE_MIN = 16
+const LOOP_TURN_CEILING = 65536
+const LOOP_PUNCT_WALL_MIN = 2048
 
 function lettersToIndex(s) {
   let n = 0
@@ -207,7 +210,13 @@ function charPeriodRepeat(tailIn) {
   const tail = tailIn.replace(/[\s\u200B-\u200D]+$/, "")
   if (tail.length < minP * 4) return null
   const seed = tail.slice(-LOOP_CHAR_SEED)
-  if (!/[\p{L}\p{N}]/u.test(seed)) return null
+  // Punctuation-only walls ("!"×4000, "!!! "×800) are real degeneration
+  // (claude-code char-spam class) but the letter/digit bar exists to spare
+  // separators and ASCII art — length-weighted exemption keyed on the WALL's
+  // own trailing punct run (not the tail window: a big report ending in a
+  // short rule/banner must stay clean — review I4).
+  const punctWall = ((tail.match(/[^\p{L}\p{N}]+$/u) || [""])[0].length || 0) >= LOOP_PUNCT_WALL_MIN
+  if (!/[\p{L}\p{N}]/u.test(seed) && !punctWall) return null
   const maxP = Math.min(1024, Math.floor(tail.length / 4))
   let idx = tail.length - LOOP_CHAR_SEED
   for (let n = 0; n < LOOP_CHAR_MAX_CANDIDATES; n++) {
@@ -223,7 +232,8 @@ function charPeriodRepeat(tailIn) {
       const last = tail.slice(-p)
       if (tail.slice(-2 * p, -p) !== last || tail.slice(-3 * p, -2 * p) !== last || tail.slice(-4 * p, -3 * p) !== last) continue
       const flat = last.trim()
-      if (flat.length < 16 || !/[\p{L}\p{N}]/u.test(flat)) continue
+      if (flat.length < 16) continue
+      if (!/[\p{L}\p{N}]/u.test(flat) && !punctWall) continue
       return { kind: "repeat", pattern: flat.replace(/\s+/g, " ").slice(0, 80) }
     }
   }
@@ -323,12 +333,55 @@ function loopFinding(text) {
       if (ok) return { kind: "sequence", pattern: `${run[0]}…${run[run.length - 1]}` }
     }
   }
+  // counter-bearing line runs (unit+counter walls — "The backlog item {i} is
+  // pending review." ×200): exact-period detectors answer "not yet" forever
+  // because every line differs (SpecRA: incremental-variation structural
+  // repetition = 46% of real degenerate samples). Bar: ≥LOOP_SHAPE_MIN
+  // consecutive tail lines with IDENTICAL non-digit shape whose EVERY digit
+  // run steps strictly +1. Strict +1 on every run excludes timestamp logs
+  // (only the last field ticks) and "page N of M" (M constant) — the FP
+  // class that kills naive digit-normalization (hermes #127234); short
+  // same-shape lists (<16) and exact repeats (line path's business) stay
+  // clean.
+  if (tokens.length >= LOOP_SHAPE_MIN) {
+    const shape = (l) => l.replace(/\d+/g, "#")
+    // anchor scan over the last 3 lines: a wall followed by one status line
+    // ("…×200\nDone.") is still a wall (review I1 — the char path got
+    // tail-noise tolerance, this path needs the same).
+    for (let a = tokens.length - 1; a >= Math.max(0, tokens.length - 3); a--) {
+      const sLast = shape(tokens[a])
+      if (sLast === tokens[a]) continue
+      let n = 0
+      let prev = null
+      for (let i = a; i >= 0; i--) {
+        const t = tokens[i]
+        if (shape(t) !== sLast) break
+        const r = (t.match(/\d+/g) || []).map(Number)
+        if (prev) {
+          if (r.length !== prev.length) break
+          let ok = true
+          for (let k = 0; k < r.length; k++)
+            if (prev[k] - r[k] !== 1) {
+              ok = false
+              break
+            }
+          if (!ok) break
+        }
+        prev = r
+        n++
+      }
+      if (n >= LOOP_SHAPE_MIN) return { kind: "repeat", pattern: sLast.slice(0, 80) + ` ×${n} (counter run)` }
+    }
+  }
   return null
 }
 
 function loopRecoveryText(finding) {
   if (finding && finding.kind === "noop-bash") {
     return `[loop-guard] Your last tool calls degenerated into no-op echo/printf narration (${finding.pattern}) — echoing intent is NOT a tool call. STOP the echo loop. Do exactly ONE of: (1) emit the REAL tool call you kept announcing (e.g. Read/Edit — whatever your narration named) as an actual tool invocation — no echo markers, no narration; or (2) only if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table). BEFORE any completion output, append \`- stall: noop-bash echo narration — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10 — this interrupt IS the stall declaration; do not resume by echoing again).`
+  }
+  if (finding && finding.kind === "runaway") {
+    return `[loop-guard] RUNAWAY OUTPUT: ${finding.pattern} without a verified stop condition (the ceiling is the backstop bound — a repetition loop the shape detectors cannot see is indistinguishable from this; on hosts that supply no turn ids the bound is per-session). STOP emitting. Do exactly ONE of: (1) if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table) now — the evidence, not a re-narration; or (2) if work remains, emit ONE short status line naming the single next concrete step and continue with bounded output. Never re-narrate completed work.`
   }
   return `[loop-guard] Your output degenerated into meaningless repetition (${finding.kind}: ${finding.pattern}). STOP repeating. Reply with (1) the task you are solving in ONE line, (2) the single next concrete step, then continue normally — no sequences, no filler. If the task is actually complete, emit the final completion output instead.`
 }
@@ -601,17 +654,38 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       // fields must never bypass the budget (NaN >= max is always false).
       if (!Number.isFinite(lg.interventions)) lg.interventions = 0
       if (!Number.isFinite(lg.interventionsNoop)) lg.interventionsNoop = 0
+      if (!Number.isFinite(lg.interventionsReasoning)) lg.interventionsReasoning = 0
       if (typeof lg.armed !== "boolean") lg.armed = true
       if (typeof lg.armedNoop !== "boolean") lg.armedNoop = true
+      if (typeof lg.armedReasoning !== "boolean") lg.armedReasoning = true
       const toolChannel = channel === "tool"
-      const armedKey = toolChannel ? "armedNoop" : "armed"
-      const usedKey = toolChannel ? "interventionsNoop" : "interventions"
-      const fireKey = toolChannel ? "fireMsgIDNoop" : "fireMsgID"
-      const finding = toolChannel
+      const reasoningChannel = channel === "reasoning"
+      const chanSuffix = toolChannel ? "Noop" : reasoningChannel ? "Reasoning" : ""
+      const armedKey = "armed" + chanSuffix
+      const usedKey = "interventions" + chanSuffix
+      const fireKey = "fireMsgID" + chanSuffix
+      let finding = toolChannel
         ? typeof core.noopBashFinding === "function"
           ? core.noopBashFinding(sess.tools)
           : null
-        : loopFinding(sess.text)
+        : loopFinding(reasoningChannel ? sess.reasoning : sess.text)
+      // per-turn absolute ceiling (hermes #127234: periodic detectors can
+      // answer "not yet" forever for shapes they cannot see — the ceiling is
+      // the bound that makes runaway output finite). Synthesized once per
+      // 64KB growth window (turnCeilingAt advances at synthesis, so a blocked
+      // or budget-swallowed attempt does NOT burn the window — review I2;
+      // and hosts without messageIDs still fire — review I3) and routed
+      // through the same budget as organic findings; the shared marker keeps
+      // text/reasoning from double-firing one runaway turn.
+      if (
+        !finding &&
+        !toolChannel &&
+        (sess.turnChars || 0) > LOOP_TURN_CEILING &&
+        (sess.turnChars || 0) >= (sess.turnCeilingAt || 0) + LOOP_TURN_CEILING
+      ) {
+        sess.turnCeilingAt = sess.turnChars
+        finding = { kind: "runaway", pattern: `turn output exceeded ${LOOP_TURN_CEILING} bytes` }
+      }
       // one intervention per degeneration EPISODE: after firing, stay
       // disarmed while the same pattern still sits at the tail (the
       // interrupt stops generation; the remaining history must not
@@ -629,8 +703,19 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         return
       }
       if (!lg[armedKey]) {
+        // runaway is the hard bound: it bypasses the same-turn no-thrash gate
+        // (a turn that already consumed its latch slot must still be cut at
+        // the ceiling — review I2a); the per-channel budget still caps it.
         const newTurn = Boolean(lg[fireKey]) && Boolean(sess.lastMsgID) && sess.lastMsgID !== lg[fireKey]
-        if (!newTurn) return
+        if (!newTurn && finding.kind !== "runaway") {
+          // latched organic finding (the stubborn-wall case): the ceiling
+          // RESCUES the turn when a growth window has been crossed — without
+          // this the turn is cut at most once and then unbounded (re-review N1)
+          if (!toolChannel && (sess.turnChars || 0) >= (sess.turnCeilingAt || 0) + LOOP_TURN_CEILING) {
+            sess.turnCeilingAt = sess.turnChars
+            finding = { kind: "runaway", pattern: `turn output exceeded ${LOOP_TURN_CEILING} bytes` }
+          } else return
+        }
       }
       lg[armedKey] = false
       lg[fireKey] = sess.lastMsgID
@@ -820,18 +905,36 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   }
 
   // ---- v1 observation: message.part.updated parts ----
+  // Episode clock + per-turn output volume: any messageID change starts a
+  // new turn (turnChars resets — the ceiling counts ONE turn's output).
+  const noteMsg = (sess, messageID) => {
+    if (typeof messageID !== "string" || !messageID) return
+    if (sess.lastMsgID !== messageID) {
+      sess.turnChars = 0
+      sess.turnCeilingAt = 0
+    }
+    sess.lastMsgID = messageID
+  }
+
   const observePart = (sessionID, part) => {
     if (!part || typeof part !== "object") return
     const sess = touchSession(sessionID)
-    if (part.type === "text" && typeof part.text === "string" && part.text) {
+    const ptext =
+      typeof part.text === "string" && part.text ? part.text : part.type === "reasoning" && typeof part.content === "string" ? part.content : ""
+    if ((part.type === "text" || part.type === "reasoning") && ptext) {
       // Robust against three streaming shapes: cumulative full-text updates,
       // delta chunks, and duplicate re-emissions. Inclusion heuristics:
       //   newText inside buffer  -> duplicate, skip
       //   buffer inside newText  -> cumulative update, replace
       //   neither                -> delta chunk, append
-      const pid = part.id || "text"
-      const buf = sess.textParts[pid] || ""
-      if (buf.includes(part.text)) {
+      // reasoning parts ride the same machinery in their own buffer/channel
+      // (hermes #97630: a wall living only in reasoning_content is invisible
+      // to any content-only guard).
+      const reasoning = part.type === "reasoning"
+      const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
+      const pid = part.id || (reasoning ? "reasoning" : "text")
+      const buf = store[pid] || ""
+      if (buf.includes(ptext)) {
         // duplicate/partial re-emission — state unchanged: skip the
         // re-check AND the episode-clock advance (re-checking unchanged
         // text can re-fire on a stale tail; advancing lastMsgID on a
@@ -840,22 +943,28 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       }
       if (typeof part.messageID === "string" && part.messageID) {
         sess.partMsg[pid] = part.messageID
-        sess.lastMsgID = part.messageID
+        noteMsg(sess, part.messageID)
         const pids = Object.keys(sess.partMsg)
         if (pids.length > 400) delete sess.partMsg[pids[0]]
       }
-      if (part.text.includes(buf)) {
-        sess.textParts[pid] = part.text
-        sess.text = capText(Object.values(sess.textParts).join("\n"))
+      if (ptext.includes(buf)) {
+        store[pid] = ptext
+        sess.turnChars = (sess.turnChars || 0) + Math.max(0, ptext.length - buf.length)
       } else {
-        sess.textParts[pid] = buf + part.text
-        sess.text = capText(Object.values(sess.textParts).join("\n"))
+        store[pid] = buf + ptext
+        sess.turnChars = (sess.turnChars || 0) + ptext.length
       }
-      maybeLoopCheck(sessionID)
+      if (reasoning) {
+        sess.reasoning = capText(Object.values(sess.reasoningParts).join("\n"))
+        maybeGuardCheck(sessionID, "reasoning")
+      } else {
+        sess.text = capText(Object.values(sess.textParts).join("\n"))
+        maybeLoopCheck(sessionID)
+      }
     } else if (part.type === "tool" && part.tool) {
       const st = part.state || {}
       const t = { tool: part.tool, t: Date.now() }
-      if (typeof part.messageID === "string" && part.messageID) sess.lastMsgID = part.messageID
+      noteMsg(sess, part.messageID)
       if (typeof part.id === "string" && part.id) t.pid = part.id
       const inp = st.input || {}
       if (typeof inp.filePath === "string") t.filePath = inp.filePath
@@ -876,7 +985,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const observeToolStart = (sessionID, tool, input, messageID) => {
     if (typeof sessionID !== "string" || !sessionID || typeof tool !== "string" || !tool) return
     const sess = touchSession(sessionID)
-    if (typeof messageID === "string" && messageID) sess.lastMsgID = messageID
+    noteMsg(sess, messageID)
     const t = { tool, t: Date.now() }
     const inp = input && typeof input === "object" ? input : {}
     if (typeof inp.filePath === "string") t.filePath = inp.filePath
@@ -913,33 +1022,57 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     }
   }
 
-  const observeTextDelta = (sessionID, messageID, delta) => {
+  const observeTextDelta = (sessionID, messageID, delta, channel) => {
     if (typeof sessionID !== "string" || !sessionID || typeof delta !== "string" || !delta) return
     const sess = touchSession(sessionID)
-    const pid = typeof messageID === "string" && messageID ? messageID : "text"
+    const reasoning = channel === "reasoning"
+    const pid = typeof messageID === "string" && messageID ? messageID : reasoning ? "reasoning" : "text"
     // session.text.delta events are pure increments in emission order
-    if (typeof messageID === "string" && messageID) sess.lastMsgID = messageID
-    sess.textParts[pid] = (sess.textParts[pid] || "") + delta
-    sess.text = capText(Object.values(sess.textParts).join("\n"))
-    maybeLoopCheck(sessionID)
+    noteMsg(sess, messageID)
+    sess.turnChars = (sess.turnChars || 0) + delta.length
+    const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
+    store[pid] = (store[pid] || "") + delta
+    if (reasoning) {
+      sess.reasoning = capText(Object.values(sess.reasoningParts).join("\n"))
+      maybeGuardCheck(sessionID, "reasoning")
+    } else {
+      sess.text = capText(Object.values(sess.textParts).join("\n"))
+      maybeLoopCheck(sessionID)
+    }
+  }
+
+  const ingestFull = (sess, sessionID, messageID, items, reasoning) => {
+    const joined = items
+      .filter((c) => c && (typeof c.text === "string" || typeof c.content === "string"))
+      .map((c) => (typeof c.text === "string" && c.text ? c.text : c.content))
+      .join("\n")
+    if (!joined) return
+    noteMsg(sess, messageID)
+    // bare messageID as key (NEVER a per-channel suffix — the same content
+    // arriving via deltas AND content-updates must reconcile into ONE buffer
+    // entry and count ONCE; the "#r" suffix double-counted turnChars and
+    // duplicated the scan buffer — review C1)
+    const pid = typeof messageID === "string" && messageID ? messageID : reasoning ? "reasoning" : "text"
+    const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
+    const buf = store[pid] || ""
+    // same three-shape robustness as the v1 cumulative-update branch
+    if (buf.includes(joined)) return
+    store[pid] = joined.includes(buf) ? joined : buf + joined
+    sess.turnChars = (sess.turnChars || 0) + (joined.includes(buf) ? Math.max(0, joined.length - buf.length) : joined.length)
+    if (reasoning) {
+      sess.reasoning = capText(Object.values(sess.reasoningParts).join("\n"))
+      maybeGuardCheck(sessionID, "reasoning")
+    } else {
+      sess.text = capText(Object.values(sess.textParts).join("\n"))
+      maybeLoopCheck(sessionID)
+    }
   }
 
   const observeFullContent = (sessionID, messageID, content) => {
     if (typeof sessionID !== "string" || !sessionID || !Array.isArray(content)) return
-    const text = content
-      .filter((c) => c && c.type === "text" && typeof c.text === "string")
-      .map((c) => c.text)
-      .join("\n")
-    if (!text) return
     const sess = touchSession(sessionID)
-    const pid = typeof messageID === "string" && messageID ? messageID : "text"
-    if (typeof messageID === "string" && messageID) sess.lastMsgID = messageID
-    const buf = sess.textParts[pid] || ""
-    // same three-shape robustness as the v1 cumulative-update branch
-    if (buf.includes(text)) return
-    sess.textParts[pid] = text.includes(buf) ? text : buf + text
-    sess.text = capText(Object.values(sess.textParts).join("\n"))
-    maybeLoopCheck(sessionID)
+    ingestFull(sess, sessionID, messageID, content.filter((c) => c && c.type === "text"), false)
+    ingestFull(sess, sessionID, messageID, content.filter((c) => c && c.type === "reasoning"), true)
   }
 
   const observeSkill = (sessionID, name) => {
@@ -1168,6 +1301,10 @@ async function setup(ctx) {
           const sessionID = typeof data.sessionID === "string" ? data.sessionID : null
           if (event.type === "session.text.delta" && sessionID) {
             m.observeTextDelta(sessionID, data.assistantMessageID, data.delta)
+          } else if (event.type === "session.reasoning.delta" && sessionID) {
+            // defensive: hosts that stream reasoning deltas (content stays
+            // empty in the #97630 shape) route through the reasoning channel
+            m.observeTextDelta(sessionID, data.assistantMessageID, data.delta, "reasoning")
           } else if (event.type === "session.message.content.updated" && sessionID) {
             m.observeFullContent(sessionID, data.messageID, data.content)
           } else if (event.type === "session.skill.activated" && sessionID) {

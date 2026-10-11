@@ -1205,6 +1205,215 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   }
 }
 
+// =====================================================================
+// T24l — loop-guard blind-spot wave (2026-10-10): reasoning channel,
+// counter-bearing walls, per-turn ceiling, punctuation walls.
+// Blind-spot research: hermes #97630 (reasoning-only "!!!!" wall), hermes
+// #127234 (unit+counter loops answer "not yet" forever; the safe fix is an
+// absolute per-turn ceiling), SpecRA taxonomy (incremental-variation
+// structural repetition = 46% of 813 real degenerate samples), claude-code
+// #82803 (single-char walls). FP bars from the same sources: digit-strip
+// normalization false-flags legit numeric batch output (hermes) — hence
+// strict +1 on EVERY digit run; timestamp logs tick only the last field.
+// =====================================================================
+{
+  const mkT24l = async (name) => {
+    const root = newFixture(name)
+    write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { abort: 0, prompts: [], logs: [] }
+    const plugin = await VibeweaverAudit({
+      client: {
+        app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async (args) => {
+            const parts = args && args.body && args.body.parts
+            calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+          },
+        },
+      },
+      directory: root,
+    })
+    const emit = (sid, part) => plugin.event({ event: { type: "message.part.updated", properties: { sessionID: sid, part } } })
+    const emitText = (sid, id, text, mid) => emit(sid, mid ? { id, type: "text", text, messageID: mid } : { id, type: "text", text })
+    const emitReasoning = (sid, id, text, mid) => emit(sid, mid ? { id, type: "reasoning", text, messageID: mid } : { id, type: "reasoning", text })
+    return { calls, emit, emitText, emitReasoning }
+  }
+  const wall = (n) => "Stop it. ".repeat(n)
+  const letters26 = (n) => {
+    let s = ""
+    do {
+      s = String.fromCharCode(97 + (n % 26)) + s
+      n = Math.floor(n / 26)
+    } while (n > 0)
+    return s
+  }
+  const proseLine = (i) => "prose line " + letters26(i) + " assorted words and more filler tail"
+  const prose = (n) => Array.from({ length: n }, (_, i) => proseLine(i)).join("\n")
+
+  {
+    const { calls, emitReasoning, emitText } = await mkT24l("t24l-reason")
+    await emitReasoning("s_r", "r1", wall(300), "m1")
+    rec("T24l reasoning-channel wall -> intervention (P0-a, hermes #97630 shape)", calls.abort === 1, `abort=${calls.abort}`)
+    await emitText("s_r", "t1", wall(300), "m2")
+    rec("T24l reasoning budget independent of text channel (per-channel 2/session)", calls.abort === 2, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-counter")
+    await emitText("s_c", "t1", Array.from({ length: 200 }, (_, i) => `The backlog item ${i} is pending review.`).join("\n"), "m1")
+    rec("T24l unit+counter wall x200 -> intervention (P0-b, SpecRA 46% class)", calls.abort === 1, `abort=${calls.abort}`)
+    await emitText("s_c", "t2", Array.from({ length: 20 }, (_, i) => `queue entry ${i} awaits triage`).join("\n") + "\nDone.", "m2")
+    rec("T24l counter wall + trailing status line -> intervention (review I1 trailing-tolerance)", calls.abort === 2, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-shapebound")
+    await emitText("s_sb", "t1", Array.from({ length: 15 }, (_, i) => `case ${i + 1} executed`).join("\n"), "m1")
+    rec("T24l same-shape counter run x15 stays clean (LOOP_SHAPE_MIN boundary)", calls.abort === 0, `abort=${calls.abort}`)
+    await emitText("s_sb", "t2", Array.from({ length: 16 }, (_, i) => `case ${i + 1} executed`).join("\n"), "m2")
+    rec("T24l same-shape counter run x16 -> intervention (LOOP_SHAPE_MIN boundary)", calls.abort === 1, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-counterfp")
+    await emitText("s_cf", "t1", Array.from({ length: 30 }, (_, i) => `2026-10-10 12:00:${String(i).padStart(2, "0")} INFO job completed`).join("\n"), "m1")
+    rec("T24l timestamp log x30 stays clean (only last field ticks — strict +1 FP bar)", calls.abort === 0, `abort=${calls.abort}`)
+    await emitText("s_cf", "t2", Array.from({ length: 30 }, (_, i) => `page ${i + 1} of 30 rendered`).join("\n"), "m2")
+    rec("T24l page N of M x30 stays clean (M constant breaks strict +1)", calls.abort === 0, `abort=${calls.abort}`)
+    await emitText("s_cf", "t3", Array.from({ length: 5 }, (_, i) => `test${i + 1} passed`).join("\n"), "m3")
+    rec("T24l short same-shape index list x5 stays clean (below LOOP_SHAPE_MIN)", calls.abort === 0, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-ceiling")
+    await emitText("s_u", "t1", prose(2000), "m1")
+    rec("T24l 80KB non-degenerate turn output -> runaway intervention (P1 ceiling)", calls.abort === 1, `abort=${calls.abort}`)
+    rec("T24l runaway corrective prompt names the ceiling (distinct from repetition notice)", /runaway|exceeded|64KB|65536/i.test(calls.prompts[0] || ""), (calls.prompts[0] || "").slice(0, 100))
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-ceiling2")
+    await emitText("s_u2", "t1", prose(900), "m1")
+    rec("T24l 45KB non-degenerate turn output stays clean (below 64KB ceiling)", calls.abort === 0, `abort=${calls.abort}`)
+    await emitText("s_u2", "t2", prose(900), "m2")
+    rec("T24l two sub-ceiling turns stay clean (review M3 — kills session-total mutant)", calls.abort === 0, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-ceiling3")
+    await emitText("s_u3", "t1", prose(2000))
+    rec("T24l runaway WITHOUT messageIDs -> intervention (review Critical id-less dead ceiling)", calls.abort === 1, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-ceiling4")
+    await emitText("s_u4", "t1", wall(300), "m1")
+    rec("T24l setup: organic wall fires once in turn m1", calls.abort === 1, `abort=${calls.abort}`)
+    await emitText("s_u4", "t2", prose(1500), "m1")
+    rec("T24l same turn exceeds ceiling after an organic fire -> runaway still intervenes (review I2a latch bypass)", calls.abort === 2, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-ceiling5")
+    await emitText("s_u5", "t1", wall(300), "m1")
+    await emitText("s_u5", "t2", wall(8000), "m1")
+    rec("T24l latched wall re-run past the ceiling -> runaway rescue (re-review N1)", calls.abort === 2, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-punct")
+    await emitText("s_p", "t1", "!".repeat(4000), "m1")
+    rec("T24l punctuation wall '!'x4000 -> intervention (P2, claude-code char-spam class)", calls.abort === 1, `abort=${calls.abort}`)
+    await emitText("s_p", "t2", "!".repeat(2100), "m2")
+    rec("T24l 2.1KB punct wall alone -> intervention (LOOP_PUNCT_WALL_MIN boundary)", calls.abort === 2, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-punct2")
+    await emitText("s_p2", "t1", "!!! ".repeat(800), "m1")
+    rec("T24l punctuation wall '!!! 'x800 -> intervention (P2)", calls.abort === 1, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-punct3")
+    await emitText("s_p3", "t1", "report data " + "x".repeat(2500) + " " + "=".repeat(128), "m1")
+    rec("T24l big doc + 128-char punct burst stays clean (review I4 — wall-size not tail-size bar)", calls.abort === 0, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-punct4")
+    await emitText("s_p4", "t1", "----------\n".repeat(3), "m1")
+    rec("T24l short punct separator x3 stays clean (below LOOP_PUNCT_WALL_MIN)", calls.abort === 0, `abort=${calls.abort}`)
+    await emitText("s_p4", "t2", "!".repeat(2048), "m2")
+    rec("T24l exact 2048-char punct wall -> intervention (LOOP_PUNCT_WALL_MIN exact pin, re-review N6)", calls.abort === 1, `abort=${calls.abort}`)
+  }
+}
+
+// ---- T24m — v2 dual-path ingestion (review C1): the same reasoning content
+// arriving via session.reasoning.delta AND session.message.content.updated
+// must reconcile into ONE buffer entry and count ONCE in turnChars. The "#r"
+// pid suffix double-counted (45KB real output looked like 90KB -> runaway
+// aborted a healthy turn at half the ceiling).
+{
+  const mkBus = () => {
+    const q = []
+    let waiting = null
+    return {
+      subscribe() {
+        return {
+          [Symbol.asyncIterator]() {
+            return this
+          },
+          next() {
+            if (q.length) return Promise.resolve({ done: false, value: q.shift() })
+            return new Promise((res) => {
+              waiting = () => res(q.length ? { done: false, value: q.shift() } : { done: true })
+            })
+          },
+          return() {
+            return Promise.resolve({ done: true })
+          },
+        }
+      },
+      emit(e) {
+        q.push(e)
+        if (waiting) {
+          const w = waiting
+          waiting = null
+          w()
+        }
+      },
+    }
+  }
+  const mod = auditModule && auditModule.default
+  if (mod && typeof mod.setup === "function") {
+    const root = newFixture("t24m-v2dual")
+    write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const bus = mkBus()
+    const calls = { abort: 0 }
+    const ctx = {
+      location: { directory: root },
+      tool: { hook: async () => ({ dispose: async () => {} }) },
+      event: { subscribe: () => bus.subscribe() },
+      session: {
+        interrupt: async () => {
+          calls.abort++
+        },
+        prompt: async () => {},
+      },
+    }
+    await mod.setup(ctx)
+    let acc = ""
+    for (let i = 0; i < 650; i++) {
+      const frag = "reasoning step " + "abcdefghij".split("")[(i * 7) % 10] + String.fromCharCode(97 + (i % 26)) + " considers assorted angles of the problem and notes details "
+      acc += frag
+      bus.emit({ type: "session.reasoning.delta", data: { sessionID: "s_v2", assistantMessageID: "m1", delta: frag } })
+      bus.emit({
+        type: "session.message.content.updated",
+        data: { sessionID: "s_v2", messageID: "m1", content: [{ type: "reasoning", text: acc, content: acc }] },
+      })
+    }
+    await new Promise((r) => setTimeout(r, 80))
+    rec("T24m dual-path reasoning ingestion counts once (review C1) — 45KB stays clean", calls.abort === 0, `abort=${calls.abort}`)
+    bus.emit({ type: "session.reasoning.delta", data: { sessionID: "s_v2", assistantMessageID: "m2", delta: "Stop it. ".repeat(300) } })
+    await new Promise((r) => setTimeout(r, 80))
+    rec("T24m sanity: the v2 reasoning-delta channel is actually wired (wall -> intervention)", calls.abort === 1, `abort=${calls.abort}`)
+  } else {
+    rec("T24m dual-path reasoning ingestion counts once (review C1)", false, "default.setup missing")
+  }
+}
+
 // T29-T31 — same-session latch escape (multi-wave DOC→CODE deadlock,
 // 2026-10-02). A latch must keep in-session teeth mid-wave, but it must
 // never force the next task to wait for ANOTHER session, a 24h TTL, or

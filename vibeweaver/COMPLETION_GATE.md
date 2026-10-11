@@ -440,7 +440,17 @@ suffix period: the same ≥32-char string repeated ≥4× (with a letter/digit;
 short sub-period streams are caught at their ≥32-char super-period), e.g. a
 sentence streamed back-to-back with no line breaks; trailing whitespace/newline
 noise is normalized at scan entry on every detector path, and a ≥256-char last
-line enters the scan even under newline-rich context). Repeated JSX/HTML
+line enters the scan even under newline-rich context); (d) counter-bearing
+line runs — ≥16 consecutive tail lines with identical non-digit shape whose
+every digit run steps strictly +1 (`The backlog item {i} …` walls; strict +1
+excludes timestamp logs and `page N of M`; a single trailing status line does
+not mask the run); (e) punctuation-only walls — a punct-only suffix period
+counts only once the wall's own trailing punctuation run is ≥2KB (a big
+report ending in a short rule/banner and ASCII-art separators stay clean);
+plus a per-turn absolute ceiling: one turn's output beyond 64KB raises a
+`runaway` interrupt with its own corrective prompt (re-armed per 64KB of
+growth, budget-capped — the backstop bound for shapes no periodic detector
+can see). Repeated JSX/HTML
 elements ×3 and pure-punctuation runs stay clean by the same bar. On trigger
 the plugin interrupts the session (v1 `session.abort` / v2
 `session.interrupt({continue:false})`) and posts a corrective prompt naming
