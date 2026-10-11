@@ -11,7 +11,11 @@ import path from "node:path"
 // falsified. Also runs a stateful stall observer: same file edited
 // 3x with no new "iter N PASS" entry between -> GATE-WARNING pointing
 // at TESTING_PROTOCOLS.md §A4.10 (warnings only, state in
-// .vibeweaver/state.json, atomic writes). Disable with
+// .vibeweaver/state.json, atomic writes). Also delivers task memory
+// deterministically (wave21): the working note rides the compaction prompt
+// (experimental.session.compacting), a resume bundle is injected on the
+// first request after every session.compacted, and a one-line pointer
+// rides the first gated write of a session. Disable with
 // VIBEWEAVER_GATE=off.
 //
 // OPENCODE DUAL-COMPAT CONTRACT (v1 + v2):
@@ -162,7 +166,8 @@ function stallObservation(root, file) {
         st = { ops: [] }
       }
     }
-    if (!st || !Array.isArray(st.ops)) st = { ops: [] }
+    if (!st || typeof st !== "object") st = {}
+    if (!Array.isArray(st.ops)) st.ops = []
     st.ops.push({ f: file, p: countPasses(root), t: Date.now() })
     if (st.ops.length > MAX_OPS) st.ops = st.ops.slice(-MAX_OPS)
     const run = st.ops.slice(-STALL_RUN)
@@ -356,6 +361,103 @@ function cueNotes(root, filePath) {
   }
 }
 
+// ---------- deterministic memory delivery: compaction-resume (wave21) ----------
+//
+// Delivery, not storage (2607.20972 + Graepel epistemic-state ledger): the
+// working note (§A7.15) is task state, but relying on the model to read it
+// back after a compaction is the voluntary channel — measured to round to
+// zero. The harness owns the context window, so the harness delivers:
+//   1. pre-summary: the working note (+ resume rule) is pushed into the
+//      compaction prompt's context, so the summary carries the ledger;
+//   2. post-compaction: the first model request after a `session.compacted`
+//      event gets a synthetic message with the SAME bundle (fire ledger =
+//      one delivery per compaction, re-armed by the next compacted event);
+//   3. session start proxy: the first gated write of a session carries a
+//      one-line resume pointer (note exists -> read it first; active task
+//      without a note -> create it).
+// All three are no-ops outside vibeweaver-active projects (no
+// tests/verification_log.md) and never throw into the host.
+
+const MEMORY_BUNDLE_MAX = 4096
+const MEMORY_STATE_CAP = 500
+
+const SESSION_MEM = {
+  pendingResume: new Set(), // project roots: a compaction happened, inject on next transform
+  firstCue: new Set(), // project roots: session-start pointer already delivered
+}
+
+function capBounded(set) {
+  if (set.size > MEMORY_STATE_CAP) {
+    const first = set.values().next().value
+    set.delete(first)
+  }
+}
+
+function workingNoteOf(root) {
+  return safeRead(path.join(root, "tests", "working_note.md")).replace(/\r\n/g, "\n")
+}
+
+// The delivered bundle: working note verbatim (bounded) + resume rule. With
+// no note, deliver the create instruction instead — the boundary is exactly
+// the moment the ledger matters most.
+function compactStateBundle(root) {
+  const note = workingNoteOf(root).trim()
+  if (!note) {
+    const acc = safeRead(path.join(root, "tests", "acceptance.md"))
+    const capLine = (acc.split("\n").find((l) => l.includes("cap=5")) || "").trim()
+    return [
+      "VIBEWEAVER COMPACT-RESUME (machine-delivered by vibeweaver-gate — no tests/working_note.md exists):",
+      "After this compaction, BEFORE the next edit: re-read tests/acceptance.md and the last 20 lines of tests/verification_log.md, and CREATE tests/working_note.md (§A7.15 hypothesis ledger: confirmed/doubted/excluded/open + key locations + dead ends + next action, <=50 lines). The gate re-delivers this note at every compaction boundary.",
+      capLine ? `Acceptance first line: ${capLine}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, MEMORY_BUNDLE_MAX)
+  }
+  return [
+    "VIBEWEAVER WORKING-STATE (machine-delivered by vibeweaver-gate; this ledger is task state and takes precedence over the compacted summary — preserve its essentials):",
+    note.slice(0, MEMORY_BUNDLE_MAX - 400),
+    "Resume rule: after compaction re-read tests/working_note.md, tests/acceptance.md, and the last 20 lines of tests/verification_log.md BEFORE the next edit.",
+  ].join("\n")
+}
+
+function resumeCueNote(root) {
+  const exists = workingNoteOf(root).trim().length > 0
+  if (exists) {
+    return "[vibeweaver] tests/working_note.md exists (task state ledger) — read it first (§3.3 re-entry); the gate re-delivers it at every compaction boundary."
+  }
+  if (existsSync(path.join(root, "tests", "acceptance.md"))) {
+    return "[vibeweaver] active task detected without tests/working_note.md — create it (§A7.15); the gate delivers it deterministically at every compaction boundary."
+  }
+  return null
+}
+
+// Telemetry (bounded, best-effort): counts of deterministic deliveries into
+// .vibeweaver/state.json — the feedback loop for "is the mechanism firing?".
+function recordMemoryDelivery(root, kind) {
+  try {
+    const p = path.join(root, STATE_DIR, STATE_FILE)
+    let st = {}
+    if (existsSync(p)) {
+      try {
+        st = JSON.parse(readFileSync(p, "utf8"))
+      } catch {
+        st = {}
+      }
+    }
+    if (!st || typeof st !== "object") st = {}
+    const md = st.memoryDeliveries && typeof st.memoryDeliveries === "object" ? st.memoryDeliveries : {}
+    md[kind] = (Number(md[kind]) || 0) + 1
+    st.memoryDeliveries = md
+    if (!existsSync(path.join(root, STATE_DIR))) mkdirSync(path.join(root, STATE_DIR), { recursive: true })
+    const tmp = p + ".tmp"
+    writeFileSync(tmp, JSON.stringify(st))
+    renameSync(tmp, p)
+  } catch {
+    /* telemetry must never break delivery */
+  }
+}
+
 // ---------- version-agnostic gate logic ----------
 
 // Evaluate one completed write/edit. Returns:
@@ -469,6 +571,22 @@ function v2EventIsIdle(event) {
   return !!data && !!data.status && data.status.type === "idle"
 }
 
+// Session-start proxy: exactly one resume pointer per project per process.
+function firstTouchCue(directory) {
+  try {
+    const root = findProjectRoot([directory])
+    if (!root || SESSION_MEM.firstCue.has(root)) return null
+    const note = resumeCueNote(root)
+    if (!note) return null
+    SESSION_MEM.firstCue.add(root)
+    capBounded(SESSION_MEM.firstCue)
+    recordMemoryDelivery(root, "sessionCue")
+    return note
+  } catch {
+    return null
+  }
+}
+
 // ---------- opencode v1 adapter ----------
 
 async function server({ client, directory }) {
@@ -483,8 +601,44 @@ async function server({ client, directory }) {
           output.output = (output.output ? output.output + "\n" : "") + note
         }
       }
+      const cue = firstTouchCue(directory)
+      if (cue) output.output = (output.output ? output.output + "\n" : "") + cue
+    },
+    "experimental.session.compacting": async (input, output) => {
+      if (process.env.VIBEWEAVER_GATE === "off") return
+      const root = findProjectRoot([directory])
+      if (!root) return
+      try {
+        output.context = output.context || []
+        output.context.push(compactStateBundle(root))
+        recordMemoryDelivery(root, "compactContext")
+      } catch {
+        /* delivery must never break compaction */
+      }
+    },
+    "experimental.chat.messages.transform": async (input, output) => {
+      if (process.env.VIBEWEAVER_GATE === "off") return
+      const root = findProjectRoot([directory])
+      if (!root || !SESSION_MEM.pendingResume.has(root)) return
+      SESSION_MEM.pendingResume.delete(root)
+      try {
+        if (Array.isArray(output.messages)) {
+          output.messages.push({ role: "user", content: compactStateBundle(root) })
+          recordMemoryDelivery(root, "compactResume")
+        }
+      } catch {
+        /* one bad transform must not break the request */
+      }
     },
     event: async ({ event }) => {
+      if (event && event.type === "session.compacted") {
+        const root = findProjectRoot([directory])
+        if (root) {
+          SESSION_MEM.pendingResume.add(root)
+          capBounded(SESSION_MEM.pendingResume)
+        }
+        return
+      }
       if (!event || event.type !== "session.idle") return
       const r = gateIdleCheck(directory)
       if (r) {
@@ -514,6 +668,7 @@ async function setup(ctx) {
     }
     return
   }
+  const registrations = []
   const registration = await ctx.tool.hook("execute.after", async (event) => {
     if (!event || !GATED_TOOLS.has(event.tool)) return
     // v1 parity: tool.execute.after fires only for successful executions.
@@ -523,12 +678,49 @@ async function setup(ctx) {
     const r = gateCheckWrite(directory, filePath)
     if (r && r.block) throw new Error(r.block)
     if (r && r.notes) appendNotesToV2Result(event, r.notes)
+    const cue = firstTouchCue(directory)
+    if (cue) appendNotesToV2Result(event, [cue])
   })
+  registrations.push(registration)
+  // Deterministic memory delivery on v2 hosts that expose session hooks
+  // (1.18.x's hybrid v2 adapter does NOT — the v1 server() path above owns
+  // delivery there; this is future-proofing for full v2 hosts).
+  if (ctx.session && typeof ctx.session.hook === "function") {
+    try {
+      const compactReg = await ctx.session.hook("compaction", (event) => {
+        if (process.env.VIBEWEAVER_GATE === "off") return
+        const root = findProjectRoot([directory])
+        if (!root || !event || !Array.isArray(event.messages)) return
+        event.messages.push({ role: "user", content: compactStateBundle(root) })
+        recordMemoryDelivery(root, "compactContext")
+      })
+      const contextReg = await ctx.session.hook("context", (event) => {
+        if (process.env.VIBEWEAVER_GATE === "off") return
+        const root = findProjectRoot([directory])
+        if (!root || !SESSION_MEM.pendingResume.has(root)) return
+        SESSION_MEM.pendingResume.delete(root)
+        if (event && Array.isArray(event.system)) {
+          event.system.push({ type: "text", text: compactStateBundle(root) })
+          recordMemoryDelivery(root, "compactResume")
+        }
+      })
+      registrations.push(compactReg, contextReg)
+    } catch {
+      /* partial host — v1 path covers delivery */
+    }
+  }
   const controller = new AbortController()
   void (async () => {
     try {
       for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
         try {
+          if (event && event.type === "session.compacted") {
+            const root = findProjectRoot([directory])
+            if (root) {
+              SESSION_MEM.pendingResume.add(root)
+              capBounded(SESSION_MEM.pendingResume)
+            }
+          }
           if (!v2EventIsIdle(event)) continue
           const r = gateIdleCheck(directory)
           if (r) {
@@ -549,10 +741,12 @@ async function setup(ctx) {
   })()
   return () => {
     controller.abort()
-    try {
-      if (registration && typeof registration.dispose === "function") void registration.dispose()
-    } catch {
-      /* disposal best-effort; the v2 host also scopes registrations to the plugin */
+    for (const reg of registrations) {
+      try {
+        if (reg && typeof reg.dispose === "function") void reg.dispose()
+      } catch {
+        /* disposal best-effort; the v2 host also scopes registrations to the plugin */
+      }
     }
   }
 }

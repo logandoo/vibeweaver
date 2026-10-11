@@ -2,6 +2,29 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-12: deterministic memory delivery — the harness carries the ledger
+
+**The gap.** The working note (§A7.15) is the task-state ledger, and cue
+triggers (§A7.16) deliver memory at edit time — but a compaction boundary had
+no delivery point: "keep the note fresh before you compact" was still a
+voluntary act, and the voluntary channel measures at zero
+(arXiv:2607.20972: 0 memory reads in 114 turns with a pre-seeded store; the
+same facts delivered harness-side arrived at 138/138 compact-resumes).
+
+**The mechanism.** The gate plugin now owns three delivery points, all
+verified live against opencode 1.18.35 before shipping: the working note is
+pushed into every compaction prompt (`experimental.session.compacting`),
+re-injected as a synthetic resume message on the first request after every
+`session.compacted` event, and pointed to by a one-line cue on the session's
+first gated write. Deliveries are counted in `.vibeweaver/state.json`
+(`memoryDeliveries`). A full-v2 host path (`ctx.session.hook`) is registered
+behind a guard for the next-generation plugin API.
+
+**Consequence for authors.** The harness delivers whatever is in
+`tests/working_note.md` verbatim at every boundary — the ledger must stay
+fresh at iteration/FAIL boundaries, and it now survives repeated compaction
+without the model remembering anything.
+
 ## 2026-10-09: stop-guard — false-stop resistance (§V12)
 
 **The gap.** A model declaring "context exhausted, stopping here" mid-task was

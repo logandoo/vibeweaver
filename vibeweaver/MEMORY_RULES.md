@@ -438,6 +438,18 @@ consulted: <memory topics read this task>
    incl. the physical gate) tolerate it. The A7.10 Memory Gate reports the
    resolution (check 6).
 
+**Deterministic delivery (wave21, harness-enforced):** the vibeweaver-gate
+plugin delivers the note for you — its content is pushed into the compaction
+prompt at every pre-summary (`experimental.session.compacting`), re-injected
+as a synthetic resume message on the first model request after every
+`session.compacted` event, and pointed to by a one-line cue on the session's
+first gated write. Delivery counts land in `.vibeweaver/state.json`
+(`memoryDeliveries`). Consequence for the author: **keep the note FRESH** —
+the harness delivers whatever is in the file verbatim; a stale ledger is
+delivered stale. The note must not depend on the model remembering to
+update it "before compaction" — update it at iteration/FAIL boundaries, and
+treat the boundary deliveries as guaranteed.
+
 **Relationship to C8 (outer loop):** the working note is ITEM-scoped state
 (dies when the backlog item completes); `tests/progress.txt` is the
 cross-item chronicle (append-only); `memory/` is cross-task curated. Three
