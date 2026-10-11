@@ -20,6 +20,15 @@ first gated write. Deliveries are counted in `.vibeweaver/state.json`
 (`memoryDeliveries`). A full-v2 host path (`ctx.session.hook`) is registered
 behind a guard for the next-generation plugin API.
 
+**r1 correction (independent review + live evidence).** The first iteration
+injected a `{role, content}` message through `experimental.chat.messages.transform`;
+that channel takes `{info, parts}[]` in 1.18.35, so the injection crashed the host
+the moment it fired (the "verified" probe runs had in fact ended in UnknownError).
+The resume delivery now rides `experimental.chat.system.transform` (session-keyed,
+`output.system` string array) and the v1 event envelope reads `properties`; final
+live run: 5 compact-context + 4 compact-resume deliveries, zero errors, task
+completed.
+
 **Consequence for authors.** The harness delivers whatever is in
 `tests/working_note.md` verbatim at every boundary — the ledger must stay
 fresh at iteration/FAIL boundaries, and it now survives repeated compaction
