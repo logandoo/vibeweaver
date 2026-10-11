@@ -166,7 +166,7 @@ function stallObservation(root, file) {
         st = { ops: [] }
       }
     }
-    if (!st || typeof st !== "object") st = {}
+    if (!st || typeof st !== "object" || Array.isArray(st)) st = {}
     if (!Array.isArray(st.ops)) st.ops = []
     st.ops.push({ f: file, p: countPasses(root), t: Date.now() })
     if (st.ops.length > MAX_OPS) st.ops = st.ops.slice(-MAX_OPS)
@@ -382,8 +382,8 @@ const MEMORY_BUNDLE_MAX = 4096
 const MEMORY_STATE_CAP = 500
 
 const SESSION_MEM = {
-  pendingResume: new Set(), // project roots: a compaction happened, inject on next transform
-  firstCue: new Set(), // project roots: session-start pointer already delivered
+  pendingResume: new Set(), // sessionIDs: a compaction happened, inject on that session's next system transform
+  firstCue: new Set(), // `${root}:${sessionID}`: session-start pointer already delivered
 }
 
 function capBounded(set) {
@@ -572,13 +572,15 @@ function v2EventIsIdle(event) {
 }
 
 // Session-start proxy: exactly one resume pointer per project per process.
-function firstTouchCue(directory) {
+function firstTouchCue(directory, sessionID) {
   try {
     const root = findProjectRoot([directory])
-    if (!root || SESSION_MEM.firstCue.has(root)) return null
+    if (!root) return null
+    const key = `${root}:${sessionID || "(session)"}`
+    if (SESSION_MEM.firstCue.has(key)) return null
     const note = resumeCueNote(root)
     if (!note) return null
-    SESSION_MEM.firstCue.add(root)
+    SESSION_MEM.firstCue.add(key)
     capBounded(SESSION_MEM.firstCue)
     recordMemoryDelivery(root, "sessionCue")
     return note
@@ -601,7 +603,7 @@ async function server({ client, directory }) {
           output.output = (output.output ? output.output + "\n" : "") + note
         }
       }
-      const cue = firstTouchCue(directory)
+      const cue = firstTouchCue(directory, input && input.sessionID)
       if (cue) output.output = (output.output ? output.output + "\n" : "") + cue
     },
     "experimental.session.compacting": async (input, output) => {
@@ -616,14 +618,16 @@ async function server({ client, directory }) {
         /* delivery must never break compaction */
       }
     },
-    "experimental.chat.messages.transform": async (input, output) => {
+    "experimental.chat.system.transform": async (input, output) => {
       if (process.env.VIBEWEAVER_GATE === "off") return
+      const sid = input && typeof input.sessionID === "string" ? input.sessionID : null
+      if (!sid || !SESSION_MEM.pendingResume.has(sid)) return
       const root = findProjectRoot([directory])
-      if (!root || !SESSION_MEM.pendingResume.has(root)) return
-      SESSION_MEM.pendingResume.delete(root)
+      if (!root) return
       try {
-        if (Array.isArray(output.messages)) {
-          output.messages.push({ role: "user", content: compactStateBundle(root) })
+        if (Array.isArray(output.system)) {
+          output.system.push(compactStateBundle(root))
+          SESSION_MEM.pendingResume.delete(sid) // consume only after a successful push (I2)
           recordMemoryDelivery(root, "compactResume")
         }
       } catch {
@@ -632,9 +636,11 @@ async function server({ client, directory }) {
     },
     event: async ({ event }) => {
       if (event && event.type === "session.compacted") {
-        const root = findProjectRoot([directory])
-        if (root) {
-          SESSION_MEM.pendingResume.add(root)
+        // v1 event envelope carries `properties`; v2 uses `data` — accept both
+        const payload = (event.data || event.properties) || {}
+        const sid = typeof payload.sessionID === "string" ? payload.sessionID : null
+        if (sid) {
+          SESSION_MEM.pendingResume.add(sid)
           capBounded(SESSION_MEM.pendingResume)
         }
         return
@@ -682,42 +688,21 @@ async function setup(ctx) {
     if (cue) appendNotesToV2Result(event, [cue])
   })
   registrations.push(registration)
-  // Deterministic memory delivery on v2 hosts that expose session hooks
-  // (1.18.x's hybrid v2 adapter does NOT — the v1 server() path above owns
-  // delivery there; this is future-proofing for full v2 hosts).
-  if (ctx.session && typeof ctx.session.hook === "function") {
-    try {
-      const compactReg = await ctx.session.hook("compaction", (event) => {
-        if (process.env.VIBEWEAVER_GATE === "off") return
-        const root = findProjectRoot([directory])
-        if (!root || !event || !Array.isArray(event.messages)) return
-        event.messages.push({ role: "user", content: compactStateBundle(root) })
-        recordMemoryDelivery(root, "compactContext")
-      })
-      const contextReg = await ctx.session.hook("context", (event) => {
-        if (process.env.VIBEWEAVER_GATE === "off") return
-        const root = findProjectRoot([directory])
-        if (!root || !SESSION_MEM.pendingResume.has(root)) return
-        SESSION_MEM.pendingResume.delete(root)
-        if (event && Array.isArray(event.system)) {
-          event.system.push({ type: "text", text: compactStateBundle(root) })
-          recordMemoryDelivery(root, "compactResume")
-        }
-      })
-      registrations.push(compactReg, contextReg)
-    } catch {
-      /* partial host — v1 path covers delivery */
-    }
-  }
+  // v2 memory delivery: intentionally NOT registered here. The shipped
+  // @opencode-ai/plugin v2 context has no session domain (verified
+  // 1.18.35), and 1.18.x's hybrid loader delivers through the v1 hooks
+  // above. Register compact/resume hooks in a guarded block only once a
+  // real v2 host exposes them (do not ship guessed shapes — wave21 r1).
   const controller = new AbortController()
   void (async () => {
     try {
       for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
         try {
           if (event && event.type === "session.compacted") {
-            const root = findProjectRoot([directory])
-            if (root) {
-              SESSION_MEM.pendingResume.add(root)
+            const payload = (event.data || event.properties) || {}
+            const sid2 = typeof payload.sessionID === "string" ? payload.sessionID : null
+            if (sid2) {
+              SESSION_MEM.pendingResume.add(sid2)
               capBounded(SESSION_MEM.pendingResume)
             }
           }

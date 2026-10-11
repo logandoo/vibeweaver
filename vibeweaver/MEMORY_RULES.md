@@ -438,17 +438,19 @@ consulted: <memory topics read this task>
    incl. the physical gate) tolerate it. The A7.10 Memory Gate reports the
    resolution (check 6).
 
-**Deterministic delivery (wave21, harness-enforced):** the vibeweaver-gate
-plugin delivers the note for you — its content is pushed into the compaction
-prompt at every pre-summary (`experimental.session.compacting`), re-injected
-as a synthetic resume message on the first model request after every
-`session.compacted` event, and pointed to by a one-line cue on the session's
-first gated write. Delivery counts land in `.vibeweaver/state.json`
-(`memoryDeliveries`). Consequence for the author: **keep the note FRESH** —
-the harness delivers whatever is in the file verbatim; a stale ledger is
-delivered stale. The note must not depend on the model remembering to
-update it "before compaction" — update it at iteration/FAIL boundaries, and
-treat the boundary deliveries as guaranteed.
+**Deterministic delivery (wave21, harness-side, best-effort):** the
+vibeweaver-gate plugin delivers the note for you — its content is pushed into
+the compaction prompt at every pre-summary (`experimental.session.compacting`),
+re-injected on that session's next model request after every
+`session.compacted` event (system transform, session-keyed — verified live on
+opencode 1.18.35), and pointed to by a one-line cue on the session's first
+gated write. Delivery counts land in `.vibeweaver/state.json`
+(`memoryDeliveries`). These channels are host features and degrade quietly
+where absent — treat them as reliable when present, never as a license to
+skip the note discipline. Consequence for the author: **keep the note FRESH**
+— the harness delivers whatever is in the file verbatim; a stale ledger is
+delivered stale. Update it at iteration/FAIL boundaries rather than relying
+on "remember before compaction".
 
 **Relationship to C8 (outer loop):** the working note is ITEM-scoped state
 (dies when the backlog item completes); `tests/progress.txt` is the
