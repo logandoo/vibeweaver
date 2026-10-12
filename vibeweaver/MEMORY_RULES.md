@@ -445,7 +445,8 @@ re-injected on that session's next model request after every
 `session.compacted` event (system transform, session-keyed — verified live on
 opencode 1.18.35), and pointed to by a one-line cue on the session's first
 gated write. Delivery counts land in `.vibeweaver/state.json`
-(`memoryDeliveries`). These channels are host features and degrade quietly
+(`memoryDeliveries`); a harness-owned snapshot (`.vibeweaver/memory-snapshot.json`)
+keeps boundary delivery working even if the note file itself disappears mid-task. These channels are host features and degrade quietly
 where absent — treat them as reliable when present, never as a license to
 skip the note discipline. Consequence for the author: **keep the note FRESH**
 — the harness delivers whatever is in the file verbatim; a stale ledger is

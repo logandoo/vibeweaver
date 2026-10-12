@@ -10,6 +10,8 @@
 
 **r1 修正（独立评审 + 实测证据）。** 初版经 `experimental.chat.messages.transform` 注入 `{role, content}` 消息；1.18.35 该通道实际吃 `{info, parts}[]`，注入触发即崩宿主（此前"已验证"的探针运行实为 UnknownError 收场）。resume 投递改走 `experimental.chat.system.transform`（按会话键控、`output.system` 字符串数组），v1 事件信封读 `properties`；终验：5 次 compact-context + 4 次 compact-resume 投递、零错误、任务完成。
 
+**r2（wave24）：harness 快照。** 边界投递在源文件中途消失后依然生效：插件保留有界副本（`.vibeweaver/memory-snapshot.json`），`tests/working_note.md` 消失后从快照投递并明确标注来源。删源实测：第 3 步后删文件、5 次压缩会话投递 5/5（compat D8 回归锁定）。
+
 **对作者的含义。** harness 会在每个边界原样投递 `tests/working_note.md` 的内容——账本必须在迭代/FAIL 边界保持新鲜；账本从此在多次压缩下存活，不再依赖模型记住任何事。
 
 ## 2026-10-09: stop-guard —— 假停防线（§V12）

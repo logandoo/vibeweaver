@@ -29,6 +29,13 @@ The resume delivery now rides `experimental.chat.system.transform` (session-keye
 live run: 5 compact-context + 4 compact-resume deliveries, zero errors, task
 completed.
 
+**r2 (wave24): harness snapshot.** Boundary delivery now survives the source
+file disappearing mid-task: the plugin keeps a bounded copy
+(`.vibeweaver/memory-snapshot.json`) and delivers from it once
+`tests/working_note.md` is gone, with an explicit provenance marker. Verified
+under an externally-deleted-source run: 5/5 deliveries in a 5-compaction
+session with the note deleted after step 3 (compat D8 regression).
+
 **Consequence for authors.** The harness delivers whatever is in
 `tests/working_note.md` verbatim at every boundary — the ledger must stay
 fresh at iteration/FAIL boundaries, and it now survives repeated compaction

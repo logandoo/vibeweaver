@@ -397,11 +397,57 @@ function workingNoteOf(root) {
   return safeRead(path.join(root, "tests", "working_note.md")).replace(/\r\n/g, "\n")
 }
 
+const SNAPSHOT_FILE = "memory-snapshot.json"
+
+// Harness-owned copy of the working note (wave24): delivery must survive the
+// source file disappearing. Snapshot is refreshed whenever the source exists;
+// once the source is gone the snapshot IS the memory (the paper's
+// deleted-fixture regime made locally testable).
+function snapshotWorkingNote(root) {
+  try {
+    const rel = path.join("tests", "working_note.md")
+    const text = workingNoteOf(root)
+    if (!text.trim()) return
+    const p = path.join(root, STATE_DIR, SNAPSHOT_FILE)
+    if (!existsSync(path.join(root, STATE_DIR))) mkdirSync(path.join(root, STATE_DIR), { recursive: true })
+    const tmp = p + ".tmp"
+    writeFileSync(tmp, JSON.stringify({ rel, text: text.slice(0, MEMORY_BUNDLE_MAX), t: Date.now() }))
+    renameSync(tmp, p)
+  } catch {
+    /* snapshot is best-effort; delivery still works while the file lives */
+  }
+}
+
+function snapshotTextOf(root) {
+  try {
+    const p = path.join(root, STATE_DIR, SNAPSHOT_FILE)
+    if (!existsSync(p)) return ""
+    const d = JSON.parse(readFileSync(p, "utf8"))
+    return typeof d.text === "string" ? d.text : ""
+  } catch {
+    return ""
+  }
+}
+
 // The delivered bundle: working note verbatim (bounded) + resume rule. With
 // no note, deliver the create instruction instead — the boundary is exactly
 // the moment the ledger matters most.
 function compactStateBundle(root) {
-  const note = workingNoteOf(root).trim()
+  let note = workingNoteOf(root).trim()
+  let fromSnapshot = false
+  if (note) {
+    snapshotWorkingNote(root)
+  } else {
+    note = snapshotTextOf(root).trim()
+    fromSnapshot = !!note
+  }
+  if (note && fromSnapshot) {
+    return [
+      "VIBEWEAVER WORKING-STATE (harness snapshot — the source tests/working_note.md is no longer present; this copy is authoritative):",
+      note.slice(0, MEMORY_BUNDLE_MAX - 400),
+      "Resume rule: re-read tests/acceptance.md and the last 20 lines of tests/verification_log.md BEFORE the next edit; the working note lives in this harness snapshot now.",
+    ].join("\n")
+  }
   if (!note) {
     const acc = safeRead(path.join(root, "tests", "acceptance.md"))
     const capLine = (acc.split("\n").find((l) => l.includes("cap=5")) || "").trim()
@@ -580,6 +626,7 @@ function firstTouchCue(directory, sessionID) {
     if (SESSION_MEM.firstCue.has(key)) return null
     const note = resumeCueNote(root)
     if (!note) return null
+    snapshotWorkingNote(root) // capture before any deletion window
     SESSION_MEM.firstCue.add(key)
     capBounded(SESSION_MEM.firstCue)
     recordMemoryDelivery(root, "sessionCue")
