@@ -803,6 +803,35 @@ export function auditProject(opts) {
   }
 }
 
+// ---------------- release journal (append-only render) ----------------
+
+// A release line, once rendered into tests/gate_audit.md, must survive the
+// bounded state journal (RELEASES_CAP only bounds the STATE; the rendered
+// section is an audit trail — "never delete"). The writer merges the prior
+// render's release lines with the current state lines: union, dedupe by
+// exact line, chronological order (every line leads with its ISO timestamp,
+// so a lexical sort is chronological).
+const RELEASE_LINE = /^- \d{4}-\d{2}-\d{2}T[\d:.]+Z released:/
+
+export function mergeReleaseLines(existingText, stateLines = []) {
+  const seen = new Set()
+  const out = []
+  const add = (raw) => {
+    const line = String(raw == null ? "" : raw).trimEnd()
+    if (!line || seen.has(line)) return
+    seen.add(line)
+    out.push(line)
+  }
+  const text = typeof existingText === "string" ? existingText : ""
+  const section = text.split(/^## /m).find((s) => s.startsWith("Stale RED releases"))
+  if (section) {
+    for (const l of section.split("\n").slice(1)) if (RELEASE_LINE.test(l)) add(l)
+  }
+  for (const l of stateLines) add(l)
+  out.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+  return out
+}
+
 // ---------------- report ----------------
 
 export function buildReport(audit, sessionID, packets = [], footerLines = [], stopDebtLines = []) {

@@ -389,7 +389,7 @@ function loopRecoveryText(finding) {
 // ---------- audit machine (shared by the v1 + v2 adapters) ----------
 
 function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, capabilities }) {
-  const { auditProject, buildReport } = core
+  const { auditProject, buildReport, mergeReleaseLines } = core
   const caps = capabilities && typeof capabilities === "object" ? capabilities : {}
   const hasTelemetry = caps.telemetry === true
 
@@ -570,9 +570,21 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const packets = makePackets(audit, sess)
     const releases = Array.isArray(state.roots[root].redReleases) ? state.roots[root].redReleases : []
     const stopDebts = Array.isArray(state.roots[root].stopDebt) ? state.roots[root].stopDebt : []
-    const footer = releases.map(
-      (r) =>
-        `- ${new Date(r.ts).toISOString()} released: latched RED (BAD=${r.bad == null ? "?" : r.bad}, session ${r.from}) → cleared via ${r.reason} (via ${r.via}, by ${r.by})`
+    // Append-only render: the state journal is bounded (RELEASES_CAP), but the
+    // report's "never delete" section is an audit trail — merge the prior
+    // render's release lines with the current state lines (union + dedupe).
+    let priorReport = ""
+    try {
+      priorReport = readFileSync(path.join(root, "tests", AUDIT_FILE), "utf8")
+    } catch {
+      /* first run — no prior render */
+    }
+    const footer = mergeReleaseLines(
+      priorReport,
+      releases.map(
+        (r) =>
+          `- ${new Date(r.ts).toISOString()} released: latched RED (BAD=${r.bad == null ? "?" : r.bad}, session ${r.from}) → cleared via ${r.reason} (via ${r.via}, by ${r.by})`
+      )
     )
     const debtFooter = stopDebts.map(
       (d) => `- ${new Date(d.ts).toISOString()} stop-debt: ${d.kind} "${d.match}" — ${d.why} (session ${d.sessionID}) — §V12 false-stop; adjudicate in Tier-2 review`

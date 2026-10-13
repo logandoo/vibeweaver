@@ -14,7 +14,7 @@ import path from "node:path"
 
 const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
 const CORE_MODULE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
-const { auditProject, buildReport, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopGuardDecision, stopGuardPrompt } = await import(pathToFileURL(CORE_MODULE))
+const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopGuardDecision, stopGuardPrompt } = await import(pathToFileURL(CORE_MODULE))
 // Dual-compat module surface: current plugin default-exports { id, server, setup };
 // fall back to the legacy named export when testing an older copy.
 const auditModule = await import(pathToFileURL(AUDIT_MODULE))
@@ -1570,6 +1570,66 @@ async function tryWrite(plugin, root, relPath, sessionId) {
 }
 
 // =====================================================================
+// T33 — release journal: append-only render (2026-10-13)
+// A release line, once rendered into tests/gate_audit.md, must never leave
+// the report just because the bounded state journal (RELEASES_CAP) dropped
+// it — the section is an audit trail ("never delete"); the cap only bounds
+// state. The report writer merges the prior render with the current state.
+// =====================================================================
+{
+  const oldLine = "- 2026-10-09T11:16:08.184Z released: latched RED (BAD=11, session ses_old) → cleared via new-task (via write, by ses_old)"
+  const midLine = "- 2026-10-12T01:02:03.456Z released: latched RED (BAD=2, session ses_mid) → cleared via stale-session (via write, by ses_alt)"
+  const newLine = "- 2026-10-13T09:00:00.000Z released: latched RED (BAD=1, session ses_new) → cleared via ttl-expiry (via idle, by ses_new)"
+  const existing = [
+    "# Gate Audit — ses_x | 2026-10-13T00:00:00.000Z",
+    "AUDIT: BAD=0 UNCERTAIN=0 escalate=false",
+    "",
+    "## Stale RED releases (auto-cleared latches — audit trail, never delete)",
+    "",
+    midLine,
+    oldLine,
+    "",
+    "## Stop-debt (§V12 false-stop journal — advisory, Tier-2 adjudicates)",
+    "",
+    "- 2026-10-13T08:00:00.000Z stop-debt: claimed-stop \"done here\" — why (session ses_x) — §V12 false-stop; adjudicate in Tier-2 review",
+    "",
+  ].join("\n")
+
+  const m1 = mergeReleaseLines(existing, [newLine])
+  rec("T33a prior-render release line survives the state cap (union)", m1.includes(oldLine) && m1.includes(midLine) && m1.includes(newLine), `n=${m1.length}`)
+  const m2 = mergeReleaseLines(existing, [oldLine, newLine])
+  rec("T33b duplicate line is rendered once (dedupe)", m2.filter((l) => l === oldLine).length === 1 && m2.length === 3, `n=${m2.length}`)
+  const m3 = mergeReleaseLines(existing, [newLine])
+  rec(
+    "T33c union sorted by timestamp (oldest → newest)",
+    JSON.stringify(m3) === JSON.stringify([oldLine, midLine, newLine]),
+    m3.map((l) => l.slice(2, 12)).join(" ")
+  )
+  const m4 = mergeReleaseLines(existing, [])
+  rec("T33d non-release sections never leak into the journal", m4.length === 2 && m4.every((l) => /released:/.test(l)), `n=${m4.length}`)
+
+  // T33e — integration: a real release cycle over a planted prior render
+  const root33 = newFixture("t33-append-only")
+  write(root33, "tests/verification_log.md", "placeholder — no iter entries\n")
+  write(root33, "tests/gate_audit.md", existing)
+  const plugin33 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root33 })
+  const emit33 = (type, props) => plugin33.event({ event: { type, properties: props } })
+  await emit33("message.part.updated", { sessionID: "ses_t33_a", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  await emit33("message.part.updated", { sessionID: "ses_t33_a", part: { id: "t1", type: "text", text: "Verifier: mm-sensor [image]\n[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1" } })
+  await emit33("session.idle", { sessionID: "ses_t33_a" })
+  await emit33("message.part.updated", { sessionID: "ses_t33_b", part: { id: "k2", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  const released33 = (await tryWrite(plugin33, root33, "src/b.ts", "ses_t33_b")) === true
+  await emit33("message.part.updated", { sessionID: "ses_t33_b", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: direct read | Loop executed: no | Iterations: 0" } })
+  await emit33("session.idle", { sessionID: "ses_t33_b" })
+  const report33 = existsSync(path.join(root33, "tests", "gate_audit.md")) ? readFileSyncSafe(path.join(root33, "tests", "gate_audit.md")) : ""
+  rec(
+    "T33e integration: after a real release cycle the prior render's line is still in gate_audit.md",
+    released33 && report33.split(oldLine).length - 1 === 1 && /released: latched RED \(BAD=/.test(report33.split("## Stale RED releases")[1] || ""),
+    released33 ? (report33.includes(oldLine) ? "preserved once" : "LOST — the state cap dropped it from the render") : "release flow broke"
+  )
+}
+
+// =====================================================================
 // Calibration — real session transcripts (informational)
 // =====================================================================
 const calibIdx2 = process.argv.indexOf("--calib")
@@ -2036,7 +2096,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   // ---- v1 adapter integration: idle-triggered prompt, budget, arming, debt ----
   {
     const root27 = newFixture("t27-stopguard")
-    write(root27, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n")
+    write(root27, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n- working-note: created (fixture — active task)\n")
     write(root27, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
     const calls = { abort: 0, prompts: [], logs: [] }
     const plugin27 = await VibeweaverAudit({
