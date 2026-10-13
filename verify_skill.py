@@ -172,9 +172,9 @@ def main():
             fail("install.sh does not install %s" % doc)
     if "scripts/assert_artifacts.py" not in sh:
         fail("install.sh does not install scripts/assert_artifacts.py")
-    if "scripts/backlog_check.py" not in sh:
+    if 'cp "${SCRIPT_DIR}/scripts/backlog_check.py"' not in sh:
         fail("install.sh does not install scripts/backlog_check.py")
-    if "scripts/scan_secrets.py" not in sh:
+    if 'cp "${SCRIPT_DIR}/scripts/scan_secrets.py"' not in sh:
         fail("install.sh does not install scripts/scan_secrets.py")
     bat = (PAYLOAD / "install.bat").read_text(encoding="utf-8")
     for doc in INSTALLED_DOCS:

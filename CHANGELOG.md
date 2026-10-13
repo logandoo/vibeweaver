@@ -63,8 +63,8 @@ harness). A per-turn absolute ceiling (`LOOP_TURN_CEILING = 64 KB`) raises a
 `runaway` interrupt with its own corrective prompt, and punctuation-only suffix
 runs count once the wall itself passes 2 KB (separator rules and ASCII art stay
 clean). The `Stop it.` fix normalizes tail whitespace at scan entry, lowers the
-inline character-path gate to the ×4-of-32-char bar (128), and re-arms episodes
-on turn boundaries instead of requiring clean text.
+inline character-path context gate from 512 to 256 bytes (LOOP_CHAR_GATE_LINE),
+and re-arms episodes on turn boundaries instead of requiring clean text.
 
 **Verified.** RED-first in both waves (6 assertions watched failing in the
 `Stop it.` wave, 8 in the blind-spot wave); the existing T24k suite (28

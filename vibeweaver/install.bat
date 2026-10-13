@@ -45,7 +45,7 @@ for %%P in (vibeweaver-gate.js vibeweaver-audit.js) do (
 
 echo.
 echo [OK] vibeweaver skill installed to: %SKILLS_DIR%\
-echo      Files installed: 12
+echo      Files installed: 16
 echo      Plugins installed to: %USERPROFILE%\.config\opencode\plugins\
 echo      Restart OpenCode to activate.
 

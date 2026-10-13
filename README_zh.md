@@ -423,7 +423,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `VERIFICATION_UPGRADES.md`                          | §V1 FCV · §V2 测试完整性 · §V3 覆盖诚实 · §V4 对抗评审 · §V5 车道 · §V11 任务分类 + doc-skill 委托与 DOC-asset render 门                        |
 | `scripts/assert_artifacts.py`                       | 规范断言脚本，项目复制进 `tests/` 使用（19 组：产物存在性、证据完整性、诊断/声明 lint、secret scan、test-change guard、risk-tier、DOC-asset render 门、exec-check、任务分类一致性、working-note 生命周期） |
 | `scripts/mm_probe.py`                               | 行为化多模态自探针（COV-5 验证器选择）                                                                                           |
-| `scripts/scan_secrets.py`                           | 独立的 secret 扫描（§V7 完工清单）——扫变更波 diff 上的凭据样字符串                                                                      |
+| `scripts/scan_secrets.py`                           | 独立的 secret 扫描（断言第 14 组）——扫变更波 diff 上的凭据样字符串                                                                      |
 | `scripts/backlog_check.py`                          | backlog 账本守卫——任何没有执行测试行点名的 `passes: true` 判失败                                                                        |
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |
 | `vibeweaver-audit.js`                               | 三层机械审计器（Tier 0/1/2），会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈                                                                   |
