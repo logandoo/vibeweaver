@@ -570,6 +570,47 @@ Measured against Anthropic's AI-Native SDLC playbook (2026-08-21) and its Deputy
 - **Benchmarked before/after**: deepseek-v4-flash, forced-injection A/B over the 16-task eval set (10 polyglot + 6 SWE-bench Lite) — pre-wave 15/16 vs post-wave **16/16**, with workflow-artifact adherence up 6/10 → 9/10 (single run, direction-only; raw data in `vibeweaver-eval/workspace/iteration-1/ab_logs/`).
 - Also: SKILL.md trimmed back under the 49 KB selftest cap (50,096 → 48,978 B) with zero binding-content loss (third-copy redundancy pointer-collapsed; gate-line template byte-identical).
 
+## 2026-08-23: verifier adaptivity — the model-native judge and the behavioral probe
+
+**The problem.** The old contract forced external media verification whenever
+mm-sensor was installed and banned the model's own vision outright (the
+self-grading prohibition). But a multimodal host model is a faster, cheaper
+judge of its own pages — and conversely, *any* model asked "does this page
+satisfy the criteria?" without being taught how to read it is unreliable:
+hallucinated layout, position bias, modality neglect, no way to abstain.
+
+**The mechanism** (SOTA grounding: MJ1 grounded verification chain / WebDevJudge
+rubric trees / Vision2Web / IRA / CUAAudit):
+
+- **`scripts/mm_probe.py` (stdlib-only behavioral probe).** Generates
+  `tests/probe_vision.png` carrying a random token + color block; the model
+  Reads it and runs `--check` — capability is proven by actually extracting
+  pixels, never self-declared (a text-only model's Read errors out → an honest
+  FAIL).
+- **Verifier decision tree (COV-5 / §A4.1 Step 0 rewritten).** ① self-probe PASS
+  → `Verifier: model-native [image]`, and the model grades its own screenshots
+  under the new protocol; ② FAIL + mm-sensor installed → the original mm-sensor
+  flow (`vision.py --probe` + `--detail high`; self-grading stays a violation
+  there); ③ neither → `direct read` (screenshots stop being the evidence
+  channel; DOM/log inspection carries verification).
+- **§A4.1.1 Visual Verification Protocol (model-native mode).**
+  Observation-first (describe regions before judging) → atomic per-criterion
+  claims → claim↔observation cross-check → DOM/log cross-check mandatory for
+  state-dependent criteria → **UNCERTAIN=FAIL** abstention (no guessing) → a
+  per-criterion verdict table ("looks fine" is not a verdict).
+- Gate line gains the `model-native [image]` mode; self-audit rule 2, the
+  pre-output checklist and audit C12 track all three states; mm-sensor's Read-ban applies only while
+  mm-sensor is the verifier (the probe image is the exception).
+- **Sync.** vibeweaver-mini §3 probe tree; mm-sensor description/rules carry the
+  scoped exception; TESTING_PROTOCOLS Step 0a runs the probe before any
+  mm-sensor invocation; install.sh/.bat ship mm_probe.py.
+
+**Verified.** Probe PASS and FAIL paths exercised against a real text model
+(Read error → honest FAIL); full-repo consistency grep; all four copies
+(system install / dev tree / open-source snapshot / this repo) diffed clean.
+SKILL.md stood at 50,096 B — over the 49 KB selftest cap — and the 08-28 wave
+trimmed it back under the cap.
+
 ## 2026-08-21: session-scoped RED latch + audit delivery wave
 
 The 08-19 auditor had a structural wart: a truncated session could leave `BLOCKING=yes` latched red for the whole project, released only at session end — and the test-dir exemption matched only top-level `tests/`, so nested `dev/tests/` golden files deadlocked too. Two live projects hit exactly this this week. This wave fixes the latch and delivers the payload to every copy:

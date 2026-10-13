@@ -80,6 +80,7 @@ function scaffoldComplete(root) {
     "- Baseline verified GREEN",
     "- iter 1 FAIL: criterion #2 (field missing) | diagnosis: validator ran before state hydrat | changed: src/form.ts",
     "- iter 2 PASS: all criteria (evidence: tests/shot.png, 6/6)",
+    "- working-note: created → distilled → deleted (fixture lifecycle)",
     "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
     "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
     "- final-run: --final — pass=19/fail=0",

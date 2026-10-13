@@ -281,6 +281,20 @@ A/B（强制注入；D-2 限定为 SKILL 文本非劣性）：ds 16 题 before 1
 - **修改前后 A/B 实测**：deepseek-v4-flash 强制注入、16 题评测集（10 polyglot + 6 SWE-bench Lite）——修改前 15/16，修改后 **16/16**；工作流产物遵循度 6/10 → 9/10（单轮方向性结果；原始数据在 `vibeweaver-eval/workspace/iteration-1/ab_logs/`）。
 - 另：SKILL.md 修剪回 49KB 自测线内（50,096 → 48,978 B，零绑定内容损失——第三重冗余指针化，gate-line 模板字节未动）。
 
+## 2026-08-23: 验证器自适应 —— 多模态模型原生裁判 + 行为探针
+
+**问题。** 旧版只要装了 mm-sensor 就强制走外部媒体验证，禁用模型自身视觉（self-grading 禁令）。但运行模型本身若支持多模态，直接用它做视觉裁判更快更省；而反过来，**任何模型**（含多模态模型）在拿到「怎么读页面」的指令前，凭一句「页面是否满足要求」做整体判定极其不可靠（幻觉、位置偏差、模态忽视、无法弃权）。
+
+**机制**（SOTA 依据：MJ1 grounded verification chain / WebDevJudge rubric trees / Vision2Web / IRA / CUAAudit）：
+
+- **新增 `scripts/mm_probe.py`（stdlib-only 行为探针）**：生成含随机 token+色块的 `tests/probe_vision.png`，模型先 Read 再 `--check` —— 能力由「实际读出像素」证明，**禁止自我声称**（纯文本模型 Read 会直接报错 → 诚实 FAIL）。
+- **验证器决策树（COV-5 / §A4.1 Step 0 重写）**：① 自探针 PASS → `Verifier: model-native [image]`，模型用自己的视觉按新协议评审判图；② FAIL + 有 mm-sensor → 原 mm-sensor 流程（`vision.py --probe` + `--detail high`，mm-sensor 模式下 self-grading 仍是违规）；③ 都没有 → `direct read`（此时截图不是证据通道，以 DOM/日志核验为主）。
+- **新增 §A4.1.1 Visual Verification Protocol（model-native 模式的强制裁判协议）**：观察前置（先逐区域描述再判定）→ 逐标准拆原子声明 → 声明↔观察逐条核对 → **状态类标准强制 DOM/日志交叉核验**（像素证明不了状态）→ **UNCERTAIN=FAIL 弃权制**（禁止猜测）→ 逐标准裁决表（「合格」两个字不算裁决，必须有引证观察/DOM 事实）。
+- gate line 增加 `model-native [image]` 模式；自审规则 2、预输出清单、审计 C12 同步三态；mm-sensor 的 Read 禁令仅在 mm-sensor 为验证器时适用（探针图 Read 例外）。
+- **配套同步**：vibeweaver-mini §3 探针决策树；mm-sensor description/rules 加工作流作用域例外；TESTING_PROTOCOLS Step 0a 加优先级声明（探针先于任何 mm-sensor 调用）；install.sh/bat 增加 mm_probe.py。
+
+**验证。** `scripts/mm_probe.py` PASS/FAIL 两路实测通过（含真实文本模型 Read 报错 → FAIL 路径）；全库 grep 一致性核对完成；四份副本（系统安装 / dev 树 / open-source 快照 / 本仓库）diff 一致。SKILL.md 50096B——超 49KB 自测线（08-28 波修剪回 48978B 线内）。
+
 ## 2026-08-21：会话级 RED 锁存 + 审计交付波次
 
 08-19 的审计器有个结构性隐患：会话被截断后，`BLOCKING=yes` 会针对整个项目落下 RED 锁存，只有到会话结束才释放——而且测试目录豁免只匹配顶层 `tests/`，嵌套的 `dev/tests/` golden 文件也会被锁死。本周就有两个真实项目撞上了这个死锁。这一波修复锁存，并把 payload 交付到所有副本：
