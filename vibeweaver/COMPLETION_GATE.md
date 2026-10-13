@@ -428,7 +428,8 @@ face value (no artifact demanded). Disable per-run: `VIBEWEAVER_AUDIT=off`.
 
 **Loop-guard (degenerate-generation watchdog):** the same text observation
 channel also watches for runaway output, independent of the artifact audit.
-Three shapes, detected the moment they emerge from the assistant text stream:
+Five shapes, detected the moment they emerge from the assistant text stream
+(reasoning parts ride the same machinery in their own buffer and episode budget):
 (a) an identical line-group repeating at the tail — period derived from the
 data (any block period up to 640 lines within the 96KB tail window, i.e.
 realistic code up to ~50 chars/line), multi-line groups at ≥3×; a single

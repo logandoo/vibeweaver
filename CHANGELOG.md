@@ -41,6 +41,38 @@ session with the note deleted after step 3 (compat D8 regression).
 fresh at iteration/FAIL boundaries, and it now survives repeated compaction
 without the model remembering anything.
 
+## 2026-10-10: loop-guard hardening — reasoning channel, counter walls, per-turn ceiling, punctuation walls (and the `Stop it.` tail-noise fix)
+
+**The gap.** The loop-guard watched the content stream and the tool channel, but
+four shapes slipped past: a degeneration wall living entirely in the reasoning
+channel (the content stream empty), a counter wall — hundreds of tail lines of
+identical non-digit shape whose digits step +1 (`The backlog item {i} …`; the
+largest single class in a published 813-sample taxonomy of repetition walls,
+46%) — a tail-noise variant of the `Stop it.` wall (a trailing blank line or
+stray spaces hid the seed, blinding the character-period path), and
+punctuation-only walls (`!` ×4000). No absolute bound existed for shapes no
+periodic detector can see.
+
+**The mechanism.** The text observer generalizes to `text|reasoning` parts —
+reasoning rides its own buffer and episode budget, so a wall in a reasoning-only
+stream is no longer invisible. A shape-run detector flags ≥16 consecutive tail
+lines with identical non-digit shape and strict +1 stepping per digit run;
+strictness is the false-positive bar (timestamp logs and `page N of M` stay
+clean — a naive digit-strip had killed legitimate bulk output in a sibling
+harness). A per-turn absolute ceiling (`LOOP_TURN_CEILING = 64 KB`) raises a
+`runaway` interrupt with its own corrective prompt, and punctuation-only suffix
+runs count once the wall itself passes 2 KB (separator rules and ASCII art stay
+clean). The `Stop it.` fix normalizes tail whitespace at scan entry, lowers the
+inline character-path gate to the ×4-of-32-char bar (128), and re-arms episodes
+on turn boundaries instead of requiring clean text.
+
+**Verified.** RED-first in both waves (6 assertions watched failing in the
+`Stop it.` wave, 8 in the blind-spot wave); the existing T24k suite (28
+assertions) held green through the second wave; mutation sweep 41/41; the
+fixture suite grew from 166 to 219 checks. Dual + scoped adversarial review ran
+on both waves (18 findings fixed in the `Stop it.` wave). The README's
+loop-guard sections now describe the shipped behavior.
+
 ## 2026-10-09: stop-guard — false-stop resistance (§V12)
 
 **The gap.** A model declaring "context exhausted, stopping here" mid-task was

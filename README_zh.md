@@ -54,12 +54,12 @@ coding agent 在真实项目上出问题，包括但不限于把文件删了、�
 - **脚本化生命周期**：构建与服务启停一律走 `script/` 目录下的脚本。裸 `npm run build`、`vite`、`npm start`、`uvicorn` 全部禁止。停服务必须用 `.pid` 文件模式；在共享机器上 `pkill -f "uvicorn"` 会顺带杀掉同事的服务。
 - **先研究再动手**：任何任务的第一步都是拆解问题（有不清楚的就停下来问，一次一个问题，别猜），并联网检索现成方案（exa MCP + Context7），评估至少两种方案再写代码。除非没有网络或只是琐碎的 typo、配置修改。背后的哲学：太阳底下没有新鲜事。如果真搜遍全网都找不到先例，那说明这活儿新到不该由我们干。
 - **项目记忆**：opencode 没有原生记忆系统，每场会话都是从头开始的新脑子。vibeweaver 用文件和规则硬造了一个：索引 + 主题文件、信任分级（⛔ 禁止 / ❌ 失败 / ✅ 已验证 / ⏳ 未验证）、修 bug 的状态机。完整机制见下文。
-- **日志与教训之间还有一层工作记忆**：append-only 日志回答「发生了什么」，策展的 memory/ 回答「这个项目什么是真的」，而跨迭代的任务还需要「此刻什么成立」——`tests/working_note.md` 保存活的假设账本（已确认 / 存疑 / 已排除 / 仍开放）、关键 file:line 发现、本任务死胡同、下一动作。每次更新整体重写，任何重入（compaction/新会话）第一个读它，任务结束蒸馏进 memory/ 并删除——删除本身由收官 `--final` 跑机器检查。
+- **日志与教训之间还有一层工作记忆**：append-only 日志回答「发生了什么」，策展的 memory/ 回答「这个项目什么是真的」，而跨迭代的任务还需要「此刻什么成立」——`tests/working_note.md` 保存活的假设账本（已确认 / 存疑 / 已排除 / 仍开放）、关键 file:line 发现、本任务死胡同、下一动作。每次更新整体重写，任何重入（compaction/新会话）第一个读它，任务结束蒸馏进 memory/ 并删除——删除本身由收官 `--final` 跑机器检查。gate 插件负责把这份账本押过上下文丢失：笔记被推进每次压缩 prompt（`experimental.session.compacting`）、在 `session.compacted` 事件后的首个请求重注入（system transform，按会话键控）、并在会话首次受门管的写入时以一行指针提示——投递计数落 `.vibeweaver/state.json`（`memoryDeliveries`），另有 harness 侧快照，笔记文件中途消失也不断供。
 - **记忆在该到的时刻自己到场**：主题文件可在 frontmatter 里声明 `triggers:` 路径 glob；agent 编辑命中文件时，门禁插件把一行提示注进工具结果——哪怕门禁正红、哪怕是任务第一次写入。投递是确定性的：被翻阅零次的记忆与不存在的记忆无从区分。glob 有上限（≤2 个 `**` 组、≤200 字符、拒控制字符）——记忆文本会被编译成正则，复杂度上限就是注入边界；字面前缀已不存在的 glob 会让证据检查直接失败，而不是悄悄永不触发。
 - **backlog 的外层循环**：给它一个队列就行——`tests/backlog.json`（一项一个 `passes` 标志）、只增不改的 `tests/progress.txt` 编年、每项 fresh context、每轮一件小任务、绿了才提交（循环的免疫系统）、显式停止信号（COMPLETE / BLOCKED / DECIDE / 预算——耗尽是续杯不是失败）、先监督跑再有限批跑。`scripts/backlog_check.py` 会把任何没有执行测试行点名的 `passes: true` 判为失败。
 - **执行层的牙齿，保持诚实**：证据检查器连日志本身也 lint（diagnosis 是占位词的 FAIL 不算一轮迭代）；会话审计要求收官 `--final` 跑在日志里留下行（否则这些检查从未被证明跑过）；stall 观察员对同一停滞签名只报一次、新 PASS 才重新武装——会刷屏的警告只会训练出麻木。
 - **循环有上限**：每个验证循环都受约束：单个子问题最多 `cap=5` 次迭代，`stall=3×`（同一标准连续失败三次就停下、换方向、把死路记进 memory）。
-- **退化输出看护（loop-guard）**：模型自己的生成跑飞时——同一段反复复读、无意义的裸 echo 序列（`1,2,…,179`、`a,b,…,kf`），有无换行都覆盖——审计插件从文本流里即时识别，打断会话并投递纠正提示（一段发作干预一次、每会话限次；`VIBEWEAVER_LOOPGUARD=off` 关闭）。它还盯着第二条通道：工具调用。模型宣告要调工具（"use Read now"）却连发裸 `echo "…"` 旁白标记、始终不真正调用时，同样会被打断（连续 ≥4 个 no-op bash 调用；两通道各自独立的发作预算，互不挤占）。
+- **退化输出看护（loop-guard）**：模型自己的生成跑飞时——同一段反复复读、无意义的裸 echo 序列（`1,2,…,179`、`a,b,…,kf`）、counter 墙（≥16 行同形尾行、每个数字段严格 +1）、超 2KB 的纯标点墙，有无换行都覆盖——审计插件从文本流里即时识别（reasoning part 同样覆盖，各走独立预算），打断会话并投递纠正提示（一段发作干预一次、每会话限次；`VIBEWEAVER_LOOPGUARD=off` 关闭）。单 turn 输出超 64KB 还有绝对上限兜底。它还盯着第二条通道：工具调用。模型宣告要调工具（"use Read now"）却连发裸 `echo "…"` 旁白标记、始终不真正调用时，同样会被打断（连续 ≥4 个 no-op bash 调用；两通道各自独立的发作预算，互不挤占）。
 - **覆盖诚实，加一双独立的眼睛**：完工输出带一行 `[Coverage] criteria: N/M | unchecked: …`——查过的点名附证据，没查过的也点名：未查项永远不能被说成已完成，`UNVERIFIED` 格也洗不白成 `na`。当最强绿证是模型自写测试时，由全新 context 的复核者在不知道实现推理的情况下重跑检查。
 - **仪式经济学**：代码和绿测试先落地；memory 写入、评审包、决策长文在完工时从「每轮一行」的日志组装。每轮迭代的预算自检让限时任务收敛到交付物，而不是死在仪式中途；安全规则常驻，调试/评审协议只在其触发点才装载。
 - **行动分诊与状态修订**：每个计划动作在执行前标注 critical/exploratory/noisy；噪音先改写、不执行。证据否决假设时，承载它的工件就地重写——在过时计划旁边追加一条更正，只会继续污染后续决策（AEWM 失效模式的解药）。
@@ -317,7 +317,7 @@ flowchart TD
 
 打出 BAD 就落下一个**会话级**的 RED 锁存，拦住 agent 的写入，直到证据真的补齐。正因为锁存是会话级的，一个被截断的会话永远不会把项目锁死：换会话、TTL 到期、旧格式状态迁移，三条路都会自动释放——而且锁存会话自己开始**下一个任务**时也会自释（按协议重写 `tests/acceptance.md` 是新任务的第一步，而 `tests/` 在锁存下永远可写），多波会话永远不需要其他会话、TTL 等待或关闭环境变量才能继续干活。签名未变化的陈旧缓冲重审既刷新不了活锁存的时间戳、也复活不了已释放的锁存——新的完成声明则会诚实地重臂牙齿。每次释放都记进日志并出现在审计报告里（机制详见 [CHANGELOG_zh.md](CHANGELOG_zh.md) 的 2026-08-21 与 2026-10-02 两节）。违禁原始命令（C8）每个项目只标记一次——锁存永远能在下一次干净审计后自解，不会被不可变的历史命令永久钉住。
 
-同一观察通道还跑着 **loop-guard**：对助手文本流做有界尾窗扫描，识别跑飞的生成——尾部同一行组复读（块周期按数据推导，≤640 行；多行块 ≥3×，单行 ≥4×，纯标点分隔线豁免）、末尾连续 ≥12 个裸 token 步长 +1（整数或双十进制字母）、无换行流的字符级周期（≥32 字符单元复读 ≥4×）。命中后打断会话（v1 `session.abort` / v2 `session.interrupt({continue:false})`）并投递指出具体模式的纠正提示；一段发作干预一次，每会话至多两次，之后的发作只记日志；编号列表（`1. 步骤`）这类「看着像序列」的正常文本不会触发。
+同一观察通道还跑着 **loop-guard**：对助手文本流做有界尾窗扫描，识别跑飞的生成——尾部同一行组复读（块周期按数据推导，≤640 行；多行块 ≥3×，单行 ≥4×，纯标点分隔线豁免）、末尾连续 ≥12 个裸 token 步长 +1（整数或双十进制字母）、无换行流的字符级周期（≥32 字符单元复读 ≥4×）、counter 墙（≥16 行同形（非数字部分相同）尾行、每数字段严格 +1——「严格」正是时间戳日志与 `page N of M` 保持干净的边界）、纯标点墙自 ≥2KB 起命中。同一套机械还盯着 reasoning 通道（独立缓冲与发作预算：只在 reasoning 里发作的墙不再隐形），扫描入口对尾空白归一（以换行或多余空格收尾的复读不再藏住自己的种子）。命中后打断会话（v1 `session.abort` / v2 `session.interrupt({continue:false})`）并投递指出具体模式的纠正提示；一段发作干预一次（干净文本或新 turn 重新武装），每会话至多两次，之后的发作只记日志；单 turn 绝对上限 64KB 触发带独立纠正文案的 runaway 干预；编号列表（`1. 步骤`）这类「看着像序列」的正常文本不会触发，分隔线与 ASCII art 保持干净。
 
 守卫还看着**工具通道**——更阴的失效就住在那里：意图-动作脱节。模型宣告要调工具（"use Read now"、"final"、"grading"），实际发的却是裸 `echo "…"` bash 调用：每次 exit 0、字面各异、文本检测器一个都看不见，因为循环根本没碰文本流。这里的检测是内容级而非字节级：字面量参数、无副作用的 `echo`/`printf`/`true`/`:` 算 no-op，连续 ≥4 个相异 no-op bash 调用触发同一打断。同一工具 part 的流式重观测按 part id 去重、仅状态观测遮不住 run、被截断的命令会断开 run（截断能伪造字面量）。两通道各自的发作 arming 与预算独立——文本退化发作永远吞不掉工具通道的那次打断。纠正提示要求真正发出工具调用（或在判据确已全过时输出完成产物），并在任何完工声明前写入 `- stall: noop-bash …` 日志。如实划界：裸字面量 run 有机械捕捉；语义级 no-op（`sleep`、`ls`）与 echo/read 交错振荡是记录在案的缺口，不是声明覆盖。
 
@@ -421,12 +421,14 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `WORKFLOWS_EXTENDED.md`                             | §M 双模式 + Class-E 清单 + ADR/PAUSED 格式 · C4 审计 / C5 部署 / C6 运维 / C7 非 Web / S1 spike · 项目画像参照                       |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`           | 项目记忆子系统                                                                                                          |
 | `VERIFICATION_UPGRADES.md`                          | §V1 FCV · §V2 测试完整性 · §V3 覆盖诚实 · §V4 对抗评审 · §V5 车道 · §V11 任务分类 + doc-skill 委托与 DOC-asset render 门                        |
-| `scripts/assert_artifacts.py`                       | 规范断言脚本，项目复制进 `tests/` 使用（18 组：产物存在性、证据完整性、诊断/声明 lint、secret scan、test-change guard、risk-tier、DOC-asset render 门、exec-check） |
+| `scripts/assert_artifacts.py`                       | 规范断言脚本，项目复制进 `tests/` 使用（19 组：产物存在性、证据完整性、诊断/声明 lint、secret scan、test-change guard、risk-tier、DOC-asset render 门、exec-check、任务分类一致性、working-note 生命周期） |
 | `scripts/mm_probe.py`                               | 行为化多模态自探针（COV-5 验证器选择）                                                                                           |
+| `scripts/scan_secrets.py`                           | 独立的 secret 扫描（§V7 完工清单）——扫变更波 diff 上的凭据样字符串                                                                      |
+| `scripts/backlog_check.py`                          | backlog 账本守卫——任何没有执行测试行点名的 `passes: true` 判失败                                                                        |
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |
 | `vibeweaver-audit.js`                               | 三层机械审计器（Tier 0/1/2），会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈                                                                   |
 | `scripts/vibeweaver-audit-core.js`                  | 纯裁决核心（可无头测试）                                                                                                     |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 166 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T32 锁存释放套件）/ 41 项变异检查，含锁存释放回归                                                    |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 219 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T32 锁存释放套件）/ 41 项变异检查，含锁存释放回归                                                    |
 | `install.sh` / `install.bat`                        | 安装脚本（skill 文件 + 两个插件）                                                                                            |
 
 ## 测试
@@ -436,7 +438,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 ```bash
 python3 verify_skill.py                     # 包完整性：payload、链接、标记、语法
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
-node vibeweaver/scripts/audit_selftest.mjs  # 166 项 fixture 检查（无校准数据时 T6 SKIP）
+node vibeweaver/scripts/audit_selftest.mjs  # 219 项 fixture 检查（无校准数据时 T6 SKIP）
 node vibeweaver/scripts/mutation_sweep.mjs  # 41 项变异，每项都必须被抓到
 ```
 

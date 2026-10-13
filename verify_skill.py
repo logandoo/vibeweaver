@@ -35,16 +35,16 @@ MARKERS = [
 PAYLOAD_FILES = [
     "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
-    "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md",
+    "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
     "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
     "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
-    "scripts/mm_probe.py",
+    "scripts/mm_probe.py", "scripts/backlog_check.py", "scripts/scan_secrets.py",
     "vibeweaver-gate.js", "vibeweaver-audit.js", "install.sh", "install.bat",
 ]
 INSTALLED_DOCS = [
     "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
-    "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md",
+    "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
 ]
 JS_PAYLOAD = [
     "vibeweaver-gate.js", "vibeweaver-audit.js", "scripts/vibeweaver-audit-core.js",
@@ -174,6 +174,8 @@ def main():
         fail("install.sh does not install scripts/assert_artifacts.py")
     if "scripts/backlog_check.py" not in sh:
         fail("install.sh does not install scripts/backlog_check.py")
+    if "scripts/scan_secrets.py" not in sh:
+        fail("install.sh does not install scripts/scan_secrets.py")
     bat = (PAYLOAD / "install.bat").read_text(encoding="utf-8")
     for doc in INSTALLED_DOCS:
         if doc not in bat:
@@ -182,6 +184,8 @@ def main():
         fail("install.bat does not install scripts\\assert_artifacts.py")
     if "scripts\\backlog_check.py" not in bat:
         fail("install.bat does not install scripts\\backlog_check.py")
+    if "scripts\\scan_secrets.py" not in bat:
+        fail("install.bat does not install scripts\\scan_secrets.py")
 
     # 9) plugin + helper script syntax (best effort — node optional locally, present in CI)
     node = shutil.which("node")

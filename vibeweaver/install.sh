@@ -25,6 +25,7 @@ FILES=(
     "MEMORY_RULES.md"
     "TESTING_PROTOCOLS.md"
     "WORKFLOWS_EXTENDED.md"
+    "VERIFICATION_UPGRADES.md"
 )
 
 if [[ ! -f "${SCRIPT_DIR}/scripts/assert_artifacts.py" ]]; then
@@ -56,6 +57,8 @@ echo "[OK] Installed: scripts/assert_artifacts.py"
 cp "${SCRIPT_DIR}/scripts/vibeweaver-audit-core.js" "${SKILLS_DIR}/scripts/vibeweaver-audit-core.js"
 cp "${SCRIPT_DIR}/scripts/backlog_check.py" "${SKILLS_DIR}/scripts/backlog_check.py"
 echo "[OK] Installed: scripts/backlog_check.py"
+cp "${SCRIPT_DIR}/scripts/scan_secrets.py" "${SKILLS_DIR}/scripts/scan_secrets.py"
+echo "[OK] Installed: scripts/scan_secrets.py"
 cp "${SCRIPT_DIR}/scripts/mm_probe.py" "${SKILLS_DIR}/scripts/mm_probe.py"
 echo "[OK] Installed: scripts/mm_probe.py"
 echo "[OK] Installed: scripts/vibeweaver-audit-core.js"

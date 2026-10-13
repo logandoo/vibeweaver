@@ -89,7 +89,7 @@ const TASKS = {
         "tests-pass-after": r.status === 0,
         "test-file-unmodified": sha(join(dir, "test_calc.py")) === pre.testSha,
         "gate-line-present": /\[Verification Gate\]/.test(outText),
-        "hard-gate-token": /HARD-GATE-1:\s*NO-TEST-NO-DONE/.test(outText),
+        "hard-gate-token": /HARD-GATE-1:\s*NO-TEST-NO-DONE/.test(outText), // vw-approved: selector key, not a credential
         "lane-declared": /Lane:\s*S/.test(outText),
         "coverage-line": /\[Coverage\]/.test(outText),
         "baseline-token": /Baseline verified GREEN|COV-9 skipped/.test(outText),

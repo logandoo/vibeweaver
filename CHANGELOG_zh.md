@@ -14,6 +14,14 @@
 
 **对作者的含义。** harness 会在每个边界原样投递 `tests/working_note.md` 的内容——账本必须在迭代/FAIL 边界保持新鲜；账本从此在多次压缩下存活，不再依赖模型记住任何事。
 
+## 2026-10-10: loop-guard 加固 —— reasoning 通道、counter 墙、turn 上限、标点墙（含 “Stop it.” 尾噪修复）
+
+**缺口。** loop-guard 盯着内容流与工具通道，但四种形状漏过：只发生在 reasoning 流的退化墙（content 为空）、counter 墙（数百行同形尾行、数字段逐一 +1，如 `The backlog item {i} …`；在对外发布的 813 样本复读墙分类里占 46%，最大单一类）、`Stop it.` 墙的尾噪变体（尾随空行或多余空格把种子藏掉，字符周期路径整体失明）、纯标点墙（`!` ×4000）。且对周期检测看不见的形状，没有任何绝对上限。
+
+**机制。** 文本观察泛化为 `text|reasoning`——reasoning 走独立缓冲与发作预算，只在 reasoning 里发作的墙不再隐形。shape-run 检测器：≥16 连续尾行非数字部分同形、每数字段严格 +1——「严格」就是误报线（时间戳日志与 `page N of M` 保持干净；归一化数字曾在姊妹 harness 误杀合法批量输出）。per-turn 绝对上限（`LOOP_TURN_CEILING = 64KB`）触发带独立纠正文案的 runaway 干预；纯标点尾墙自 ≥2KB 起命中（分隔线与 ASCII art 保持干净）。`Stop it.` 修复：扫描入口尾空白归一、内嵌字符路径阈值降到 ×4-of-32（128）、episode 改为 turn 边界 re-arm（不再依赖干净文本）。
+
+**验证。** 两波均 RED 先行（`Stop it.` 波 6 条断言先看它失败，盲区波 8 条）；既有 T24k 套件（28 断言）在第二波零回退；mutation sweep 41/41；fixture 套件 166 → 219。两波均过 dual + scoped 对抗评审（`Stop it.` 波修复 18 项）。README 的 loop-guard 章节已同步为实际行为。
+
 ## 2026-10-09: stop-guard —— 假停防线（§V12）
 
 **缺口。** 模型在任务中途宣称"上下文耗尽，先到这里"对所有执法层隐形：字节级

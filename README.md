@@ -147,7 +147,13 @@ checkable.
   excluded / open), key file:line discoveries, this task's dead ends and the next
   action — rewritten each update, read first on any resume, distilled into
   `memory/` and deleted at task end (the deletion is machine-checked by the
-  completion-time `--final` run).
+  completion-time `--final` run). The gate plugin carries that ledger across
+  context loss: the note is pushed into every compaction prompt, re-injected on
+  the session's first request after a `session.compacted` event, and pointed to
+  by a cue on the first gated write — deliveries counted in
+  `.vibeweaver/state.json` (`memoryDeliveries`), with a harness-owned snapshot
+  that keeps boundary delivery alive even if the note file itself disappears
+  mid-task.
 - **Memory that arrives at the moment it matters.** A topic file can declare
   `triggers:` path globs in its frontmatter; when the agent edits a matching
   file, the gate plugin injects a one-line cue into the tool result — even when
@@ -174,11 +180,15 @@ checkable.
   sub-problem with `stall=3×`: the same criterion failing three times in a row
   means stop, change direction, record the dead end.
 - **A loop-guard for degenerate output.** When the model's own generation runs
-  away — the same block repeating, or a meaningless bare echo sequence
-  (`1,2,…,179`, `a,b,…,kf`, with or without newlines) — the auditor plugin
-  detects it from the text stream, interrupts the session, and posts a corrective
-  prompt (once per episode, budgeted per session; `VIBEWEAVER_LOOPGUARD=off`
-  turns it off). It watches a second channel too: tool calls. A model that
+  away — the same block repeating, a meaningless bare echo sequence
+  (`1,2,…,179`, `a,b,…,kf`, with or without newlines), a counter wall (≥16 tail
+  lines of identical shape whose digits step strictly +1), or a punctuation-only
+  wall past 2 KB — the auditor plugin detects it from the text stream (reasoning
+  parts included, on their own budget), interrupts the session, and posts a
+  corrective prompt (once per episode, budgeted per session;
+  `VIBEWEAVER_LOOPGUARD=off` turns it off). A per-turn ceiling (64 KB) backstops
+  shapes no periodic detector can see. It watches a second channel too: tool
+  calls. A model that
   announces a tool ("use Read now") and then issues bare `echo "…"` narration
   markers instead of calling it is interrupted the same way (≥4 consecutive
   no-op bash calls; both channels have independent episode budgets so one can
@@ -677,13 +687,23 @@ project — the latch always stays self-clearable on the next clean audit.
 
 The same observation channel also runs the **loop-guard**: a bounded tail scan of
 the assistant text stream for runaway generation — an identical line-group
-repeating (any block period, line-aligned or a no-newline stream), or a trailing
-run of ≥12 bare tokens stepping +1 (integers or bijective base-26 letters). On a
-hit it interrupts the session (v1 `session.abort` / v2
-`session.interrupt({continue:false})`) and posts a corrective prompt naming the
-pattern; one intervention per episode, two per session at most, further episodes
-are log-only. Near-misses are designed out: numbered lists with content are not
-bare tokens, and a 2× repeat is below the bar.
+repeating (any block period, line-aligned or a no-newline stream; a single line
+needs 4 copies, multi-line blocks 3), a trailing run of ≥12 bare tokens stepping
++1 (integers or bijective base-26 letters), a counter wall (≥16 consecutive tail
+lines with identical non-digit shape whose every digit run steps strictly +1 —
+strictness is what keeps timestamp logs and `page N of M` clean), or a
+punctuation-only wall once the wall itself passes 2 KB. The same machinery runs
+a reasoning channel too: reasoning parts get their own buffer and episode budget
+(a wall living only in reasoning text was invisible to the old guard), and
+trailing whitespace is normalized at scan entry, so a runaway ending in a
+newline or stray spaces no longer hides its own seed. On a hit it interrupts the
+session (v1 `session.abort` / v2 `session.interrupt({continue:false})`) and posts
+a corrective prompt naming the pattern; one intervention per episode (re-armed
+after clean text or a new turn), two per session at most, further episodes are
+log-only. A per-turn absolute ceiling — one turn's streamed output beyond 64 KB —
+raises the same interrupt with its own corrective prompt. Near-misses are
+designed out: numbered lists with content are not bare tokens, a 2× repeat is
+below the bar, and separator rules / ASCII art stay clean.
 
 The guard also watches the **tool channel**, which is where a nastier failure
 lives: intent-action decoupling. The model narrates a tool call ("use Read now",
@@ -930,12 +950,14 @@ the agent's context explode and give up; untested, feedback welcome.
 | `WORKFLOWS_EXTENDED.md`                                     | §M dual modes + Class-E list + ADR/PAUSED formats · C4 audit / C5 deploy / C6 ops / C7 non-web / S1 spike · profile reference                                                  |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`                   | Project memory subsystem                                                                                                                                                       |
 | `VERIFICATION_UPGRADES.md`                                  | §V1 FCV · §V2 test integrity · §V3 coverage honesty · §V4 adversarial review · §V5 lanes · §V11 task class + doc-skill delegation and the DOC-asset render gate               |
-| `scripts/assert_artifacts.py`                               | The canonical assertion script projects copy into `tests/` (18 groups: artifact presence, evidence integrity, diagnosis/claim lint, secret scan, test-change guard, risk-tier, DOC-asset render gate, exec-check) |
+| `scripts/assert_artifacts.py`                               | The canonical assertion script projects copy into `tests/` (19 groups: artifact presence, evidence integrity, diagnosis/claim lint, secret scan, test-change guard, risk-tier, DOC-asset render gate, exec-check, task-class coherence, working-note lifecycle) |
 | `scripts/mm_probe.py`                                       | Behavioral self-multimodality probe (verifier selection, COV-5)                                                                                                                |
+| `scripts/scan_secrets.py`                                   | Standalone secret scan for the completion checklist (§V7) — credential-looking strings on the change-wave diff                                                                  |
+| `scripts/backlog_check.py`                                  | Backlog-ledger guard — fails any `passes: true` that no executed-test log line names                                                                                           |
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 166 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T32 latch-release suites) / 41 mutation checks, including the latch-release regressions                                                      |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 219 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T32 latch-release suites) / 41 mutation checks, including the latch-release regressions                                                      |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing
@@ -943,7 +965,7 @@ the agent's context explode and give up; untested, feedback welcome.
 ```bash
 python3 verify_skill.py                     # package integrity: payload, links, markers, syntax
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
-node vibeweaver/scripts/audit_selftest.mjs  # 166 fixture checks (T6 skips without calibration data)
+node vibeweaver/scripts/audit_selftest.mjs  # 219 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 41 mutations, each must be caught
 ```
 
