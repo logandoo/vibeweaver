@@ -823,8 +823,13 @@ export function mergeReleaseLines(existingText, stateLines = []) {
     out.push(line)
   }
   const text = typeof existingText === "string" ? existingText : ""
-  const section = text.split(/^## /m).find((s) => s.startsWith("Stale RED releases"))
-  if (section) {
+  // Scan EVERY segment headed "Stale RED releases": Tier-2 packets render
+  // before the real section and may quote the header (arbitrary session
+  // text) — a first-match lookup would be shadowed by the quote and drop the
+  // real section's lines. Only release-shaped lines are ever pulled, so a
+  // decoy segment contributes nothing.
+  for (const section of text.split(/^## /m)) {
+    if (!section.startsWith("Stale RED releases")) continue
     for (const l of section.split("\n").slice(1)) if (RELEASE_LINE.test(l)) add(l)
   }
   for (const l of stateLines) add(l)

@@ -1608,6 +1608,16 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   const m4 = mergeReleaseLines(existing, [])
   rec("T33d non-release sections never leak into the journal", m4.length === 2 && m4.every((l) => /released:/.test(l)), `n=${m4.length}`)
 
+  // T33f — a packet quoting the section header before the real section must
+  // not shadow it: every matching segment is scanned; only release-shaped
+  // lines count, so the decoy contributes nothing.
+  const decoy = existing.replace(
+    "## Stale RED releases (auto-cleared latches — audit trail, never delete)",
+    '<packet id="C9">\nclaim absent\ntail of session text: reading tests/gate_audit.md now\n## Stale RED releases …\nsee above\n</packet>\n\n## Stale RED releases (auto-cleared latches — audit trail, never delete)'
+  )
+  const m5 = mergeReleaseLines(decoy, [newLine])
+  rec("T33f packet-quoted section header does not shadow the real section", m5.includes(oldLine) && m5.includes(midLine) && m5.includes(newLine), `n=${m5.length}`)
+
   // T33e — integration: a real release cycle over a planted prior render
   const root33 = newFixture("t33-append-only")
   write(root33, "tests/verification_log.md", "placeholder — no iter entries\n")
@@ -1624,8 +1634,10 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   const report33 = existsSync(path.join(root33, "tests", "gate_audit.md")) ? readFileSyncSafe(path.join(root33, "tests", "gate_audit.md")) : ""
   rec(
     "T33e integration: after a real release cycle the prior render's line is still in gate_audit.md",
-    released33 && report33.split(oldLine).length - 1 === 1 && /released: latched RED \(BAD=/.test(report33.split("## Stale RED releases")[1] || ""),
-    released33 ? (report33.includes(oldLine) ? "preserved once" : "LOST — the state cap dropped it from the render") : "release flow broke"
+    released33 &&
+      report33.split(oldLine).length - 1 === 1 &&
+      /released: latched RED \(BAD=\d+, session ses_t33_a\) → cleared via stale-session/.test(report33),
+    released33 ? (report33.includes(oldLine) ? "preserved once + state line present" : "LOST — the state cap dropped it from the render") : "release flow broke"
   )
 }
 
@@ -2165,7 +2177,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   // ---- user stop directive → whitelisted, no prompt ----
   {
     const root27b = newFixture("t27-userstop")
-    write(root27b, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n")
+    write(root27b, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n- working-note: created (fixture — active task)\n")
     write(root27b, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
     const calls = { prompts: [] }
     const plugin27b = await VibeweaverAudit({
@@ -2190,7 +2202,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   // ---- truncation (finish:"length") fires the same channel ----
   {
     const root27c = newFixture("t27-trunc")
-    write(root27c, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n")
+    write(root27c, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n- working-note: created (fixture — active task)\n")
     write(root27c, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
     const calls = { prompts: [] }
     const plugin27c = await VibeweaverAudit({
@@ -2212,7 +2224,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   // ---- measured fill quoted when audit.json configures contextLimitTokens ----
   {
     const root27d = newFixture("t27-fill")
-    write(root27d, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n")
+    write(root27d, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n- working-note: created (fixture — active task)\n")
     write(root27d, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
     write(root27d, "audit-config.json", JSON.stringify({ contextLimitTokens: 10000 }))
     process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root27d, "audit-config.json")
@@ -2251,7 +2263,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       })
       return { root, calls, plugin }
     }
-    const ACTIVE_LOG = "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n"
+    const ACTIVE_LOG = "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n- working-note: created (fixture — active task)\n"
     const drive = async (plugin, sid, userText, asstText, tokens) => {
       const ev = (type, properties) => plugin.event({ event: { type, properties } })
       await ev("message.part.updated", { sessionID: sid, part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
