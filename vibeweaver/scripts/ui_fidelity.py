@@ -13,6 +13,12 @@ acceptance criteria name pixel/geometry fidelity (TESTING_PROTOCOLS.md
          overlap detection (non-containment intersections), and occlusion
          verdicts (elements whose `occluded_by` list from the capture snippet
          is non-empty).
+  refboxes REF.png — candidate foreground regions of a reference IMAGE
+         (background = most frequent coarse color, or --bg RRGGBB), clustered
+         with gap-merge; output ui-refboxes-<name>.json uses the boxes element
+         schema (+"pixels") so it can serve as the REF.json of `boxes` when
+         the reference is an image (pair candidate dumps in reading order —
+         the ordinal fallback needs disjoint, equal-length name sets).
 
 Analysis is instrumental: deterministic, offline, no model/network/deps.
 Capture (Playwright at a fixed viewport/DPR, animations frozen, fonts
@@ -605,6 +611,103 @@ def _write_reports(out_dir, name, report, out_rgba=None, size=None):
 
 
 # ==========================================================================
+# refboxes — reference-image region extraction (GREEN)
+# Candidate foreground regions (background differs beyond --tol), clustered
+# with the same 8-connectivity + gap-merge as the diff clusters. Output uses
+# the boxes element schema so it can serve as the REF.json of `boxes` when
+# the reference is an image (pair candidate dumps in reading order).
+# ==========================================================================
+
+
+def _auto_bg(w, h, rgba):
+    """Most frequent coarse-quantized color over a sampled grid, averaged."""
+    step = max(1, min(w, h) // 64)
+    counts = {}
+    for y in range(0, h, step):
+        base = y * w * 4
+        for x in range(0, w, step):
+            o = base + x * 4
+            key = (rgba[o] >> 4, rgba[o + 1] >> 4, rgba[o + 2] >> 4)
+            counts[key] = counts.get(key, 0) + 1
+    key = max(counts, key=counts.get)
+    acc = [0, 0, 0]
+    n = 0
+    for y in range(0, h, step):
+        base = y * w * 4
+        for x in range(0, w, step):
+            o = base + x * 4
+            if (rgba[o] >> 4, rgba[o + 1] >> 4, rgba[o + 2] >> 4) == key:
+                acc[0] += rgba[o]
+                acc[1] += rgba[o + 1]
+                acc[2] += rgba[o + 2]
+                n += 1
+    return (acc[0] // n, acc[1] // n, acc[2] // n)
+
+
+def refboxes_report(w, h, rgba, bg=None, tol=24, min_area=64, gap=6,
+                    max_boxes=200):
+    """Return (regions, bg): regions are reading-order candidate boxes
+    [{"name","x","y","w","h","pixels"}] with pixels >= min_area and
+    w,h >= 3."""
+    if bg is None:
+        bg = _auto_bg(w, h, rgba)
+    points = []
+    for y in range(h):
+        base = y * w * 4
+        for x in range(w):
+            o = base + x * 4
+            if (abs(rgba[o] - bg[0]) > tol
+                    or abs(rgba[o + 1] - bg[1]) > tol
+                    or abs(rgba[o + 2] - bg[2]) > tol):
+                points.append((x, y))
+    clusters, _total = cluster_pixels(points, gap=gap, max_clusters=max_boxes)
+    regions = [c for c in clusters
+               if c["pixels"] >= min_area and c["w"] >= 3 and c["h"] >= 3]
+    regions.sort(key=lambda c: (c["y"] // 20, c["x"]))
+    return [{"name": f"region#{i}", "x": c["x"], "y": c["y"],
+             "w": c["w"], "h": c["h"], "pixels": c["pixels"]}
+            for i, c in enumerate(regions, 1)], bg
+
+
+def _draw_outline(buf, w, h, x, y, bw, bh, color=(220, 30, 30), t=2):
+    """Draw a t-px rectangle outline into an RGBA bytearray (in place)."""
+    for yy in range(max(0, y), min(h, y + bh)):
+        for xx in range(max(0, x), min(w, x + bw)):
+            if (xx < x + t or xx >= x + bw - t
+                    or yy < y + t or yy >= y + bh - t):
+                o = (yy * w + xx) * 4
+                buf[o:o + 3] = bytes(color)
+
+
+def run_refboxes(ref_path, out_dir, name, bg_hex, tol, min_area, gap, max_boxes):
+    w, h, rgba = read_png(ref_path)
+    bg = None
+    if bg_hex:
+        try:
+            bg = tuple(int(bg_hex[i:i + 2], 16) for i in (0, 2, 4))
+        except (ValueError, IndexError):
+            raise ValueError("--bg must be RRGGBB hex")
+    regions, bg = refboxes_report(w, h, rgba, bg=bg, tol=tol,
+                                  min_area=min_area, gap=gap,
+                                  max_boxes=max_boxes)
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, f"ui-refboxes-{name}.json"), "w") as f:
+        json.dump(regions, f, indent=1)
+    dim = bytearray(len(rgba))
+    for i in range(0, len(rgba), 4):
+        for k in range(3):
+            dim[i + k] = int(rgba[i + k] * 0.55 + 54)
+        dim[i + 3] = 255
+    for reg in regions:
+        _draw_outline(dim, w, h, reg["x"], reg["y"], reg["w"], reg["h"])
+    write_png(os.path.join(out_dir, f"ui-refboxes-{name}.png"), w, h,
+              bytes(dim))
+    print(f"[ui_fidelity] refboxes: {len(regions)} regions | bg={bg} | "
+          f"sizes {w}x{h}")
+    return 0
+
+
+# ==========================================================================
 # selftest
 # ==========================================================================
 
@@ -734,6 +837,30 @@ def selftest():
     rc2 = run_diff(p_full, p_half, tmp, "dim2", 0.1, 1.0, False, True)
     ok(rc2 == 1, f"allow-dim compares crop yet still fails -> exit 1 (got {rc2})")
 
+    # 10. refboxes: two exact regions found, speck filtered, auto bg
+    rw, rh = 64, 40
+    img = bytearray()
+    for y in range(rh):
+        for x in range(rw):
+            c = (240, 240, 240)
+            if 8 <= x < 28 and 6 <= y < 18:
+                c = (200, 60, 60)
+            if 40 <= x < 56 and 20 <= y < 30:
+                c = (60, 60, 200)
+            if 60 <= x < 62 and 2 <= y < 4:
+                c = (10, 10, 10)          # speck: 4 px < min_area
+            img += bytes(c) + b"\xff"
+    regions, rbg = refboxes_report(rw, rh, bytes(img), tol=24, min_area=64, gap=6)
+    ok(rbg == (240, 240, 240), f"refboxes auto-bg (got {rbg})")
+    ok(len(regions) == 2, f"refboxes finds 2 regions (got {len(regions)})")
+    if len(regions) == 2:
+        ok((regions[0]["x"], regions[0]["y"], regions[0]["w"],
+            regions[0]["h"]) == (8, 6, 20, 12),
+           f"refboxes region A exact (got {regions[0]})")
+        ok((regions[1]["x"], regions[1]["y"], regions[1]["w"],
+            regions[1]["h"]) == (40, 20, 16, 10),
+           f"refboxes region B exact (got {regions[1]})")
+
     if fails:
         for m in fails:
             print("SELFTEST FAIL: " + m)
@@ -778,6 +905,18 @@ def main():
     b.add_argument("--allow-occluded", default="",
                    help="comma list of element names allowed to be occluded")
 
+    r = sub.add_parser("refboxes",
+                       help="extract candidate regions from a reference image")
+    r.add_argument("ref")
+    r.add_argument("--out", default="tests")
+    r.add_argument("--name", default="")
+    r.add_argument("--bg", default="",
+                   help="background color RRGGBB (default: auto from the image)")
+    r.add_argument("--tol", type=float, default=24.0)
+    r.add_argument("--min-area", type=int, default=64)
+    r.add_argument("--gap", type=int, default=6)
+    r.add_argument("--max-boxes", type=int, default=200)
+
     args = ap.parse_args()
     try:
         if args.selftest:
@@ -796,6 +935,10 @@ def main():
             return run_boxes(args.ref, args.cand, args.out, name, args.tol_px,
                              tuple(p for p in args.allow_overlap.split(",") if p),
                              tuple(p for p in args.allow_occluded.split(",") if p))
+        if args.cmd == "refboxes":
+            name = args.name or os.path.splitext(os.path.basename(args.ref))[0]
+            return run_refboxes(args.ref, args.out, name, args.bg,
+                                args.tol, args.min_area, args.gap, args.max_boxes)
         ap.print_help()
         return 2
     except (ValueError, OSError, KeyError) as e:

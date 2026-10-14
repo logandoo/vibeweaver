@@ -2,6 +2,12 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-14b: residuals cleared — comparative probe + reference-image regions
+
+**The gap.** The fidelity layer shipped with two deliberate gaps: no probe for whether a model can judge *comparative* differences at all ("VLMs have Tunnel Vision" — exactly where VLMs fail), and no light path for extracting element regions when the reference IS an image.
+
+**The mechanism.** `scripts/mm_probe.py --compare-generate/--compare-check`: a two-panel probe with exactly ONE change (moved/covered/color/added/removed on a random shape), report `<variant> <shape>`, validated against salted hashes — a FAIL is a recorded finding (localize via T1/T2 clusters, never side-by-side eyeballing). `scripts/ui_fidelity.py refboxes REF.png`: background-relative foreground regions (auto bg, gap-merge, min-area filter) → boxes-schema JSON + a boxed preview, feeding the T1 ref-is-image path. Payload unchanged (subcommands only), SKILL.md untouched, TESTING_PROTOCOLS stays under its 45 KB budget; repo unittest 38→44.
+
 ## 2026-10-14: design-copy fidelity — measurement before judgment
 
 **The gap.** When a task clones a UI from an existing HTML page or a screenshot, the verifier tree grades semantics (observation-first, per-criterion verdicts) — but the criteria that actually break (a 3 px shift, an occluding overlap, a wrong box size) are *measurements*, and 2025-26 VLM research shows comparative visual measurement is exactly where vision-language judges are least reliable (TableTest; "VLMs have Tunnel Vision", NeurIPS 2025). The skill had no instrumental layer for them.

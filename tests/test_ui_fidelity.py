@@ -169,5 +169,41 @@ class ExitCodes(unittest.TestCase):
             self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
 
 
+class RefBoxes(unittest.TestCase):
+    def _write_two_rect_image(self, mod, td):
+        w, h = 64, 40
+        img = bytearray()
+        for y in range(h):
+            for x in range(w):
+                c = (240, 240, 240)
+                if 8 <= x < 28 and 6 <= y < 18:
+                    c = (200, 60, 60)
+                if 40 <= x < 56 and 20 <= y < 30:
+                    c = (60, 60, 200)
+                img += bytes(c) + b"\xff"
+        p = pathlib.Path(td) / "ref.png"
+        mod.write_png(str(p), w, h, bytes(img))
+        return p
+
+    def test_cli_extracts_regions_with_preview(self):
+        with tempfile.TemporaryDirectory() as td:
+            mod = load_module()
+            p = self._write_two_rect_image(mod, td)
+            r = run("refboxes", str(p), "--out", td, "--name", "t")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            regions = json.loads(
+                (pathlib.Path(td) / "ui-refboxes-t.json").read_text())
+            self.assertEqual([(x["x"], x["y"], x["w"], x["h"]) for x in regions],
+                             [(8, 6, 20, 12), (40, 20, 16, 10)])
+            self.assertTrue((pathlib.Path(td) / "ui-refboxes-t.png").exists())
+
+    def test_bad_bg_exits_2(self):
+        with tempfile.TemporaryDirectory() as td:
+            mod = load_module()
+            p = self._write_two_rect_image(mod, td)
+            r = run("refboxes", str(p), "--out", td, "--bg", "zz")
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -995,8 +995,13 @@ into view for the sample and the original scroll is restored:
 }
 ```
 
-Reference is an image (design mock, screenshot): skip the REF dump; use the
-reference crop's regions as the ref box list (T1) and the image as REF.png (T2).
+Reference is an image (design mock, screenshot): extract candidate regions
+with `python3 scripts/ui_fidelity.py refboxes REF.png --out tests` — the
+output `ui-refboxes-<name>.json` (+ a boxed preview `ui-refboxes-<name>.png`)
+uses the boxes element schema, so it serves as the REF box list (T1; pair
+the candidate dump in reading order — the ordinal fallback needs disjoint,
+equal-length name sets) and the image itself as REF.png (T2). Check the
+preview before trusting the list.
 
 ### T1/T2 — measure, then cite
 
@@ -1026,3 +1031,11 @@ with `--allow-dim-mismatch`), not a diff to tune away. `--threshold` is the
 per-pixel YIQ tolerance (pixelmatch semantics, default 0.1);
 `--max-diff-percent` is the image-level budget — both are user-owned
 acceptance thresholds.
+
+**Comparative sub-probe (verifier calibration, optional).**
+`python3 scripts/mm_probe.py --compare-generate` writes a two-panel probe
+with exactly ONE difference; report `<variant> <shape>` and validate via
+`--compare-check` (variants: moved/covered/color/added/removed; shapes:
+circle/square/bar/dot). A FAIL is a finding, not a blocker: record
+comparative-judgment-unreliable in `tests/verification_log.md` and localize
+differences via T1/T2 clusters — never side-by-side eyeballing.

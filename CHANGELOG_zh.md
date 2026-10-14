@@ -2,6 +2,12 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-14b: 遗留清账 —— comparative 探针 + 图像参考区域提取
+
+**缺口。** 保真层留下两处刻意的空白：没有探测模型能否进行*比较式*判断的探针（《VLMs have Tunnel Vision》——恰是 VLM 的失效区）；参考本身就是图片时，没有轻量的元素区域提取路径。
+
+**机制。** `scripts/mm_probe.py --compare-generate/--compare-check`：双面板、恰好一处差异（moved/covered/color/added/removed 之一，作用于随机形状），报告 `<variant> <shape>`，以盐化哈希校验——FAIL 是一条要记录的发现（差异定位走 T1/T2 簇，绝不靠并排肉眼比对）。`scripts/ui_fidelity.py refboxes REF.png`：相对背景的前景区域（auto 背景、gap 合并、min-area 过滤）→ boxes schema JSON + 描框预览，接入 T1 的 ref-is-image 路径。payload 不变（仅子命令）、SKILL.md 不动、TESTING_PROTOCOLS 保持 45KB 预算内；repo unittest 38→44。
+
 ## 2026-10-14: 拷贝保真 —— 先测量，后判定
 
 **缺口。** 从既有 HTML 页面或截图克隆 UI 时，验证器树评的是语义（观察前置、逐标准引证）——但真正翻车的标准（3px 位移、一处遮盖重叠、错误的盒子尺寸）是*测量*，而 2025-26 的 VLM 研究恰恰证明：比较式视觉测量是视觉语言裁判最不可靠的能力区（TableTest；《VLMs have Tunnel Vision》, NeurIPS 2025）。skill 此前没有针对它们的仪器层。
