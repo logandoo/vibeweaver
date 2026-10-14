@@ -223,6 +223,7 @@ COMPARE_PALETTE = [(220, 50, 50), (40, 100, 220), (50, 180, 90), (235, 150, 30),
 PANEL_W, PANEL_H = 260, 160
 PANEL_BG = (246, 246, 246)
 COVER_COLOR = (110, 110, 110)
+_HALF = {"circle": (14, 14), "square": (12, 12), "bar": (20, 6), "dot": (7, 7)}
 
 
 def _fill_rect(rows, x, y, w, h, color):
@@ -293,8 +294,17 @@ def _compare_scenes(rng=None, variant=None):
         _draw_shape(scene_b, target[0], tx, ty, target[3])
         n_rect = _shape_bbox(target[0], tx, ty)
         info["changed"] = [t_rect, n_rect]
-        info["samples"] = [(target[1], target[2], PANEL_BG),      # vacated
-                           (tx, ty, target[3])]                    # occupied
+        # vacated sample: the old shape's far edge along the move axis — a
+        # point guaranteed inside the OLD mask and outside the NEW one (the
+        # old center can sit inside the shifted shape when radius >= shift)
+        hx, hy = _HALF[target[0]]
+        edx, edy = tx - target[1], ty - target[2]
+        if edx:
+            vac = (target[1] - hx * (1 if edx > 0 else -1), target[2])
+        else:
+            vac = (target[1], target[2] - hy * (1 if edy > 0 else -1))
+        info["samples"] = [vac + (PANEL_BG,),   # vacated pixel is background
+                           (tx, ty, target[3])]
         shape_name = target[0]
     elif variant == "covered":
         bx, by, bw, bh = t_rect
@@ -396,8 +406,10 @@ def check_compare(report_variant, report_shape, dest_dir):
         print(f"ERROR: probe_compare.expected unreadable ({e}) — "
               f"re-run --compare-generate")
         return 2
-    if (not isinstance(gt, dict) or "salt" not in gt
-            or "variant_hash" not in gt or "shape_hash" not in gt):
+    if (not isinstance(gt, dict)
+            or not isinstance(gt.get("salt"), str)
+            or not isinstance(gt.get("variant_hash"), str)
+            or not isinstance(gt.get("shape_hash"), str)):
         print("ERROR: probe_compare.expected malformed — re-run --compare-generate")
         return 2
     ok_variant = _h(gt["salt"], "variant", variant) == gt.get("variant_hash")

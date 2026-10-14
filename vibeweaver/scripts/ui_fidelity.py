@@ -332,10 +332,12 @@ def cluster_pixels(points, gap=4, max_clusters=50, merge_cap=1024):
     bounding boxes within `gap` px (union-find rounds; merging is skipped
     above `merge_cap` components to keep worst-case runtime bounded).
 
-    Returns (clusters, total) — `clusters` holds the top `max_clusters` by
-    pixel count; `total` is the cluster count AFTER gap-merging (before the
-    top-`max_clusters` cut), so `clusters_truncated = len(clusters) < total`
-    never false-positives on a fully listed merged set."""
+    Returns (clusters, total, merge_skipped) — `clusters` holds the top
+    `max_clusters` by pixel count; `total` is the cluster count AFTER
+    gap-merging (before the top-`max_clusters` cut), so
+    `clusters_truncated = len(clusters) < total` never false-positives on a
+    fully listed merged set; `merge_skipped` says the gap-merge stage was
+    skipped (component count > merge_cap — results may be under-merged)."""
     remaining = set(points)
     raw = []
     while remaining:
@@ -358,6 +360,7 @@ def cluster_pixels(points, gap=4, max_clusters=50, merge_cap=1024):
                         miny = min(miny, q[1])
                         maxy = max(maxy, q[1])
         raw.append([minx, miny, maxx, maxy, n])
+    merge_skipped = len(raw) > 1 and len(raw) > merge_cap
 
     def gap_between(a, b):
         dx = max(0, max(a[0], b[0]) - min(a[2], b[2]) - 1)
@@ -398,7 +401,7 @@ def cluster_pixels(points, gap=4, max_clusters=50, merge_cap=1024):
     clusters = [{"x": c[0], "y": c[1], "w": c[2] - c[0] + 1,
                  "h": c[3] - c[1] + 1, "pixels": c[4]}
                 for c in raw[:max_clusters]]
-    return clusters, total
+    return clusters, total, merge_skipped
 
 
 # ==========================================================================
@@ -433,7 +436,8 @@ def run_diff(ref_path, cand_path, out_dir, name, threshold, max_diff_percent,
         img1, img2, w, h, threshold=threshold, include_aa=include_aa, draw=True)
     total = w * h
     pct = diff_px / total * 100.0 if total else 0.0
-    clusters, total_clusters = cluster_pixels(points) if points else ([], 0)
+    clusters, total_clusters, _mskip = cluster_pixels(points) if points \
+        else ([], 0, False)
     passed = (pct <= max_diff_percent) and not dim_mismatch
     report = {
         "version": 1, "kind": "pixel-diff", "ref": ref_path, "cand": cand_path,
@@ -679,12 +683,13 @@ def refboxes_report(w, h, rgba, bg=None, tol=24, min_area=64, gap=6,
             if (abs(r - bg[0]) > tol or abs(g - bg[1]) > tol
                     or abs(b - bg[2]) > tol):
                 points.append((x, y))
-    clusters, total = cluster_pixels(points, gap=gap,
-                                     max_clusters=max(max_boxes * 4, 256),
-                                     merge_cap=merge_cap)
+    clusters, total, merge_skipped = cluster_pixels(
+        points, gap=gap, max_clusters=max(max_boxes * 4, 256),
+        merge_cap=merge_cap)
     regions = [c for c in clusters
                if c["pixels"] >= min_area and c["w"] >= 3 and c["h"] >= 3]
-    truncated = len(clusters) < total or len(regions) > max_boxes
+    truncated = (len(clusters) < total or len(regions) > max_boxes
+                 or merge_skipped)
     regions.sort(key=lambda c: (c["y"] // 20, c["x"]))
     out = [{"name": f"region#{i}", "x": c["x"], "y": c["y"],
             "w": c["w"], "h": c["h"], "pixels": c["pixels"]}
@@ -726,7 +731,10 @@ def run_refboxes(ref_path, out_dir, name, bg_hex, tol, min_area, gap,
         _draw_outline(dim, w, h, reg["x"], reg["y"], reg["w"], reg["h"])
     write_png(os.path.join(out_dir, f"ui-refboxes-{name}.png"), w, h,
               bytes(dim))
-    note = " (truncated — raise --max-boxes/--merge-cap)" if truncated else ""
+    note = ""
+    if truncated:
+        note = (" (truncated — candidates were dropped by --merge-cap/"
+                "--max-boxes; results may be partial)")
     print(f"[ui_fidelity] refboxes: {len(regions)}/{total} regions{note} | "
           f"bg={bg} | sizes {w}x{h}")
     return 0
@@ -774,7 +782,7 @@ def selftest():
     base_b, cand_b = bytes(base), bytes(cand)
     d, _out, aa, pts = diff_images(base_b, cand_b, bw, bh, 0.1, False, draw=False)
     ok(d == 24 and aa == 0, f"block change -> exactly 24 diff px (got {d}, aa {aa})")
-    cl, cl_total = cluster_pixels(pts)
+    cl, cl_total, _sk = cluster_pixels(pts)
     ok(cl_total == 1 and len(cl) == 1
        and cl[0] == {"x": 10, "y": 10, "w": 6, "h": 4, "pixels": 24},
        f"single cluster (10,10,6,4,24) (got {cl}, total {cl_total})")
@@ -790,7 +798,7 @@ def selftest():
             o = (y * bw + x) * 4
             cand2[o:o + 4] = bytes((0, 0, 0, 255))
     d2, _o, _a, pts2 = diff_images(base_b, bytes(cand2), bw, bh, 0.1, False, draw=False)
-    cl2, tot2 = cluster_pixels(pts2)
+    cl2, tot2, _sk2 = cluster_pixels(pts2)
     ok(d2 == 12 and len(cl2) == 2 and tot2 == 2, "two blocks -> 2 clusters")
 
     # 5. threshold behavior: tiny 2/255 shift is below t=0.1, 40/255 above
