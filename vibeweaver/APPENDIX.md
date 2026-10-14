@@ -948,11 +948,12 @@ def capture(url, out_png, out_json=None, selectors=None, full_page=True):
 ```
 
 `BOX_DUMP_JS` — pass as the `page.evaluate` string; emits per-element boxes
-plus `occluded_by` (elementsFromPoint sampling at 3 points, topmost-first
-order respected: only nodes painted ABOVE the element count — an element
-that is itself covered first, or only has ancestors behind it, is not
-occluded). Off-screen elements are scrolled into view for the sample and
-the original scroll is restored:
+in **document coordinates** (scroll-independent, so the two sides' dumps are
+comparable regardless of scroll state) plus `occluded_by` (elementsFromPoint
+sampling at 3 points, topmost-first order respected: only nodes painted
+ABOVE the element count — an element that is itself covered first, or only
+has ancestors behind it, is not occluded). Off-screen elements are scrolled
+into view for the sample and the original scroll is restored:
 
 ```javascript
 (selectors) => {
@@ -970,6 +971,7 @@ the original scroll is restored:
         el.scrollIntoView({ block: "nearest", inline: "nearest" });
         r = el.getBoundingClientRect();
       }
+      const sx = scrollX, sy = scrollY;   // viewport -> document coords
       const name = sel + (i ? "[" + i + "]" : "");
       const pts = [[r.x + r.width / 2, r.y + r.height / 2], [r.x + 2, r.y + 2],
                    [r.x + r.width - 2, r.y + r.height - 2]]
@@ -983,7 +985,7 @@ the original scroll is restored:
           break;
         }
       }
-      out.push({ name, x: +r.x.toFixed(2), y: +r.y.toFixed(2),
+      out.push({ name, x: +(r.x + sx).toFixed(2), y: +(r.y + sy).toFixed(2),
                  w: +r.width.toFixed(2), h: +r.height.toFixed(2),
                  occluded_by: [...occ] });
     });

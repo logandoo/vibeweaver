@@ -209,6 +209,20 @@ def main():
     expected_total = len(INSTALLED_DOCS) + len(INSTALLED_SCRIPTS)
     if ("Files installed: %d" % expected_total) not in bat:
         fail("install.bat advertised count is not %d" % expected_total)
+    # the bat FILES set must be exactly the installed sets (an unregistered
+    # addition would otherwise install unvetted files silently)
+    bat_files = ""
+    for line in bat.splitlines():
+        if line.strip().lower().startswith("set files="):
+            bat_files = line.strip()[len("set FILES="):]
+            break
+    bat_tokens = bat_files.split()
+    expected_tokens = set(INSTALLED_DOCS) | {r.replace("/", "\\")
+                                             for r in INSTALLED_SCRIPTS}
+    unknown = [t for t in bat_tokens if t not in expected_tokens]
+    if len(bat_tokens) != len(expected_tokens) or unknown:
+        fail("install.bat FILES set mismatch: unknown=%s (%d/%d tokens)"
+             % (unknown, len(bat_tokens), len(expected_tokens)))
 
     # 9) plugin + helper script syntax (best effort — node optional locally, present in CI)
     node = shutil.which("node")

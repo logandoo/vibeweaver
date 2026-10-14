@@ -321,9 +321,9 @@ def cluster_pixels(points, gap=4, max_clusters=50, merge_cap=1024):
     above `merge_cap` components to keep worst-case runtime bounded).
 
     Returns (clusters, total) — `clusters` holds the top `max_clusters` by
-    pixel count; `total` is the true count (report `clusters_truncated`
-    when len(clusters) < total — never present a truncated list as
-    complete)."""
+    pixel count; `total` is the cluster count AFTER gap-merging (before the
+    top-`max_clusters` cut), so `clusters_truncated = len(clusters) < total`
+    never false-positives on a fully listed merged set."""
     remaining = set(points)
     raw = []
     while remaining:
@@ -346,7 +346,6 @@ def cluster_pixels(points, gap=4, max_clusters=50, merge_cap=1024):
                         miny = min(miny, q[1])
                         maxy = max(maxy, q[1])
         raw.append([minx, miny, maxx, maxy, n])
-    total = len(raw)
 
     def gap_between(a, b):
         dx = max(0, max(a[0], b[0]) - min(a[2], b[2]) - 1)
@@ -382,6 +381,7 @@ def cluster_pixels(points, gap=4, max_clusters=50, merge_cap=1024):
                 break
         raw = [bbox[i] for i in range(len(raw)) if parent[i] == i]
 
+    total = len(raw)
     raw.sort(key=lambda c: -c[4])
     clusters = [{"x": c[0], "y": c[1], "w": c[2] - c[0] + 1,
                  "h": c[3] - c[1] + 1, "pixels": c[4]}
