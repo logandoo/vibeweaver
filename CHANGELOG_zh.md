@@ -6,7 +6,7 @@
 
 **缺口。** 保真层留下两处刻意的空白：没有探测模型能否进行*比较式*判断的探针（《VLMs have Tunnel Vision》——恰是 VLM 的失效区）；参考本身就是图片时，没有轻量的元素区域提取路径。
 
-**机制。** `scripts/mm_probe.py --compare-generate/--compare-check`：双面板、恰好一处差异（moved/covered/color/added/removed 之一，作用于随机形状），报告 `<variant> <shape>`，以盐化哈希校验——FAIL 是一条要记录的发现（差异定位走 T1/T2 簇，绝不靠并排肉眼比对）。`scripts/ui_fidelity.py refboxes REF.png`：相对背景的前景区域（auto 背景、gap 合并、min-area 过滤）→ boxes schema JSON + 描框预览，接入 T1 的 ref-is-image 路径。payload 不变（仅子命令）、SKILL.md 不动、TESTING_PROTOCOLS 保持 45KB 预算内；repo unittest 38→44。
+**机制。** `scripts/mm_probe.py --compare-generate/--compare-check`：双面板、恰好一处差异（moved/covered/color/added/removed 之一，作用于随机形状），报告 `<variant> <shape>`，以盐化哈希校验——FAIL 是一条要记录的发现（差异定位走 T1/T2 簇，绝不靠并排肉眼比对）。`scripts/ui_fidelity.py refboxes REF.png`：相对背景的前景区域（auto 背景、gap 合并、min-area 过滤、alpha 合成白底）→ boxes schema JSON + 描框预览，接入 T1 的 ref-is-image 路径。payload 不变（仅子命令）、SKILL.md 不动、TESTING_PROTOCOLS 保持 45KB 预算内；repo unittest 38→49（修复轮补充语义、突变判别与退出码测试）。
 
 ## 2026-10-14: 拷贝保真 —— 先测量，后判定
 
