@@ -115,5 +115,59 @@ class Boxes(unittest.TestCase):
         self.assertTrue(rep3["pass"])
 
 
+FIX = ROOT / "tests" / "fixtures" / "uif_fidelity"
+
+
+class DifferentialVsUpstream(unittest.TestCase):
+    """Pinned against pixelmatch@5.3.0 (node + pngjs) run on the identical
+    fixture PNGs — exercises the anti-aliasing path and the chromatic (i/q)
+    channels with real numbers, so a broken AA/i/q implementation cannot
+    pass the suite. Pinned 2026-10-14: aa=(0,84), chroma=(144,0), mixed=(12,84)."""
+
+    def _diff(self, ref, cand):
+        mod = load_module()
+        w1, h1, img1 = mod.read_png(str(FIX / ref))
+        w2, h2, img2 = mod.read_png(str(FIX / cand))
+        self.assertEqual((w1, h1), (w2, h2))
+        d, _out, aa, _pts = mod.diff_images(img1, img2, w1, h1,
+                                            threshold=0.1, include_aa=False,
+                                            draw=False)
+        return d, aa
+
+    def test_aa_pair_matches_upstream(self):
+        self.assertEqual(self._diff("aa_ref.png", "aa_cand.png"), (0, 84))
+
+    def test_chroma_pair_matches_upstream(self):
+        self.assertEqual(self._diff("chroma_ref.png", "chroma_cand.png"), (144, 0))
+
+    def test_mixed_pair_matches_upstream(self):
+        self.assertEqual(self._diff("mixed_ref.png", "mixed_cand.png"), (12, 84))
+
+
+class ExitCodes(unittest.TestCase):
+    def test_missing_file_exits_2(self):
+        with tempfile.TemporaryDirectory() as td:
+            r = run("diff", "/nonexistent/ref.png", "/nonexistent/cand.png",
+                    "--out", td)
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+
+    def test_bad_threshold_exits_2(self):
+        with tempfile.TemporaryDirectory() as td:
+            mod = load_module()
+            p = pathlib.Path(td) / "x.png"
+            mod.write_png(str(p), 4, 4, bytes((9, 9, 9, 255)) * 16)
+            r = run("diff", str(p), str(p), "--out", td, "--threshold", "1.5")
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+
+    def test_malformed_boxes_exits_2(self):
+        with tempfile.TemporaryDirectory() as td:
+            bad = pathlib.Path(td) / "bad.json"
+            bad.write_text('[{"x": 0}]', encoding="utf-8")
+            good = pathlib.Path(td) / "good.json"
+            good.write_text("[]", encoding="utf-8")
+            r = run("boxes", str(bad), str(good), "--out", td)
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

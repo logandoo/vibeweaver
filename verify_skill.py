@@ -47,6 +47,11 @@ INSTALLED_DOCS = [
     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
     "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
 ]
+INSTALLED_SCRIPTS = [
+    "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
+    "scripts/mm_probe.py", "scripts/backlog_check.py", "scripts/scan_secrets.py",
+    "scripts/ui_fidelity.py",
+]
 JS_PAYLOAD = [
     "vibeweaver-gate.js", "vibeweaver-audit.js", "scripts/vibeweaver-audit-core.js",
     "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
@@ -191,6 +196,19 @@ def main():
         fail("install.bat does not install scripts\\scan_secrets.py")
     if "scripts\\ui_fidelity.py" not in bat:
         fail("install.bat does not install scripts\\ui_fidelity.py")
+    # every installed script: cp-line in sh (anti-echo), path in bat's FILES
+    for rel in INSTALLED_SCRIPTS:
+        if ('cp "${SCRIPT_DIR}/%s"' % rel) not in sh:
+            fail("install.sh does not install %s (cp line)" % rel)
+        if rel.replace("/", "\\") not in bat:
+            fail("install.bat does not install %s" % rel.replace("/", "\\"))
+    # advertised counts must match the installed sets
+    if ("Files installed: $(( ${#FILES[@]} + %d ))" % len(INSTALLED_SCRIPTS)) not in sh:
+        fail("install.sh advertised file count math does not match %d scripts"
+             % len(INSTALLED_SCRIPTS))
+    expected_total = len(INSTALLED_DOCS) + len(INSTALLED_SCRIPTS)
+    if ("Files installed: %d" % expected_total) not in bat:
+        fail("install.bat advertised count is not %d" % expected_total)
 
     # 9) plugin + helper script syntax (best effort — node optional locally, present in CI)
     node = shutil.which("node")

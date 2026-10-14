@@ -351,10 +351,11 @@ T1/T2: a VLM verdict never certifies geometry.
   MAY use T1/T2 clusters to localize; it never overrides T1/T2.
 
 **Loop + evidence:** failures iterate under §A4.1 (cap=5 / stall=3× —
-`diagnosis:` cites the cluster/Δ row). Cite `tests/ui-diff-*.png` +
-`ui-boxes-*.json` in `tests/verification_log.md` (assert group 3 checks
-cited PNGs). Thresholds are user-owned criteria; in AUTO derive conservative
-defaults + ADR. Skip only when no criterion names fidelity — state it.
+`diagnosis:` cites the cluster/Δ row). Cite the concrete generated files by
+name in `tests/verification_log.md` (the cited-evidence group checks named
+PNG paths; never cite a glob — it is checked literally). Thresholds are
+user-owned criteria; in AUTO derive conservative defaults + ADR. Skip only
+when no criterion names fidelity — state it.
 
 ---
 

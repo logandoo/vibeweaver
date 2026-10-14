@@ -948,24 +948,38 @@ def capture(url, out_png, out_json=None, selectors=None, full_page=True):
 ```
 
 `BOX_DUMP_JS` — pass as the `page.evaluate` string; emits per-element boxes
-plus `occluded_by` (elementsFromPoint sampling at 3 points):
+plus `occluded_by` (elementsFromPoint sampling at 3 points, topmost-first
+order respected: only nodes painted ABOVE the element count — an element
+that is itself covered first, or only has ancestors behind it, is not
+occluded). Off-screen elements are scrolled into view for the sample and
+the original scroll is restored:
 
 ```javascript
 (selectors) => {
   const out = [];
+  const oldX = scrollX, oldY = scrollY;
+  const describe = (n) => n.id ? "#" + n.id
+      : n.className ? "." + String(n.className).trim().split(/\s+/)[0]
+      : n.tagName.toLowerCase();
+  const clamp = (v, hi) => Math.max(0, Math.min(hi - 1, v));
   for (const sel of selectors) {
     document.querySelectorAll(sel).forEach((el, i) => {
-      const r = el.getBoundingClientRect();
+      let r = el.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > innerHeight ||
+          r.left < 0 || r.right > innerWidth) {
+        el.scrollIntoView({ block: "nearest", inline: "nearest" });
+        r = el.getBoundingClientRect();
+      }
       const name = sel + (i ? "[" + i + "]" : "");
       const pts = [[r.x + r.width / 2, r.y + r.height / 2], [r.x + 2, r.y + 2],
-                   [r.x + r.width - 2, r.y + r.height - 2]];
+                   [r.x + r.width - 2, r.y + r.height - 2]]
+                  .map(([x, y]) => [clamp(x, innerWidth), clamp(y, innerHeight)]);
       const occ = new Set();
       for (const [x, y] of pts) {
         for (const n of (document.elementsFromPoint(x, y) || [])) {
-          if (n === el || el.contains(n) || n.contains(el)) continue;
-          occ.add(n.id ? "#" + n.id
-                  : n.className ? "." + String(n.className).trim().split(/\s+/)[0]
-                  : n.tagName.toLowerCase());
+          if (n === el || el.contains(n)) break;  // el reached first: not occluded here
+          if (n.contains(el)) continue;           // ancestor paints behind el
+          occ.add(describe(n));                   // topmost node painted ABOVE el
           break;
         }
       }
@@ -974,6 +988,7 @@ plus `occluded_by` (elementsFromPoint sampling at 3 points):
                  occluded_by: [...occ] });
     });
   }
+  scrollTo(oldX, oldY);
   return out;
 }
 ```
@@ -990,14 +1005,22 @@ python3 scripts/ui_fidelity.py diff tests/ref.png tests/cand.png \
     --out tests --max-diff-percent 1                             # exit 1/3 -> fix
 ```
 
-Evidence: `tests/ui-diff-*.png` + `ui-boxes-*.json` cited in
-`tests/verification_log.md` (assert group 3 checks cited PNGs exist);
-failures iterate under §A4.1 with the cluster/Δ row quoted in the `diagnosis:`.
+Evidence: cite the concrete generated files by name (e.g.
+`tests/ui-diff-login.png`, `tests/ui-boxes-login.json`) in
+`tests/verification_log.md` — the assert script's cited-evidence group
+checks any PNG path you name there (never cite a glob: it is checked
+literally and would fail). Failures iterate under §A4.1 with the cluster/Δ
+row quoted in the `diagnosis:`.
 
 **Notes.** Both sides MUST be captured by the same browser/OS/DPR in one
 session — cross-machine captures differ in font rasterization (calibrate
 thresholds; never hide flake behind them). Mask time-varying regions
 (timestamps, ads, carousels) identically on both sides; canvas/video pixels
-are comparable only at a pinned frame. `--threshold` is the per-pixel YIQ
-tolerance (pixelmatch semantics, default 0.1); `--max-diff-percent` is the
-image-level budget — both are user-owned acceptance thresholds.
+are comparable only at a pinned frame. The `full_page=True` default fits
+whole-page clones; for a fixed-size design mock use a viewport-sized
+capture (or a matching crop) on BOTH sides — mixing a mock with a taller
+full-page shot is a size mismatch (exit 3, and a failure by design even
+with `--allow-dim-mismatch`), not a diff to tune away. `--threshold` is the
+per-pixel YIQ tolerance (pixelmatch semantics, default 0.1);
+`--max-diff-percent` is the image-level budget — both are user-owned
+acceptance thresholds.

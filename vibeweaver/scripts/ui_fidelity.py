@@ -19,17 +19,22 @@ Capture (Playwright at a fixed viewport/DPR, animations frozen, fonts
 awaited, caret hidden — APPENDIX.md §A12) happens in the project's own test
 code; this script only scores the captured artifacts.
 
-Exit codes (both subcommands): 0 = pass · 1 = fail (diff/tolerance/overlap)
-· 2 = usage/IO error · 3 = image size mismatch (diff only; refused unless
---allow-dim-mismatch, which then compares the common crop and still reports
-the mismatch).
+Exit codes (both subcommands): 0 = pass · 1 = fail (diff/tolerance/overlap; a
+size mismatch stays a fail even after --allow-dim-mismatch) · 2 = usage/IO
+error (bad flags, missing/unreadable files, malformed dumps) · 3 = image size
+mismatch refused (diff only; --allow-dim-mismatch compares the common crop
+and still reports the mismatch as a failure).
 
 JSON schemas (version 1):
   diff:  {"version":1,"kind":"pixel-diff","ref","cand","width","height",
           "diff_pixels","total_pixels","diff_percent","max_diff_percent",
           "threshold","aa":bool,"pass":bool,
           "dimensions":{"ref":[w,h],"cand":[w,h],"mismatch":bool},
-          "aa_pixels","clusters":[{"x","y","w","h","pixels"}],"diff_image"}
+          "aa_pixels","clusters":[{"x","y","w","h","pixels"}],
+          "total_clusters","clusters_truncated","diff_image"}
+          ("clusters" holds the top 50; total_clusters/clusters_truncated
+          keep the truncation visible; "diff_image"/"aa_pixels"/"clusters"
+          are null/empty when the size mismatch is refused)
   boxes: {"version":1,"kind":"boxes","pass","tolerance_px",
           "elements":[{"name","ref":[x,y,w,h],"cand":[x,y,w,h],"dx","dy",
                        "dw","dh","status","occluded_by"}],
@@ -41,6 +46,10 @@ JSON schemas (version 1):
 --selftest runs in-memory synthetic checks (PNG codec roundtrip, known
 diff count/cluster, threshold behavior, dimension handling, box delta and
 overlap logic) and prints PASS/FAIL — no project files touched.
+
+Gray output rounding follows the browser Uint8ClampedArray convention (±1
+vs the Node CLI's Buffer truncation on unchanged pixels only; counts and
+classification are identical).
 """
 
 import argparse
@@ -306,9 +315,15 @@ def diff_images(img1, img2, width, height, threshold=0.1, include_aa=False,
 # ==========================================================================
 
 
-def cluster_pixels(points, gap=4, max_clusters=50):
-    """8-connected components over diff pixels, then merge bounding boxes
-    within `gap` px. Returns [{"x","y","w","h","pixels"}] sorted by size."""
+def cluster_pixels(points, gap=4, max_clusters=50, merge_cap=1024):
+    """8-connected components over diff pixels, then merge component
+    bounding boxes within `gap` px (union-find rounds; merging is skipped
+    above `merge_cap` components to keep worst-case runtime bounded).
+
+    Returns (clusters, total) — `clusters` holds the top `max_clusters` by
+    pixel count; `total` is the true count (report `clusters_truncated`
+    when len(clusters) < total — never present a truncated list as
+    complete)."""
     remaining = set(points)
     raw = []
     while remaining:
@@ -331,29 +346,47 @@ def cluster_pixels(points, gap=4, max_clusters=50):
                         miny = min(miny, q[1])
                         maxy = max(maxy, q[1])
         raw.append([minx, miny, maxx, maxy, n])
+    total = len(raw)
 
     def gap_between(a, b):
         dx = max(0, max(a[0], b[0]) - min(a[2], b[2]) - 1)
         dy = max(0, max(a[1], b[1]) - min(a[3], b[3]) - 1)
         return max(dx, dy)
 
-    merged = True
-    while merged and len(raw) > 1:
-        merged = False
-        for i in range(len(raw)):
-            for j in range(i + 1, len(raw)):
-                if gap_between(raw[i], raw[j]) <= gap:
-                    a, b = raw[i], raw[j]
-                    raw[i] = [min(a[0], b[0]), min(a[1], b[1]),
-                              max(a[2], b[2]), max(a[3], b[3]), a[4] + b[4]]
-                    raw.pop(j)
-                    merged = True
-                    break
-            if merged:
+    if 1 < len(raw) <= merge_cap:
+        parent = list(range(len(raw)))
+        bbox = [list(c) for c in raw]
+
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        while True:
+            merged = False
+            roots = sorted({find(i) for i in range(len(raw))})
+            for ii in range(len(roots)):
+                for jj in range(ii + 1, len(roots)):
+                    a, b = find(roots[ii]), find(roots[jj])
+                    if a == b:
+                        continue
+                    if gap_between(bbox[a], bbox[b]) <= gap:
+                        parent[b] = a
+                        ab, bb = bbox[a], bbox[b]
+                        bbox[a] = [min(ab[0], bb[0]), min(ab[1], bb[1]),
+                                   max(ab[2], bb[2]), max(ab[3], bb[3]),
+                                   ab[4] + bb[4]]
+                        merged = True
+            if not merged:
                 break
+        raw = [bbox[i] for i in range(len(raw)) if parent[i] == i]
+
     raw.sort(key=lambda c: -c[4])
-    return [{"x": c[0], "y": c[1], "w": c[2] - c[0] + 1, "h": c[3] - c[1] + 1,
-             "pixels": c[4]} for c in raw[:max_clusters]]
+    clusters = [{"x": c[0], "y": c[1], "w": c[2] - c[0] + 1,
+                 "h": c[3] - c[1] + 1, "pixels": c[4]}
+                for c in raw[:max_clusters]]
+    return clusters, total
 
 
 # ==========================================================================
@@ -373,7 +406,8 @@ def run_diff(ref_path, cand_path, out_dir, name, threshold, max_diff_percent,
             "diff_percent": None, "max_diff_percent": max_diff_percent,
             "threshold": threshold, "aa": not include_aa, "pass": False,
             "dimensions": {"ref": [w1, h1], "cand": [w2, h2], "mismatch": True},
-            "aa_pixels": None, "clusters": [], "diff_image": None,
+            "aa_pixels": None, "clusters": [], "total_clusters": 0,
+            "clusters_truncated": False, "diff_image": None,
         }
         _write_reports(out_dir, name, report, None)
         print(f"[ui_fidelity] diff: size mismatch {w1}x{h1} vs {w2}x{h2} — "
@@ -387,7 +421,7 @@ def run_diff(ref_path, cand_path, out_dir, name, threshold, max_diff_percent,
         img1, img2, w, h, threshold=threshold, include_aa=include_aa, draw=True)
     total = w * h
     pct = diff_px / total * 100.0 if total else 0.0
-    clusters = cluster_pixels(points) if points else []
+    clusters, total_clusters = cluster_pixels(points) if points else ([], 0)
     passed = (pct <= max_diff_percent) and not dim_mismatch
     report = {
         "version": 1, "kind": "pixel-diff", "ref": ref_path, "cand": cand_path,
@@ -396,13 +430,15 @@ def run_diff(ref_path, cand_path, out_dir, name, threshold, max_diff_percent,
         "threshold": threshold, "aa": not include_aa, "pass": passed,
         "dimensions": {"ref": [w1, h1], "cand": [w2, h2], "mismatch": dim_mismatch},
         "aa_pixels": aa_px, "clusters": clusters,
+        "total_clusters": total_clusters,
+        "clusters_truncated": len(clusters) < total_clusters,
         "diff_image": f"ui-diff-{name}.png",
     }
     _write_reports(out_dir, name, report, out_rgba, (w, h))
     verdict = "PASS" if passed else "FAIL"
     print(f"[ui_fidelity] diff: {diff_px}/{total} px ({pct:.4f}%) | "
-          f"max {max_diff_percent:.4f}% | clusters {len(clusters)} | aa {aa_px} | "
-          f"sizes {w1}x{h1} vs {w2}x{h2} | {verdict}")
+          f"max {max_diff_percent:.4f}% | clusters {len(clusters)}/{total_clusters} "
+          f"| aa {aa_px} | sizes {w1}x{h1} vs {w2}x{h2} | {verdict}")
     for c in clusters[:10]:
         print(f"  cluster: x={c['x']} y={c['y']} w={c['w']} h={c['h']} px={c['pixels']}")
     return 0 if passed else 1
@@ -420,17 +456,35 @@ def _contains(outer, inner, tol=0.0):
             and ox + ow + tol >= ix + iw and oy + oh + tol >= iy + ih)
 
 
+def _synthesize_names(elements):
+    """Name-less dumps (e.g. positional crops) get stable positional names so
+    keyed matching works; explicit names are never overloaded."""
+    if all(not e.get("name") for e in elements):
+        return [dict(e, name=f"elem#{i}") for i, e in enumerate(elements)]
+    return elements
+
+
 def boxes_report(ref, cand, tol_px, allow_overlap=(), allow_occluded=()):
     """ref/cand: lists of {"name","x","y","w","h"[,"occluded_by"]}.
     Returns the boxes report dict (without IO)."""
+    ref = _synthesize_names(ref)
+    cand = _synthesize_names(cand)
+    ref_names = [e["name"] for e in ref]
+    cand_names = [e["name"] for e in cand]
+    dup_names = (len(set(ref_names)) != len(ref_names)
+                 or len(set(cand_names)) != len(cand_names))
     ref_by = {e["name"]: e for e in ref}
     cand_by = {e["name"]: e for e in cand}
     elements = []
-    missing = [e["name"] for e in ref if e["name"] not in cand_by]
-    extra = [e["name"] for e in cand if e["name"] not in ref_by]
+    missing = [n for n in ref_names if n not in cand_by]
+    extra = [n for n in cand_names if n not in ref_by]
 
-    # ordinal fallback for unnamed dumps
-    if missing and extra and len(ref) == len(cand):
+    # ordinal fallback: ONE side uses a different selector vocabulary (equal
+    # length, disjoint, duplicate-free) — pair positionally. Duplicate names
+    # or overlapping sets disable it: a wrong pairing reported as clean is
+    # worse than reporting missing/extra.
+    if (not dup_names) and missing and extra and len(ref) == len(cand) \
+            and not (set(ref_names) & set(cand_names)):
         for r_el, c_el in zip(ref, cand):
             if r_el["name"] in missing and c_el["name"] in extra:
                 missing.remove(r_el["name"])
@@ -472,7 +526,11 @@ def boxes_report(ref, cand, tol_px, allow_overlap=(), allow_occluded=()):
 
     # overlap detection among candidate boxes (non-containment intersections)
     overlaps = []
-    allow_pairs = {tuple(sorted(p.split(":", 1))) for p in allow_overlap}
+    allow_pairs = set()
+    for p in allow_overlap:
+        a, sep, b = p.rpartition(":")
+        if sep:  # split on the LAST colon: selector names may contain ':'
+            allow_pairs.add(tuple(sorted((a, b))))
     rects = [(e["name"], _rect(e)) for e in cand]
     for i in range(len(rects)):
         for j in range(i + 1, len(rects)):
@@ -511,6 +569,12 @@ def run_boxes(ref_path, cand_path, out_dir, name, tol_px, allow_overlap, allow_o
         cand = json.load(f)
     if not isinstance(ref, list) or not isinstance(cand, list):
         raise ValueError("boxes inputs must be JSON arrays of element objects")
+    for label, lst in (("ref", ref), ("cand", cand)):
+        for e in lst:
+            if not isinstance(e, dict) or not all(
+                    k in e for k in ("name", "x", "y", "w", "h")):
+                raise ValueError(
+                    f"{label} element missing name/x/y/w/h: {e!r}")
     report = boxes_report(ref, cand, tol_px, allow_overlap, allow_occluded)
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"ui-boxes-{name}.json"), "w") as f:
@@ -582,9 +646,10 @@ def selftest():
     base_b, cand_b = bytes(base), bytes(cand)
     d, _out, aa, pts = diff_images(base_b, cand_b, bw, bh, 0.1, False, draw=False)
     ok(d == 24 and aa == 0, f"block change -> exactly 24 diff px (got {d}, aa {aa})")
-    cl = cluster_pixels(pts)
-    ok(len(cl) == 1 and cl[0] == {"x": 10, "y": 10, "w": 6, "h": 4, "pixels": 24},
-       f"single cluster (10,10,6,4,24) (got {cl})")
+    cl, cl_total = cluster_pixels(pts)
+    ok(cl_total == 1 and len(cl) == 1
+       and cl[0] == {"x": 10, "y": 10, "w": 6, "h": 4, "pixels": 24},
+       f"single cluster (10,10,6,4,24) (got {cl}, total {cl_total})")
 
     # 4. two separated blocks -> 2 clusters
     cand2 = bytearray(base)
@@ -597,7 +662,8 @@ def selftest():
             o = (y * bw + x) * 4
             cand2[o:o + 4] = bytes((0, 0, 0, 255))
     d2, _o, _a, pts2 = diff_images(base_b, bytes(cand2), bw, bh, 0.1, False, draw=False)
-    ok(d2 == 12 and len(cluster_pixels(pts2)) == 2, "two blocks -> 2 clusters")
+    cl2, tot2 = cluster_pixels(pts2)
+    ok(d2 == 12 and len(cl2) == 2 and tot2 == 2, "two blocks -> 2 clusters")
 
     # 5. threshold behavior: tiny 2/255 shift is below t=0.1, 40/255 above
     shift2 = bytearray(base)
@@ -658,6 +724,16 @@ def selftest():
     ok(len(crop) == cw * ch * 4 and crop[:4] == bytes((200, 200, 200, 255)),
        "crop helper")
 
+    # 9. CLI contract: dimension refusal (3) + allow-dim compares crop (1)
+    p_full = os.path.join(tmp, "full.png")
+    p_half = os.path.join(tmp, "half.png")
+    write_png(p_full, bw, bh, base_b)
+    write_png(p_half, bw, bh // 2, base_b[: bw * (bh // 2) * 4])
+    rc = run_diff(p_full, p_half, tmp, "dim", 0.1, 1.0, False, False)
+    ok(rc == 3, f"dimension mismatch refused -> exit 3 (got {rc})")
+    rc2 = run_diff(p_full, p_half, tmp, "dim2", 0.1, 1.0, False, True)
+    ok(rc2 == 1, f"allow-dim compares crop yet still fails -> exit 1 (got {rc2})")
+
     if fails:
         for m in fails:
             print("SELFTEST FAIL: " + m)
@@ -707,6 +783,10 @@ def main():
         if args.selftest:
             return selftest()
         if args.cmd == "diff":
+            if not 0.0 <= args.threshold <= 1.0 or args.max_diff_percent < 0:
+                print("[ui_fidelity] error: --threshold must be within 0..1 "
+                      "and --max-diff-percent >= 0", file=sys.stderr)
+                return 2
             name = args.name or os.path.splitext(os.path.basename(args.cand))[0]
             return run_diff(args.ref, args.cand, args.out, name,
                             args.threshold, args.max_diff_percent,
@@ -718,7 +798,7 @@ def main():
                              tuple(p for p in args.allow_occluded.split(",") if p))
         ap.print_help()
         return 2
-    except ValueError as e:
+    except (ValueError, OSError, KeyError) as e:
         print(f"[ui_fidelity] error: {e}", file=sys.stderr)
         return 2
 
