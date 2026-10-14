@@ -2,6 +2,14 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-14: 拷贝保真 —— 先测量，后判定
+
+**缺口。** 从既有 HTML 页面或截图克隆 UI 时，验证器树评的是语义（观察前置、逐标准引证）——但真正翻车的标准（3px 位移、一处遮盖重叠、错误的盒子尺寸）是*测量*，而 2025-26 的 VLM 研究恰恰证明：比较式视觉测量是视觉语言裁判最不可靠的能力区（TableTest；《VLMs have Tunnel Vision》, NeurIPS 2025）。skill 此前没有针对它们的仪器层。
+
+**机制。** TESTING_PROTOCOLS §A4.1.2（measure-then-judge）：**T0** 同条件采集（同视口/DPR、冻结动画、等字体、hide caret、mask 动态区——配方与 DOM dump 片段在 APPENDIX §A12）；**T1** 几何/遮挡：`scripts/ui_fidelity.py boxes`（逐元素 Δ尺寸/位置、missing/extra、非包含重叠、采集期 elementsFromPoint 采样得到的 `occluded_by`）；**T2** 像素：`scripts/ui_fidelity.py diff`（pixelmatch v5.3.0 的 YIQ + 抗锯齿算法移植为纯 stdlib——diff 图 + 聚类；exit 3 = 尺寸失配）；**T3** 语义仍归 VLM，且 VLM 永不认证几何。verifier 模式不变：T1/T2 是确定性的，连 `direct read` 任务也获得完整保真验证。
+
+**验证。** `--selftest` 17 检查（RED 先行）；真实图 E2E 退出码矩阵（0/1/3）；boxes 夹具检出全部五类缺陷；repo verify_skill 23 文件 payload + unittest 26→32；dev audit 夹具 225/0/1 + mutation 41/41 无退化；SKILL.md 净零（48,972B，T11），TESTING_PROTOCOLS 瘦身至 45KB 散文预算内（44,985B）。
+
 ## 2026-10-12: 确定性记忆投递 —— 让 harness 押送账本
 
 **缺口。** 工作笔记（§A7.15）是任务状态账本，cue 触发（§A7.16）在编辑时刻投递记忆——但压缩边界没有任何投递点：「压缩前自觉更新 note」仍是自愿行为，而自愿通道的实测值是零（arXiv:2607.20972：预置知识库下 114 轮 0 次主动查阅；同样的事实由 harness 投递则 138/138 次压缩-恢复全部送达）。

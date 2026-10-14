@@ -723,6 +723,37 @@ re-run. Until then the postmortem stays in the owner's triage queue.
 
 ---
 
+## §A10. A4.7b Workflow Trace Template (Universal)
+
+One scenario per file under `tests/workflows/`; real HTTP against the server
+started via `script/` (COV-2), clean start state, state transitions
+asserted, per-step results appended to `tests/workflows/<flow>.trace.log`
+(the loop's convergence evidence; assert_artifacts group 10 checks cited
+traces exist). Three hard rules: TESTING_PROTOCOLS.md §A4.7b.
+
+Save as `tests/workflows/test_registration_flow.py`:
+
+```python
+# Real HTTP, not service-direct: routing/auth/serialization are part of the test.
+import httpx
+
+BASE = "http://127.0.0.1:8000"          # from config.toml in the real project
+
+def test_register_then_create_then_persist(base_url=BASE):
+    r = httpx.post(f"{base_url}/api/register", json={"user": "u1", "pw": "x"})
+    assert r.status_code == 201                       # entry call
+    token = r.json()["token"]
+    r = httpx.post(f"{base_url}/api/items",
+                   headers={"Authorization": f"Bearer {token}"},
+                   json={"name": "n1"})
+    assert r.status_code == 201, r.text               # cross-endpoint dependency
+    r = httpx.get(f"{base_url}/api/items/1",
+                  headers={"Authorization": f"Bearer {token}"})
+    assert r.json()["owner"] == "u1"                  # state transition verified
+```
+
+---
+
 ## §A11. Trusted Oracle & Deterministic Checker (Universal)
 
 **Oracle hierarchy — what may certify a task:**
@@ -874,3 +905,99 @@ function/class/method/error message from the spec, write `spec_test.py` from
 the spec's own examples, and treat it as tier 2/3 evidence (label it); a
 missing checker is itself a finding. Under-specified contract items are
 recorded as open questions, never invented.
+
+---
+
+## §A12. Design-Copy Fidelity — Capture + Measurement (Universal)
+
+Protocol: TESTING_PROTOCOLS.md §A4.1.2 (T0 identical capture · T1 geometry/
+occlusion · T2 pixel diff · T3 VLM-semantics-only). Measurement script:
+`scripts/ui_fidelity.py` (stdlib only; no model/network). Applies when
+acceptance criteria name copy fidelity — geometry/occlusion/size criteria
+are certified by T1/T2, never by a VLM verdict.
+
+### T0 — deterministic capture (Playwright; IDENTICAL settings on both sides)
+
+```python
+# tests/fidelity_capture.py — call once per side (reference + candidate).
+import json
+from playwright.sync_api import sync_playwright
+
+FREEZE_CSS = """
+*, *::before, *::after { animation: none !important; transition: none !important; }
+* { caret-color: transparent !important; }
+"""
+
+def capture(url, out_png, out_json=None, selectors=None, full_page=True):
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        ctx = b.new_context(viewport={"width": 1280, "height": 900},
+                            device_scale_factor=1)   # same DPR on both sides
+        page = ctx.new_page()
+        page.goto(url, wait_until="domcontentloaded")
+        page.add_style_tag(content=FREEZE_CSS)
+        page.evaluate("document.fonts.ready")
+        page.wait_for_load_state("networkidle")
+        if selectors and out_json:
+            boxes = page.evaluate(BOX_DUMP_JS, selectors)
+            with open(out_json, "w") as f:
+                json.dump(boxes, f, indent=1)
+        page.screenshot(path=out_png, full_page=full_page,
+                        animations="disabled", caret="hide")
+        b.close()
+```
+
+`BOX_DUMP_JS` — pass as the `page.evaluate` string; emits per-element boxes
+plus `occluded_by` (elementsFromPoint sampling at 3 points):
+
+```javascript
+(selectors) => {
+  const out = [];
+  for (const sel of selectors) {
+    document.querySelectorAll(sel).forEach((el, i) => {
+      const r = el.getBoundingClientRect();
+      const name = sel + (i ? "[" + i + "]" : "");
+      const pts = [[r.x + r.width / 2, r.y + r.height / 2], [r.x + 2, r.y + 2],
+                   [r.x + r.width - 2, r.y + r.height - 2]];
+      const occ = new Set();
+      for (const [x, y] of pts) {
+        for (const n of (document.elementsFromPoint(x, y) || [])) {
+          if (n === el || el.contains(n) || n.contains(el)) continue;
+          occ.add(n.id ? "#" + n.id
+                  : n.className ? "." + String(n.className).trim().split(/\s+/)[0]
+                  : n.tagName.toLowerCase());
+          break;
+        }
+      }
+      out.push({ name, x: +r.x.toFixed(2), y: +r.y.toFixed(2),
+                 w: +r.width.toFixed(2), h: +r.height.toFixed(2),
+                 occluded_by: [...occ] });
+    });
+  }
+  return out;
+}
+```
+
+Reference is an image (design mock, screenshot): skip the REF dump; use the
+reference crop's regions as the ref box list (T1) and the image as REF.png (T2).
+
+### T1/T2 — measure, then cite
+
+```bash
+python3 scripts/ui_fidelity.py boxes tests/ref_boxes.json tests/cand_boxes.json \
+    --out tests --tol-px 2 --allow-overlap ".card:.card-badge"   # exit 1 -> fix
+python3 scripts/ui_fidelity.py diff tests/ref.png tests/cand.png \
+    --out tests --max-diff-percent 1                             # exit 1/3 -> fix
+```
+
+Evidence: `tests/ui-diff-*.png` + `ui-boxes-*.json` cited in
+`tests/verification_log.md` (assert group 3 checks cited PNGs exist);
+failures iterate under §A4.1 with the cluster/Δ row quoted in the `diagnosis:`.
+
+**Notes.** Both sides MUST be captured by the same browser/OS/DPR in one
+session — cross-machine captures differ in font rasterization (calibrate
+thresholds; never hide flake behind them). Mask time-varying regions
+(timestamps, ads, carousels) identically on both sides; canvas/video pixels
+are comparable only at a pinned frame. `--threshold` is the per-pixel YIQ
+tolerance (pixelmatch semantics, default 0.1); `--max-diff-percent` is the
+image-level budget — both are user-owned acceptance thresholds.

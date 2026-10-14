@@ -870,6 +870,26 @@ works, but results take a small hit. The division of labor:
 In one line: vibeweaver decides *what must be captured*; the verifier (model-native
 or mm-sensor) decides *what the evidence actually says*.
 
+## Design-copy fidelity: measurement before judgment
+
+When the acceptance criteria name pixel or geometry fidelity — copying a page from
+an existing HTML source or a screenshot — vibeweaver adds a third evidence channel
+beside the verifier tree: §A4.1.2's measure-then-judge tiers. The point is not to
+look harder: 2025-26 VLM research shows comparative visual measurement (a 3 px
+shift, an occluding overlap, a wrong box size) is exactly what vision-language
+judges are least reliable at, so geometry is never certified by a model's eye.
+
+- **T1 geometry/occlusion** — element-box dumps from both sides feed
+  `scripts/ui_fidelity.py boxes`: per-element Δsize/Δposition, missing/extra
+  elements, non-containment overlaps, and `occluded_by` (elementsFromPoint
+  sampling at capture time).
+- **T2 pixel** — same-condition captures feed `scripts/ui_fidelity.py diff`
+  (pixelmatch v5.3.0 math ported to stdlib: YIQ color delta + anti-aliasing
+  detection) and return a diff image plus a cluster list for diagnosis.
+- **T3 semantics** stays §A4.1.1 (VLM observation-first grading). Verifier modes
+  are unchanged — T1/T2 are deterministic, so even `direct read` tasks get full
+  fidelity verification. Capture recipe + DOM-dump snippet: APPENDIX §A12.
+
 ## Stack compatibility
 
 vibeweaver is stack-agnostic. It never assumes a language, framework, or database:
@@ -945,13 +965,14 @@ the agent's context explode and give up; untested, feedback welcome.
 | `COMPLETION_GATE.md`                                        | Completion output spec · artifact gates · §AUDIT audit protocol · pre-output checklist                                                                                         |
 | `CODING_PRINCIPLES.md`                                      | The 4 iron rules (Think Before Coding · Simplicity First · Surgical Changes · Goal-Driven Execution) + Fowler's 12-smell reviewer baseline                                     |
 | `ENGINEERING_STD.md`                                        | Detailed engineering standards                                                                                                                                                 |
-| `REFERENCE.md` / `APPENDIX.md`                              | Part B/C workflow full text + §A5.1 / executable templates (§A1–§A9, §A11 oracle + checker)                                                                                    |
-| `TESTING_PROTOCOLS.md`                                      | §A4.1 loop + §A4.6 debugging + canonical §A4.7–§A4.11 protocols (§A4.11 modes/pause)                                                                                           |
+| `REFERENCE.md` / `APPENDIX.md`                              | Part B/C workflow full text + §A5.1 / executable templates (§A1–§A12: scripts, workflow traces, oracle + checker, design-copy capture)                                                                                    |
+| `TESTING_PROTOCOLS.md`                                      | §A4.1 loop + §A4.1.1/§A4.1.2 fidelity + §A4.6 debugging + canonical §A4.7–§A4.11 protocols (§A4.11 modes/pause)                                                                                           |
 | `WORKFLOWS_EXTENDED.md`                                     | §M dual modes + Class-E list + ADR/PAUSED formats · C4 audit / C5 deploy / C6 ops / C7 non-web / S1 spike · profile reference                                                  |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`                   | Project memory subsystem                                                                                                                                                       |
 | `VERIFICATION_UPGRADES.md`                                  | §V1 FCV · §V2 test integrity · §V3 coverage honesty · §V4 adversarial review · §V5 lanes · §V11 task class + doc-skill delegation and the DOC-asset render gate               |
 | `scripts/assert_artifacts.py`                               | The canonical assertion script projects copy into `tests/` (19 groups: artifact presence, evidence integrity, diagnosis/claim lint, secret scan, test-change guard, risk-tier, DOC-asset render gate, exec-check, task-class coherence, working-note lifecycle) |
 | `scripts/mm_probe.py`                                       | Behavioral self-multimodality probe (verifier selection, COV-5)                                                                                                                |
+| `scripts/ui_fidelity.py`                                    | Design-copy fidelity measurement (§A4.1.2): pixel diff (pixelmatch v5.3.0 port) + clusters, DOM box Δ/overlap/occlusion verdicts — stdlib only                                  |
 | `scripts/scan_secrets.py`                                   | Standalone secret scan for the completion checklist (assert group 14) — credential-looking strings on the change-wave diff                                                      |
 | `scripts/backlog_check.py`                                  | Backlog-ledger guard — fails any `passes: true` that no executed-test log line names                                                                                           |
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |

@@ -2,30 +2,18 @@
 
 > Companion rulebook for [SKILL.md](SKILL.md). **Read IN FULL (Read Contract R1
 > in SKILL.md) on any task that touches code, BEFORE the first code action** —
-> it holds the full protocol text behind the SKILL.md binding stubs: §A4.1
-> (capture-driven verification loop), §A4.6 (systematic debugging), and the
-> canonical text of §A4.7 (COV-6), §A4.7b, §A4.8, §A4.9 (COV-8), plus
-> §A4.10 (stall escape) and §A4.11 (PAUSED/modes, COV-12). If in conflict
-> with §1 covenants in SKILL.md, the
-> covenants prevail. Section numbers are preserved so cross-references
-> (`A4.1`, `A4.6`, `A4.8`, …) keep resolving.
+> it holds the full text behind the SKILL.md stubs (§A4.1 · §A4.1.1 · §A4.1.2
+> · §A4.6 · §A4.7/§A4.7b · §A4.8 · §A4.9 · §A4.10 · §A4.11). If in conflict
+> with §1 covenants in SKILL.md, the covenants prevail. Section numbers are
+> preserved so cross-references (`A4.1`, `A4.6`, …) keep resolving.
 
 ## Contents
 
-- **§A4.1 Capture-Driven Verification Loop** — full protocol: verifier probe
-  (model-native self-probe → mm-sensor → direct read), acceptance gate,
-  capture + grading call tables, runtime degradation, decision rules,
-  convergence
-- **§A4.1.1 Visual Verification Protocol** — mandatory grading chain for the
-  model-native verifier (observation-first · per-criterion verdicts · DOM
-  cross-check · UNCERTAIN=FAIL)
-- **§A4.6 Systematic Debugging — Four Phases** + escalation
-- **§A4.7 Backend-Only Task: API Doc-Driven Test Loop** (COV-6 canonical)
-- **§A4.7b Workflow Scenario Tests** (task-level backend verification)
-- **§A4.8 TDD for Logic-Bearing Code**
-- **§A4.9 Independent Code Review (Major Changes)** (COV-8 canonical)
-- **§A4.10 Stall Escape: Parameterize, Differential-Test, Dual-Path**
-  (companion to COV-7)
+- §A4.1 loop · §A4.1.1 model-native grading · §A4.1.2 design-copy fidelity
+  (T0-T3: capture · geometry · pixel · semantics)
+- §A4.6 debugging · §A4.7/§A4.7b backend loop + workflows (template:
+  APPENDIX §A10) · §A4.8 TDD · §A4.9 review · §A4.10 stall escape ·
+  §A4.11 PAUSED/modes
 
 ---
 
@@ -59,25 +47,24 @@ probe is the single source of truth, not a filesystem/config guess).
      ALLOWED for this probe artifact only** — the mm-sensor Read-ban applies
      to grading captured media, not to the probe. Read the PNG BEFORE
      running `--check` (the token is random per run — nothing to recall).
-  3. Report what you actually perceive: exact token + color name. If the
-     Read errors (`Cannot read image …`) or you genuinely cannot extract the
-     token/color, report that honestly — a failed probe is a valid result.
-   4. Validate: `python3 {VW_DIR}/scripts/mm_probe.py --check <token> <color>`.
-      - **exit 0 (PASS)** → the model IS image-perceptive → announce
-        `Verifier: model-native [image]`. PASS criterion: color exact AND
-        >= 5 of 6 token chars in exact positions (a blind guesser scores
-        ~0-1/6, so the gate is unpassable without real perception, while one
-        isolated slip no longer disqualifies a vision-capable model).
-        Screenshots are graded via the
-        Read tool under **§A4.1.1 Visual Verification Protocol**
-        (observation-first · per-criterion verdicts · DOM/log cross-check ·
-        UNCERTAIN=FAIL) — the countermeasure to self-grading bias.
+  3. Report what you actually perceive (exact token + color). If the Read
+     errors or you cannot extract them, report that honestly — a failed
+     probe is a valid result.
+  4. Validate: `python3 {VW_DIR}/scripts/mm_probe.py --check <token> <color>`.
+     - **exit 0 (PASS)** → the model IS image-perceptive → announce
+       `Verifier: model-native [image]`. PASS criterion: color exact AND
+       >= 5 of 6 token chars in exact positions (a blind guesser scores
+       ~0-1/6, so the gate is unpassable without real perception, while one
+       isolated slip no longer disqualifies a vision-capable model).
+       Screenshots are graded via the
+       Read tool under **§A4.1.1 Visual Verification Protocol**
+       (observation-first · per-criterion verdicts · DOM/log cross-check ·
+       UNCERTAIN=FAIL) — the countermeasure to self-grading bias.
      - **exit 1 (FAIL)** → the model is NOT image-perceptive → Step 0b.
      - **exit 2 / error** → fix the probe invocation, re-run; on repeat
        failure treat as FAIL (0b).
-  5. Record the result in `tests/verification_log.md`:
-     `- probe: model-native PASS (probe_vision.png)` or
-     `- probe: model-native FAIL → mm-sensor`.
+  5. Record in `tests/verification_log.md`: `- probe: model-native PASS
+     (probe_vision.png)` or `- probe: model-native FAIL → mm-sensor`.
 - **Step 0b — mm-sensor probe (only when 0a FAILED):** check `available_skills`
   for `mm-sensor` (opencode injects this list; it is authoritative).
   - **`mm-sensor` IS in available_skills** → MANDATORY independent verifier.
@@ -191,11 +178,8 @@ criteria. ONE criterion = ONE pass/fail sentence a verifier can answer yes/no.
    then one numbered line per criterion. Example:
    ```markdown
    > cap=5  stall=3×
-
-   # Acceptance Criteria — Login Page
-   1. Username input field exists and is empty on load
-   2. "Sign In" button is visible and enabled
-   3. No error/warning banner is shown on initial load
+   1. Username input exists and is empty on load
+   2. "Sign In" button visible and enabled
    ```
 2. Gate on clarity:
    - **Vague/ambiguous** (criteria not derived confidently) → STOP and ask the
@@ -209,16 +193,14 @@ criteria. ONE criterion = ONE pass/fail sentence a verifier can answer yes/no.
 operation; capture evidence per the verifier mode announced in Step 0.
 Save to `tests/` with descriptive names. Template: [APPENDIX.md §A1](APPENDIX.md).
 
-**Narration ≠ execution (binding):** a tool call announced in prose ("now I
-will Read the screenshot", "grading") is NOT the call — only an emitted tool
-invocation is. Never `echo`/`printf` intent markers as bash calls; if your
-reasoning names a tool, the next emission is THAT tool call. Bare literal
-`echo`/`printf` narration runs (≥4 consecutive, no side effects) are
-mechanically interrupted (loop-guard `noop-bash`); the interrupt IS the
-stall declaration (§A4.10 — log `- stall: noop-bash …` before any completion
-output). Decorated variants (`>`/`|`/`$(…)`/chained) and interleaved
-real-action loops are known gaps — the interrupt covers bare narration
-runs, not every degenerate shape.
+**Narration ≠ execution (binding):** a tool call announced in prose is NOT
+the call — only an emitted tool invocation is. Never `echo`/`printf` intent
+markers as bash calls; if your reasoning names a tool, the next emission is
+THAT tool call. Bare literal `echo`/`printf` narration runs (≥4 consecutive,
+no side effects) are mechanically interrupted (loop-guard `noop-bash`); the
+interrupt IS the stall declaration (§A4.10 — log `- stall: noop-bash …`).
+Decorated variants (`>`/`|`/`$(…)`/chained) and interleaved real-action
+loops are known gaps.
 
 Capture set per mode (mm-sensor loaded):
 
@@ -257,12 +239,12 @@ NOT by guessing:
 | `mm-sensor [image]` | `vision.py tests/<flow>.png` per screenshot (original loop) |
 | `direct read` | DOM/log inspection primary (Step 0c); screenshots Read only as artifacts |
 
-Runtime degradation (mm-sensor modes only — model-native/direct read have
-no external-media fallback; §A4.1.1 rules 4-5 apply instead):
+Runtime degradation (mm-sensor modes only — model-native/direct read apply
+§A4.1.1 rules 4-5 instead):
 - Video graded but API returns `model_no_capability` / modality error →
-  mm-sensor auto-falls back to frame-sampling (output marked
-  `fallback: video→image`); treat the result as image-grade evidence and
-  re-grade the terminal screenshot at `--detail high`.
+  mm-sensor auto-falls back to frame-sampling (marked
+  `fallback: video→image`); treat as image-grade evidence and re-grade the
+  terminal screenshot at `--detail high`.
 - Audio graded but mm-sensor returns the `skipped` marker
   (`data-skipped="model_no_audio_capability"` in HTML / `skipped` field in
   JSON — audio has no fallback, mm-sensor reports it as a skip-with-
@@ -342,6 +324,40 @@ should work" assumptions are NOT valid substitutes.
 
 ---
 
+## A4.1.2 Design-Copy Fidelity — measure-then-judge ★
+
+**Applies when acceptance criteria name copy fidelity** (pixel similarity ·
+element size/position · overlap/occlusion · "copy this HTML/screenshot").
+Tiers run IN ADDITION to §A4.1 (verifier modes unchanged — T1/T2 are
+instrumental). Geometry/occlusion/size criteria can ONLY be certified by
+T1/T2: a VLM verdict never certifies geometry.
+
+- **T0 — identical capture conditions.** Both sides render in the same
+  browser at the same viewport + DPR, animations/transitions frozen, fonts
+  awaited, caret hidden, dynamic regions masked; recipes + DOM-dump snippet
+  in [APPENDIX.md §A12](APPENDIX.md).
+- **T1 — geometry/occlusion (instrument).** Box dumps from both sides →
+  `python3 scripts/ui_fidelity.py boxes REF.json CAND.json --out tests
+  --tol-px 2`: per-element Δsize/Δposition, missing/extra elements,
+  non-containment overlaps, `occluded_by` (elementsFromPoint sampling at
+  capture). Reference is an image: compare candidate boxes to reference
+  crops instead.
+- **T2 — pixel (instrument).** Same-condition screenshots →
+  `python3 scripts/ui_fidelity.py diff REF.png CAND.png --out tests
+  --max-diff-percent <user threshold>` — pixelmatch v5.3.0 math (YIQ + AA
+  detection), diff image + cluster list for diagnosis. Exit 3 (size
+  mismatch) is itself a fidelity failure.
+- **T3 — semantics (§A4.1.1 as-is).** The VLM grades semantic criteria and
+  MAY use T1/T2 clusters to localize; it never overrides T1/T2.
+
+**Loop + evidence:** failures iterate under §A4.1 (cap=5 / stall=3× —
+`diagnosis:` cites the cluster/Δ row). Cite `tests/ui-diff-*.png` +
+`ui-boxes-*.json` in `tests/verification_log.md` (assert group 3 checks
+cited PNGs). Thresholds are user-owned criteria; in AUTO derive conservative
+defaults + ADR. Skip only when no criterion names fidelity — state it.
+
+---
+
 ## A4.6 Systematic Debugging — Four Phases ★
 
 **No fixes without root-cause investigation first.** For ANY bug-fix task,
@@ -357,9 +373,8 @@ boundary diagnostics. Complete each phase before the next.
   reproducible → gather more data, don't guess.
 - Check recent changes — `git diff`, recent commits, new deps, config/env
   changes.
-- **Multi-component systems** (CI → build → service → database): add diagnostic
-  logging at each component boundary, run once, let evidence show which layer
-  breaks. Then investigate that layer.
+- **Multi-component systems** (CI → build → service → database): log at each
+  boundary, run once, let evidence show the broken layer.
 - **Error deep in the stack:** trace the bad value backward — where does it
   originate, who called with it — until the source is found. Fix at the
   source, not at the symptom.
@@ -462,21 +477,8 @@ the happy path, one auth-failure path, and one state-transition error
 (e.g. unauthorized update, insufficient balance, duplicate key).
 
 **Step 2 — Write them as re-runnable files** under `tests/workflows/*.py`
-(httpx/requests, plain asserts, one scenario per file). Template:
-
-```python
-# tests/workflows/test_registration_flow.py
-def test_register_then_create_then_persist(base_url, clean_state):
-    r = httpx.post(f"{base_url}/api/register", json={"user": "u1", "pw": "x"})
-    assert r.status_code == 201                       # entry call
-    token = r.json()["token"]
-    r = httpx.post(f"{base_url}/api/items",
-                   headers={"Authorization": f"Bearer {token}"}, json={...})
-    assert r.status_code == 201, r.text               # cross-endpoint dependency
-    r = httpx.get(f"{base_url}/api/items/1",
-                  headers={"Authorization": f"Bearer {token}"})
-    assert r.json()["owner"] == "u1"                  # state transition verified
-```
+(httpx/requests, plain asserts, one scenario per file). Re-runnable
+skeleton with clean-state fixtures: template in [APPENDIX.md §A10](APPENDIX.md).
 
 **Step 3 — Three hard rules (non-negotiable):**
 1. **Clean start state** — each workflow run starts from a known state: reset
@@ -486,13 +488,12 @@ def test_register_then_create_then_persist(base_url, clean_state):
    what the call CHANGED (a query, a side effect, or the precondition of the
    next call). Status-code-only workflows miss the actual task contract.
 3. **Trace on disk — real HTTP, not service-direct** — each run appends
-   per-step request/response/assert results to `tests/workflows/<flow>.trace.log`.
-   The trace is the loop's convergence evidence and the A4.9 reviewer's raw
-   material. **A service-level direct call (importing the service class and
-   calling it in-process) is NOT a workflow trace**: it bypasses routing,
-   auth middleware, and serialization — the layers where integration bugs
-   live. If the change flows through the HTTP API, the workflow MUST run
-   real HTTP against the server started via `script/` (COV-2).
+   per-step results to `tests/workflows/<flow>.trace.log` (the loop's
+   convergence evidence + the A4.9 reviewer's raw material). **A
+   service-level direct call is NOT a workflow trace**: it bypasses routing,
+   auth middleware, and serialization — where integration bugs live. When
+   the change flows through the HTTP API, the workflow MUST run real HTTP
+   against the server started via `script/` (COV-2).
 
 **Step 4 — Run the workflow loop:** start backend via `script/` (COV-2), run
 the workflow suite, and iterate with the SAME loop discipline as A4.7 Step 5:
@@ -687,8 +688,8 @@ it is wrong.
 3. Every candidate stays live until evidence kills it. A killed candidate
    gets recorded with the evidence that killed it (→ memory ❌ per
    MEMORY_RULES.md §A7.7). No premature favourites.
-4. Name **the cheapest test that could refute each candidate.** A test that
-   could not have come out the other way is not a test — it is a ceremony.
+4. Name **the cheapest test that could refute each candidate** (a test that
+   cannot fail is a ceremony).
 
 ### TRUST-AND-VERIFY — differential testing with an independent reference
 

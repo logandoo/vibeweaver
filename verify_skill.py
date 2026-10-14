@@ -39,6 +39,7 @@ PAYLOAD_FILES = [
     "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
     "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
     "scripts/mm_probe.py", "scripts/backlog_check.py", "scripts/scan_secrets.py",
+    "scripts/ui_fidelity.py",
     "vibeweaver-gate.js", "vibeweaver-audit.js", "install.sh", "install.bat",
 ]
 INSTALLED_DOCS = [
@@ -176,6 +177,8 @@ def main():
         fail("install.sh does not install scripts/backlog_check.py")
     if 'cp "${SCRIPT_DIR}/scripts/scan_secrets.py"' not in sh:
         fail("install.sh does not install scripts/scan_secrets.py")
+    if 'cp "${SCRIPT_DIR}/scripts/ui_fidelity.py"' not in sh:
+        fail("install.sh does not install scripts/ui_fidelity.py")
     bat = (PAYLOAD / "install.bat").read_text(encoding="utf-8")
     for doc in INSTALLED_DOCS:
         if doc not in bat:
@@ -186,6 +189,8 @@ def main():
         fail("install.bat does not install scripts\\backlog_check.py")
     if "scripts\\scan_secrets.py" not in bat:
         fail("install.bat does not install scripts\\scan_secrets.py")
+    if "scripts\\ui_fidelity.py" not in bat:
+        fail("install.bat does not install scripts\\ui_fidelity.py")
 
     # 9) plugin + helper script syntax (best effort — node optional locally, present in CI)
     node = shutil.which("node")

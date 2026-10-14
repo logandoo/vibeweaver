@@ -59,6 +59,8 @@ cp "${SCRIPT_DIR}/scripts/backlog_check.py" "${SKILLS_DIR}/scripts/backlog_check
 echo "[OK] Installed: scripts/backlog_check.py"
 cp "${SCRIPT_DIR}/scripts/scan_secrets.py" "${SKILLS_DIR}/scripts/scan_secrets.py"
 echo "[OK] Installed: scripts/scan_secrets.py"
+cp "${SCRIPT_DIR}/scripts/ui_fidelity.py" "${SKILLS_DIR}/scripts/ui_fidelity.py"
+echo "[OK] Installed: scripts/ui_fidelity.py"
 cp "${SCRIPT_DIR}/scripts/mm_probe.py" "${SKILLS_DIR}/scripts/mm_probe.py"
 echo "[OK] Installed: scripts/mm_probe.py"
 echo "[OK] Installed: scripts/vibeweaver-audit-core.js"
@@ -75,6 +77,6 @@ done
 
 echo ""
 echo "[OK] vibeweaver skill installed to: ${SKILLS_DIR}/"
-echo "     Files installed: $(( ${#FILES[@]} + 5 ))"
+echo "     Files installed: $(( ${#FILES[@]} + 6 ))"
 echo "     Plugins installed to: ${PLUGINS_DIR}/"
 echo "     Restart OpenCode to activate."

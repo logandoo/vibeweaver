@@ -365,6 +365,14 @@ vibeweaver 和 [mm-sensor](https://github.com/logandoo/mm-sensor) 建议一起�
 
 一句话：vibeweaver 决定*该采什么、而且必须采*；验证器（model-native 或 mm-sensor）决定*证据到底说了什么*。
 
+## 拷贝保真：先测量，后判定
+
+当验收标准点名像素或几何保真——从既有 HTML 或截图拷贝一个页面——vibeweaver 会在验证器树之外加上第三条证据通道：§A4.1.2 的 measure-then-judge 三层。重点不是「看得更仔细」：2025-26 的 VLM 研究显示，比较式视觉测量（3px 位移、一处遮盖重叠、错误的盒子尺寸）恰是视觉语言裁判最不可靠的能力区，因此几何永远不由模型肉眼认证。
+
+- **T1 几何/遮挡**——双端元素盒子 dump 喂给 `scripts/ui_fidelity.py boxes`：逐元素 Δ尺寸/Δ位置、missing/extra 元素、非包含重叠、`occluded_by`（采集时 elementsFromPoint 采样）。
+- **T2 像素**——同条件采集喂给 `scripts/ui_fidelity.py diff`（pixelmatch v5.3.0 的 YIQ 色差 + 抗锯齿检测算法移植为纯 stdlib），产出 diff 图 + 差异聚类用于诊断。
+- **T3 语义**仍归 §A4.1.1（VLM 观察前置评分）。verifier 模式不变——T1/T2 是确定性的，连 `direct read` 任务也获得完整保真验证。采集配方 + DOM dump 片段：APPENDIX §A12。
+
 ## 技术栈兼容
 
 vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
@@ -416,13 +424,14 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `COMPLETION_GATE.md`                                | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单                                                                              |
 | `CODING_PRINCIPLES.md`                              | 4 条铁律（Think Before Coding · Simplicity First · Surgical Changes · Goal-Driven Execution）+ Fowler 12 项 smell 评审基线 |
 | `ENGINEERING_STD.md`                                | 工程标准细则                                                                                                           |
-| `REFERENCE.md` / `APPENDIX.md`                      | Part B/C 流程全文 + §A5.1 / 可执行模板（§A1–§A9、§A11 受信 oracle + checker）                                                  |
-| `TESTING_PROTOCOLS.md`                              | §A4.1 循环 + §A4.6 调试 + §A4.7–§A4.11 规范文本（§A4.11 模式/暂停协议）                                                          |
+| `REFERENCE.md` / `APPENDIX.md`                      | Part B/C 流程全文 + §A5.1 / 可执行模板（§A1–§A12：脚本、工作流 trace、受信 oracle + checker、拷贝保真采集）                                                  |
+| `TESTING_PROTOCOLS.md`                              | §A4.1 循环 + §A4.1.1/§A4.1.2 保真 + §A4.6 调试 + §A4.7–§A4.11 规范文本（§A4.11 模式/暂停协议）                                                          |
 | `WORKFLOWS_EXTENDED.md`                             | §M 双模式 + Class-E 清单 + ADR/PAUSED 格式 · C4 审计 / C5 部署 / C6 运维 / C7 非 Web / S1 spike · 项目画像参照                       |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`           | 项目记忆子系统                                                                                                          |
 | `VERIFICATION_UPGRADES.md`                          | §V1 FCV · §V2 测试完整性 · §V3 覆盖诚实 · §V4 对抗评审 · §V5 车道 · §V11 任务分类 + doc-skill 委托与 DOC-asset render 门                        |
 | `scripts/assert_artifacts.py`                       | 规范断言脚本，项目复制进 `tests/` 使用（19 组：产物存在性、证据完整性、诊断/声明 lint、secret scan、test-change guard、risk-tier、DOC-asset render 门、exec-check、任务分类一致性、working-note 生命周期） |
 | `scripts/mm_probe.py`                               | 行为化多模态自探针（COV-5 验证器选择）                                                                                           |
+| `scripts/ui_fidelity.py`                            | 拷贝保真测量（§A4.1.2）：像素 diff（pixelmatch v5.3.0 移植）+ 聚类、DOM 盒子 Δ/重叠/遮挡判定——纯 stdlib                            |
 | `scripts/scan_secrets.py`                           | 独立的 secret 扫描（断言第 14 组）——扫变更波 diff 上的凭据样字符串                                                                      |
 | `scripts/backlog_check.py`                          | backlog 账本守卫——任何没有执行测试行点名的 `passes: true` 判失败                                                                        |
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |

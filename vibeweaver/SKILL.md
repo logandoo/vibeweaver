@@ -413,15 +413,14 @@ change. **R1 (TESTING_PROTOCOLS.md) is mandatory before the first capture; R1b
 #### A4.1 Capture-Driven Verification Loop — binding summary
 
 A convergent loop: verifiable stop condition · independent verifier
-(maker/checker split) · iteration cap · stall detection. Required for every
-frontend/UI/runtime-affecting change. Full protocol: §A4.1 in TESTING_PROTOCOLS.md.
+(maker/checker) · iteration cap · stall detection. Required for every
+UI/runtime-affecting change. Full protocol: §A4.1 in TESTING_PROTOCOLS.md.
 
 1. **Step 0 — announce the verifier at task start (COV-5), before any code.**
    (1) `python3 {VW_DIR}/scripts/mm_probe.py --generate` → Read
    `tests/probe_vision.png` → report token+color → `--check`; PASS →
-   `Verifier: model-native [image]` (grade via §A4.1.1: observation-first ·
-   per-criterion verdicts with quoted evidence · DOM/log cross-check ·
-   UNCERTAIN=FAIL). (2) FAIL + `mm-sensor` available → `vision.py --probe` →
+   `Verifier: model-native [image]` (grade per §A4.1.1: observation-first ·
+   quoted evidence · DOM cross-check · UNCERTAIN=FAIL). (2) FAIL + `mm-sensor` available → `vision.py --probe` →
    `Verifier: mm-sensor [video+audio|video|image]`; grade EVERY media via
    `vision.py --detail high` (never Read-tool media while mm-sensor is the
    verifier). (3) neither → `Verifier: direct read` (DOM/log cross-check
@@ -437,15 +436,16 @@ frontend/UI/runtime-affecting change. Full protocol: §A4.1 in TESTING_PROTOCOLS
    with pass/fail + evidence.
 5. **Step 4 — decide + log** to `tests/verification_log.md`:
    `- iter N FAIL/PASS: criterion #… | diagnosis: <one falsifiable clause> | changed: <file>`.
-   `diagnosis:` is MANDATORY on every FAIL line (a diagnosis-less retry is the
-   same attempt). ALL PASS → exit. FAIL → diagnose (cite criterion #), **revert
-   the falsified attempt's edits for real (`git restore`)** (§V6), fix,
-   back to Step 2. **Stall (same criterion 3×) → STOP that direction:** `- stall:`
+   `diagnosis:` is MANDATORY on every FAIL line. ALL PASS → exit. FAIL →
+   diagnose (cite criterion #), **revert the attempt for real (`git restore`,
+   §V6)**, fix, back to Step 2. **Stall (same criterion 3×)** → `- stall:`
    line, ❌ in `memory/`, next direction per §A4.10 / fresh-brain retry /
-   PAUSED packet. **Cap = 5 iterations per sub-problem** → same. Before the
-   next iteration: re-read §1.
-6. **Step 5 — convergence summary + persist** before the A4.4 table:
+   PAUSED packet. **Cap = 5 per sub-problem** → same. Before the next
+   iteration: re-read §1.
+6. **Step 5 — convergence summary** before the A4.4 table:
    `[Convergence] <task>: N iters | X/Y pass | N stalls | N cap-hits`.
+7. **Design-copy fidelity criteria → §A4.1.2:** geometry/occlusion/pixel
+   graded instrumentally (`scripts/ui_fidelity.py`); the VLM never certifies geometry.
 
 #### A4.2 Test stack
 Playwright (Python) for UI evidence · `scripts/mm_probe.py` probe · mm-sensor
@@ -455,9 +455,9 @@ as the stop condition and iteration log. All tests MUST produce log files on dis
 
 #### A4.3 Verification rules
 No mocked results · verify with captured evidence of the running system
-(screenshots/video/audio per mode, log inspection, DB queries) · any result not
-matching an acceptance criterion = failure · Act → Capture → Verify → Fix → Log
-until ALL pass or cap=5 / stall=3× stops you (COV-7).
+(screenshots/logs/DB queries per mode) · any result not matching an
+acceptance criterion = failure · Act → Capture → Verify → Fix → Log until
+ALL pass or cap=5 / stall=3× stops you (COV-7).
 
 #### A4.4 Completion output ★ NON-NEGOTIABLE
 

@@ -2,6 +2,14 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-14: design-copy fidelity — measurement before judgment
+
+**The gap.** When a task clones a UI from an existing HTML page or a screenshot, the verifier tree grades semantics (observation-first, per-criterion verdicts) — but the criteria that actually break (a 3 px shift, an occluding overlap, a wrong box size) are *measurements*, and 2025-26 VLM research shows comparative visual measurement is exactly where vision-language judges are least reliable (TableTest; "VLMs have Tunnel Vision", NeurIPS 2025). The skill had no instrumental layer for them.
+
+**The mechanism.** TESTING_PROTOCOLS §A4.1.2 (measure-then-judge): **T0** identical capture conditions (same viewport/DPR, frozen animations, awaited fonts, hidden caret, masked dynamic regions — recipe + DOM-dump snippet in APPENDIX §A12); **T1** geometry/occlusion via `scripts/ui_fidelity.py boxes` (per-element Δsize/Δposition, missing/extra elements, non-containment overlaps, `occluded_by` from elementsFromPoint sampling at capture); **T2** pixel diff via `scripts/ui_fidelity.py diff` (pixelmatch v5.3.0 YIQ + anti-aliasing math ported to stdlib — diff image + clusters; exit 3 = size mismatch); **T3** semantics stays with the VLM, which never certifies geometry. Verifier modes are unchanged: T1/T2 are deterministic, so even `direct read` tasks get full fidelity verification.
+
+**Verification.** `--selftest` 17 checks (RED watched first), real-image E2E exit-code matrix (0/1/3), boxes fixtures detecting all five defect classes; repo verify_skill 23-file payload + unittest 26→32; dev audit fixtures 225/0/1 + mutation 41/41 unchanged; SKILL.md net-zero (48,972 B, T11), TESTING_PROTOCOLS trimmed under its 45 KB prose budget (44,985 B).
+
 ## 2026-10-12: deterministic memory delivery — the harness carries the ledger
 
 **The gap.** The working note (§A7.15) is the task-state ledger, and cue
