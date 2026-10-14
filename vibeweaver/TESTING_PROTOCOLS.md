@@ -10,10 +10,8 @@
 ## Contents
 
 - §A4.1 loop · §A4.1.1 model-native grading · §A4.1.2 design-copy fidelity
-  (T0-T3: capture · geometry · pixel · semantics)
-- §A4.6 debugging · §A4.7/§A4.7b backend loop + workflows (template:
-  APPENDIX §A10) · §A4.8 TDD · §A4.9 review · §A4.10 stall escape ·
-  §A4.11 PAUSED/modes
+- §A4.6 debugging · §A4.7/§A4.7b backend · §A4.8 TDD · §A4.9 review ·
+  §A4.10 stall escape · §A4.11 PAUSED/modes (templates: APPENDIX §A10/§A12)
 
 ---
 

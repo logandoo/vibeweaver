@@ -8,7 +8,7 @@
 
 **机制。** TESTING_PROTOCOLS §A4.1.2（measure-then-judge）：**T0** 同条件采集（同视口/DPR、冻结动画、等字体、hide caret、mask 动态区——配方与 DOM dump 片段在 APPENDIX §A12）；**T1** 几何/遮挡：`scripts/ui_fidelity.py boxes`（逐元素 Δ尺寸/位置、missing/extra、非包含重叠、采集期 elementsFromPoint 采样得到的 `occluded_by`）；**T2** 像素：`scripts/ui_fidelity.py diff`（pixelmatch v5.3.0 的 YIQ + 抗锯齿算法移植为纯 stdlib——diff 图 + 聚类；exit 3 = 尺寸失配）；**T3** 语义仍归 VLM，且 VLM 永不认证几何。verifier 模式不变：T1/T2 是确定性的，连 `direct read` 任务也获得完整保真验证。
 
-**验证。** `--selftest` 19 检查（RED 先行；含尺寸失配合同）；真实图 E2E 退出码矩阵（0/1/3）；boxes 夹具检出全部五类缺陷；repo verify_skill 23 文件 payload + unittest 26→32；dev audit 夹具 225/0/1 + mutation 41/41 无退化；SKILL.md 净零（48,972B，T11），TESTING_PROTOCOLS 瘦身至 45KB 散文预算内（44,985B）。
+**验证。** `--selftest` 19 检查（RED 先行；含尺寸失配合同）；真实图 E2E 退出码矩阵（0/1/3）；boxes 夹具检出全部五类缺陷；repo verify_skill 23 文件 payload + unittest 26→32；dev audit 夹具 225/0/1 + mutation 41/41 无退化；SKILL.md 净零（48,972B，T11），TESTING_PROTOCOLS 瘦身至 45KB 散文预算内（44977B）。
 
 ## 2026-10-12: 确定性记忆投递 —— 让 harness 押送账本
 

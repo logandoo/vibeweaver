@@ -211,11 +211,12 @@ def main():
         fail("install.bat advertised count is not %d" % expected_total)
     # the bat FILES set must be exactly the installed sets (an unregistered
     # addition would otherwise install unvetted files silently)
-    bat_files = ""
-    for line in bat.splitlines():
-        if line.strip().lower().startswith("set files="):
-            bat_files = line.strip()[len("set FILES="):]
-            break
+    files_lines = [l for l in bat.splitlines()
+                   if l.strip().lower().startswith("set files=")]
+    if len(files_lines) != 1:
+        fail("install.bat must have exactly one `set FILES=` line (found %d)"
+             % len(files_lines))
+    bat_files = files_lines[0].strip()[len("set FILES="):] if files_lines else ""
     bat_tokens = bat_files.split()
     expected_tokens = set(INSTALLED_DOCS) | {r.replace("/", "\\")
                                              for r in INSTALLED_SCRIPTS}
