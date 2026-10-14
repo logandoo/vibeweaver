@@ -63,6 +63,7 @@ probe is the single source of truth, not a filesystem/config guess).
        failure treat as FAIL (0b).
   5. Record in `tests/verification_log.md`: `- probe: model-native PASS
      (probe_vision.png)` or `- probe: model-native FAIL → mm-sensor`.
+     Design-copy tasks MAY add the comparative sub-probe (APPENDIX §A12).
 - **Step 0b — mm-sensor probe (only when 0a FAILED):** check `available_skills`
   for `mm-sensor` (opencode injects this list; it is authoritative).
   - **`mm-sensor` IS in available_skills** → MANDATORY independent verifier.
@@ -337,16 +338,15 @@ T1/T2: a VLM verdict never certifies geometry.
 - **T1 — geometry/occlusion (instrument).** Box dumps from both sides →
   `python3 scripts/ui_fidelity.py boxes REF.json CAND.json --out tests
   --tol-px 2`: per-element Δsize/Δposition, missing/extra elements,
-  non-containment overlaps, `occluded_by` (sampled at capture). Reference
-  is an image: extract regions via `ui_fidelity.py refboxes` and
-  compare candidate boxes against them instead.
+  non-containment overlaps, `occluded_by` (sampled at capture). Image
+  reference: extract regions via `refboxes` (§A12) and compare against
+  them instead.
 - **T2 — pixel (instrument).** Same-condition screenshots →
   `python3 scripts/ui_fidelity.py diff REF.png CAND.png --out tests
-  --max-diff-percent <user threshold>` — pixelmatch v5.3.0 math (YIQ + AA
-  detection), diff image + clusters for diagnosis; exit 3 (size
-  mismatch) is a fidelity failure.
-- **T3 — semantics (§A4.1.1 as-is).** The VLM grades semantic criteria, MAY
-  use T1/T2 clusters to localize — it never overrides T1/T2.
+  --max-diff-percent <user threshold>` — pixelmatch v5.3.0 (YIQ+AA),
+  diff image + clusters; exit 3 (size mismatch) is a failure.
+- **T3 — semantics (§A4.1.1 as-is).** The VLM grades semantics, MAY use
+  T1/T2 clusters to localize — never overrides T1/T2.
 
 **Loop + evidence:** failures iterate under §A4.1 (cap=5 / stall=3× —
 `diagnosis:` cites the cluster/Δ row). Cite the concrete generated files by

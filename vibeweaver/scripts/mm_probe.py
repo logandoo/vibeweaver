@@ -36,6 +36,10 @@ judgment (two nearly identical panels differing by exactly one change):
     exit 0 = comparative judgment correct; 1 = incorrect/unreliable — record
     it and localize differences via T1/T2 clusters, never side-by-side
     eyeballing; 2 = usage (variant/shape not in the enumeration).
+  Protocol guard (same rule as the token probe): do NOT open
+  probe_compare.expected or brute-force --compare-check before reporting —
+  the report must come from the pixels; repeated speculative --compare-check
+  runs are a protocol violation.
 
 Design notes (v2 — why it looks like this):
   * 5x7 dot-matrix glyphs (classic LCD proportions) rendered at 5px cells:
@@ -62,6 +66,7 @@ import hashlib
 import json
 import os
 import random
+import shutil
 import struct
 import sys
 import tempfile
@@ -249,17 +254,18 @@ def _draw_shape(rows, shape, cx, cy, color):
 
 def _shape_bbox(shape, cx, cy):
     if shape == "circle":
-        return (cx - 14, cy - 14, 28, 28)
+        return (cx - 14, cy - 14, 29, 29)
     if shape == "square":
         return (cx - 12, cy - 12, 24, 24)
     if shape == "bar":
         return (cx - 20, cy - 6, 40, 12)
-    return (cx - 7, cy - 7, 14, 14)
+    return (cx - 7, cy - 7, 15, 15)
 
 
-def render_compare(rng=None, variant=None):
-    """Return (png_bytes, meta) — meta: {variant, shape, diff_pixels}.
-    Exactly ONE change distinguishes panel B from panel A."""
+def _compare_scenes(rng=None, variant=None):
+    """Build the two panels; return (scene_a, scene_b, meta, info).
+    info: {"changed": [raster rects], "samples": [(x, y, rgb), ...]}
+    — enough for an independent semantic check of render-vs-claim."""
     rng = rng or random.SystemRandom()
     variant = variant or rng.choice(COMPARE_VARIANTS)
     slots = [(70, 50), (140, 45), (205, 115), (80, 118), (190, 45)]
@@ -277,30 +283,49 @@ def render_compare(rng=None, variant=None):
     scene_b = [row[:] for row in scene_a]
 
     target = items[rng.randrange(len(items))]
+    t_rect = _shape_bbox(target[0], target[1], target[2])
+    info = {"changed": [], "samples": []}
     if variant == "moved":
         dx, dy = rng.choice([(14, 0), (-14, 0), (0, 14), (0, -14)])
         _draw_shape(scene_b, target[0], target[1], target[2], PANEL_BG)
         tx = min(max(target[1] + dx, 40), PANEL_W - 40)
         ty = min(max(target[2] + dy, 32), PANEL_H - 32)
         _draw_shape(scene_b, target[0], tx, ty, target[3])
+        n_rect = _shape_bbox(target[0], tx, ty)
+        info["changed"] = [t_rect, n_rect]
+        info["samples"] = [(target[1], target[2], PANEL_BG),      # vacated
+                           (tx, ty, target[3])]                    # occupied
         shape_name = target[0]
     elif variant == "covered":
-        bx, by, bw, bh = _shape_bbox(target[0], target[1], target[2])
+        bx, by, bw, bh = t_rect
         _fill_rect(scene_b, bx - 6, by - 6, bw + 12, bh + 12, COVER_COLOR)
+        info["changed"] = [(bx - 6, by - 6, bw + 12, bh + 12)]
+        info["samples"] = [(bx + 1, by + 1, COVER_COLOR),
+                           (bx + bw - 1, by + 1, COVER_COLOR),
+                           (bx + 1, by + bh - 1, COVER_COLOR),
+                           (bx + bw - 1, by + bh - 1, COVER_COLOR),
+                           (target[1], target[2], COVER_COLOR)]    # full cover
         shape_name = target[0]
     elif variant == "color":
         _draw_shape(scene_b, target[0], target[1], target[2], PANEL_BG)
         alt = [c for c in COMPARE_PALETTE + [(90, 90, 90), (60, 60, 220)]
                if c != target[3]]
-        _draw_shape(scene_b, target[0], target[1], target[2],
-                    rng.choice(alt))
+        new_col = rng.choice(alt)
+        _draw_shape(scene_b, target[0], target[1], target[2], new_col)
+        info["changed"] = [t_rect]
+        info["samples"] = [(target[1], target[2], new_col)]
         shape_name = target[0]
     elif variant == "added":
         extra = shapes_pick[3]
         _draw_shape(scene_b, extra, slots[3][0], slots[3][1], colors[3])
+        a_rect = _shape_bbox(extra, slots[3][0], slots[3][1])
+        info["changed"] = [a_rect]
+        info["samples"] = [(slots[3][0], slots[3][1], colors[3])]
         shape_name = extra
     else:  # removed
         _draw_shape(scene_b, target[0], target[1], target[2], PANEL_BG)
+        info["changed"] = [t_rect]
+        info["samples"] = [(target[1], target[2], PANEL_BG)]
         shape_name = target[0]
 
     diff = 0
@@ -309,7 +334,14 @@ def render_compare(rng=None, variant=None):
         for xa in range(PANEL_W):
             if ra[xa] != rb[xa]:
                 diff += 1
+    meta = {"variant": variant, "shape": shape_name, "diff_pixels": diff}
+    return scene_a, scene_b, meta, info
 
+
+def render_compare(rng=None, variant=None):
+    """Return (png_bytes, meta) — meta: {variant, shape, diff_pixels}.
+    Exactly ONE change distinguishes panel B from panel A."""
+    scene_a, scene_b, meta, _info = _compare_scenes(rng, variant)
     canvas_w, canvas_h = PANEL_W * 2 + 40, PANEL_H + 20
     canvas = [[(255, 255, 255)] * canvas_w for _ in range(canvas_h)]
     _fill_rect(canvas, 8, 8, PANEL_W + 4, PANEL_H + 4, (60, 60, 60))
@@ -318,8 +350,7 @@ def render_compare(rng=None, variant=None):
         for x in range(PANEL_W):
             canvas[10 + y][10 + x] = scene_a[y][x]
             canvas[10 + y][PANEL_W + 30 + x] = scene_b[y][x]
-    return make_png(canvas_w, canvas_h, canvas), {
-        "variant": variant, "shape": shape_name, "diff_pixels": diff}
+    return make_png(canvas_w, canvas_h, canvas), meta
 
 
 def generate_compare(dest_dir, rng=None):
@@ -358,8 +389,17 @@ def check_compare(report_variant, report_shape, dest_dir):
     if variant not in COMPARE_VARIANTS or shape not in COMPARE_SHAPES:
         print(f"usage: variant from {COMPARE_VARIANTS}, shape from {COMPARE_SHAPES}")
         return 2
-    with open(exp_path) as f:
-        gt = json.load(f)
+    try:
+        with open(exp_path) as f:
+            gt = json.load(f)
+    except (ValueError, OSError) as e:
+        print(f"ERROR: probe_compare.expected unreadable ({e}) — "
+              f"re-run --compare-generate")
+        return 2
+    if (not isinstance(gt, dict) or "salt" not in gt
+            or "variant_hash" not in gt or "shape_hash" not in gt):
+        print("ERROR: probe_compare.expected malformed — re-run --compare-generate")
+        return 2
     ok_variant = _h(gt["salt"], "variant", variant) == gt.get("variant_hash")
     ok_shape = _h(gt["salt"], "shape", shape) == gt.get("shape_hash")
     if ok_variant and ok_shape:
@@ -394,9 +434,16 @@ def selftest():
     if not (png.startswith(b"\x89PNG\r\n\x1a\n")
             and png[-8:-4] == b"IEND"):
         errors.append("render() did not produce a well-formed PNG")
-    # comparative sub-probe invariants (rendering + unique-solution check)
+    # comparative sub-probe invariants: render-vs-claim semantics + uniqueness
+    def _raster_area(_shape):
+        scratch = [[PANEL_BG] * 40 for _ in range(40)]
+        _draw_shape(scratch, _shape, 20, 20, (0, 0, 0))
+        return sum(1 for row in scratch for px in row if px != PANEL_BG)
+
     for variant in COMPARE_VARIANTS:
-        cpng, cmeta = render_compare(variant=variant, rng=random.Random(7))
+        cscene_a, cscene_b, cmeta, cinfo = _compare_scenes(
+            variant=variant, rng=random.Random(7))
+        cpng, _cm = render_compare(variant=variant, rng=random.Random(7))
         if not (cpng.startswith(b"\x89PNG\r\n\x1a\n")
                 and cpng[-8:-4] == b"IEND"):
             errors.append(f"compare render malformed PNG ({variant})")
@@ -405,6 +452,24 @@ def selftest():
         if cmeta.get("diff_pixels", 0) < 80:
             errors.append(f"compare diff too small "
                           f"({variant}: {cmeta.get('diff_pixels')})")
+        outside = 0
+        for yy in range(PANEL_H):
+            for xx in range(PANEL_W):
+                if cscene_a[yy][xx] != cscene_b[yy][xx] and not any(
+                        rx <= xx < rx + rw and ry <= yy < ry + rh
+                        for rx, ry, rw, rh in cinfo["changed"]):
+                    outside += 1
+        if outside:
+            errors.append(f"compare {variant}: {outside} diff px outside "
+                          f"the declared change")
+        for sx, sy, expected in cinfo["samples"]:
+            if cscene_b[sy][sx] != expected:
+                errors.append(f"compare {variant}: sample ({sx},{sy}) "
+                              f"= {cscene_b[sy][sx]} != {expected}")
+        if variant == "removed" and \
+                cmeta["diff_pixels"] != _raster_area(cmeta["shape"]):
+            errors.append("compare removed: shape name inconsistent with "
+                          "the erased area")
     tmpc = tempfile.mkdtemp(prefix="mmprobe-compare-")
     cpath = generate_compare(tmpc, rng=random.Random(11))
     if not os.path.exists(cpath):
@@ -421,6 +486,7 @@ def selftest():
             errors.append(f"compare solution not unique (got {len(solved)})")
         if cgt.get("variant") or cgt.get("shape"):
             errors.append("compare expected file leaks plaintext")
+    shutil.rmtree(tmpc, ignore_errors=True)
     if errors:
         for e in errors:
             print(f"SELFTEST FAIL: {e}")
@@ -444,6 +510,14 @@ def main():
                     help="validate the comparative report (variant + shape)")
     ap.add_argument("--dir", default="tests", help="probe file directory (default: tests)")
     args = ap.parse_args()
+    actions = [bool(args.generate), args.check is not None,
+               bool(args.compare_generate), args.compare_check is not None,
+               bool(args.selftest)]
+    if sum(actions) > 1:
+        print("pick exactly ONE action (--generate / --check / "
+              "--compare-generate / --compare-check / --selftest)",
+              file=sys.stderr)
+        return 2
     if args.generate:
         generate(args.dir)
         return 0

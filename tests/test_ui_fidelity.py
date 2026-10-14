@@ -204,6 +204,35 @@ class RefBoxes(unittest.TestCase):
             r = run("refboxes", str(p), "--out", td, "--bg", "zz")
             self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
 
+    def test_alpha_composites_over_white(self):
+        with tempfile.TemporaryDirectory() as td:
+            mod = load_module()
+            w, h = 40, 30
+            img = bytearray()
+            for y in range(h):
+                for x in range(w):
+                    if 8 <= x < 28 and 6 <= y < 18:
+                        img += bytes((200, 60, 60, 255))
+                    else:
+                        img += b"\x00\x00\x00\x00"
+            p = pathlib.Path(td) / "ref.png"
+            mod.write_png(str(p), w, h, bytes(img))
+            r = run("refboxes", str(p), "--out", td, "--name", "a")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            regions = json.loads(
+                (pathlib.Path(td) / "ui-refboxes-a.json").read_text())
+            self.assertEqual([(x["x"], x["y"], x["w"], x["h"])
+                              for x in regions], [(8, 6, 20, 12)])
+
+    def test_strict_bg_and_numeric_validation(self):
+        with tempfile.TemporaryDirectory() as td:
+            mod = load_module()
+            p = self._write_two_rect_image(mod, td)
+            for extra in (("--bg", "1234567"), ("--tol", "-1"),
+                          ("--max-boxes", "0")):
+                r = run("refboxes", str(p), "--out", td, *extra)
+                self.assertEqual(r.returncode, 2, (extra, r.stdout + r.stderr))
+
 
 if __name__ == "__main__":
     unittest.main()

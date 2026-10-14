@@ -19,17 +19,23 @@ acceptance criteria name pixel/geometry fidelity (TESTING_PROTOCOLS.md
          schema (+"pixels") so it can serve as the REF.json of `boxes` when
          the reference is an image (pair candidate dumps in reading order —
          the ordinal fallback needs disjoint, equal-length name sets).
+         Alpha is composited over white (transparent = white page); assumes a
+         (near-)flat background — gradients/photos/stripes produce noise
+         regions (check the preview). Stdout reports `N/total` with a
+         truncation note when merging was skipped (> --merge-cap components)
+         or results exceed --max-boxes; a partial ref list silently mispairs
+         via the ordinal fallback, so read the count line.
 
 Analysis is instrumental: deterministic, offline, no model/network/deps.
 Capture (Playwright at a fixed viewport/DPR, animations frozen, fonts
 awaited, caret hidden — APPENDIX.md §A12) happens in the project's own test
 code; this script only scores the captured artifacts.
 
-Exit codes (both subcommands): 0 = pass · 1 = fail (diff/tolerance/overlap; a
-size mismatch stays a fail even after --allow-dim-mismatch) · 2 = usage/IO
-error (bad flags, missing/unreadable files, malformed dumps) · 3 = image size
-mismatch refused (diff only; --allow-dim-mismatch compares the common crop
-and still reports the mismatch as a failure).
+Exit codes: diff/boxes — 0 = pass · 1 = fail (diff/tolerance/overlap; a size
+mismatch stays a fail even after --allow-dim-mismatch) · 2 = usage/IO error
+(bad flags, missing/unreadable/corrupt files, malformed dumps) · 3 = image
+size mismatch refused. refboxes — 0 = success (extraction has no pass/fail;
+the downstream `boxes` gate decides), 2 = usage/IO error.
 
 JSON schemas (version 1):
   diff:  {"version":1,"kind":"pixel-diff","ref","cand","width","height",
@@ -619,6 +625,18 @@ def _write_reports(out_dir, name, report, out_rgba=None, size=None):
 # ==========================================================================
 
 
+def _flat_rgb(rgba, o):
+    """Pixel RGB composited over white (same alpha handling as color_delta);
+    a fully transparent pixel reads as white — invisible on a white page."""
+    a = rgba[o + 3]
+    if a >= 255:
+        return (rgba[o], rgba[o + 1], rgba[o + 2])
+    af = a / 255
+    return (int(_blend(rgba[o], af) + 0.5),
+            int(_blend(rgba[o + 1], af) + 0.5),
+            int(_blend(rgba[o + 2], af) + 0.5))
+
+
 def _auto_bg(w, h, rgba):
     """Most frequent coarse-quantized color over a sampled grid, averaged."""
     step = max(1, min(w, h) // 64)
@@ -626,8 +644,8 @@ def _auto_bg(w, h, rgba):
     for y in range(0, h, step):
         base = y * w * 4
         for x in range(0, w, step):
-            o = base + x * 4
-            key = (rgba[o] >> 4, rgba[o + 1] >> 4, rgba[o + 2] >> 4)
+            r, g, b = _flat_rgb(rgba, base + x * 4)
+            key = (r >> 4, g >> 4, b >> 4)
             counts[key] = counts.get(key, 0) + 1
     key = max(counts, key=counts.get)
     acc = [0, 0, 0]
@@ -635,38 +653,43 @@ def _auto_bg(w, h, rgba):
     for y in range(0, h, step):
         base = y * w * 4
         for x in range(0, w, step):
-            o = base + x * 4
-            if (rgba[o] >> 4, rgba[o + 1] >> 4, rgba[o + 2] >> 4) == key:
-                acc[0] += rgba[o]
-                acc[1] += rgba[o + 1]
-                acc[2] += rgba[o + 2]
+            r, g, b = _flat_rgb(rgba, base + x * 4)
+            if (r >> 4, g >> 4, b >> 4) == key:
+                acc[0] += r
+                acc[1] += g
+                acc[2] += b
                 n += 1
     return (acc[0] // n, acc[1] // n, acc[2] // n)
 
 
 def refboxes_report(w, h, rgba, bg=None, tol=24, min_area=64, gap=6,
-                    max_boxes=200):
-    """Return (regions, bg): regions are reading-order candidate boxes
-    [{"name","x","y","w","h","pixels"}] with pixels >= min_area and
-    w,h >= 3."""
+                    max_boxes=200, merge_cap=2048):
+    """Return (regions, bg, truncated, total_kept). Foreground = white-
+    composited pixels differing from `bg` by more than `tol` on any channel;
+    regions use the boxes element schema (+"pixels"). `truncated` is True
+    when cluster merging was skipped (raw components > merge_cap) or more
+    than max_boxes regions survived the min-area filter."""
     if bg is None:
         bg = _auto_bg(w, h, rgba)
     points = []
     for y in range(h):
         base = y * w * 4
         for x in range(w):
-            o = base + x * 4
-            if (abs(rgba[o] - bg[0]) > tol
-                    or abs(rgba[o + 1] - bg[1]) > tol
-                    or abs(rgba[o + 2] - bg[2]) > tol):
+            r, g, b = _flat_rgb(rgba, base + x * 4)
+            if (abs(r - bg[0]) > tol or abs(g - bg[1]) > tol
+                    or abs(b - bg[2]) > tol):
                 points.append((x, y))
-    clusters, _total = cluster_pixels(points, gap=gap, max_clusters=max_boxes)
+    clusters, total = cluster_pixels(points, gap=gap,
+                                     max_clusters=max(max_boxes * 4, 256),
+                                     merge_cap=merge_cap)
     regions = [c for c in clusters
                if c["pixels"] >= min_area and c["w"] >= 3 and c["h"] >= 3]
+    truncated = len(clusters) < total or len(regions) > max_boxes
     regions.sort(key=lambda c: (c["y"] // 20, c["x"]))
-    return [{"name": f"region#{i}", "x": c["x"], "y": c["y"],
-             "w": c["w"], "h": c["h"], "pixels": c["pixels"]}
-            for i, c in enumerate(regions, 1)], bg
+    out = [{"name": f"region#{i}", "x": c["x"], "y": c["y"],
+            "w": c["w"], "h": c["h"], "pixels": c["pixels"]}
+           for i, c in enumerate(regions[:max_boxes], 1)]
+    return out, bg, truncated, len(regions)
 
 
 def _draw_outline(buf, w, h, x, y, bw, bh, color=(220, 30, 30), t=2):
@@ -679,17 +702,18 @@ def _draw_outline(buf, w, h, x, y, bw, bh, color=(220, 30, 30), t=2):
                 buf[o:o + 3] = bytes(color)
 
 
-def run_refboxes(ref_path, out_dir, name, bg_hex, tol, min_area, gap, max_boxes):
+def run_refboxes(ref_path, out_dir, name, bg_hex, tol, min_area, gap,
+                 max_boxes, merge_cap):
     w, h, rgba = read_png(ref_path)
     bg = None
     if bg_hex:
-        try:
-            bg = tuple(int(bg_hex[i:i + 2], 16) for i in (0, 2, 4))
-        except (ValueError, IndexError):
-            raise ValueError("--bg must be RRGGBB hex")
-    regions, bg = refboxes_report(w, h, rgba, bg=bg, tol=tol,
-                                  min_area=min_area, gap=gap,
-                                  max_boxes=max_boxes)
+        if not (len(bg_hex) == 6
+                and all(c in "0123456789abcdefABCDEF" for c in bg_hex)):
+            raise ValueError("--bg must be exactly 6 hex digits (RRGGBB)")
+        bg = tuple(int(bg_hex[i:i + 2], 16) for i in (0, 2, 4))
+    regions, bg, truncated, total = refboxes_report(
+        w, h, rgba, bg=bg, tol=tol, min_area=min_area, gap=gap,
+        max_boxes=max_boxes, merge_cap=merge_cap)
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, f"ui-refboxes-{name}.json"), "w") as f:
         json.dump(regions, f, indent=1)
@@ -702,8 +726,9 @@ def run_refboxes(ref_path, out_dir, name, bg_hex, tol, min_area, gap, max_boxes)
         _draw_outline(dim, w, h, reg["x"], reg["y"], reg["w"], reg["h"])
     write_png(os.path.join(out_dir, f"ui-refboxes-{name}.png"), w, h,
               bytes(dim))
-    print(f"[ui_fidelity] refboxes: {len(regions)} regions | bg={bg} | "
-          f"sizes {w}x{h}")
+    note = " (truncated — raise --max-boxes/--merge-cap)" if truncated else ""
+    print(f"[ui_fidelity] refboxes: {len(regions)}/{total} regions{note} | "
+          f"bg={bg} | sizes {w}x{h}")
     return 0
 
 
@@ -850,8 +875,10 @@ def selftest():
             if 60 <= x < 62 and 2 <= y < 4:
                 c = (10, 10, 10)          # speck: 4 px < min_area
             img += bytes(c) + b"\xff"
-    regions, rbg = refboxes_report(rw, rh, bytes(img), tol=24, min_area=64, gap=6)
+    regions, rbg, rtrunc, rtotal = refboxes_report(rw, rh, bytes(img), tol=24,
+                                                   min_area=64, gap=6)
     ok(rbg == (240, 240, 240), f"refboxes auto-bg (got {rbg})")
+    ok(not rtrunc and rtotal == 2, f"refboxes not truncated (got {rtotal})")
     ok(len(regions) == 2, f"refboxes finds 2 regions (got {len(regions)})")
     if len(regions) == 2:
         ok((regions[0]["x"], regions[0]["y"], regions[0]["w"],
@@ -860,6 +887,23 @@ def selftest():
         ok((regions[1]["x"], regions[1]["y"], regions[1]["w"],
             regions[1]["h"]) == (40, 20, 16, 10),
            f"refboxes region B exact (got {regions[1]})")
+
+    # 10b. refboxes alpha: transparent margins composite over white; the
+    # solid card stays the only region
+    aw, ah = 40, 30
+    aimg = bytearray()
+    for y in range(ah):
+        for x in range(aw):
+            if 8 <= x < 28 and 6 <= y < 18:
+                aimg += bytes((200, 60, 60, 255))
+            else:
+                aimg += b"\x00\x00\x00\x00"
+    areg, abg, _at, _an = refboxes_report(aw, ah, bytes(aimg), tol=24,
+                                          min_area=64, gap=6)
+    ok(abg == (255, 255, 255), f"refboxes alpha bg -> white (got {abg})")
+    ok(len(areg) == 1 and (areg[0]["x"], areg[0]["y"], areg[0]["w"],
+                           areg[0]["h"]) == (8, 6, 20, 12),
+       f"refboxes alpha card region (got {areg})")
 
     if fails:
         for m in fails:
@@ -916,6 +960,9 @@ def main():
     r.add_argument("--min-area", type=int, default=64)
     r.add_argument("--gap", type=int, default=6)
     r.add_argument("--max-boxes", type=int, default=200)
+    r.add_argument("--merge-cap", type=int, default=2048,
+                   help="skip cluster gap-merge above this many components "
+                        "(perf bound; check the truncated note)")
 
     args = ap.parse_args()
     try:
@@ -936,12 +983,19 @@ def main():
                              tuple(p for p in args.allow_overlap.split(",") if p),
                              tuple(p for p in args.allow_occluded.split(",") if p))
         if args.cmd == "refboxes":
+            if (args.tol < 0 or args.min_area < 1 or args.gap < 0
+                    or args.max_boxes < 1 or args.merge_cap < 0):
+                print("[ui_fidelity] error: --tol/--gap/--merge-cap >= 0, "
+                      "--min-area >= 1, --max-boxes >= 1", file=sys.stderr)
+                return 2
             name = args.name or os.path.splitext(os.path.basename(args.ref))[0]
             return run_refboxes(args.ref, args.out, name, args.bg,
-                                args.tol, args.min_area, args.gap, args.max_boxes)
+                                args.tol, args.min_area, args.gap,
+                                args.max_boxes, args.merge_cap)
         ap.print_help()
         return 2
-    except (ValueError, OSError, KeyError) as e:
+    except (ValueError, OSError, KeyError, zlib.error, IndexError,
+            struct.error) as e:
         print(f"[ui_fidelity] error: {e}", file=sys.stderr)
         return 2
 

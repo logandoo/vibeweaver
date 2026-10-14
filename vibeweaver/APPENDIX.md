@@ -1001,7 +1001,9 @@ output `ui-refboxes-<name>.json` (+ a boxed preview `ui-refboxes-<name>.png`)
 uses the boxes element schema, so it serves as the REF box list (T1; pair
 the candidate dump in reading order — the ordinal fallback needs disjoint,
 equal-length name sets) and the image itself as REF.png (T2). Check the
-preview before trusting the list.
+preview before trusting the list. `refboxes` composites alpha over white
+and assumes a near-flat background — gradients/photos produce noise regions;
+read its `N/total` line (a truncation note means the ref list is partial).
 
 ### T1/T2 — measure, then cite
 
@@ -1038,4 +1040,6 @@ with exactly ONE difference; report `<variant> <shape>` and validate via
 `--compare-check` (variants: moved/covered/color/added/removed; shapes:
 circle/square/bar/dot). A FAIL is a finding, not a blocker: record
 comparative-judgment-unreliable in `tests/verification_log.md` and localize
-differences via T1/T2 clusters — never side-by-side eyeballing.
+differences via T1/T2 clusters — never side-by-side eyeballing. Protocol
+guard: do NOT open `probe_compare.expected` or brute-force `--compare-check`
+— the report must come from the pixels (same rule as the token probe).
