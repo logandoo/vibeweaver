@@ -2,6 +2,14 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-14c: loop-guard identity + frequency layers — tool-call storms stop themselves
+
+**The gap.** A session ran the identical MCP call `weave-connector_ssh_shell_open [profile=newsrv, name=p01c]` ~450 times with zero intervening text — and every stop mechanism stayed silent. The tool channel carried exactly one detector (`noop-bash`, bash-only: `t.tool !== "bash"` breaks its run), the text detectors are byte-level, and consecutive-identical tool calls were a known-accepted blind spot (D-5 rejected *collapsing* identical observations — for good reason — but identity *detection* was never built).
+
+**The mechanism.** Three content-level detectors over one budgeted soft-intervention machinery (2 prompts/session/channel, episode latch, never a block): `noop-bash` (bare echo/printf narration, ≥4) · `identical-tool-run` (same tool + canonical deep key-sort args, ≥4 DISTINCT part ids — the deepseek-harness repeat-tool-reminder chain key; pid re-observations deduped and never collapsed, so D-5 stands) · `tool-frequency` (single-tool storm with varying args, ≥20 — the deer-flow Layer-2 shape). Each interrupt IS the stall declaration (`- stall: <kind> …` into `tests/verification_log.md`; TESTING_PROTOCOLS §A4.1 "Repetition ≠ progress" + §A4.10 stall signals). Patterns are fully values-free (tool + key count + argsLen — even key names are an injection surface), counts are full-run, and detection is conservative (unknown args skip only same-tool re-observations; foreign tool / malformed / truncated all break). Config pressure valves in `audit.json`: `loopGuardIdenticalRunMin` (≥2) / `loopGuardToolFrequencyMin` (≥4).
+
+**Verification.** T34/T35 fixtures 272 checks green (RED watched first; adapters drive both v1 events and v2 `execute.before`, where the tests caught a residual `{}`-identity fabrication before ship), mutation sweep 41/41, dual adversarial review + scoped re-review + two FCV rounds (round 1 honestly failed criterion 7 — stale delivery copies after the fix round — re-sync → round 2 pass), plugin fail-set equal to baseline, four copies byte-identical; SKILL.md 48,994 B (T11), TESTING_PROTOCOLS back under its 45 KB budget (44,966 B — §A4.11 pointer-ized against WORKFLOWS_EXTENDED §M/§P).
+
 ## 2026-10-14b: residuals cleared — comparative probe + reference-image regions
 
 **The gap.** The fidelity layer shipped with two deliberate gaps: no probe for whether a model can judge *comparative* differences at all ("VLMs have Tunnel Vision" — exactly where VLMs fail), and no light path for extracting element regions when the reference IS an image.

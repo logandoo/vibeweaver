@@ -380,6 +380,12 @@ function loopRecoveryText(finding) {
   if (finding && finding.kind === "noop-bash") {
     return `[loop-guard] Your last tool calls degenerated into no-op echo/printf narration (${finding.pattern}) — echoing intent is NOT a tool call. STOP the echo loop. Do exactly ONE of: (1) emit the REAL tool call you kept announcing (e.g. Read/Edit — whatever your narration named) as an actual tool invocation — no echo markers, no narration; or (2) only if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table). BEFORE any completion output, append \`- stall: noop-bash echo narration — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10 — this interrupt IS the stall declaration; do not resume by echoing again).`
   }
+  if (finding && finding.kind === "identical-tool-run") {
+    return `[loop-guard] Your last tool calls degenerated into an identical-call loop (${finding.pattern}) — re-issuing the SAME tool call with the SAME arguments is not progress. STOP the repeats. Do exactly ONE of: (1) inspect the last result and re-issue the call with CHANGED arguments or a different tool, carrying a one-line diagnosis of why the previous attempt did not advance the task; or (2) if the repetition is legitimate polling, vary the polling arguments (cursor/timeout) if the tool takes any, or interleave a real action instead of re-issuing an identical call; or (3) proceed to the next real step of the task; or (4) only if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table). BEFORE any completion output, append \`- stall: identical-tool-run — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10 — this interrupt IS the stall declaration; do not resume by repeating the same call).`
+  }
+  if (finding && finding.kind === "tool-frequency") {
+    return `[loop-guard] Your last tool calls degenerated into a single-tool storm (${finding.pattern}) — hammering ONE tool is not progress by itself. STOP the streak. Do exactly ONE of: (1) consolidate: work with the results you ALREADY have, or replace many narrow queries with one broader/batched call; or (2) switch tools or approach, carrying a one-line diagnosis of what the streak was trying to establish; or (3) proceed to the next real step of the task; or (4) only if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table). BEFORE any completion output, append \`- stall: tool-frequency — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10 — this interrupt IS the stall declaration; do not resume by hammering the same tool).`
+  }
   if (finding && finding.kind === "runaway") {
     return `[loop-guard] RUNAWAY OUTPUT: ${finding.pattern} without a verified stop condition (the ceiling is the backstop bound — a repetition loop the shape detectors cannot see is indistinguishable from this; on hosts that supply no turn ids the bound is per-session). STOP emitting. Do exactly ONE of: (1) if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table) now — the evidence, not a re-narration; or (2) if work remains, emit ONE short status line naming the single next concrete step and continue with bounded output. Never re-narrate completed work.`
   }
@@ -651,7 +657,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   // (per-channel, so one channel's episode can never starve the other's):
   //   text — periodic/sequence repetition of the assistant stream;
   //   tool — trailing no-op bash narration runs (echo/printf literal markers
-  //          standing in for an announced tool call; noopBashFinding).
+  //          standing in for an announced tool call; noopBashFinding) OR a
+  //          trailing run of DISTINCT identical tool calls (same tool +
+  //          canonical args, MCP included; identicalToolRunFinding) OR a
+  //          single-tool storm with varying args (toolFrequencyFinding).
   // Each channel has its own episode-arming flag so one channel's episode
   // never masks the other. Never throws.
   const maybeGuardCheck = (sessionID, channel) => {
@@ -677,9 +686,25 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       const usedKey = "interventions" + chanSuffix
       const fireKey = "fireMsgID" + chanSuffix
       let finding = toolChannel
-        ? typeof core.noopBashFinding === "function"
-          ? core.noopBashFinding(sess.tools)
-          : null
+        ? (typeof core.noopBashFinding === "function" ? core.noopBashFinding(sess.tools) : null) ||
+          (typeof core.identicalToolRunFinding === "function"
+            ? core.identicalToolRunFinding(
+                sess.tools,
+                (() => {
+                  const n = Number(readConfig().loopGuardIdenticalRunMin)
+                  return Number.isInteger(n) && n >= 2 ? n : undefined
+                })()
+              )
+            : null) ||
+          (typeof core.toolFrequencyFinding === "function"
+            ? core.toolFrequencyFinding(
+                sess.tools,
+                (() => {
+                  const n = Number(readConfig().loopGuardToolFrequencyMin)
+                  return Number.isInteger(n) && n >= 4 ? n : undefined
+                })()
+              )
+            : null)
         : loopFinding(reasoningChannel ? sess.reasoning : sess.text)
       // per-turn absolute ceiling (hermes #127234: periodic detectors can
       // answer "not yet" forever for shapes they cannot see — the ceiling is
@@ -978,37 +1003,66 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       const t = { tool: part.tool, t: Date.now() }
       noteMsg(sess, part.messageID)
       if (typeof part.id === "string" && part.id) t.pid = part.id
-      const inp = st.input || {}
+      const inp = st.input && typeof st.input === "object" ? st.input : null
+      if (inp) {
+        if (typeof inp.filePath === "string") t.filePath = inp.filePath
+        if (typeof inp.command === "string") {
+          t.command = inp.command.slice(0, IN_CAP)
+          if (inp.command.length > IN_CAP) t.truncated = true // truncation can forge a literal (F10)
+        }
+        if (typeof inp.name === "string") t.name = inp.name
+        // canonical args identity (identical-tool-run): status-only
+        // re-observations carry NO input and must never fabricate one
+        let canon = ""
+        try {
+          canon = typeof core.canonicalJson === "function" ? core.canonicalJson(inp) : JSON.stringify(inp)
+        } catch {
+          canon = "" // a throwing input must never break observation
+        }
+        if (canon) {
+          t.args = canon.length > IN_CAP ? canon.slice(0, IN_CAP) : canon
+          if (canon.length > IN_CAP) t.truncated = true // truncation can forge identity (F10)
+        }
+      }
+      if (part.tool === "bash" && typeof st.output === "string") t.output = st.output.slice(0, OUT_CAP)
+      sess.tools.push(t)
+      if (sess.tools.length > TOOL_CAP) sess.tools = sess.tools.slice(-TOOL_CAP)
+      if (part.tool === "skill" && inp && typeof inp.name === "string" && inp.name.startsWith("vibeweaver")) sess.skillLoaded = true
+      maybeToolLoopCheck(sessionID)
+    }
+  }
+
+  // ---- v2 observation: tool hooks + session.* events ----
+  const observeToolStart = (sessionID, tool, input, messageID, callID) => {
+    if (typeof sessionID !== "string" || !sessionID || typeof tool !== "string" || !tool) return
+    const sess = touchSession(sessionID)
+    noteMsg(sess, messageID)
+    const t = { tool, t: Date.now() }
+    if (typeof callID === "string" && callID) t.pid = callID
+    // args identity only when input was ACTUALLY observed — a call observed
+    // without input must never fabricate the `{}` identity (acceptance #4)
+    const inp = input && typeof input === "object" ? input : null
+    if (inp) {
       if (typeof inp.filePath === "string") t.filePath = inp.filePath
       if (typeof inp.command === "string") {
         t.command = inp.command.slice(0, IN_CAP)
         if (inp.command.length > IN_CAP) t.truncated = true // truncation can forge a literal (F10)
       }
       if (typeof inp.name === "string") t.name = inp.name
-      if (part.tool === "bash" && typeof st.output === "string") t.output = st.output.slice(0, OUT_CAP)
-      sess.tools.push(t)
-      if (sess.tools.length > TOOL_CAP) sess.tools = sess.tools.slice(-TOOL_CAP)
-      if (part.tool === "skill" && typeof inp.name === "string" && inp.name.startsWith("vibeweaver")) sess.skillLoaded = true
-      maybeToolLoopCheck(sessionID)
+      let canon = ""
+      try {
+        canon = typeof core.canonicalJson === "function" ? core.canonicalJson(inp) : JSON.stringify(inp)
+      } catch {
+        canon = "" // a throwing input must never fail the tool hook
+      }
+      if (canon) {
+        t.args = canon.length > IN_CAP ? canon.slice(0, IN_CAP) : canon
+        if (canon.length > IN_CAP) t.truncated = true // truncation can forge identity (F10)
+      }
     }
-  }
-
-  // ---- v2 observation: tool hooks + session.* events ----
-  const observeToolStart = (sessionID, tool, input, messageID) => {
-    if (typeof sessionID !== "string" || !sessionID || typeof tool !== "string" || !tool) return
-    const sess = touchSession(sessionID)
-    noteMsg(sess, messageID)
-    const t = { tool, t: Date.now() }
-    const inp = input && typeof input === "object" ? input : {}
-    if (typeof inp.filePath === "string") t.filePath = inp.filePath
-    if (typeof inp.command === "string") {
-      t.command = inp.command.slice(0, IN_CAP)
-      if (inp.command.length > IN_CAP) t.truncated = true // truncation can forge a literal (F10)
-    }
-    if (typeof inp.name === "string") t.name = inp.name
     sess.tools.push(t)
     if (sess.tools.length > TOOL_CAP) sess.tools = sess.tools.slice(-TOOL_CAP)
-    if (tool === "skill" && typeof inp.name === "string" && inp.name.startsWith("vibeweaver")) sess.skillLoaded = true
+    if (tool === "skill" && inp && typeof inp.name === "string" && inp.name.startsWith("vibeweaver")) sess.skillLoaded = true
     maybeToolLoopCheck(sessionID)
   }
 
@@ -1283,16 +1337,19 @@ async function setup(ctx) {
   registrations.push(
     await ctx.tool.hook("execute.before", async (event) => {
       if (!event) return
-      const input = event.input && typeof event.input === "object" ? event.input : {}
+      // pass input through AS-IS: observeToolStart treats a missing input as
+      // unknown args (never fabricate the `{}` identity — acceptance #4)
+      const rawInput = event.input && typeof event.input === "object" ? event.input : null
       if (event.tool === "write" || event.tool === "edit") {
+        const args = rawInput || {}
         const msg = m.beforeWrite({
           tool: event.tool,
           sessionID: event.sessionID,
-          filePath: typeof input.filePath === "string" ? input.filePath : null,
+          filePath: typeof args.filePath === "string" ? args.filePath : null,
         })
         if (msg) throw new Error(msg)
       }
-      m.observeToolStart(event.sessionID, event.tool, input, typeof event.messageID === "string" ? event.messageID : "")
+      m.observeToolStart(event.sessionID, event.tool, rawInput, typeof event.messageID === "string" ? event.messageID : "", typeof event.id === "string" ? event.id : undefined)
     })
   )
   // Bash output capture (v1 got it from tool-part state.output).

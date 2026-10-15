@@ -198,6 +198,10 @@ markers as bash calls; if your reasoning names a tool, the next emission is
 THAT tool call. Bare literal `echo`/`printf` narration runs (≥4 consecutive,
 no side effects) are mechanically interrupted (loop-guard `noop-bash`); the
 interrupt IS the stall declaration (§A4.10 — log `- stall: noop-bash …`).
+**Repetition ≠ progress (binding):** re-issuing the SAME call with the SAME
+arguments (≥4 distinct calls, any tool — MCP included) is `identical-tool-run`;
+hammering ONE tool with varying args (≥20 distinct calls) is `tool-frequency`.
+Each interrupt IS the stall declaration (§A4.10).
 Decorated variants (`>`/`|`/`$(…)`/chained) and interleaved real-action
 loops are known gaps.
 
@@ -670,7 +674,12 @@ escalation) · **≥4 consecutive no-op bash calls** — bare `echo`/`printf`
 narration markers standing in for an announced tool call; the loop-guard's
 `noop-bash` finding interrupts this mechanically, and the interrupt itself
 IS a stall declaration (log `- stall: noop-bash …` and take the escape
-below). **Any two signals → declare the stall explicitly in the log**
+below). **≥4 consecutive identical tool calls** (same tool + canonical args,
+MCP included; pid re-observations don't count) → `identical-tool-run`
+interrupt; **≥20 consecutive same-tool calls** (single-tool storm, args
+vary) → `tool-frequency` interrupt. Each interrupt IS the stall declaration
+(log `- stall: <kind> …`, take the escape below). **Any two signals → declare
+the stall explicitly in the log**
 (`- stall: <signals> — stopping pure iteration`). An undeclared stall
 becomes silent guessing, which looks exactly like reasoning right up until
 it is wrong.
@@ -744,28 +753,18 @@ primitives (→ §A4.6 escalation to the user).
 
 ## A4.11 PAUSED Protocol & Operating Modes (COV-12 companion)
 
-**Modes.** Every task declares `Mode: AUTO` (default) or `Mode: GUIDED`
-in ZERO. Modes govern ONLY Class-I interaction points; the evidence gates
-(COV-1/2/5/7, assert exit-0, A4.9, Memory Gate) are mode-invariant — neither
-mode turns a FAIL into a PASS.
-
-**Class-I points** (mode-dependent): I1 ambiguous request → GUIDED asks /
-AUTO derives the most conservative interpretation → ADR · I2 vague
-acceptance criteria → GUIDED asks / AUTO derives strict criteria from the
-request's explicit words → ADR · I3 Design Gate A/B → GUIDED confirms /
-AUTO records the approach as ADR · I4 baseline pre-existing failures →
-GUIDED awaits decision / AUTO proceeds only with failures provably out of
-task scope (named) · I5 mid-loop criterion edit → GUIDED asks / AUTO ADR
-quotes the exact edit · I6 cap/stall → GUIDED reports / AUTO shifts via
-§A4.10 first, PAUSED packet only on a SECOND capped sub-problem.
-
-**Class-E hard stops** (BOTH modes — AUTO never auto-decides): COV-11
-untrusted-content conflict · production deploy / release to real users ·
-destructive or irreversible ops outside the project tree (force-push, data
-deletion, infra mutation) · credential exposure beyond what the task
-provided · `assert_artifacts.py` exit 1 with no legal repair path ·
-anything the user asked to be consulted on.
-
+Full contract: WORKFLOWS_EXTENDED §M/§P (R9). Binding summary:
+**Modes** — every task declares `Mode: AUTO` (default) or `Mode: GUIDED` in
+ZERO; modes govern ONLY Class-I interaction points (I1 ambiguous request ·
+I2 vague acceptance criteria · I3 Design Gate A/B · I4 baseline pre-existing
+failures · I5 mid-loop criterion edit · I6 cap/stall — AUTO shifts via
+§A4.10 first, PAUSED packet only on a SECOND capped sub-problem), NEVER the
+evidence gates (COV-1/2/5/7, assert exit-0, A4.9, Memory Gate).
+**Class-E hard stops (BOTH modes, never auto-decided):** COV-11
+untrusted-content conflict · production deploy/release to real users ·
+destructive or irreversible ops outside the project tree · credential
+exposure beyond what the task provided · `assert_artifacts.py` exit 1 with
+no legal repair path · anything the user asked to be consulted on.
 **ADR format** (`tests/decisions.md`, append-only):
 ```
 ## D-3 | <ISO time> | iter 2
@@ -774,18 +773,12 @@ why: <one falsifiable clause> | revisit-if: <invalidating condition>
 ```
 Completion adds `[Decisions] N auto-decisions → tests/decisions.md` before
 the table. User veto of an ADR = feedback memory (A7.9) + redo next wave.
-
-**PAUSED packet** (both modes, any stop — SKILL.md §3.4): write
-`tests/paused_state.md` AND end the turn with the same one-liner:
-```
-[PAUSED] gate=<name> | question=<one line> | options=<2-3> | default-if-continue=<option> | state=<wave, files touched, next step>
-```
-**Resume contract:** user "continue" = approval of `default-if-continue`
-(NOT a re-plan). On resume: clear `paused_state.md`, append
-`- resumed: <default> approved` to `verification_log.md`, continue from
-`state:`. Re-entry order: paused_state → acceptance.md (full) →
-verification_log tail (~40 lines) → §1 covenant.
-
+**PAUSED packet** (any stop — SKILL.md §3.4): write `tests/paused_state.md`
+AND end the turn with the same
+`[PAUSED] gate=<name> | question=<one line> | options=<2-3> | default-if-continue=<option> | state=<wave, files touched, next step>`
+one-liner. Resume: user "continue" approves `default-if-continue` (NOT a
+re-plan); clear the file, append `- resumed: <default> approved` to
+`verification_log.md`, continue from `state:`. Re-entry order: SKILL.md §3.3.
 **AUTO runaway bound:** at most ONE extra autonomous direction per stop
 type; ≥3 ADRs on the SAME sub-problem → next stop escalates to PAUSED
-regardless of mode — the mode buys autonomy, not license to spin.
+regardless of mode.

@@ -279,6 +279,167 @@ export function noopBashFinding(tools, minRun = NOOP_RUN_MIN) {
   return null
 }
 
+// ---------------- loop-guard identical-tool-run detection ----------------
+// Incident class (2026-10-14): a ~450-deep run of byte-identical MCP tool
+// calls (`weave-connector_ssh_shell_open [profile=newsrv, name=p01c]`)
+// with zero intervening text — invisible to the text byte detectors and to
+// noop-bash (non-bash tool). SOTA anchors: deepseek-harness
+// repeat-tool-reminder chain key `(tool, canonical args)` (deep key-sort +
+// JSON.stringify), grain storm.rs same-args storm suppression. Contract:
+// >= IDENTICAL_RUN_MIN trailing observations with DISTINCT part ids sharing
+// ONE (tool, canonical-args) fingerprint -> { kind: "identical-tool-run",
+// pattern }. D-5 boundary: distinct CALLS only — pid re-observations are
+// deduped and never collapsed; runs of byte-identical echo calls are still
+// the noop-bash detector's job. Conservative by construction: unknown args
+// (status-only re-observation) are skipped without starting or masking a
+// run (R1#4 shape); a truncated observation breaks the run (F10 shape —
+// truncation can forge identity). Threshold 4 aligns with NOOP_RUN_MIN:
+// the incident class is O(100) repeats, legit identical polling bursts are
+// <=3, and the intervention is a budgeted soft prompt (industry bar for
+// same-args nudges is 2-3: grain blocks the 3rd, deepseek nudges at the
+// first configured threshold).
+const IDENTICAL_RUN_MIN = 4
+
+// Deep key-sort JSON — the canonical identity of a tool call's arguments
+// (argument property order never changes identity). Exported so the plugin
+// recorder and this detector share ONE spelling. Object.create(null) keeps a
+// `__proto__` input key from hitting the setter and silently vanishing
+// (which would forge identity between distinct inputs).
+export function canonicalJson(value) {
+  const norm = (v) => {
+    if (Array.isArray(v)) return v.map(norm)
+    if (v && typeof v === "object") {
+      const out = Object.create(null)
+      for (const k of Object.keys(v).sort()) out[k] = norm(v[k])
+      return out
+    }
+    return v
+  }
+  return JSON.stringify(norm(value))
+}
+
+// Re-canonicalize a recorded args string when it parses as JSON (legacy
+// unsorted producers), else keep it verbatim (truncated/non-JSON identity).
+function canonicalArgsString(s) {
+  try {
+    return canonicalJson(JSON.parse(s))
+  } catch {
+    return s
+  }
+}
+
+// Identity fingerprint of one tool observation: `tool + "\u0000" + args`
+// where args is the canonical args string (t.args) or a legacy fallback
+// field ({command} / {filePath} / {name}). Returns null when the arguments
+// are UNKNOWN (status-only re-observation with no input) — such entries can
+// neither start nor mask a run.
+export function toolIdentity(t) {
+  if (!t || typeof t !== "object") return null
+  const tool = typeof t.tool === "string" ? t.tool : ""
+  if (!tool) return null
+  let args = null
+  if (typeof t.args === "string" && t.args) args = canonicalArgsString(t.args)
+  else if (typeof t.command === "string" && t.command.trim()) args = canonicalJson({ command: t.command })
+  else if (typeof t.filePath === "string" && t.filePath) args = canonicalJson({ filePath: t.filePath })
+  else if (typeof t.name === "string" && t.name) args = canonicalJson({ name: t.name })
+  else return null
+  return tool + "\u0000" + args
+}
+
+// Trailing run of DISTINCT identical tool calls in a tool-observation list
+// (`[{tool, args?|command?|filePath?|name?, pid?, truncated?}]`). Streaming
+// re-observations of the SAME tool part (same pid) count once. An unknown
+// args entry SKIPS only when its tool matches the run's tool (re-observation
+// shape); a different tool with unobserved args BREAKS the run, and a
+// MALFORMED entry (non-string tool) breaks it too (conservative). `pattern`
+// is FULLY values-free — tool name + key COUNT + argsLen, never key names
+// or values — because it is re-emitted inside the corrective prompt and the
+// host log (tool args carry untrusted content; even key names are an
+// injection surface — 2026-10-14 review). The count is the real full
+// trailing-run length, not the minRun floor.
+// Returns { kind: "identical-tool-run", pattern } | null.
+export function identicalToolRunFinding(tools, minRun = IDENTICAL_RUN_MIN) {
+  if (!Array.isArray(tools) || tools.length < 1) return null
+  const seenPid = new Set()
+  let run = 0
+  let lastId = null
+  let lastTool = ""
+  let sample = ""
+  for (let i = tools.length - 1; i >= 0; i--) {
+    const t = tools[i]
+    if (!t || typeof t !== "object") break
+    if (t.pid != null && seenPid.has(t.pid)) continue // duplicate observation of one call
+    if (typeof t.tool !== "string" || !t.tool) break // malformed = intervening unknown action
+    if (t.truncated) break // truncation can forge identity (F10)
+    const id = toolIdentity(t)
+    if (id == null) {
+      // unknown args: same tool = possible re-observation of the run (skip);
+      // a DIFFERENT tool is an intervening action (break)
+      if (lastId != null && t.tool !== lastTool) break
+      continue
+    }
+    if (t.pid != null) seenPid.add(t.pid)
+    const tool = id.split("\u0000")[0]
+    if (lastId == null) {
+      lastId = id
+      lastTool = tool
+      sample = id
+      run = 1
+    } else if (id === lastId) {
+      run++
+    } else {
+      break // a different call ends the consecutive run
+    }
+  }
+  if (run >= minRun) {
+    const args = sample.split("\u0000")[1] || ""
+    let keyCount = "?"
+    try {
+      const parsed = JSON.parse(args)
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) keyCount = String(Object.keys(parsed).length)
+    } catch {
+      /* opaque args string */
+    }
+    return { kind: "identical-tool-run", pattern: `${run} consecutive identical tool calls (e.g. ${lastTool} keys=${keyCount} argsLen=${args.length})` }
+  }
+  return null
+}
+
+// ---------------- loop-guard tool-frequency detection ----------------
+// deer-flow Layer 2 shape (2026-10-14 residuals wave): a single-tool storm
+// with VARYING arguments (read ×N different files) evades the identical-run
+// detector. Contract: a trailing run of SAME-tool distinct-pid observations
+// (args may vary) >= TOOL_FREQ_MIN -> { kind: "tool-frequency", pattern }.
+// Values-free by construction (tool name + count). Conservative: a different
+// tool or a malformed entry breaks the run; pid re-observations count once.
+// Threshold 20 — this skill's own bulk patterns (audit file sweeps, memory
+// loads) stay under it while the incident class (40-450 consecutive sweeps)
+// trips it; the intervention is the same budgeted soft prompt (FP cost = one
+// nudge, never a block).
+const TOOL_FREQ_MIN = 20
+
+export function toolFrequencyFinding(tools, minRun = TOOL_FREQ_MIN) {
+  if (!Array.isArray(tools) || tools.length < 1) return null
+  const seenPid = new Set()
+  let run = 0
+  let tool = ""
+  for (let i = tools.length - 1; i >= 0; i--) {
+    const t = tools[i]
+    if (!t || typeof t !== "object") break
+    if (t.pid != null && seenPid.has(t.pid)) continue // duplicate observation of one call
+    const name = typeof t.tool === "string" ? t.tool : ""
+    if (!name) break // malformed = intervening unknown action (conservative)
+    if (tool && name !== tool) break // a different tool ends the storm
+    tool = name
+    if (t.pid != null) seenPid.add(t.pid)
+    run++
+  }
+  if (run >= minRun) {
+    return { kind: "tool-frequency", pattern: `${run} consecutive ${tool} calls (args vary or repeat — consolidate or change tool)` }
+  }
+  return null
+}
+
 // ---------------- stop-guard (§V12) ----------------
 // False-stop detection: a coherent "context exhausted" stop is invisible to
 // byte-level degeneration detectors (loop-guard), so it gets its own

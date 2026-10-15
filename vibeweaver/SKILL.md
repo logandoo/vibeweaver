@@ -731,7 +731,7 @@ summarizes) is checked and `assert_artifacts.py` exits 0, no further
 evidence-producing tool calls are expected — proceed through the remaining
 documented completion steps (sync/push/memory) and emit the completion
 output; never pad the transition with `echo`/narration tool calls
-(loop-guard `noop-bash` interrupts them, TESTING_PROTOCOLS §A4.10).
+(loop-guard `noop-bash`/`identical-tool-run`/`tool-frequency`, TESTING_PROTOCOLS §A4.10).
 
 ## Reference Files (companion files)
 

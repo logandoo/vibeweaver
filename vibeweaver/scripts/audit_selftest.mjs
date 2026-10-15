@@ -14,7 +14,7 @@ import path from "node:path"
 
 const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
 const CORE_MODULE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
-const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopGuardDecision, stopGuardPrompt } = await import(pathToFileURL(CORE_MODULE))
+const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopGuardDecision, stopGuardPrompt, identicalToolRunFinding, toolIdentity, canonicalJson, toolFrequencyFinding } = await import(pathToFileURL(CORE_MODULE))
 // Dual-compat module surface: current plugin default-exports { id, server, setup };
 // fall back to the legacy named export when testing an older copy.
 const auditModule = await import(pathToFileURL(AUDIT_MODULE))
@@ -2320,6 +2320,410 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     delete process.env.VIBEWEAVER_AUDIT_CONFIG
     const ftext = f1.calls.prompts[0] || ""
     rec("T27i7 fill 95% → softened phrasing, no 'has no basis' accusation (R1#8)", f1.calls.prompts.length === 1 && /95%/.test(ftext) && !/has no basis/.test(ftext), ftext.slice(0, 160))
+  }
+}
+
+// =====================================================================
+// T34 — loop-guard identical-tool-run (same tool + identical args ×N,
+// 2026-10-14). The reported failure mode: a ~450-deep run of identical
+// MCP calls (`weave-connector_ssh_shell_open [profile=newsrv, name=p01c]`)
+// with zero intervening text — invisible to the text byte detectors and to
+// noop-bash (non-bash tool, `t.tool !== "bash"` breaks its run). Contract:
+// >=IDENTICAL_RUN_MIN trailing observations with DISTINCT part ids sharing
+// ONE (tool, canonical-args) fingerprint -> one corrective intervention.
+// D-5 boundary: distinct calls only (pid re-observations deduped), the
+// detector NEVER collapses observations into fewer calls.
+// =====================================================================
+{
+  const hasItr = typeof identicalToolRunFinding === "function"
+  const hasCj = typeof canonicalJson === "function"
+  const cj = hasCj ? canonicalJson : (v) => JSON.stringify(v)
+  const mkMcp = (pid, input) => ({ tool: "weave-connector_ssh_shell_open", args: cj(input), pid, t: 1 })
+  const OPEN_INPUT = { profile: "newsrv", name: "p01c", record: true }
+
+  // ---- T34a — threshold: 4 distinct-pid identical MCP calls -> finding ----
+  const four = ["p1", "p2", "p3", "p4"].map((p) => mkMcp(p, OPEN_INPUT))
+  const f4 = hasItr ? identicalToolRunFinding(four) : undefined
+  rec("T34a 4 consecutive identical MCP calls (distinct pids) -> identical-tool-run finding", !!f4 && f4.kind === "identical-tool-run", hasItr ? (f4 ? `kind=${f4.kind} pattern=${f4.pattern.slice(0, 90)}` : "null") : "detector missing (RED)")
+  rec("T34a pattern names tool + count + values-free args shape (keyCount + length, NO names/values)", !!f4 && /weave-connector_ssh_shell_open/.test(f4.pattern) && /4 consecutive identical/.test(f4.pattern) && /keys=3 /.test(f4.pattern) && /argsLen=\d+/.test(f4.pattern) && !/p01c/.test(f4.pattern) && !/profile/.test(f4.pattern) && !/name/.test(f4.pattern), hasItr && f4 ? f4.pattern.slice(0, 120) : "detector missing (RED)")
+  const f3 = hasItr ? identicalToolRunFinding(four.slice(0, 3)) : undefined
+  rec("T34a 3 identical calls -> no finding (threshold 4)", f3 === null, hasItr ? (f3 ? `kind=${f3.kind}` : "null") : "detector missing (RED)")
+
+  // ---- T34b — a different tool or different args breaks the run ----
+  const toolBreak = [mkMcp("a1", OPEN_INPUT), mkMcp("a2", OPEN_INPUT), { tool: "bash", command: "ls", pid: "b1", t: 3 }, mkMcp("a3", OPEN_INPUT), mkMcp("a4", OPEN_INPUT)]
+  rec("T34b different tool interleaved -> no finding", hasItr ? identicalToolRunFinding(toolBreak) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+  const argsBreak = [mkMcp("a1", OPEN_INPUT), mkMcp("a2", OPEN_INPUT), mkMcp("a3", { profile: "other", name: "p01c", record: true }), mkMcp("a4", OPEN_INPUT), mkMcp("a5", OPEN_INPUT)]
+  rec("T34b different args breaks the run -> no finding", hasItr ? identicalToolRunFinding(argsBreak) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+
+  // ---- T34c — pid-dedup: re-observations of one call never inflate the run ----
+  const reobs = ["p1", "p1", "p1", "p1"].map((p) => mkMcp(p, OPEN_INPUT))
+  rec("T34c same pid re-observed 4x -> no finding (dedup)", hasItr ? identicalToolRunFinding(reobs) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+  const twoDistinct = ["p1", "p1", "p2", "p2"].map((p) => mkMcp(p, OPEN_INPUT))
+  rec("T34c 2 distinct calls + re-observations -> no finding", hasItr ? identicalToolRunFinding(twoDistinct) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+
+  // ---- T34d — unknown-args (status-only re-obs) neither start nor mask a run ----
+  const masked = [mkMcp("p1", OPEN_INPUT), mkMcp("p2", OPEN_INPUT), { tool: "weave-connector_ssh_shell_open", pid: "px", t: 3 }, mkMcp("p3", OPEN_INPUT), mkMcp("p4", OPEN_INPUT)]
+  rec("T34d unknown-args entry cannot mask the run (skipped, 4 counted)", hasItr ? !!identicalToolRunFinding(masked) : false, hasItr ? "finding expected" : "detector missing (RED)")
+  const onlyUnknown = [1, 2, 3, 4].map((i) => ({ tool: "weave-connector_ssh_shell_open", pid: `u${i}`, t: i }))
+  rec("T34d unknown-args entries can never start a run", hasItr ? identicalToolRunFinding(onlyUnknown) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+  const foreign = [mkMcp("p1", OPEN_INPUT), mkMcp("p2", OPEN_INPUT), { tool: "bash", pid: "b1", t: 3 }, mkMcp("p3", OPEN_INPUT), mkMcp("p4", OPEN_INPUT)]
+  rec("T34d different tool with unobserved args BREAKS the run (no false finding)", hasItr ? identicalToolRunFinding(foreign) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+  const malformed = [mkMcp("p1", OPEN_INPUT), mkMcp("p2", OPEN_INPUT), { pid: "q", t: 3 }, mkMcp("p3", OPEN_INPUT), mkMcp("p4", OPEN_INPUT)]
+  rec("T34d malformed observation (non-string tool) BREAKS the run conservatively", hasItr ? identicalToolRunFinding(malformed) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+  const six = ["p1", "p2", "p3", "p4", "p5", "p6"].map((p) => mkMcp(p, OPEN_INPUT))
+  const f6 = hasItr ? identicalToolRunFinding(six) : undefined
+  rec("T34d pattern reports the FULL run length (6 calls -> '6 consecutive', not minRun floor)", !!f6 && /^6 consecutive identical/.test(f6.pattern), hasItr && f6 ? f6.pattern.slice(0, 60) : "detector missing (RED)")
+
+  // ---- T34e — truncated args break the run (F10 shape: truncation can forge identity) ----
+  const forged = ["p1", "p2", "p3", "p4"].map((p) => mkMcp(p, { profile: "newsrv".repeat(50) }))
+  forged.forEach((t) => (t.truncated = true))
+  rec("T34e truncated observations break the run", hasItr ? identicalToolRunFinding(forged) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+
+  // ---- T34f — identity is canonical: argument key order never matters ----
+  const idA = hasItr && typeof toolIdentity === "function" ? toolIdentity(mkMcp("p1", { a: 1, b: 2 })) : "missing"
+  const idB = hasItr && typeof toolIdentity === "function" ? toolIdentity(mkMcp("p2", { b: 2, a: 1 })) : "missing"
+  rec("T34f toolIdentity canonicalizes key order (deep key-sort)", idA === idB && idA !== "missing" && idA !== null, `idA=${String(idA).slice(0, 60)} idB=${String(idB).slice(0, 60)}`)
+  const mixedOrder = [
+    { tool: "weave-connector_ssh_shell_open", args: '{"record":true,"name":"p01c","profile":"newsrv"}', pid: "p1", t: 1 },
+    { tool: "weave-connector_ssh_shell_open", args: '{"name":"p01c","profile":"newsrv","record":true}', pid: "p2", t: 2 },
+    { tool: "weave-connector_ssh_shell_open", args: '{"profile":"newsrv","record":true,"name":"p01c"}', pid: "p3", t: 3 },
+    { tool: "weave-connector_ssh_shell_open", args: '{"record":true,"profile":"newsrv","name":"p01c"}', pid: "p4", t: 4 },
+  ]
+  rec("T34f mixed key-order args are ONE identity -> finding", hasItr ? !!identicalToolRunFinding(mixedOrder) : false, hasItr ? "finding expected" : "detector missing (RED)")
+
+  // ---- T34g — legacy observation shapes: command/filePath/name fallbacks ----
+  const legacyName = [1, 2, 3, 4].map((i) => ({ tool: "skill", name: "vibeweaver", pid: `s${i}`, t: i }))
+  rec("T34g legacy {tool,name} fallback x4 -> finding", hasItr ? !!identicalToolRunFinding(legacyName) : false, hasItr ? "finding expected" : "detector missing (RED)")
+  const legacyBash = [1, 2, 3, 4].map((i) => ({ tool: "bash", command: "ls", pid: `l${i}`, t: i }))
+  const fb = hasItr ? identicalToolRunFinding(legacyBash) : undefined
+  rec("T34g bash {command} fallback x4 real command -> finding (noop-bash stays silent)", !!fb && fb.kind === "identical-tool-run" && (typeof isNoopBashCommand !== "function" || !isNoopBashCommand("ls")), hasItr ? (fb ? `kind=${fb.kind}` : "null") : "detector missing (RED)")
+
+  // ---- T34h — minRun parameter respected ----
+  const two = ["p1", "p2"].map((p) => mkMcp(p, OPEN_INPUT))
+  rec("T34h minRun=2 fires on 2 identical calls", hasItr ? !!identicalToolRunFinding(two, 2) : false, hasItr ? "finding expected" : "detector missing (RED)")
+  rec("T34h default threshold constant >= 4 (polling FP bar)", hasItr ? identicalToolRunFinding(two) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+
+  // ---- T34i — adapter: 4 identical MCP tool parts -> one budgeted intervention ----
+  {
+    const root32 = newFixture("t32-itr")
+    write(root32, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { abort: 0, prompts: [], logs: [] }
+    const plugin32 = await VibeweaverAudit({
+      client: {
+        app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async (args) => {
+            const parts = args && args.body && args.body.parts
+            calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+          },
+        },
+      },
+      directory: root32,
+    })
+    const sid = "ses_t32"
+    const emitOpen = (id) =>
+      plugin32.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id, type: "tool", tool: "weave-connector_ssh_shell_open", state: { status: "completed", input: OPEN_INPUT } } },
+        },
+      })
+    for (let i = 1; i <= 4; i++) await emitOpen(`p${i}`)
+    rec("T34i 4 identical MCP calls through adapter -> exactly one intervention", calls.abort === 1 && calls.prompts.length === 1, `abort=${calls.abort} prompts=${calls.prompts.length}`)
+    const ptext = calls.prompts[0] || ""
+    rec("T34i corrective text names the loop kind + demands varied args/diagnosis or progress", /identical-tool-run/.test(ptext) && /(- stall: identical-tool-run)/.test(ptext) && /verification_log/i.test(ptext), ptext.slice(0, 160))
+    rec("T34i corrective text carries the legal exits (vary · next step · completion-if-all-pass)", /(chang|var(y|ied)|different) (arguments|args|tool)/i.test(ptext) && /(next (real )?step|proceed)/i.test(ptext) && /completion output/i.test(ptext), ptext.slice(0, 200))
+    for (let i = 5; i <= 8; i++) await emitOpen(`p${i}`)
+    rec("T34i continued identical calls -> no thrash (still 1 intervention)", calls.abort === 1, `abort=${calls.abort}`)
+    // status-only re-observations must not fabricate identity or mask the run
+    await plugin32.event({
+      event: { type: "message.part.updated", properties: { sessionID: sid, part: { id: "p9", type: "tool", tool: "weave-connector_ssh_shell_open", state: { status: "running" } } } },
+    })
+    await plugin32.event({
+      event: { type: "message.part.updated", properties: { sessionID: sid, part: { id: "p10", type: "tool", tool: "bash", state: { status: "completed", input: { command: "ls" } } } } },
+    })
+    rec("T34i status-only re-obs + real call leave budget/latch state sane", calls.abort === 1 && calls.prompts.length === 1, `abort=${calls.abort}`)
+  }
+
+  // ---- T34j — tool-channel budget SHARED across noop-bash and identical-tool-run ----
+  {
+    const root32b = newFixture("t32-budget")
+    write(root32b, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { abort: 0, prompts: [], logs: [] }
+    const plugin32b = await VibeweaverAudit({
+      client: {
+        app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async (args) => {
+            const parts = args && args.body && args.body.parts
+            calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+          },
+        },
+      },
+      directory: root32b,
+    })
+    const sid = "ses_t32b"
+    const emitOpen = (id) =>
+      plugin32b.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id, type: "tool", tool: "weave-connector_ssh_shell_open", state: { status: "completed", input: OPEN_INPUT } } },
+        },
+      })
+    const emitEcho = (id) =>
+      plugin32b.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id, type: "tool", tool: "bash", state: { status: "completed", input: { command: 'echo "final"' } } } },
+        },
+      })
+    const emitBreak = async (id) =>
+      plugin32b.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id, type: "tool", tool: "bash", state: { status: "completed", input: { command: "ls" } } } },
+        },
+      })
+    // episode 1: identical echo x4 -> noop-bash (checked first) consumes budget slot 1
+    for (let i = 1; i <= 4; i++) await emitEcho(`e${i}`)
+    rec("T34j noop-bash episode consumes shared tool-channel budget slot 1", calls.abort === 1 && /noop-bash/.test(calls.prompts[0] || ""), `abort=${calls.abort}`)
+    await emitBreak("b1")
+    for (let i = 1; i <= 4; i++) await emitOpen(`a${i}`)
+    rec("T34j identical-tool-run episode shares the budget (2nd intervention)", calls.abort === 2 && /identical-tool-run/.test(calls.prompts[1] || ""), `abort=${calls.abort}`)
+    await emitBreak("b2")
+    for (let i = 1; i <= 4; i++) await emitOpen(`c${i}`)
+    const budgetLog = calls.logs.some((m) => /budget exhausted/i.test(m))
+    rec("T34j episode 3 beyond shared budget -> log-only, no abort", calls.abort === 2 && budgetLog, `abort=${calls.abort} budgetLog=${budgetLog}`)
+  }
+
+  // ---- T34k — VIBEWEAVER_LOOPGUARD=off keeps the new detector silent too ----
+  {
+    const root32c = newFixture("t32-off")
+    write(root32c, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const prev = process.env.VIBEWEAVER_LOOPGUARD
+    process.env.VIBEWEAVER_LOOPGUARD = "off"
+    const calls = { abort: 0, prompts: 0 }
+    const plugin32c = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async () => {
+            calls.prompts++
+          },
+        },
+      },
+      directory: root32c,
+    })
+    for (let i = 1; i <= 6; i++) {
+      await plugin32c.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: "ses_t32c", part: { id: `x${i}`, type: "tool", tool: "weave-connector_ssh_shell_open", state: { status: "completed", input: OPEN_INPUT } } },
+        },
+      })
+    }
+    if (prev === undefined) delete process.env.VIBEWEAVER_LOOPGUARD
+    else process.env.VIBEWEAVER_LOOPGUARD = prev
+    rec("T34k VIBEWEAVER_LOOPGUARD=off -> identical-tool-run silent", calls.abort === 0 && calls.prompts === 0, `abort=${calls.abort}`)
+  }
+
+  // ---- T34l — `__proto__` input key must never forge identity (review B) ----
+  {
+    const aProto = JSON.parse('{"__proto__":{"i":1},"cmd":"a"}')
+    const aPlain = JSON.parse('{"cmd":"a"}')
+    rec("T34l canonicalJson keeps __proto__ as an own key (distinct identities)", hasCj ? cj(aProto) !== cj(aPlain) && cj(aProto).includes("__proto__") : false, hasCj ? `proto=${cj(aProto)} plain=${cj(aPlain)}` : "canonicalJson missing (RED)")
+    const mixed = [
+      { tool: "w", args: cj(aProto), pid: "m1", t: 1 },
+      { tool: "w", args: cj(aProto), pid: "m2", t: 2 },
+      { tool: "w", args: cj(aPlain), pid: "m3", t: 3 },
+      { tool: "w", args: cj(aProto), pid: "m4", t: 4 },
+      { tool: "w", args: cj(aProto), pid: "m5", t: 5 },
+    ]
+    rec("T34l __proto__ vs plain input interleave breaks the run (no false finding)", hasItr ? identicalToolRunFinding(mixed) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+    rec("T34l 4 identical __proto__-bearing calls still fire (identity intact)", hasItr ? !!identicalToolRunFinding(mixed.slice(0, 2).concat(mixed.slice(3))) : false, hasItr ? "finding expected" : "detector missing (RED)")
+  }
+
+  // ---- T34m — v2 execute.before path: real input records args+pid; missing
+  //      input fabricates nothing; truncation breaks; zero-arg calls DO fire ----
+  {
+    const root34m = newFixture("t34-v2obs")
+    write(root34m, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const toolHooks = { before: [] }
+    const sessCalls = { interrupt: [], prompt: [] }
+    const ctx = {
+      location: { directory: root34m, workspaceID: undefined, project: { id: "p1", directory: root34m, canonical: root34m } },
+      options: {},
+      app: { name: "opencode", version: "2.0.16", channel: "stable" },
+      session: {
+        interrupt: async (i) => sessCalls.interrupt.push(i),
+        prompt: async (i) => sessCalls.prompt.push(i),
+      },
+      tool: {
+        hook: async (name, cb) => {
+          if (name === "execute.before") toolHooks.before.push(cb)
+          return { dispose: async () => {} }
+        },
+      },
+      event: { subscribe: () => ({ dispose: async () => {} }) },
+    }
+    const cleanup = await auditModule.default.setup(ctx)
+    const before = toolHooks.before[0]
+    const fire = (sid, id, input) =>
+      before({ tool: "weave-connector_ssh_shell_open", sessionID: sid, agent: "a", messageID: "m1", id, input })
+    for (let i = 1; i <= 4; i++) await fire("ses_v1", `c${i}`, OPEN_INPUT)
+    const ptext = (sessCalls.prompt[0] && JSON.stringify(sessCalls.prompt[0])) || ""
+    rec("T34m v2 execute.before path -> identical run fires (args+pid recorded)", sessCalls.interrupt.length === 1 && sessCalls.prompt.length === 1 && /identical-tool-run/.test(ptext), `interrupt=${sessCalls.interrupt.length} prompts=${sessCalls.prompt.length}`)
+    for (let i = 1; i <= 4; i++) await before({ tool: "weave-connector_ssh_shell_open", sessionID: "ses_v2", agent: "a", messageID: "m1", id: `n${i}` })
+    rec("T34m calls observed WITHOUT input never fabricate identity (no finding)", sessCalls.interrupt.length === 1, `interrupt=${sessCalls.interrupt.length}`)
+    await fire("ses_v3", "k1", OPEN_INPUT)
+    await fire("ses_v3", "k2", OPEN_INPUT)
+    await before({ tool: "bash", sessionID: "ses_v3", agent: "a", messageID: "m1", id: "kb" })
+    await fire("ses_v3", "k3", OPEN_INPUT)
+    await fire("ses_v3", "k4", OPEN_INPUT)
+    rec("T34m different tool with no input breaks the v2 run", sessCalls.interrupt.length === 1, `interrupt=${sessCalls.interrupt.length}`)
+    const longInput = { profile: "newsrv", name: "p01c", record: true, blob: "x".repeat(500) }
+    for (let i = 1; i <= 4; i++) await fire("ses_v4", `t${i}`, longInput)
+    rec("T34m over-cap args marked truncated break the run (F10, no finding)", sessCalls.interrupt.length === 1, `interrupt=${sessCalls.interrupt.length}`)
+    for (let i = 1; i <= 4; i++) await fire("ses_v5", `z${i}`, {})
+    rec("T34m zero-arg identical calls (input {} observed) DO fire (incident class)", sessCalls.interrupt.length === 2, `interrupt=${sessCalls.interrupt.length}`)
+    if (typeof cleanup === "function") await cleanup()
+  }
+}
+
+// =====================================================================
+// T35 — loop-guard tool-frequency (single-tool storm, deer-flow Layer 2,
+// 2026-10-14 residuals wave). Same-tool calls with VARYING args (read
+// ×N different files) evade identical-tool-run; a trailing run of
+// same-tool DISTINCT-pid observations >= TOOL_FREQ_MIN -> one corrective
+// intervention. Values-free pattern by construction (tool name + count).
+// =====================================================================
+{
+  const hasTf = typeof toolFrequencyFinding === "function"
+  const OPEN_INPUT = { profile: "newsrv", name: "p01c", record: true }
+  const mkRead = (pid, i) => ({ tool: "read", filePath: `/tmp/f${i}.txt`, pid, t: i })
+  const storm = Array.from({ length: 20 }, (_, i) => mkRead(`r${i}`, i))
+  const tf20 = hasTf ? toolFrequencyFinding(storm) : undefined
+  rec("T35a 20 same-tool varied-args calls (distinct pids) -> tool-frequency finding", !!tf20 && tf20.kind === "tool-frequency", hasTf ? (tf20 ? `kind=${tf20.kind} pattern=${tf20.pattern.slice(0, 80)}` : "null") : "detector missing (RED)")
+  rec("T35a pattern values-free (tool + count only)", !!tf20 && /^20 consecutive read calls/.test(tf20.pattern) && !/f0\.txt/.test(tf20.pattern), hasTf && tf20 ? tf20.pattern.slice(0, 100) : "detector missing (RED)")
+  rec("T35a 19 same-tool calls -> no finding (threshold 20)", hasTf ? toolFrequencyFinding(storm.slice(0, 19)) === null : false, hasTf ? "null expected" : "detector missing (RED)")
+
+  const toolBreak = [...storm.slice(0, 10), { tool: "bash", command: "ls", pid: "b", t: 11 }, ...storm.slice(10, 19)]
+  rec("T35b foreign tool interleaved -> no finding", hasTf ? toolFrequencyFinding(toolBreak) === null : false, hasTf ? "null expected" : "detector missing (RED)")
+  const reobs = Array.from({ length: 20 }, (_, i) => mkRead("same", i))
+  rec("T35b same-pid re-observations never inflate the storm", hasTf ? toolFrequencyFinding(reobs) === null : false, hasTf ? "null expected" : "detector missing (RED)")
+  rec("T35c minRun parameter respected (4 varied reads)", hasTf ? !!toolFrequencyFinding(storm.slice(0, 4), 4) : false, hasTf ? "finding expected" : "detector missing (RED)")
+
+  // ---- T35d — adapter: single-tool storm -> one intervention with stall line ----
+  {
+    const root35 = newFixture("t35-freq")
+    write(root35, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { abort: 0, prompts: [], logs: [] }
+    const plugin35 = await VibeweaverAudit({
+      client: {
+        app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async (args) => {
+            const parts = args && args.body && args.body.parts
+            calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+          },
+        },
+      },
+      directory: root35,
+    })
+    const sid = "ses_t35"
+    for (let i = 0; i < 20; i++) {
+      await plugin35.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id: `r${i}`, type: "tool", tool: "read", state: { status: "completed", input: { filePath: `/tmp/f${i}.txt` } } } },
+        },
+      })
+    }
+    rec("T35d 20 varied reads through adapter -> exactly one intervention", calls.abort === 1 && calls.prompts.length === 1, `abort=${calls.abort} prompts=${calls.prompts.length}`)
+    const ptext = calls.prompts[0] || ""
+    rec("T35d corrective text: stall declaration + consolidate/switch/next/completion exits", /tool-frequency/.test(ptext) && /- stall: tool-frequency/.test(ptext) && /(consolidat|batch|summar)/i.test(ptext) && /(switch|different tool|different approach)/i.test(ptext) && /completion output/i.test(ptext), ptext.slice(0, 200))
+    for (let i = 20; i < 26; i++) {
+      await plugin35.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id: `r${i}`, type: "tool", tool: "read", state: { status: "completed", input: { filePath: `/tmp/f${i}.txt` } } } },
+        },
+      })
+    }
+    rec("T35d continued storm -> no thrash (still 1 intervention)", calls.abort === 1, `abort=${calls.abort}`)
+  }
+
+  // ---- T35e — precedence: noop-bash and identical-tool-run win over frequency ----
+  {
+    const root35b = newFixture("t35-prec")
+    write(root35b, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const calls = { prompts: [] }
+    const plugin35b = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: {
+          abort: async () => {},
+          prompt: async (args) => {
+            const parts = args && args.body && args.body.parts
+            calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+          },
+        },
+      },
+      directory: root35b,
+    })
+    const sid = "ses_t35e"
+    for (let i = 0; i < 20; i++) {
+      await plugin35b.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: sid, part: { id: `x${i}`, type: "tool", tool: "weave-connector_ssh_shell_open", state: { status: "completed", input: OPEN_INPUT } } },
+        },
+      })
+    }
+    rec("T35e identical run of 20 -> identical-tool-run wins (not tool-frequency)", calls.prompts.length === 1 && /identical-tool-run/.test(calls.prompts[0] || "") && !/tool-frequency/.test(calls.prompts[0] || ""), (calls.prompts[0] || "").slice(0, 80))
+  }
+
+  // ---- T35f — config override loopGuardToolFrequencyMin (integer >= 4) ----
+  {
+    const root35c = newFixture("t35-cfg")
+    write(root35c, "tests/verification_log.md", "placeholder — no iter entries\n")
+    write(root35c, "audit-config.json", JSON.stringify({ loopGuardToolFrequencyMin: 4 }))
+    process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root35c, "audit-config.json")
+    const calls = { abort: 0 }
+    const plugin35c = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: {
+          abort: async () => {
+            calls.abort++
+          },
+          prompt: async () => {},
+        },
+      },
+      directory: root35c,
+    })
+    for (let i = 0; i < 4; i++) {
+      await plugin35c.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: "ses_t35f", part: { id: `c${i}`, type: "tool", tool: "read", state: { status: "completed", input: { filePath: `/tmp/g${i}.txt` } } } },
+        },
+      })
+    }
+    delete process.env.VIBEWEAVER_AUDIT_CONFIG
+    rec("T35f loopGuardToolFrequencyMin=4 -> storm fires at 4 varied reads", calls.abort === 1, `abort=${calls.abort}`)
   }
 }
 
