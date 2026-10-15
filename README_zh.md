@@ -59,7 +59,7 @@ coding agent 在真实项目上出问题，包括但不限于把文件删了、�
 - **backlog 的外层循环**：给它一个队列就行——`tests/backlog.json`（一项一个 `passes` 标志）、只增不改的 `tests/progress.txt` 编年、每项 fresh context、每轮一件小任务、绿了才提交（循环的免疫系统）、显式停止信号（COMPLETE / BLOCKED / DECIDE / 预算——耗尽是续杯不是失败）、先监督跑再有限批跑。`scripts/backlog_check.py` 会把任何没有执行测试行点名的 `passes: true` 判为失败。
 - **执行层的牙齿，保持诚实**：证据检查器连日志本身也 lint（diagnosis 是占位词的 FAIL 不算一轮迭代）；会话审计要求收官 `--final` 跑在日志里留下行（否则这些检查从未被证明跑过）；stall 观察员对同一停滞签名只报一次、新 PASS 才重新武装——会刷屏的警告只会训练出麻木。
 - **循环有上限**：每个验证循环都受约束：单个子问题最多 `cap=5` 次迭代，`stall=3×`（同一标准连续失败三次就停下、换方向、把死路记进 memory）。
-- **退化输出看护（loop-guard）**：模型自己的生成跑飞时——同一段反复复读、无意义的裸 echo 序列（`1,2,…,179`、`a,b,…,kf`）、counter 墙（≥16 行同形尾行、每个数字段严格 +1）、超 2KB 的纯标点墙，有无换行都覆盖——审计插件从文本流里即时识别（reasoning part 同样覆盖，各走独立预算），打断会话并投递纠正提示（一段发作干预一次、每会话限次；`VIBEWEAVER_LOOPGUARD=off` 关闭）。单 turn 输出超 64KB 还有绝对上限兜底。它还盯着第二条通道：工具调用。模型宣告要调工具（"use Read now"）却连发裸 `echo "…"` 旁白标记、始终不真正调用时，同样会被打断（连续 ≥4 个 no-op bash 调用；两通道各自独立的发作预算，互不挤占）。
+- **退化输出看护（loop-guard）**：模型自己的生成跑飞时——同一段反复复读、无意义的裸 echo 序列（`1,2,…,179`、`a,b,…,kf`）、counter 墙（≥16 行同形尾行、每个数字段严格 +1）、超 2KB 的纯标点墙，有无换行都覆盖——审计插件从文本流里即时识别（reasoning part 同样覆盖，各走独立预算），打断会话并投递纠正提示（一段发作干预一次、每会话限次；`VIBEWEAVER_LOOPGUARD=off` 关闭）。单 turn 输出超 64KB 还有绝对上限兜底。它还盯着第二条通道：工具调用。模型宣告要调工具（"use Read now"）却连发裸 `echo "…"` 旁白标记、始终不真正调用时，同样会被打断（连续 ≥4 个 no-op bash 调用）；另有两枚检测器专打调用风暴——同一条调用同参重发 ≥4 次（`identical-tool-run`，canonical args 身份、只数不同 part id，永不折叠观测）与同一工具连砸 ≥20 次不同参数（`tool-frequency`）。各通道发作预算独立，互不挤占。
 - **覆盖诚实，加一双独立的眼睛**：完工输出带一行 `[Coverage] criteria: N/M | unchecked: …`——查过的点名附证据，没查过的也点名：未查项永远不能被说成已完成，`UNVERIFIED` 格也洗不白成 `na`。当最强绿证是模型自写测试时，由全新 context 的复核者在不知道实现推理的情况下重跑检查。
 - **仪式经济学**：代码和绿测试先落地；memory 写入、评审包、决策长文在完工时从「每轮一行」的日志组装。每轮迭代的预算自检让限时任务收敛到交付物，而不是死在仪式中途；安全规则常驻，调试/评审协议只在其触发点才装载。
 - **行动分诊与状态修订**：每个计划动作在执行前标注 critical/exploratory/noisy；噪音先改写、不执行。证据否决假设时，承载它的工件就地重写——在过时计划旁边追加一条更正，只会继续污染后续决策（AEWM 失效模式的解药）。
@@ -319,7 +319,7 @@ flowchart TD
 
 同一观察通道还跑着 **loop-guard**：对助手文本流做有界尾窗扫描，识别跑飞的生成——尾部同一行组复读（块周期按数据推导，≤640 行；多行块 ≥3×，单行 ≥4×，纯标点分隔线豁免）、末尾连续 ≥12 个裸 token 步长 +1（整数或双十进制字母）、无换行流的字符级周期（≥32 字符单元复读 ≥4×）、counter 墙（≥16 行同形（非数字部分相同）尾行、每数字段严格 +1——「严格」正是时间戳日志与 `page N of M` 保持干净的边界）、纯标点墙自 ≥2KB 起命中。同一套机械还盯着 reasoning 通道（独立缓冲与发作预算：只在 reasoning 里发作的墙不再隐形），扫描入口对尾空白归一（以换行或多余空格收尾的复读不再藏住自己的种子）。命中后打断会话（v1 `session.abort` / v2 `session.interrupt({continue:false})`）并投递指出具体模式的纠正提示；一段发作干预一次（干净文本或新 turn 重新武装），每会话至多两次，之后的发作只记日志；单 turn 绝对上限 64KB 触发带独立纠正文案的 runaway 干预；编号列表（`1. 步骤`）这类「看着像序列」的正常文本不会触发，分隔线与 ASCII art 保持干净。
 
-守卫还看着**工具通道**——更阴的失效就住在那里：意图-动作脱节。模型宣告要调工具（"use Read now"、"final"、"grading"），实际发的却是裸 `echo "…"` bash 调用：每次 exit 0、字面各异、文本检测器一个都看不见，因为循环根本没碰文本流。这里的检测是内容级而非字节级：字面量参数、无副作用的 `echo`/`printf`/`true`/`:` 算 no-op，连续 ≥4 个相异 no-op bash 调用触发同一打断。同一工具 part 的流式重观测按 part id 去重、仅状态观测遮不住 run、被截断的命令会断开 run（截断能伪造字面量）。两通道各自的发作 arming 与预算独立——文本退化发作永远吞不掉工具通道的那次打断。纠正提示要求真正发出工具调用（或在判据确已全过时输出完成产物），并在任何完工声明前写入 `- stall: noop-bash …` 日志。如实划界：裸字面量 run 有机械捕捉；语义级 no-op（`sleep`、`ls`）与 echo/read 交错振荡是记录在案的缺口，不是声明覆盖。
+守卫还看着**工具通道**——更阴的失效就住在那里：意图-动作脱节。模型宣告要调工具（"use Read now"、"final"、"grading"），实际发的却是裸 `echo "…"` bash 调用：每次 exit 0、字面各异、文本检测器一个都看不见，因为循环根本没碰文本流。这里的检测是内容级而非字节级：字面量参数、无副作用的 `echo`/`printf`/`true`/`:` 算 no-op，连续 ≥4 个相异 no-op bash 调用触发同一打断。同一工具 part 的流式重观测按 part id 去重、仅状态观测遮不住 run、被截断的命令会断开 run（截断能伪造字面量）。两通道各自的发作 arming 与预算独立——文本退化发作永远吞不掉工具通道的那次打断。另有两枚检测器覆盖 echo 分类器看不见的风暴形态：`identical-tool-run`（同 tool 同 canonical 参数（深度键排序 JSON 身份）、仅数不同 part id——永不使用观测折叠——重发 ≥4 次）与 `tool-frequency`（同一工具连砸 ≥20 次不同参数）。每次中断本身就是 stall 声明（任何完工声明前写入 `- stall: noop-bash …` / `- stall: identical-tool-run …` / `- stall: tool-frequency …`），且 pattern 全值自由（tool 名 + key 计数 + argsLen）——工具参数永远无法左右纠正提示。纠正提示要求真正推进（或在判据确已全过时输出完成产物）。如实划界：裸字面量 run、同参重发、单工具风暴都有机械捕捉；语义级 no-op（`sleep`、`ls`）与 echo/read 交错振荡是记录在案的缺口，不是声明覆盖。
 
 门禁也不挑 skill：只要项目里有 `tests/verification_log.md` 它就生效，所以 **vibeweaver-mini** 同样被覆盖，mini 的落盘格式刻意与它的证据底线保持一致。只用 mini 又想要这条硬底线的用户，装这一个插件就够了。
 
@@ -437,7 +437,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |
 | `vibeweaver-audit.js`                               | 三层机械审计器（Tier 0/1/2），会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈                                                                   |
 | `scripts/vibeweaver-audit-core.js`                  | 纯裁决核心（可无头测试）                                                                                                     |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 225 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放套件）/ 41 项变异检查，含锁存释放回归                                                    |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 272 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放、T34–T35 工具风暴套件）/ 41 项变异检查，含锁存释放回归                                                    |
 | `install.sh` / `install.bat`                        | 安装脚本（skill 文件 + 两个插件）                                                                                            |
 
 ## 测试

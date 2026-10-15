@@ -191,8 +191,11 @@ checkable.
   calls. A model that
   announces a tool ("use Read now") and then issues bare `echo "…"` narration
   markers instead of calling it is interrupted the same way (≥4 consecutive
-  no-op bash calls; both channels have independent episode budgets so one can
-  never starve the other).
+  no-op bash calls); two more tool-channel detectors cover call storms — the
+  identical call re-issued ≥4 times (`identical-tool-run`, canonicalized-args
+  identity over distinct part ids) and one tool hammered ≥20 consecutive calls
+  with varying arguments (`tool-frequency`). All channels keep independent
+  episode budgets so one can never starve the other.
 - **Honest coverage, and a second pair of eyes.** The completion output carries a
   `[Coverage] criteria: N/M | unchecked: …` line: what was checked is named with
   evidence, what was not checked is named too — an unchecked item can never be
@@ -714,12 +717,20 @@ byte-level: `echo`/`printf`/`true`/`:` with literal arguments and no side
 effects count as no-op, and four consecutive distinct no-op bash calls trip the
 same interrupt. Streamed re-observations of one tool part dedupe by part id,
 status-only observations can't mask the run, and truncated recorded commands
-break it (truncation can forge a literal). The two channels keep independent
-episode arming and budgets, so a text-degeneration episode can never consume the
-tool channel's interrupt. The corrective prompt demands the real tool call — or
-the completion output if the criteria really are all passing — plus the
-`- stall: noop-bash …` log entry before any completion claim. Honest scope: bare
-literal runs are caught; semantic no-ops (`sleep`, `ls`) and echo/read
+break it (truncation can forge a literal). Two more detectors cover the storm
+shapes the echo classifier cannot see: `identical-tool-run` (the same tool with
+identical canonicalized arguments — deep key-sort JSON identity, DISTINCT part
+ids only, so observation-collapsing is never used — re-issued ≥4 times) and
+`tool-frequency` (one tool hammered ≥20 consecutive calls with varying
+arguments). Every interrupt is itself the stall declaration (`- stall: noop-bash
+…` / `- stall: identical-tool-run …` / `- stall: tool-frequency …` before any
+completion claim), and every pattern is fully values-free (tool + key count +
+argsLen) so tool arguments can never steer the corrective prompt. The two
+channels keep independent episode arming and budgets, so a text-degeneration
+episode can never consume the tool channel's interrupt. The corrective prompt
+demands the real progress move — or the completion output if the criteria really
+are all passing. Honest scope: bare literal runs, identical-call repeats, and
+single-tool storms are caught; semantic no-ops (`sleep`, `ls`) and echo/read
 oscillation are documented gaps, not claimed coverage.
 
 The gate is also skill-agnostic: it fires on any project that has
@@ -978,7 +989,7 @@ the agent's context explode and give up; untested, feedback welcome.
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 225 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release suites) / 41 mutation checks, including the latch-release regressions                                                      |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 272 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm suites) / 41 mutation checks, including the latch-release regressions                                                      |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing
