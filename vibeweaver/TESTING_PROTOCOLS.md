@@ -3,7 +3,8 @@
 > Companion rulebook for [SKILL.md](SKILL.md). **Read IN FULL (Read Contract R1
 > in SKILL.md) on any task that touches code, BEFORE the first code action** —
 > it holds the full text behind the SKILL.md stubs (§A4.1 · §A4.1.1 · §A4.1.2
-> · §A4.6 · §A4.7/§A4.7b · §A4.8 · §A4.9 · §A4.10 · §A4.11). If in conflict
+> · §A4.6 · §A4.7/§A4.7b · §A4.8 · §A4.9 · §A4.10; §A4.11 = summary, full
+> contract: WORKFLOWS_EXTENDED §M/§P). If in conflict
 > with §1 covenants in SKILL.md, the covenants prevail. Section numbers are
 > preserved so cross-references (`A4.1`, `A4.6`, …) keep resolving.
 
@@ -753,7 +754,7 @@ primitives (→ §A4.6 escalation to the user).
 
 ## A4.11 PAUSED Protocol & Operating Modes (COV-12 companion)
 
-Full contract: WORKFLOWS_EXTENDED §M/§P (R9). Binding summary:
+Full contract: WORKFLOWS_EXTENDED §M/§P (R9). Summary:
 **Modes** — every task declares `Mode: AUTO` (default) or `Mode: GUIDED` in
 ZERO; modes govern ONLY Class-I interaction points (I1 ambiguous request ·
 I2 vague acceptance criteria · I3 Design Gate A/B · I4 baseline pre-existing
@@ -772,13 +773,13 @@ trigger: <Class-I point> | options: <2-3> | chosen: <safest>
 why: <one falsifiable clause> | revisit-if: <invalidating condition>
 ```
 Completion adds `[Decisions] N auto-decisions → tests/decisions.md` before
-the table. User veto of an ADR = feedback memory (A7.9) + redo next wave.
+the table. User veto of an ADR = feedback memory (A7.9) + redo.
 **PAUSED packet** (any stop — SKILL.md §3.4): write `tests/paused_state.md`
 AND end the turn with the same
 `[PAUSED] gate=<name> | question=<one line> | options=<2-3> | default-if-continue=<option> | state=<wave, files touched, next step>`
 one-liner. Resume: user "continue" approves `default-if-continue` (NOT a
 re-plan); clear the file, append `- resumed: <default> approved` to
-`verification_log.md`, continue from `state:`. Re-entry order: SKILL.md §3.3.
+`verification_log.md`, continue from `state:`. Re-entry: SKILL.md §3.3.
 **AUTO runaway bound:** at most ONE extra autonomous direction per stop
 type; ≥3 ADRs on the SAME sub-problem → next stop escalates to PAUSED
 regardless of mode.

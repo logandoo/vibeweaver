@@ -724,8 +724,10 @@ ids only, so observation-collapsing is never used — re-issued ≥4 times) and
 `tool-frequency` (one tool hammered ≥20 consecutive calls with varying
 arguments). Every interrupt is itself the stall declaration (`- stall: noop-bash
 …` / `- stall: identical-tool-run …` / `- stall: tool-frequency …` before any
-completion claim), and every pattern is fully values-free (tool + key count +
-argsLen) so tool arguments can never steer the corrective prompt. The two
+completion claim — the tool-frequency line only for genuine stalls;
+legitimate bulk work writes a one-line note instead, never a stall that did
+not happen), and every pattern is fully values-free (sanitized tool name +
+key count + argsLen) so tool arguments can never steer the corrective prompt. The two
 channels keep independent episode arming and budgets, so a text-degeneration
 episode can never consume the tool channel's interrupt. The corrective prompt
 demands the real progress move — or the completion output if the criteria really

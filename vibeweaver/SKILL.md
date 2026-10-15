@@ -145,8 +145,7 @@ append-only ADR line in `tests/decisions.md` —
 `D-<n> | trigger: <…> | options: <…> | chosen: <safest> | why: <…> |
 revisit-if: <…>` — then PROCEED autonomously; surface
 `[Decisions] N auto-decisions → tests/decisions.md` before the completion
-table. Class-E hard stops fire in BOTH modes (full contract: R9,
-WORKFLOWS_EXTENDED.md §M). Declare `Lane: S/M/L` on the line after `Mode:`
+table. Class-E hard stops fire in BOTH modes (full contract: R9). Declare `Lane: S/M/L` on the line after `Mode:`
 (§3.0).
 
 `COV-13. Class before any action — proportional path` — in ZERO classify
@@ -349,7 +348,7 @@ happens). Use the Read tool, start→end.
 | R6 | Writing capture/API/websocket code, config, scripts, plan files | [APPENDIX.md](APPENDIX.md) — §A1/§A2/§A4/§A5/§A6/§A7 as needed |
 | R7 | Memory operations beyond §3.2 (writing, gating, consolidating, migrating) | [MEMORY_RULES.md](MEMORY_RULES.md) · [MEMORY_TEMPLATES.md](MEMORY_TEMPLATES.md) |
 | R8 | Engineering-standards questions (deps, communication, failure modes, git, stack) | [ENGINEERING_STD.md](ENGINEERING_STD.md) · [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) |
-| R9 | GUIDED mode chosen · a PAUSED packet is issued or resumed · task routed to C4/C5/C6/C7/C8/S1 | [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — §M modes/PAUSED · C4 audit · C5 deploy · C6 ops · C7 non-web · C8 outer-loop · S1 spike |
+| R9 | GUIDED mode chosen · a PAUSED packet issued or resumed · a Class-I stop (I1–I6 ADR path) · task routed to C4–C8/S1 | [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — §M modes/PAUSED · C4 audit · C5 deploy · C6 ops · C7 non-web · C8 outer-loop · S1 spike |
 | R10 | Lane L · Lane S read-compression · task class / lite path / doc-skill render gate (COV-13 · §V11.9) · FCV / adversarial / coverage / integrity / budget-ship-order / action-triage rules in force · user asks about these protocols | [VERIFICATION_UPGRADES.md](VERIFICATION_UPGRADES.md) — §V1 FCV · §V2 integrity · §V3 coverage · §V4 adversarial · §V5 lanes · §V6 revert · §V7 matrix · §V8 A/B runbook · §V9 budget reserve/ship order/load map · §V10 action triage + state revision · §V11 task class + doc render gate |
 
 ---

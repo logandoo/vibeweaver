@@ -262,10 +262,10 @@ export function noopBashFinding(tools, minRun = NOOP_RUN_MIN) {
   if (!Array.isArray(tools) || tools.length < 1) return null
   const seenPid = new Set()
   let run = 0
-  let sample = ""
   for (let i = tools.length - 1; i >= 0; i--) {
     const t = tools[i]
     if (!t || typeof t !== "object") break
+    if (typeof t.tool !== "string" || !t.tool) break // malformed FIRST (review A1)
     if (t.pid != null && seenPid.has(t.pid)) continue // duplicate observation of one call
     if (t.tool !== "bash") break
     const cmd = typeof t.command === "string" ? t.command : ""
@@ -273,8 +273,10 @@ export function noopBashFinding(tools, minRun = NOOP_RUN_MIN) {
     if (t.pid != null) seenPid.add(t.pid)
     if (t.truncated || !isNoopBashCommand(cmd)) break
     run++
-    if (!sample) sample = cmd.trim().slice(0, 40)
-    if (run >= minRun) return { kind: "noop-bash", pattern: `${run} consecutive no-op bash calls (e.g. ${sample})` }
+  }
+  if (run >= minRun) {
+    // values-free pattern (review B2) — narration strings are untrusted content
+    return { kind: "noop-bash", pattern: `${run} consecutive no-op bash calls (literal echo/printf/true/:)` }
   }
   return null
 }
@@ -346,6 +348,12 @@ export function toolIdentity(t) {
   return tool + "\u0000" + args
 }
 
+// Tool names are third-party-controlled strings (MCP) — sanitize before any
+// pattern embeds one (prompt/log forging; review A3). Allowlist + cap.
+function safeToolName(name) {
+  return String(name).replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, 48) || "?"
+}
+
 // Trailing run of DISTINCT identical tool calls in a tool-observation list
 // (`[{tool, args?|command?|filePath?|name?, pid?, truncated?}]`). Streaming
 // re-observations of the SAME tool part (same pid) count once. An unknown
@@ -368,27 +376,31 @@ export function identicalToolRunFinding(tools, minRun = IDENTICAL_RUN_MIN) {
   for (let i = tools.length - 1; i >= 0; i--) {
     const t = tools[i]
     if (!t || typeof t !== "object") break
-    if (t.pid != null && seenPid.has(t.pid)) continue // duplicate observation of one call
+    // malformed FIRST — a re-observation must never mask it (review A1)
     if (typeof t.tool !== "string" || !t.tool) break // malformed = intervening unknown action
+    if (t.pid != null && seenPid.has(t.pid)) continue // duplicate observation of one call
     if (t.truncated) break // truncation can forge identity (F10)
     const id = toolIdentity(t)
     if (id == null) {
       // unknown args: same tool = possible re-observation of the run (skip);
-      // a DIFFERENT tool is an intervening action (break)
-      if (lastId != null && t.tool !== lastTool) break
+      // a DIFFERENT tool is an intervening action (break); a tailmost unknown
+      // ANCHORS the run's tool so a foreign tail can never be skipped (review A2)
+      if (lastTool && t.tool !== lastTool) break
+      if (!lastTool) lastTool = t.tool
       continue
     }
     if (t.pid != null) seenPid.add(t.pid)
     const tool = id.split("\u0000")[0]
+    if (lastTool && tool !== lastTool) break // a different call ends the consecutive run
+    lastTool = tool
     if (lastId == null) {
       lastId = id
-      lastTool = tool
       sample = id
       run = 1
     } else if (id === lastId) {
       run++
     } else {
-      break // a different call ends the consecutive run
+      break // same tool, different args — not the identical run
     }
   }
   if (run >= minRun) {
@@ -400,7 +412,7 @@ export function identicalToolRunFinding(tools, minRun = IDENTICAL_RUN_MIN) {
     } catch {
       /* opaque args string */
     }
-    return { kind: "identical-tool-run", pattern: `${run} consecutive identical tool calls (e.g. ${lastTool} keys=${keyCount} argsLen=${args.length})` }
+    return { kind: "identical-tool-run", pattern: `${run} consecutive identical tool calls (e.g. ${safeToolName(lastTool)} keys=${keyCount} argsLen=${args.length})` }
   }
   return null
 }
@@ -426,16 +438,16 @@ export function toolFrequencyFinding(tools, minRun = TOOL_FREQ_MIN) {
   for (let i = tools.length - 1; i >= 0; i--) {
     const t = tools[i]
     if (!t || typeof t !== "object") break
+    if (typeof t.tool !== "string" || !t.tool) break // malformed FIRST (review A1)
     if (t.pid != null && seenPid.has(t.pid)) continue // duplicate observation of one call
-    const name = typeof t.tool === "string" ? t.tool : ""
-    if (!name) break // malformed = intervening unknown action (conservative)
+    const name = t.tool
     if (tool && name !== tool) break // a different tool ends the storm
     tool = name
     if (t.pid != null) seenPid.add(t.pid)
     run++
   }
   if (run >= minRun) {
-    return { kind: "tool-frequency", pattern: `${run} consecutive ${tool} calls (args vary or repeat — consolidate or change tool)` }
+    return { kind: "tool-frequency", pattern: `${run} consecutive ${safeToolName(tool)} calls (args vary or repeat — consolidate or change tool)` }
   }
   return null
 }

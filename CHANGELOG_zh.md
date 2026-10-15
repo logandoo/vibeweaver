@@ -6,9 +6,9 @@
 
 **缺口。** 一次会话里同一条 MCP 调用 `weave-connector_ssh_shell_open [profile=newsrv, name=p01c]` 连发约 450 次、零夹杂文本——所有停止机制全部沉默。tool 通道只有一个检测器（`noop-bash`，仅 bash：`t.tool !== "bash"` 即断），文本检测器全是字节级，而"相邻相同工具调用"是 D-5 已知接受的盲区（D-5 拒绝的是*折叠*相同观测——理由充分——但身份*检测*从未建过）。
 
-**机制。** 一套预算化软干预机器（2 次提示/会话/通道、episode 闩锁、绝不硬阻断）上三层内容级检测器：`noop-bash`（裸 echo/printf 旁白，≥4）· `identical-tool-run`（同 tool + canonical 深度键排序 args，≥4 个不同 part id——deepseek-harness repeat-tool-reminder 的 chain key；pid 重观测去重且永不折叠，D-5 边界不动）· `tool-frequency`（同 tool 变参风暴，≥20——deer-flow Layer-2 形态）。每次中断即 stall 声明（`- stall: <kind> …` 写入 `tests/verification_log.md`；TESTING_PROTOCOLS §A4.1「Repetition ≠ progress」+ §A4.10 stall 信号）。pattern 全值自由（tool 名 + key 计数 + argsLen——连 key 名都是注入面），计数为全 run 长度，检测保守（未知 args 仅跳过同 tool 重观测；异 tool / malformed / truncated 一律断）。`audit.json` 排压阀：`loopGuardIdenticalRunMin`（≥2）/ `loopGuardToolFrequencyMin`（≥4）。
+**机制。** 一套预算化软干预机器（2 次提示/会话/通道、episode 闩锁、绝不硬阻断）上三层内容级检测器：`noop-bash`（裸 echo/printf 旁白，≥4）· `identical-tool-run`（同 tool + canonical 深度键排序 args，≥4 个不同 part id——deepseek-harness repeat-tool-reminder 的 chain key；pid 重观测去重且永不折叠，D-5 边界不动）· `tool-frequency`（同 tool 变参风暴，≥20——deer-flow Layer-2 形态）。每次中断即 stall 声明（`- stall: <kind> …` 写入 `tests/verification_log.md`；TESTING_PROTOCOLS §A4.1「Repetition ≠ progress」+ §A4.10 stall 信号——tool-frequency 的 stall 行仅在真 stall 时强制，合法批量写一行说明即可，绝不记录不存在的 stall）。pattern 全值自由（净化后 tool 名 + key 计数 + argsLen——连 key 名都是注入面），计数为全 run 长度，检测保守（未知 args 仅跳过同 tool 重观测；异 tool / malformed / truncated 一律断）。`audit.json` 排压阀：`loopGuardIdenticalRunMin`（≥2）/ `loopGuardToolFrequencyMin`（≥4）。
 
-**验证。** T34/T35 fixture 272 项全绿（先看 RED；adapter 覆盖 v1 事件与 v2 `execute.before` 双路径，测试当场抓到残留的 `{}` 身份伪造），mutation sweep 41/41，双对抗评审 + scoped re-review + 两轮 FCV（第一轮如实判 criterion 7 失败——fix 轮后安装副本过期——重同步后第二轮 pass），plugin fail-set 与基线相等，四副本字节一致；SKILL.md 48,994 B（T11），TESTING_PROTOCOLS 回到 ≤45 KB 预算内（44,966 B——§A4.11 对 WORKFLOWS_EXTENDED §M/§P 指针化去重）。
+**验证。** T34/T35 fixture 276 项全绿（先看 RED；adapter 覆盖 v1 事件与 v2 `execute.before` 双路径，测试当场抓到残留的 `{}` 身份伪造），mutation sweep 41/41，双对抗评审 + scoped re-review + 两轮 FCV（第一轮如实判 criterion 7 失败——fix 轮后安装副本过期——重同步后第二轮 pass），plugin fail-set 与基线相等，四副本字节一致；SKILL.md 48,994 B（T11），TESTING_PROTOCOLS 回到 ≤45 KB 预算内（44,995 B——§A4.11 对 WORKFLOWS_EXTENDED §M/§P 指针化去重）。
 
 ## 2026-10-14b: 遗留清账 —— comparative 探针 + 图像参考区域提取
 

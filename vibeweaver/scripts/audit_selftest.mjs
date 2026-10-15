@@ -2370,6 +2370,16 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   rec("T34d different tool with unobserved args BREAKS the run (no false finding)", hasItr ? identicalToolRunFinding(foreign) === null : false, hasItr ? "null expected" : "detector missing (RED)")
   const malformed = [mkMcp("p1", OPEN_INPUT), mkMcp("p2", OPEN_INPUT), { pid: "q", t: 3 }, mkMcp("p3", OPEN_INPUT), mkMcp("p4", OPEN_INPUT)]
   rec("T34d malformed observation (non-string tool) BREAKS the run conservatively", hasItr ? identicalToolRunFinding(malformed) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+  // review A1 probe: a malformed RE-observation of an already-counted pid must
+  // break too — pid-dedup may never mask it
+  const dupMal = [mkMcp("p1", OPEN_INPUT), { pid: "p2", t: 2 }, mkMcp("p2", OPEN_INPUT), mkMcp("p3", OPEN_INPUT), mkMcp("p4", OPEN_INPUT)]
+  rec("T34d malformed re-observation (dup pid) can NEVER be masked by dedup", hasItr ? identicalToolRunFinding(dupMal) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+  // review A2 probe: a FOREIGN tool with unobserved args at the tail anchors
+  // the run's tool — it can never be skipped as "unknown"
+  const tailForeign = [mkMcp("p1", OPEN_INPUT), mkMcp("p2", OPEN_INPUT), mkMcp("p3", OPEN_INPUT), mkMcp("p4", OPEN_INPUT), { tool: "bash", pid: "pb", t: 5 }]
+  rec("T34d foreign tool with unobserved args at the TAIL breaks the run", hasItr ? identicalToolRunFinding(tailForeign) === null : false, hasItr ? "null expected" : "detector missing (RED)")
+  const tailSame = [mkMcp("p1", OPEN_INPUT), mkMcp("p2", OPEN_INPUT), mkMcp("p3", OPEN_INPUT), mkMcp("p4", OPEN_INPUT), { tool: "weave-connector_ssh_shell_open", pid: "pu", t: 5 }]
+  rec("T34d unknown-args SAME-tool tail still cannot mask the run (R1#4)", hasItr ? !!identicalToolRunFinding(tailSame) : false, hasItr ? "finding expected" : "detector missing (RED)")
   const six = ["p1", "p2", "p3", "p4", "p5", "p6"].map((p) => mkMcp(p, OPEN_INPUT))
   const f6 = hasItr ? identicalToolRunFinding(six) : undefined
   rec("T34d pattern reports the FULL run length (6 calls -> '6 consecutive', not minRun floor)", !!f6 && /^6 consecutive identical/.test(f6.pattern), hasItr && f6 ? f6.pattern.slice(0, 60) : "detector missing (RED)")
@@ -2616,8 +2626,8 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   rec("T35a pattern values-free (tool + count only)", !!tf20 && /^20 consecutive read calls/.test(tf20.pattern) && !/f0\.txt/.test(tf20.pattern), hasTf && tf20 ? tf20.pattern.slice(0, 100) : "detector missing (RED)")
   rec("T35a 19 same-tool calls -> no finding (threshold 20)", hasTf ? toolFrequencyFinding(storm.slice(0, 19)) === null : false, hasTf ? "null expected" : "detector missing (RED)")
 
-  const toolBreak = [...storm.slice(0, 10), { tool: "bash", command: "ls", pid: "b", t: 11 }, ...storm.slice(10, 19)]
-  rec("T35b foreign tool interleaved -> no finding", hasTf ? toolFrequencyFinding(toolBreak) === null : false, hasTf ? "null expected" : "detector missing (RED)")
+  const toolBreak = [...Array.from({ length: 11 }, (_, i) => mkRead(`a${i}`, i)), { tool: "bash", command: "ls", pid: "b", t: 12 }, ...Array.from({ length: 11 }, (_, i) => mkRead(`c${i}`, i + 20))]
+  rec("T35b foreign tool interleaved (22 reads) -> no finding (skip-mutant would fire)", hasTf ? toolFrequencyFinding(toolBreak) === null : false, hasTf ? "null expected" : "detector missing (RED)")
   const reobs = Array.from({ length: 20 }, (_, i) => mkRead("same", i))
   rec("T35b same-pid re-observations never inflate the storm", hasTf ? toolFrequencyFinding(reobs) === null : false, hasTf ? "null expected" : "detector missing (RED)")
   rec("T35c minRun parameter respected (4 varied reads)", hasTf ? !!toolFrequencyFinding(storm.slice(0, 4), 4) : false, hasTf ? "finding expected" : "detector missing (RED)")
@@ -2693,6 +2703,16 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       })
     }
     rec("T35e identical run of 20 -> identical-tool-run wins (not tool-frequency)", calls.prompts.length === 1 && /identical-tool-run/.test(calls.prompts[0] || "") && !/tool-frequency/.test(calls.prompts[0] || ""), (calls.prompts[0] || "").slice(0, 80))
+    // noop-bash over frequency (review B minor: title claim now fully pinned)
+    for (let i = 0; i < 20; i++) {
+      await plugin35b.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: "ses_t35e2", part: { id: `e${i}`, type: "tool", tool: "bash", state: { status: "completed", input: { command: `echo "varied ${i}"` } } } },
+        },
+      })
+    }
+    rec("T35e varied echo no-op storm -> noop-bash wins (not tool-frequency)", calls.prompts.length === 2 && /noop-bash/.test(calls.prompts[1] || "") && !/tool-frequency/.test(calls.prompts[1] || ""), (calls.prompts[1] || "").slice(0, 80))
   }
 
   // ---- T35f — config override loopGuardToolFrequencyMin (integer >= 4) ----
