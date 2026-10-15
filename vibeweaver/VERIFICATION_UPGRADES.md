@@ -185,7 +185,7 @@ checkout -- <files>`) before applying the next hypothesis. Forward-patching
 on top of a failed attempt leaves dead scaffolding that contaminates the next
 iteration and hides which change fixed what.
 
-- Lane L: take a cheap snapshot each iteration (`git add -A && git commit -m
+- Lane L: take a cheap snapshot each iteration (`git add -u && git commit --allow-empty -m
   "wip-iter-N"` or equivalent) so revert is one command and the attempt trail
   is auditable. Never squash away the trail before FCV.
 - Regression tests complete the revert-and-fail cycle (already binding in

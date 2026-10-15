@@ -354,16 +354,38 @@ function safeToolName(name) {
   return String(name).replace(/[^A-Za-z0-9_.:-]/g, "").slice(0, 48) || "?"
 }
 
+// Result summary of one tool observation (D1-③, 2026-10-15): the capped
+// captured output. null = result unknown (status-only observation).
+function resultSummary(t) {
+  return t && typeof t.output === "string" && t.output ? t.output : null
+}
+
+// Identical args + IDENTICAL results is a true loop. Identical args with
+// DIFFERENT results is polling/retry-with-feedback (git status ×N) — the
+// result moved, so the repetition is progress, not degeneration (gemini-cli
+// "batch repetition = progress"; review D1 FP class). Unknown results keep
+// the legacy args-only identity (a missing output must never disarm the
+// detector — conservative in the FN direction only where we cannot look).
+// Review A6: divergent KNOWN results must not bridge across an unknown
+// (A[known s1], ?, B[known s2≠s1]) — the run summary tracks the last KNOWN
+// result and every known must agree with it.
+function resultsCompatible(runSummary, t) {
+  const rs = resultSummary(t)
+  if (rs != null && runSummary != null && rs !== runSummary) return false
+  return true
+}
+
 // Trailing run of DISTINCT identical tool calls in a tool-observation list
-// (`[{tool, args?|command?|filePath?|name?, pid?, truncated?}]`). Streaming
-// re-observations of the SAME tool part (same pid) count once. An unknown
-// args entry SKIPS only when its tool matches the run's tool (re-observation
-// shape); a different tool with unobserved args BREAKS the run, and a
-// MALFORMED entry (non-string tool) breaks it too (conservative). `pattern`
-// is FULLY values-free — tool name + key COUNT + argsLen, never key names
-// or values — because it is re-emitted inside the corrective prompt and the
-// host log (tool args carry untrusted content; even key names are an
-// injection surface — 2026-10-14 review). The count is the real full
+// (`[{tool, args?|command?|filePath?|name?, pid?, truncated?, output?}]`).
+// Streaming re-observations of the SAME tool part (same pid) count once. An
+// unknown args entry SKIPS only when its tool matches the run's tool
+// (re-observation shape); a different tool with unobserved args BREAKS the
+// run, and a MALFORMED entry (non-string tool) breaks it too (conservative).
+// Entries match on tool + canonical args AND a consistent result summary
+// (D1-③). `pattern` is FULLY values-free — tool name + key COUNT + argsLen,
+// never key names or values — because it is re-emitted inside the corrective
+// prompt and the host log (tool args carry untrusted content; even key names
+// are an injection surface — 2026-10-14 review). The count is the real full
 // trailing-run length, not the minRun floor.
 // Returns { kind: "identical-tool-run", pattern } | null.
 export function identicalToolRunFinding(tools, minRun = IDENTICAL_RUN_MIN) {
@@ -371,6 +393,7 @@ export function identicalToolRunFinding(tools, minRun = IDENTICAL_RUN_MIN) {
   const seenPid = new Set()
   let run = 0
   let lastId = null
+  let runSummary = null
   let lastTool = ""
   let sample = ""
   for (let i = tools.length - 1; i >= 0; i--) {
@@ -395,9 +418,12 @@ export function identicalToolRunFinding(tools, minRun = IDENTICAL_RUN_MIN) {
     lastTool = tool
     if (lastId == null) {
       lastId = id
+      runSummary = resultSummary(t)
       sample = id
       run = 1
     } else if (id === lastId) {
+      if (!resultsCompatible(runSummary, t)) break // divergent known results = polling, not a loop
+      if (runSummary == null) runSummary = resultSummary(t)
       run++
     } else {
       break // same tool, different args — not the identical run

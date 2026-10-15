@@ -98,9 +98,11 @@ Output this audit line immediately before the completion table (the two
 `HARD-GATE` tokens are LITERAL — every `[Verification Gate]` line MUST
 contain the strings `HARD-GATE-1: NO-TEST-NO-DONE` and
 `HARD-GATE-2: SCRIPT-ONLY`, each marked `pass` / `na`):
-```
-[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
-```
+
+**The line's EXACT shape is the fenced template in SKILL.md §A4.4 — the
+single authoritative copy** (selftest T39 pins its uniqueness; this file
+explains the FIELDS below and never re-teaches the literal). Copy the
+template from SKILL.md, fill every placeholder, keep the field order.
 
 **E2E depth ladder (what each value means):** `real-HTTP` = the flow was
 exercised through the running server's HTTP API (chat/API request → handler
@@ -192,7 +194,7 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
 | 12 | every `- iter N FAIL:` log line carries its `diagnosis:` clause, and (12b log-format lint) the clause is substantive — ≥10 chars, not a placeholder token (`-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`) | A4.1 Step 4 |
 | 13 | no claim word (verified/confirmed/validated/tested/proven + Chinese 已验证/已确认/已测试…) appears on a prose log line without a coverage scope on that same line (fenced blocks, headings, tables, iter/baseline lines exempt) | A4.4 claim rule |
 | 14 | **secret scan** — no credential-looking string (AWS access key · `-----BEGIN … PRIVATE KEY-----` block · `ghp_`/`github_pat_`/`xox*`/`sk-` incl. `sk-proj-`/`sk-ant-` tokens · JSON or k=v form `api_key`/`secret`/`password`/`token` `= value` with value ≥12 chars; unquoted reference/call values like `os.environ.get(…)`/`config.x`/`self.x` are NOT flagged) appears on an ADDED line of the change-wave diff (per-commit patches of newest `backup: before changes` commit..HEAD + uncommitted; no backup commit → last commit + uncommitted; untracked non-ignored files are scanned whole). Lines carrying a placeholder marker (example/sample/dummy/placeholder/changeme/redacted/fake/`<…>`) are exempt; `*.md` hits print WARN but do not FAIL; any `assert_artifacts.py` is never scanned. **User-approved credentials:** a `vw-approved` marker exempts a line ONLY when the line also matches a credential pattern (prose mentions are no-ops) AND `verification_log.md` carries the path-scoped pairing `- secret-approved: <path> — <reason>` (marker count per path ≤ approvals; pairing failure FAILs regardless of file type) | A4.4 content gate |
-| 15 | **test-change guard** — no REMOVED assertion line (`assert` · `self.assert*` · `expect(` · `pytest.raises` · `require(` · `def test_` · `it(` · `test(` · `func Test` · `@Test`) in a test code file (path segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*` basename; code extensions only — whole-file deletions included) unless `verification_log.md` carries a `- test-change: <path> — <reason>` line. An agent fixing code must not silently weaken the check on that code; writing NEW tests stays free | A4.8 test integrity |
+| 15 | **test-change guard** — no REMOVED assertion line (`assert` · `self.assert*` · `expect(` · `pytest.raises` · `require(` · `def test_` · `it(` · `test(` · `func Test` · `@Test`) in a test code file (path segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*` basename; code extensions only — whole-file deletions included) unless `verification_log.md` carries a `- test-change: <path> — <reason>` line. An agent fixing code must not silently weaken the check on that code; NEW test files in the wave need their own `- test-change:` line too (C3b hash baseline) | A4.8 test integrity |
 | 16 | **risk-tier** — when the change-wave diff or an untracked file touches a risk-tier code path (`auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` path segment; code extensions only — deletions included), `tests/review_package.md` exists and >0 bytes — A4.9 review is non-skippable for risk-tier paths (existence check; package FRESHNESS is enforced by the §A4.9 scoped re-review process) | A4.9 risk tiering |
 | 17a | **DOC-asset render gate (§V11.9)** — when the change wave DELIVERS an office/document asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave scope: `backup: before changes`..HEAD + uncommitted + untracked, deletions excluded), `tests/verification_log.md` carries a `render:` line naming that asset bound to existing >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain: soffice/libreoffice/pymupdf/pdftoppm/poppler/imagemagick>)`. **NO RENDER, NO DONE**; fires in EVERY class (a mixed CODE wave shipping a docx owes the same render) | §V11.9 render gate |
 | 17b | **exec-check (§V11.9)** — every delivered office asset also needs a recorded executable-behavior check: an `exec-check:` line naming the asset with `clean` or `escalat…` (vbaProject.bin / PDF JavaScript / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
@@ -248,12 +250,14 @@ false alarms than it catches. Mitigation is procedural, not mechanical: the
 completion-time `assert_artifacts.py --final` run + the audit's B12
 final-run check examine the resulting tree regardless of how it was edited.
 
-- **Evidence failures BLOCK** (missing/fake `verification_log.md` entries,
-  missing `acceptance.md` cap-stall line, cited media missing/empty —
-  screenshots, `.webm` videos, `.wav` audio).
-- **Structure failures WARN only** (`memory/`, design docs, README, git
-  counts — appended as `[GATE-WARNING]`, not thrown), so the fix loop is
-  never spammed.
+- **Fail-closed (D4, 2026-10-15):** EVERY assert failure blocks (evidence and
+  structure alike — the old keyword classifier is gone); only explicit `WARN`
+  lines stay advisory. "The check could not run" is itself a BLOCK: python3
+  missing, timeout, crash, or a placeholder/stub script (exit 0 without the
+  canonical result shape) all GATE-BLOCK. A legacy prose-only copy of
+  `assert_artifacts.py` fails closed on its output too (upgrade it from the
+  skill's `scripts/`). Structured channel: `--json` prints
+  `{ok, passes, fails:[{code,severity,detail}]}`.
 - `session.idle` with a RED gate writes a `warn` entry to the opencode log
   (tripwire when the agent stops on a red gate).
 - **Stall observer (stateful):** the plugin keeps `.vibeweaver/state.json`
@@ -267,6 +271,11 @@ final-run check examine the resulting tree regardless of how it was edited.
 - Escape hatch: `VIBEWEAVER_GATE=off` disables the plugin.
 - If `tests/assert_artifacts.py` does not exist yet, the plugin runs an
   inline evidence check and the GATE-BLOCKED message points to §A4.4.1.
+- **Trust model (named boundary):** the gate defends against laziness and
+  drift, not a hostile agent — a fake `assert_artifacts.py` printing
+  `{"ok":true}` is accepted by design (the copy ships with the skill and is
+  replaceable), and `tests/` writes are never gated (evidence-fix path).
+  Sealing against tampering is the manifest work (PLAN C3 / evidence seal).
 
 The GATE-BLOCKED message means **keep working — fix the evidence, then the
 next write/edit re-checks automatically**. It is a completion gate, not an
@@ -290,7 +299,7 @@ both directions:
   it reviews (A4.9 Step 1).
 - `memory/fix_*.md` ← frontmatter `commit:` hash of the fix (A7.9) — the
   memory layer's link back into the chain.
-- Incident records (`docs/POSTMORTEM_*.md`, APPENDIX §A9) ← cite the alert /
+- Incident records (`docs/POSTMORTEM_*.md`, APPENDIX C6) ← cite the alert /
   log / metric that triggered them; the fix they produce cites the postmortem
   in its commit message.
 
@@ -348,53 +357,38 @@ AUDIT: BAD=n UNCERTAIN=n escalate=true|false reasons=[BAD,UNCERTAIN,HIGH-RISK,SA
   - The latching session stays blocked while it continues — self-correct:
     repair each `[BAD]` item (fix the evidence, append `- audit-fix: …` /
     `- audit-ruling: …` entries to `tests/verification_log.md`) and re-emit
-    a corrected `[Verification Gate]` line in your reply. The audit
-    re-runs at every session idle and re-checks on every write; when the
-    report is GREEN the latch clears. No human action is needed.
-  - A latch must NEVER outlive its session and hold the next task hostage:
-    it auto-releases on the first write/idle of a DIFFERENT session
-    (session takeover), on the latching session's OWN next task (see the
-    new-task key below), or after the TTL (`redTtlHours` in `audit.json`,
-    default 24h), or immediately for legacy (pre session-scoping) state.
-    Every release is recorded — `redReleases` in the state file (bounded
-    to 5), the opencode app log, and a `## Stale RED releases` section of
-    the report — never silently dropped.
+    a corrected `[Verification Gate]` line; the audit re-runs at every idle
+    and on every write. No human action is needed.
+  - Session-scoped, D3 (2026-10-15): a FOREIGN session's writes never clear
+    the latch (the old takeover release was a bypass). Releases: the latching
+    session's OWN next task (new-task key below), the TTL (`redTtlHours`,
+    default 24h), or legacy (pre session-scoping) state. `tests/` stays
+    writable throughout. Every release is recorded — `redReleases` (bounded
+    to 5), the app log, and the report's `## Stale RED releases` — never
+    silently dropped.
   - **Same-session new-task key (2026-10-02, multi-wave DOC→CODE deadlock):**
-    the latching session never needs another session, a TTL wait, or
-    `VIBEWEAVER_AUDIT=off` to begin its next task. Per protocol the first
-    action of a new task is writing `tests/acceptance.md` (Step 1, and
-    `tests/` stays writable under the latch) — an acceptance rewrite whose
-    floor(mtime) is strictly AFTER the latch's `ts` releases the latch on
-    the session's next gated write or session idle, journaled as `new-task`
-    (an already-TTL-expired latch journals `ttl-expiry` — the dominant fact
-    wins). The old wave's debt stays in `tests/gate_audit.md`, and the new
-    wave's own completion claim re-checks everything (see the re-arm leg
-    below). Same-millisecond rewrites resolve to "no release" — the teeth
-    win ties; a backward wall-clock step between latch and rewrite is the
-    remaining skew corner (rare; fail-safe direction is "stays blocked").
+    the first action of a new task is writing `tests/acceptance.md` (Step 1,
+    `tests/` is writable under the latch) — an acceptance rewrite whose
+    floor(mtime) is strictly AFTER the latch `ts` releases on the session's
+    next gated write/idle, journaled `new-task` (an already-expired latch
+    journals `ttl-expiry`; the dominant fact wins). Same-ms ties resolve to
+    "no release"; a backward clock step is the remaining skew corner
+    (fail-safe: stays blocked). The old wave's debt stays in
+    `tests/gate_audit.md`; the new wave's completion claim re-checks
+    everything (re-arm leg below).
   - **BAD-signature guard (no re-latch treadmill; r2 hardening):** a final
-    audit scores the WHOLE session buffer, and multi-wave buffers keep the
-    previous wave's residue — so re-audits of an unchanged failure must not
-    re-latch. A RED final re-latches only when at least one of two legs
-    says "genuinely new failure":
-    *session signature* — the sorted BAD-check ids, keyed PER SESSION
-    (root-level keys would amnesty a DIFFERENT session's genuine first
-    failure: template-driven BAD sets are identical across sessions); and
-    *completion-marker count* — the number of `[Verification Gate]` markers
-    in the capped buffer, which grows by one on every NEW completion claim,
-    so a new claim re-arms the teeth even with an identical signature
-    (same-claim re-audits — mid-wave idles over a stale marker — stay
-    suppressed). A live latch is never refreshed (its `ts` keeps the TTL
-    backstop real); a GREEN final clears the latch, the session's signature
-    entry, and the marker count. Boundary: two completion claims separated
-    by >150KB of session text can land the earlier marker in the trimmed
-    middle (the first 20KB head is kept) — the count leg then misses one
-    re-arm (the signature leg still fires on any evidence change). Quoted
-    prose mentions of the marker count too — fail-closed (an extra re-arm
-    after a release), bounded and journaled. Latches from before this deploy carry no recorded
-    signature: after a takeover/TTL release they may re-latch once on a
-    same-signature re-audit before the guard has their signature —
-    conservative, self-healing in one cycle.
+    audit scores the WHOLE buffer, so re-audits of an unchanged failure must
+    not re-latch. Re-latch requires a genuinely new failure: the *session
+    signature* (sorted BAD ids, keyed PER SESSION — root keys would amnesty
+    a different session's first failure) or the *completion-marker count*
+    (grows by one per NEW claim — a new claim re-arms even with an identical
+    signature; same-claim re-audits stay suppressed). A live latch is never
+    refreshed (TTL backstop stays real); a GREEN final clears the latch,
+    signature and count. Boundaries: two claims >150KB apart can trim the
+    earlier marker (head 20KB kept) — the count leg misses one re-arm, the
+    signature leg still fires; quoted marker mentions count too — fail-closed,
+    journaled. Pre-deploy latches carry no signature and may re-latch once
+    before the guard records theirs — self-healing in one cycle.
   - Any `test`/`tests` directory in the project (top-level `tests/`,
     `dev/tests/`, `src/test/`, …) stays writable while RED, so the
     evidence-fix path can never deadlock.
@@ -489,10 +483,10 @@ user's) judgments — the audit's job is to make the machine-checkable layer
 honest. A truncated/aborted session's buffered text may be incomplete
 (head/tail caps), so its final audit can latch RED on partial evidence —
 that is the latch being conservative, and it is bounded precisely because
-of this: it dies with its session (takeover release), yields to the
-session's own next task (new-task key), or expires with its TTL; is fully
+of this: it yields to the session's own next task (new-task key) or expires
+with its TTL (D3: a FOREIGN session's writes never clear it); is fully
 recorded; its re-audit cannot feed on an unchanged failure signature; and
-it can never block a different session's task.</parameter>
+the evidence path (tests/) stays writable so it can never dead-lock a fix.
 
 ---
 
@@ -530,7 +524,7 @@ Before declaring any task complete, explicitly list and confirm:
       `tests/verification_log.md`. **Per change-wave** (previous task's
       baseline does NOT count) and recorded as the first log entry:
       `- Baseline verified GREEN` (assert group 9 machine-checks the FILE).
-      Pure-doc/config edits state-skip with `COV-9 skipped — documentation-only
+      Pure-DOC edits state-skip with `COV-9 skipped — documentation-only
       change`.
 - [ ] **Scripts in `script/` used for build, start, stop, restart — NEVER raw
       `npm run build`, `vite`, `npm start`, `uvicorn`, etc. (COV-2)**

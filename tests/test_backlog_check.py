@@ -69,14 +69,36 @@ class BacklogCheckTest(unittest.TestCase):
         self.assertIn("COV-1", r.stdout)
 
     def test_pass_true_with_evidence_passes(self):
+        # C3e (2026-10-15): evidence = command marker + exit 0 — a bare
+        # mention ("done, tests green") no longer marks an item done
         self.write(
             "tests/backlog.json",
             json.dumps({"userStories": [{"id": "US-1", "title": "t", "priority": 1, "passes": True}]}),
         )
-        self.write("tests/progress.txt", "- US-1 done, tests green\n")
+        self.write("tests/progress.txt", "- US-1: ran pytest tests/test_us1.py — exit 0 (1/1)\n")
         r = run(self.root)
-        self.assertEqual(r.returncode, 0)
+        self.assertEqual(r.returncode, 0, r.stdout)
         self.assertIn("clean", r.stdout)
+
+    def test_pass_true_with_only_a_mention_fails(self):
+        self.write(
+            "tests/backlog.json",
+            json.dumps({"userStories": [{"id": "US-3", "title": "t", "priority": 1, "passes": True}]}),
+        )
+        self.write("tests/verification_log.md", "## Task\n- TODO: US-3 not started\n")
+        r = run(self.root)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("EXECUTION evidence", r.stdout)
+
+    def test_pass_true_with_claim_but_no_exit_code_fails(self):
+        self.write(
+            "tests/backlog.json",
+            json.dumps({"userStories": [{"id": "US-4", "title": "t", "priority": 1, "passes": True}]}),
+        )
+        self.write("tests/verification_log.md", "## Task\n- US-4 passed all checks\n")
+        r = run(self.root)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("US-4", r.stdout)
 
     def test_pass_false_needs_no_evidence(self):
         self.write(

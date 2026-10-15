@@ -12,7 +12,7 @@
 
 - §A4.1 loop · §A4.1.1 model-native grading · §A4.1.2 design-copy fidelity
 - §A4.6 debugging · §A4.7/§A4.7b backend · §A4.8 TDD · §A4.9 review ·
-  §A4.10 stall escape · §A4.11 PAUSED/modes (templates: APPENDIX §A10/§A12)
+  §A4.10 stall escape · §A4.11 PAUSED/modes (templates: APPENDIX §A4.7b/§A4.1.2)
 
 ---
 
@@ -64,7 +64,7 @@ probe is the single source of truth, not a filesystem/config guess).
        failure treat as FAIL (0b).
   5. Record in `tests/verification_log.md`: `- probe: model-native PASS
      (probe_vision.png)` or `- probe: model-native FAIL → mm-sensor`.
-     Design-copy tasks MAY add the comparative sub-probe (APPENDIX §A12).
+     Design-copy tasks MAY add the comparative sub-probe (APPENDIX §A4.1.2).
 - **Step 0b — mm-sensor probe (only when 0a FAILED):** check `available_skills`
   for `mm-sensor` (opencode injects this list; it is authoritative).
   - **`mm-sensor` IS in available_skills** → MANDATORY independent verifier.
@@ -191,7 +191,7 @@ criteria. ONE criterion = ONE pass/fail sentence a verifier can answer yes/no.
 
 **Step 2 — Act + Capture (modality-aware):** Playwright performs the
 operation; capture evidence per the verifier mode announced in Step 0.
-Save to `tests/` with descriptive names. Template: [APPENDIX.md §A1](APPENDIX.md).
+Save to `tests/` with descriptive names. Template: [APPENDIX.md §A4.5](APPENDIX.md).
 
 **Narration ≠ execution (binding):** a tool call announced in prose is NOT
 the call — only an emitted tool invocation is. Never `echo`/`printf` intent
@@ -220,7 +220,7 @@ Capture rules:
 - **Video**: `context.record_video` (webm, e.g. 1280×720); one video per
   user flow, recording the WHOLE Act sequence. Transcode webm → mp4 (ffmpeg)
   for grading (keep the raw webm); no ffmpeg → grade the webm directly
-  (frame-sampling, lossy). Stable name: `tests/<flow>.mp4` (APPENDIX §A1).
+  (frame-sampling, lossy). Name: `tests/<flow>.mp4` (APPENDIX §A4.5).
 - **Audio**: inject the Web Audio capture script BEFORE page load
   (`add_init_script`), dump via `page.evaluate` at flow end, assemble a WAV
   in Python (`wave` module). Requires Chromium flag
@@ -339,12 +339,12 @@ T1/T2: a VLM verdict never certifies geometry.
 - **T0 — identical capture conditions.** Both sides render in the same
   browser at the same viewport + DPR, animations frozen, fonts
   awaited, caret hidden, dynamic regions masked; recipes + DOM-dump snippet
-  in [APPENDIX.md §A12](APPENDIX.md).
+  in [APPENDIX §A4.1.2](APPENDIX.md).
 - **T1 — geometry/occlusion (instrument).** Box dumps from both sides →
   `python3 scripts/ui_fidelity.py boxes REF.json CAND.json --out tests
   --tol-px 2`: per-element Δsize/Δposition, missing/extra elements,
   non-containment overlaps, `occluded_by` (sampled at capture). Image
-  reference: extract regions via `refboxes` (§A12) and compare against
+  reference: extract regions via `refboxes` (§A4.1.2) and compare against
   them instead.
 - **T2 — pixel (instrument).** Same-condition screenshots →
   `python3 scripts/ui_fidelity.py diff REF.png CAND.png --out tests
@@ -482,7 +482,7 @@ the happy path, one auth-failure path, and one state-transition error
 
 **Step 2 — Write them as re-runnable files** under `tests/workflows/*.py`
 (httpx/requests, plain asserts, one scenario per file). Re-runnable
-skeleton with clean-state fixtures: template in [APPENDIX.md §A10](APPENDIX.md).
+skeleton with clean-state fixtures: template in [APPENDIX §A4.7b](APPENDIX.md).
 
 **Step 3 — Three hard rules (non-negotiable):**
 1. **Clean start state** — each workflow run starts from a known state: reset
@@ -551,7 +551,7 @@ not visible in the spec/starter is NOT invented — record it as an open questio
 and resolve it (GUIDED) or mark the criterion unverified (AUTO ADR); a test
 that invents an interface is a false oracle. **Checker contract:** a project
 checker (`script/check.sh` / `tests/check.py`) is the loop's feedback — quote
-its pass line, never edit tests to pass. Templates: APPENDIX.md §A11.
+its pass line, never edit tests to pass. Templates: APPENDIX §A4.8.
 
 **The cycle (RED → GREEN → minimal):**
 1. **RED — write ONE failing test** for the next small behavior. One

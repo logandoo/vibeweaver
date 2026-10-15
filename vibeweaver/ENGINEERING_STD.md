@@ -61,11 +61,11 @@ The following standards apply when building a project from scratch. When modifyi
 **Publishing Requirements:**
 1. Mount the frontend as static files in the backend. The FastAPI mount path is `/static`.
 2. Use the project's `.venv` as the virtual environment. Use `fastapi` CLI for running the server.
-3. Generate start, stop, restart, and project_build scripts in the `script/` directory. `project_build` must automatically mount the built frontend into the backend. Provide separate scripts for Linux/macOS (`script/linux/`) and Windows (`script/windows/`). See [APPENDIX.md §A6](APPENDIX.md#a6-script-templates-default-fastapi--react--vite--adapt-for-other-stacks) for templates.
-4. If the frontend uses History routing, configure a fallback route in FastAPI. See [APPENDIX.md §A3](APPENDIX.md#a3-fastapi-fallback-route--history-routing-fastapi-only).
+3. Generate start, stop, restart, and project_build scripts in the `script/` directory. `project_build` must automatically mount the built frontend into the backend. Provide separate scripts for Linux/macOS (`script/linux/`) and Windows (`script/windows/`). See [APPENDIX.md §A2](APPENDIX.md) for templates.
+4. If the frontend uses History routing, configure a fallback route in FastAPI. See [APPENDIX.md §A4.7.2](APPENDIX.md).
 
 **Configuration File Requirements:**
-1. All configuration should be stored in `config.toml`. See [APPENDIX.md §A5](APPENDIX.md#a5-configtoml-full-template-example--adapt-to-your-project) for a template.
+1. All configuration should be stored in `config.toml`. See [APPENDIX.md §A3](APPENDIX.md) for a template.
 2. Unless otherwise specified, use PostgreSQL.
 
 **Closing Work (New Projects Only):**
@@ -92,7 +92,7 @@ Every new dependency is permanent code you do not control.
 - Do not silently add transitive dependencies or convenience wrappers.
 - Prefer well-maintained, widely-used libraries with active community support.
 
-## §A7. Communication
+## §A8. Communication
 
 Describe what you did and why — do not just drop code.
 - Be precise about uncertainty: "I am not certain this endpoint supports
@@ -120,7 +120,7 @@ Describe what you did and why — do not just drop code.
 - If you pushed back and were wrong: state the correction factually ("I
   checked X — it does Y. Fixing.") and move on. No long apologies.
 
-## §A8. Common Failure Modes — Stop and Reassess
+## §A9. Common Failure Modes — Stop and Reassess
 
 Watch for these predictable mistakes. If you notice yourself doing any of
 them, STOP and reassess before continuing.
@@ -132,7 +132,7 @@ them, STOP and reassess before continuing.
 | **Optimistic Path**    | Only handling the happy path; ignoring bad input, network failure, missing data | Add explicit error handling and test the failure cases |
 | **Runaway Refactor**   | One change cascades into touching many unrelated files   | Pause, restore baseline, make the smallest surgical change that works |
 
-## §A9. Git Version Control
+## §A10. Git Version Control
 
 - Every major change gets a descriptive commit
 - Commit before starting work (baseline) and after each significant milestone

@@ -49,15 +49,14 @@ Design notes (v2 — why it looks like this):
     models on coin-flip glyphs (~68% of tokens contained a d<=2 pair).
   * TOKEN_ALPHABET is pruned to 28 chars: every pair is >= 4 bits apart
     (of 35). Run `--selftest` to re-verify this invariant after edits.
-  * --check scores per-character position matches: PASS needs the color
-    exact AND >= 5 of 6 token chars in exact positions. A blind model
-    guessing scores ~0-1/6; P(guesser hits >= 5/6) < 4e-7 — the gate is
-    still unpassable without real perception, but one isolated slip no
-    longer disqualifies a vision-capable model (the v1 false-negative mode).
-  * Ground truth is stored as salted per-position SHA-256 hashes
-    (probe_vision.expected), NOT plaintext: opening the file by accident
-    or probing --check with dummy tokens reveals nothing. FAIL output
-    names mismatched positions only — never the expected characters.
+  * C3d (2026-10-15): the token is 10 chars and the expected file stores a
+    WHOLE-TOKEN PBKDF2-HMAC-SHA256 (>=200k iters) + a slow color hash —
+    reading probe_vision.expected must NOT let you compute the answer
+    (the old per-position fast-SHA array was position-wise enumerable in
+    ~360 derivations; a token hash is a 28^10 x 200k search). Exact match
+    is required: a vision misread means re-Read and retry, not a weaker
+    check (partial-credit scoring WAS the leak).
+  * FAIL output never names expected characters.
     Repeated speculative --check runs are a protocol violation.
 """
 
@@ -95,10 +94,21 @@ GLYPHS = {
 
 # Token alphabet = GLYPHS minus chars pruned for low separation
 # (M/P/5/8 sit <= 3 bits from a kept sibling; 0/O/1/I excluded by design).
+# C3d keeps the 28-char separable set — the plan's "36" needs the exact
+# confusable pairs the font design excluded; 28^10 = 2^47.5 already beats
+# the >=2^40 work factor (and PBKDF2 multiplies it). Selftest pins the
+# pairwise >=4-bit separation invariant.
 TOKEN_ALPHABET = "ABCDEFGHJKLNQRSTUVWXYZ234679"
+TOKEN_LEN = 10
 
-# PASS threshold: >= 5 of 6 token chars in exact positions (+ color exact).
-TOKEN_MIN_CORRECT = 5
+# C3d: the answer file must NOT allow computing the answer. Per-character
+# fast hashes are position-wise enumerable (36 candidates/position) — the
+# stored secret is a whole-token PBKDF2-HMAC-SHA256 (>=200k iterations):
+# reading the expected file costs you a 32^10 x 200k search. Exact match
+# (the old 5/6 partial-credit hash array WAS the leak); a misread means
+# re-Read the PNG and retry, not a weaker check.
+PBKDF2_ITERS = 200000
+TOKEN_MIN_CORRECT = TOKEN_LEN
 
 PALETTE = [
     ("red", (220, 50, 50)),
@@ -123,10 +133,12 @@ def make_png(width, height, rows):
 
 
 def render(token, color, scale=5):
-    """340x150 canvas: color block top-left, 5x7 token text below."""
-    w, h = 340, 150
+    """>=340x150 canvas (width grows with the token): color block top-left,
+    5x7 token text below."""
     cell = 5 * scale                     # glyph advance: 25px + 10px gap
     gap = 2 * scale
+    w = max(340, 24 + len(token) * (cell + gap) + 10)
+    h = 150
     bg = (250, 250, 250)
     ink = (30, 30, 30)
     rows = [[bg for _ in range(w)] for _ in range(h)]
@@ -151,10 +163,16 @@ def _h(salt, *parts):
         (salt + "|" + "|".join(str(p) for p in parts)).encode()).hexdigest()
 
 
+def _slow(salt, secret):
+    """C3d slow hash — shared by token/color/variant answers."""
+    return hashlib.pbkdf2_hmac("sha256", str(secret).encode(),
+                               str(salt).encode(), PBKDF2_ITERS).hex()
+
+
 def generate(dest_dir):
     os.makedirs(dest_dir, exist_ok=True)
     rng = random.SystemRandom()
-    token = "".join(rng.choice(TOKEN_ALPHABET) for _ in range(6))
+    token = "".join(rng.choice(TOKEN_ALPHABET) for _ in range(TOKEN_LEN))
     color_name, color_rgb = rng.choice(PALETTE)
     salt = rng.choice(TOKEN_ALPHABET) + "".join(
         rng.choice(TOKEN_ALPHABET) for _ in range(15))
@@ -164,15 +182,19 @@ def generate(dest_dir):
         f.write(render(token, color_rgb))
     with open(exp_path, "w") as f:
         json.dump({
-            "v": 2,
+            "v": 3,
             "salt": salt,
-            "token_hashes": [_h(salt, i, ch) for i, ch in enumerate(token)],
-            "color_hash": _h(salt, "color", color_name),
+            "token_len": len(token),
+            "token_hash": _slow(salt, token),
+            # color is BOUND to the token (review R-I3): a 5-guess palette
+            # enumeration of an unbound color hash leaked half the answer
+            "color_hash": _slow(salt + "|color", token + "|" + color_name),
         }, f)
     print(f"probe image written: {png_path}")
     print(f"ground truth (hashed) written: {exp_path}")
     print("Now Read the PNG with the Read tool, report the token + color,")
     print("then run: --check <reported-token> <reported-color>")
+    return token, color_name
 
 
 def check(report_token, report_color, dest_dir):
@@ -182,31 +204,27 @@ def check(report_token, report_color, dest_dir):
         return 2
     with open(exp_path) as f:
         gt = json.load(f)
+    if gt.get("v") != 3:
+        print("ERROR: probe_vision.expected is a pre-C3d (fast-hash) file — "
+              "regenerate it (--generate); reading it must not reveal the answer")
+        return 2
     got_tok = report_token.strip().upper()
-    n = len(gt["token_hashes"])
+    n = int(gt.get("token_len", TOKEN_LEN))
     salt = gt["salt"]
-    mismatches = [i for i in range(n)
-                  if i >= len(got_tok)
-                  or _h(salt, i, got_tok[i]) != gt["token_hashes"][i]]
-    score = n - len(mismatches)
-    col_ok = _h(salt, "color", report_color.strip().lower()) == gt["color_hash"]
-    print(f"token score: {score}/{n} exact positions | color: "
+    tok_ok = len(got_tok) == n and _slow(salt, got_tok) == gt["token_hash"]
+    col_ok = _slow(salt + "|color", got_tok + "|" + report_color.strip().lower()) == gt["color_hash"]
+    print(f"token: {'OK' if tok_ok else 'MISMATCH'} ({n} chars exact) | color: "
           f"{'OK' if col_ok else 'MISMATCH'}")
-    if mismatches:
-        print("misread positions (expected char not shown): "
-              + ", ".join(f"pos {i}" for i in mismatches))
-    if col_ok and score >= TOKEN_MIN_CORRECT:
-        print(f"PASS: model perceives images ({score}/{n} chars, color OK)")
+    if tok_ok and col_ok:
+        print(f"PASS: model perceives images ({n}/{n} chars, color OK)")
         return 0
-    if score >= TOKEN_MIN_CORRECT:
-        print("FAIL: token read but color wrong — perception unreliable "
-              "→ fall back to mm-sensor / direct read")
-    elif score >= 3:
-        print("FAIL: borderline perception — below probe threshold "
-              f"(>= {TOKEN_MIN_CORRECT}/{n} chars + color exact required) "
-              "→ fall back to mm-sensor / direct read")
+    if not tok_ok:
+        print("FAIL: token mismatch — a one-char vision misread FAILS the probe "
+              "by design (the expected file is brute-force-proof): re-Read "
+              "tests/probe_vision.png and retry; if it keeps failing fall back "
+              "to mm-sensor / direct read")
     else:
-        print("FAIL: model does not reliably perceive images "
+        print("FAIL: token read but color wrong — perception unreliable "
               "→ fall back to mm-sensor / direct read")
     return 1
 
@@ -377,16 +395,16 @@ def generate_compare(dest_dir, rng=None):
         json.dump({
             "v": 1,
             "salt": salt,
-            "variant_hash": _h(salt, "variant", meta["variant"]),
-            "shape_hash": _h(salt, "shape", meta["shape"]),
+            "variant_hash": _slow(salt + "|variant", meta["variant"]),
+            "shape_hash": _slow(salt + "|shape", meta["shape"]),
         }, f)
     return png_path
 
 
 def _compare_verify(gt, variant, shape):
     salt = gt["salt"]
-    return (_h(salt, "variant", variant) == gt.get("variant_hash")
-            and _h(salt, "shape", shape) == gt.get("shape_hash"))
+    return (_slow(salt + "|variant", variant) == gt.get("variant_hash")
+            and _slow(salt + "|shape", shape) == gt.get("shape_hash"))
 
 
 def check_compare(report_variant, report_shape, dest_dir):
@@ -412,8 +430,8 @@ def check_compare(report_variant, report_shape, dest_dir):
             or not isinstance(gt.get("shape_hash"), str)):
         print("ERROR: probe_compare.expected malformed — re-run --compare-generate")
         return 2
-    ok_variant = _h(gt["salt"], "variant", variant) == gt.get("variant_hash")
-    ok_shape = _h(gt["salt"], "shape", shape) == gt.get("shape_hash")
+    ok_variant = _slow(gt["salt"] + "|variant", variant) == gt.get("variant_hash")
+    ok_shape = _slow(gt["salt"] + "|shape", shape) == gt.get("shape_hash")
     if ok_variant and ok_shape:
         print("PASS: comparative judgment correct (variant + shape)")
         return 0
@@ -482,6 +500,22 @@ def selftest():
                 cmeta["diff_pixels"] != _raster_area(cmeta["shape"]):
             errors.append("compare removed: shape name inconsistent with "
                           "the erased area")
+    # C3d invariants: expected file is brute-force-proof + roundtrip works
+    tmpq = tempfile.mkdtemp(prefix="mmprobe-seed-")
+    try:
+        tok, col = generate(tmpq)
+        with open(os.path.join(tmpq, "probe_vision.expected")) as f:
+            gt = json.load(f)
+        if gt.get("v") != 3 or "token_hashes" in gt:
+            errors.append(f"C3d: expected file not v3 whole-token (keys={sorted(gt)})")
+        if len(tok) != TOKEN_LEN or any(c not in TOKEN_ALPHABET for c in tok):
+            errors.append(f"C3d: token shape wrong ({tok!r})")
+        if check(tok, col, tmpq) != 0:
+            errors.append("C3d: generate->check roundtrip failed")
+        if check("A" * TOKEN_LEN, "red" if col != "red" else "blue", tmpq) == 0:
+            errors.append("C3d: a WRONG answer passed the check")
+    finally:
+        shutil.rmtree(tmpq, ignore_errors=True)
     tmpc = tempfile.mkdtemp(prefix="mmprobe-compare-")
     cpath = generate_compare(tmpc, rng=random.Random(11))
     if not os.path.exists(cpath):

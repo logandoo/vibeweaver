@@ -61,11 +61,25 @@ def main() -> int:
             p = root / "tests" / name
             if p.is_file():
                 evidence += p.read_text(encoding="utf-8", errors="replace") + "\n"
+        # C3e (P1, 2026-10-15): a mere ID mention is NOT evidence — the
+        # line must carry EXECUTION proof: a command marker AND its exit 0
+        # ("- TODO: US-3 not started" must never mark US-3 done).
+        exec_ok = re.compile(r"(?:exit(?:\s*code)?|rc)\s*[:=]?\s*0\b|(?:→|->)\s*0\b", re.I)
+        cmd_mark = re.compile(r"(?:\$\s|command\s*[:=]|cmd\s*[:=]|\bran\b|\bexecuted\b|\brun\b)", re.I)
         for pid in passed_ids:
-            if not re.search(rf"^\s*-.*\b{re.escape(pid)}\b", evidence, re.M):
+            hit = False
+            for line in evidence.splitlines():
+                if not re.search(rf"^\s*-.*\b{re.escape(pid)}\b", line, re.M):
+                    continue
+                if exec_ok.search(line) and cmd_mark.search(line):
+                    hit = True
+                    break
+            if not hit:
                 fails.append(
                     f"{pid}: passes:true but no line in tests/verification_log.md or "
-                    f"tests/progress.txt names it — executed-test evidence required (COV-1 / C8 step 1)")
+                    f"tests/progress.txt carries EXECUTION evidence for it (a command "
+                    f"marker AND its exit 0) — a mention or TODO is not a test run "
+                    f"(C3e / COV-1)")
 
     if fails:
         print(f"backlog_check.py: {len(fails)} violation(s):")

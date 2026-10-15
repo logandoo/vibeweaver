@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs"
+import { execFile, execFileSync } from "node:child_process"
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 // vibeweaver physical gate — https://opencode.ai
@@ -36,11 +36,118 @@ import path from "node:path"
 
 const GATED_TOOLS = new Set(["write", "edit"])
 const FLAG_COMBOS = [[], ["--existing"], ["--backend-only"], ["--existing", "--backend-only"]]
-const BLOCKING_HINTS = ["verification_log", "acceptance", "cap=5", "screenshot", "iter ", "script/linux", "workflows"]
 const STATE_DIR = ".vibeweaver"
 const STATE_FILE = "state.json"
 const STALL_RUN = 3        // consecutive same-file ops before a stall is worth reporting
 const MAX_OPS = 20         // history kept per project
+const ASSERT_TIMEOUT_MS_DEFAULT = 15000
+function assertTimeoutMs() {
+  const n = Number(process.env.VIBEWEAVER_ASSERT_TIMEOUT_MS)
+  return Number.isFinite(n) && n > 0 ? n : ASSERT_TIMEOUT_MS_DEFAULT
+}
+// D5 (2026-10-15, BLINDSPOTS BL-2): assert results are cached against a
+// DEPENDENCY-SET fingerprint — the script, the evidence/log/acceptance/
+// working-note files, memory/, and the git anchors. Any input change
+// re-keys the cache; nothing else can serve a stale verdict (a script-only
+// key would swallow new failures = fail-open).
+const RESULT_CACHE = new Map()
+const RESULT_CACHE_MAX = 32
+// Review B4 (A4.9): a verdict that only passed under a lenient flag combo
+// (--existing / --backend-only) is surfaced ONCE per project+flags — the
+// combo sweep is how the gate copes with unknown task type (strict is tried
+// first), but a lenient-only pass must be visible, never silent.
+const LENIENT_NOTED = new Set()
+
+function depFingerprint(root) {
+  const parts = [root]
+  const add = (p) => {
+    try {
+      const st = statSync(p)
+      parts.push(`${st.size}@${st.mtimeMs}`)
+    } catch {
+      parts.push("-")
+    }
+  }
+  const addDirRecursive = (dir, depth) => {
+    try {
+      for (const f of readdirSync(dir).sort()) {
+        const p = path.join(dir, f)
+        let st
+        try {
+          st = statSync(p)
+        } catch {
+          continue
+        }
+        if (st.isDirectory()) {
+          if (depth > 0) addDirRecursive(p, depth - 1)
+        } else {
+          add(p)
+        }
+      }
+    } catch {
+      parts.push("~")
+    }
+  }
+  add(path.join(root, "tests", "assert_artifacts.py"))
+  add(path.join(root, "tests", "verification_log.md"))
+  add(path.join(root, "tests", "acceptance.md"))
+  add(path.join(root, "tests", "working_note.md"))
+  add(path.join(root, "tests", "project_profile.json"))
+  add(path.join(root, "tests", "review_package.md"))
+  addDirRecursive(path.join(root, "tests"), 3)
+  addDirRecursive(path.join(root, "memory"), 2)
+  addDirRecursive(path.join(root, "script"), 3)
+  add(path.join(root, ".git", "HEAD"))
+  add(path.join(root, ".git", "index"))
+  return parts.join("|") + "\n" + gitDigest(root)
+}
+
+// Review A1 (A4.9): the content gates (groups 14/15/16/17) read `git diff
+// HEAD` + untracked files — the cache key MUST see that surface or a cached
+// green verdict silently outlives a wave-diff change (a newly written source
+// file or untracked .env would never re-run the secret scan). Digest = the
+// porcelain status listing + a stat of every dirty/untracked path.
+function gitDigest(root) {
+  try {
+    const out = execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8", timeout: 2000 })
+    const parts = [out]
+    const statOne = (p, prefix) => {
+      const abs = path.join(root, p)
+      let s
+      try {
+        s = statSync(abs)
+      } catch {
+        parts.push(`${prefix}${p}:-`)
+        return
+      }
+      if (s.isDirectory()) {
+        // re-review R1: porcelain collapses fully-untracked dirs to `?? dir/`
+        // — content edits INSIDE the dir never move the dir mtime, yet group
+        // 14 scans those files. Walk (bounded) and stat the entries.
+        try {
+          const entries = readdirSync(abs).sort().slice(0, 200)
+          for (const e of entries) statOne(path.join(p, e), prefix)
+        } catch {
+          parts.push(`${prefix}${p}:~`)
+        }
+      } else {
+        parts.push(`${prefix}${p}:${s.size}@${s.mtimeMs}`)
+      }
+    }
+    for (const line of out.split("\n")) {
+      const raw = line.slice(3).trim().replace(/^"|"$/g, "")
+      if (!raw) continue
+      const p = raw.includes("->") ? raw.split("->").pop().trim() : raw
+      // harness state is not evidence — its churn (stall observer rewrites)
+      // must not defeat the result cache (re-review R6)
+      if (p === ".vibeweaver" || p.startsWith(".vibeweaver/")) continue
+      statOne(p, "")
+    }
+    return parts.join("\n")
+  } catch {
+    return "no-git"
+  }
+}
 
 function sizeOf(p) {
   try {
@@ -69,49 +176,130 @@ function findProjectRoot(startDirs) {
   return null
 }
 
-function runAssert(root) {
+// D4 (2026-10-15, PLAN §2 D4): fail-closed — "the check could not run" is
+// itself a BLOCK, never a pass (METR Hawk: fail loudly / deny by default).
+// The old keyword classifier (BLOCKING_HINTS) let hint-free failures through;
+// every real failure line now blocks, and the run itself is validated:
+//   python3 missing · timeout · crash · placeholder/stub -> BLOCK.
+function runPython(script, flags, cwd) {
+  return new Promise((resolve) => {
+    execFile("python3", [script, ...flags], { cwd, encoding: "utf8", timeout: assertTimeoutMs(), maxBuffer: 2 << 20 }, (err, stdout, stderr) => {
+      resolve({ err: err || null, stdout: stdout || "", stderr: stderr || "" })
+    })
+  })
+}
+
+function parseAssertJson(stdout) {
+  const m = /\{[\s\S]*\}/.exec(stdout || "")
+  if (!m) return null
+  try {
+    const j = JSON.parse(m[0])
+    if (j && typeof j.ok === "boolean") return j
+  } catch {
+    /* not our JSON */
+  }
+  return null
+}
+
+async function runAssert(root) {
+  const script = path.join(root, "tests", "assert_artifacts.py")
   const attempts = []
+  let jsonSupported = true
   for (const flags of FLAG_COMBOS) {
-    try {
-      const out = execFileSync("python3", [path.join(root, "tests", "assert_artifacts.py"), ...flags], {
-        cwd: root,
-        encoding: "utf8",
-        timeout: 15000,
-        stdio: ["ignore", "pipe", "pipe"],
-      })
-      return { ok: true, flags, output: out.trim() }
-    } catch (err) {
-      const output = `${err.stdout || ""}${err.stderr || ""}`.trim() || `exit ${err.status ?? err.code}`
-      attempts.push({ flags: flags.join(" ") || "(none)", output })
+    const argv = jsonSupported ? ["--json", ...flags] : flags
+    const { err, stdout, stderr } = await runPython(script, argv, root)
+    const out = `${stdout}${stderr ? "\n" + stderr : ""}`.trim()
+    const label = argv.join(" ") || "(none)"
+    if (/unrecognized arguments/.test(out)) {
+      // A copy without --json (BL-3) falls back to prose mode ONCE — still
+      // fail-closed on its output. A copy that rejects the OTHER canonical
+      // flags is not a usable check at all (placeholder class) → BLOCK.
+      if (jsonSupported && /--json/.test(out)) {
+        jsonSupported = false
+        attempts.push({ flags: label, output: "legacy script without --json — prose mode", terminal: "legacy" })
+        continue
+      }
+      attempts.push({ flags: label, output: out, terminal: "placeholder" })
+      continue
     }
+    const json = parseAssertJson(stdout)
+    if (!err) {
+      if (json) {
+        if (json.ok) return { ok: true, flags: label, output: out, attempts }
+        attempts.push({ flags: label, output: out, fails: Array.isArray(json.fails) ? json.fails : [] })
+      } else if (/assert_artifacts\.py: all \d+ checks pass/.test(out)) {
+        return { ok: true, flags: label, output: out, attempts }
+      } else {
+        // exit 0 with no canonical success shape = placeholder/stub script
+        attempts.push({ flags: label, output: out || "(no output)", terminal: "placeholder" })
+      }
+      continue
+    }
+    const timedOut = Boolean(err.killed) || err.code === "ETIMEDOUT"
+    const noPython = err.code === "ENOENT"
+    const crashed = /Traceback \(most recent call last\)/.test(out)
+    if (json) {
+      attempts.push({ flags: label, output: out, fails: Array.isArray(json.fails) ? json.fails : [] })
+      continue
+    }
+    const ranAndFailed = !noPython && !timedOut && !crashed && (/ASSERT FAILURES/.test(out) || /^\s{0,2}- /m.test(out))
+    if (ranAndFailed) {
+      attempts.push({ flags: label, output: out })
+      continue
+    }
+    attempts.push({
+      flags: label,
+      output: out || String(err.code || err.signal || "unknown"),
+      terminal: noPython ? "python-missing" : timedOut ? "timeout" : crashed ? "crash" : "placeholder",
+    })
   }
   return { ok: false, attempts }
 }
 
-function failureMessages(attempts) {
-  const seen = new Set()
-  const messages = []
-  for (const a of attempts) {
-    for (const line of a.output.split("\n")) {
-      const m = line.trim()
-      if (!m.startsWith("- ")) continue
-      const msg = m.slice(2)
-      if (!seen.has(msg)) {
-        seen.add(msg)
-        messages.push(msg)
-      }
-    }
-  }
-  if (!messages.length) messages.push(attempts[attempts.length - 1].output.slice(0, 400))
-  return messages
+// Fail-closed message collection: everything the assert script failed on
+// BLOCKS; only explicit WARN lines and JSON severity:"warn" items stay
+// advisory. Terminal (unrunnable-check) attempts always block.
+const TERMINAL_MESSAGES = {
+  "python-missing": "verification check could not run — python3 is not available (fail-closed: an unverifiable task is not a passing task)",
+  timeout: "verification check timed out (fail-closed) — tests/assert_artifacts.py exceeded the gate timeout; fix or split the check",
+  crash: "verification check crashed (fail-closed) — tests/assert_artifacts.py raised; fix the script or the fixtures it reads",
+  placeholder: "verification check is a placeholder/stub (fail-closed) — it exited without the canonical result shape; copy the real tests/assert_artifacts.py from the vibeweaver skill's scripts/",
+  legacy: "tests/assert_artifacts.py is a legacy copy without --json — upgrade from the skill's scripts/assert_artifacts.py (the gate still fails closed on its prose output)",
 }
 
-function classify(messages) {
+function collectMessages(attempts) {
   const blocking = []
   const warnings = []
-  for (const msg of messages) {
-    if (BLOCKING_HINTS.some((h) => msg.includes(h))) blocking.push(msg)
-    else warnings.push(msg)
+  const seen = new Set()
+  const push = (arr, msg) => {
+    if (!msg || seen.has(msg)) return
+    seen.add(msg)
+    arr.push(msg)
+  }
+  for (const a of attempts) {
+    if (a.terminal) {
+      // "legacy" is an upgrade hint (the check still ran in prose mode below);
+      // every other terminal means the check could NOT run → block.
+      if (a.terminal === "legacy") push(warnings, TERMINAL_MESSAGES.legacy)
+      else push(blocking, TERMINAL_MESSAGES[a.terminal] || `verification check unavailable (${a.terminal})`)
+      continue
+    }
+    if (Array.isArray(a.fails) && a.fails.length) {
+      for (const f of a.fails) {
+        const detail = f && typeof f === "object" ? String(f.detail ?? f.code ?? f) : String(f)
+        if (f && typeof f === "object" && f.severity === "warn") push(warnings, detail)
+        else push(blocking, detail)
+      }
+      continue
+    }
+    for (const line of String(a.output || "").split("\n")) {
+      const m = line.trim()
+      if (m.startsWith("WARN ")) push(warnings, m.slice(5))
+      else if (m.startsWith("- ")) push(blocking, m.slice(2))
+    }
+  }
+  if (!blocking.length && !warnings.length && attempts.length) {
+    push(blocking, attempts[attempts.length - 1].output.slice(0, 400))
   }
   return { blocking, warnings }
 }
@@ -134,13 +322,39 @@ function inlineCheck(root) {
   return failures
 }
 
-function checkGate(root) {
+async function checkGate(root) {
   const assertsPath = path.join(root, "tests", "assert_artifacts.py")
   if (existsSync(assertsPath)) {
-    const r = runAssert(root)
-    if (r.ok) return null
-    const { blocking, warnings } = classify(failureMessages(r.attempts))
-    return { blocking, warnings, attempts: r.attempts.map((a) => `[${a.flags}]`) }
+    const key = depFingerprint(root)
+    if (RESULT_CACHE.has(key)) return RESULT_CACHE.get(key) // may be null = cached PASS
+    const r = await runAssert(root)
+    let result
+    if (r.ok) {
+      if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
+      RESULT_CACHE.set(key, null) // cache the CLEAN verdict (the note is out-of-band)
+      const flags = r.flags || ""
+      if (flags && flags !== "(none)") {
+        const noteKey = root + "|" + flags
+        if (!LENIENT_NOTED.has(noteKey)) {
+          LENIENT_NOTED.add(noteKey)
+          if (LENIENT_NOTED.size > 64) LENIENT_NOTED.clear()
+          return {
+            blocking: [],
+            warnings: [
+              `assert_artifacts.py passed only under ${flags} — the strict run reported: ${((r.attempts && r.attempts[0] && String(r.attempts[0].output).split("\n")[0]) || "failures").slice(0, 120)} (expected for Modify-Existing/backend tasks; suspicious for new projects)`,
+            ],
+          }
+        }
+      }
+      return null
+    }
+    {
+      const { blocking, warnings } = collectMessages(r.attempts)
+      result = { blocking, warnings, attempts: r.attempts.map((a) => `[${a.flags}]`) }
+    }
+    if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
+    RESULT_CACHE.set(key, result)
+    return result
   }
   const failures = inlineCheck(root)
   if (failures.length) return { blocking: failures, warnings: [], attempts: [], inline: true }
@@ -218,26 +432,83 @@ function blockMessage(root, result) {
 
 function isEvidencePath(root, filePath) {
   if (typeof filePath !== "string" || !filePath) return false
-  // resolve first (kills `memory/../src/app.js` traversal), then anchor the
-  // exemption to the FIRST path segment under root — a nested `src/tests/`
-  // source file is NOT an evidence path.
-  const rel = path.relative(path.resolve(root), path.resolve(filePath))
+  // normalize first (kills `memory/../src/app.js` traversal AND symlinked
+  // tests/ dirs pointing outside — realpath of the nearest existing ancestor
+  // + lexical basename; D3/BL-7), then anchor the exemption to the FIRST
+  // path segment under root — a nested `src/tests/` source file is NOT an
+  // evidence path.
+  const normRoot = resolveWritePath(root)
+  const normFile = resolveWritePath(filePath)
+  const rel = path.relative(normRoot, normFile)
   if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return false
   const seg = rel.split(path.sep)[0].toLowerCase()
   return seg === "test" || seg === "tests" || seg === "memory"
+}
+
+// Shared with vibeweaver-audit.js (D3): new write targets may not exist, so
+// realpathSync(file) would throw — resolve the nearest EXISTING ancestor
+// directory, then re-attach the remaining lexical segments + basename.
+function resolveWritePath(filePath, depth = 0) {
+  try {
+    // Review A2/B2/R2 (A4.9): when the target ITSELF exists and is a symlink
+    // (tests/app.js -> ../src/app.js), ancestor-only realpath kept the tests/
+    // segment and the write escaped the gate — resolve the whole path.
+    if (existsSync(filePath)) {
+      try {
+        return realpathSync(filePath)
+      } catch {
+        /* fall through */
+      }
+    }
+    // DANGLING symlink (re-review R2#1): the link exists (lstat) while its
+    // target does not yet — the OS write will follow it into the target.
+    // Resolve the link target recursively (bounded).
+    if (depth < 8) {
+      try {
+        const st = lstatSync(filePath)
+        if (st.isSymbolicLink()) {
+          const target = readlinkSync(filePath)
+          return resolveWritePath(path.resolve(path.dirname(filePath), target), depth + 1)
+        }
+      } catch {
+        /* not a symlink */
+      }
+    }
+    let rest = []
+    let dir = path.dirname(filePath)
+    for (;;) {
+      if (existsSync(dir)) {
+        try {
+          dir = realpathSync(dir)
+        } catch {
+          /* keep lexical dir */
+        }
+        break
+      }
+      rest.unshift(path.basename(dir))
+      const up = path.dirname(dir)
+      if (up === dir) break
+      dir = up
+    }
+    return path.resolve(path.join(dir, ...rest, path.basename(filePath)))
+  } catch {
+    return path.resolve(filePath)
+  }
 }
 
 // ---------- cue-anchored memory triggers (§A7.16) ----------
 
 // glob → RegExp: `**/` crosses directories, `*` stays inside a segment,
 // `?` matches one non-separator char. Anchored to the project-relative path.
+// Sentinels are ESCAPE SEQUENCES, never literal control bytes (D5: the old
+// literal NUL/0x01 made ripgrep treat this file as binary).
 function globToRegExp(glob) {
   let g = String(glob)
   g = g.replace(/[.+^${}()|[\]\\]/g, "\\$&")
-  g = g.replace(/\*\*\//g, " ")
-  g = g.replace(/\*\*/g, "")
+  g = g.replace(/\*\*\//g, "\u0000")
+  g = g.replace(/\*\*/g, "\u0001")
   g = g.replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")
-  g = g.replace(/ /g, "(?:.*/)?").replace(//g, ".*")
+  g = g.replace(/\u0000/g, "(?:.*/)?").replace(/\u0001/g, ".*")
   return new RegExp("^" + g + "$")
 }
 
@@ -278,14 +549,17 @@ function parseTriggers(fm) {
 // Delivery-safety caps: memory topics are agent-authored text that gets
 // COMPILED TO REGEX and executed synchronously in the write hook — a hostile
 // or careless glob (repeated `**/` → combinatorial backtracking) would wedge
-// the event loop. Cap `**` groups (≤2 keeps matching polynomial), cap length,
-// and reject control chars (they double as internal sentinel bytes).
+// the event loop. D5 budget (2026-10-15): pattern length ≤64, `*` count ≤2,
+// `**` groups ≤2 (redundant with the star cap, kept as the direct ReDoS
+// bound), no control chars (they double as internal sentinel bytes). The
+// per-call match budget is enforced by the caller (cueNotes).
 function safeGlob(t) {
   return (
     typeof t === "string" &&
     t.length > 0 &&
-    t.length <= 200 &&
+    t.length <= 64 &&
     !/[\x00-\x1f]/.test(t) &&
+    (t.match(/\*/g) || []).length <= 2 &&
     (t.match(/\*\*/g) || []).length <= 2
   )
 }
@@ -327,32 +601,51 @@ function recordCueFires(root, notes) {
 function cueNotes(root, filePath) {
   try {
     if (typeof filePath !== "string" || !filePath) return []
-    const rel = path.relative(path.resolve(root), path.resolve(filePath))
+    // normalize BOTH sides with the same resolver — a lexical root vs a
+    // realpath'd file (macOS /tmp → /private/tmp) yields a `..` relative
+    // path and silently dropped every cue (D5 review).
+    const rel = path.relative(resolveWritePath(root), resolveWritePath(filePath))
     if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return []
     if (rel.split(path.sep)[0].toLowerCase() === "memory") return []
     const memDir = path.join(root, "memory")
     if (!existsSync(memDir)) return []
     const relPosix = rel.split(path.sep).join("/")
     const notes = []
-    for (const f of readdirSync(memDir).sort()) {
+    // D5 match budget: total regex-matching time per write is capped at 50ms;
+    // when it runs out the remaining triggers are skipped and the skip is
+    // reported (a dropped cue is visible, never silent).
+    const startedAt = Date.now()
+    let budgetSkipped = 0
+    outer: for (const f of readdirSync(memDir).sort()) {
       if (!f.endsWith(".md") || f === "MEMORY.md") continue
       const text = safeRead(path.join(memDir, f)).replace(/\r\n/g, "\n").replace(/^\uFEFF/, "")
       const fm = text.match(/^---\n([\s\S]*?)\n---/)
       if (!fm) continue
       const triggers = parseTriggers(fm[1]).filter(safeGlob)
       if (!triggers.length) continue
-      const hit = triggers.some((t) => {
-        try {
-          return globToRegExp(t).test(relPosix)
-        } catch {
-          return false
+      let hit = false
+      for (const t of triggers) {
+        if (Date.now() - startedAt > 50) {
+          budgetSkipped++
+          break outer
         }
-      })
+        try {
+          if (globToRegExp(t).test(relPosix)) {
+            hit = true
+            break
+          }
+        } catch {
+          /* a bad glob never breaks delivery */
+        }
+      }
       if (!hit) continue
       const trust = (fm[1].match(/^(?:trust|status):\s*(\S+)/m) || [])[1] || "?"
       const heading = (text.match(/^#\s+(.+)$/m) || [])[1] || f
       notes.push(`[GATE-WARNING (vibeweaver-cue)] memory cue: memory/${f} (${trust}) matches this path — read it before editing: ${heading}`)
       if (notes.length >= 3) break
+    }
+    if (budgetSkipped) {
+      notes.push(`[GATE-WARNING (vibeweaver-cue)] memory-trigger matching hit its 50ms budget — ${budgetSkipped} trigger pattern(s) skipped unexamined (D5 glob budget; tighten the trigger globs)`)
     }
     if (notes.length) recordCueFires(root, notes)
     return notes
@@ -514,9 +807,9 @@ function recordMemoryDelivery(root, kind) {
 // BEFORE the stall observer records the op (a blocked write is not a
 // landed write).
 function gateCheckWrite(directory, filePath) {
-  if (process.env.VIBEWEAVER_GATE === "off") return null
+  if (process.env.VIBEWEAVER_GATE === "off") return Promise.resolve(null)
   const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
-  if (!root) return null
+  if (!root) return Promise.resolve(null)
   // Cue delivery is hoisted ABOVE the gate: a RED gate (e.g. the task's
   // first write, empty log) is exactly when "read it before editing" must
   // arrive — delivery must never depend on the gate being green.
@@ -524,30 +817,32 @@ function gateCheckWrite(directory, filePath) {
   // evidence-fix path must never be gated (same rule as the audit
   // plugin): writes under tests/ or memory/ ARE the evidence repair
   // itself — gating them creates the first-log catch-22 deadlock.
-  if (isEvidencePath(root, filePath)) return cues.length ? { notes: cues } : null
-  const result = checkGate(root)
-  if (result && result.blocking.length) {
-    let msg = blockMessage(root, result)
-    if (cues.length) msg += "\n" + cues.join("\n")
-    return { block: msg }
-  }
-  const notes = [...cues]
-  if (result && result.warnings.length) {
-    notes.push("[GATE-WARNING (vibeweaver)] non-blocking: " + result.warnings.join("; ") + " — fix before the final [Verification Gate] line.")
-  }
-  const stall = stallObservation(root, filePath || "(unknown file)")
-  if (stall) notes.push("[GATE-WARNING (vibeweaver-stall)] " + stall)
-  return notes.length ? { notes } : null
+  if (isEvidencePath(root, filePath)) return Promise.resolve(cues.length ? { notes: cues } : null)
+  return checkGate(root).then((result) => {
+    if (result && result.blocking.length) {
+      let msg = blockMessage(root, result)
+      if (cues.length) msg += "\n" + cues.join("\n")
+      return { block: msg }
+    }
+    const notes = [...cues]
+    if (result && result.warnings.length) {
+      notes.push("[GATE-WARNING (vibeweaver)] non-blocking: " + result.warnings.join("; ") + " — fix before the final [Verification Gate] line.")
+    }
+    const stall = stallObservation(root, filePath || "(unknown file)")
+    if (stall) notes.push("[GATE-WARNING (vibeweaver-stall)] " + stall)
+    return notes.length ? { notes } : null
+  })
 }
 
 // Session-idle re-check: returns { blocking } when the gate is RED.
 function gateIdleCheck(directory) {
-  if (process.env.VIBEWEAVER_GATE === "off") return null
+  if (process.env.VIBEWEAVER_GATE === "off") return Promise.resolve(null)
   const root = findProjectRoot([directory])
-  if (!root) return null
-  const result = checkGate(root)
-  if (result && result.blocking.length) return { blocking: result.blocking }
-  return null
+  if (!root) return Promise.resolve(null)
+  return checkGate(root).then((result) => {
+    if (result && result.blocking.length) return { blocking: result.blocking }
+    return null
+  })
 }
 
 // Host logging: v1 offers client.app.log({ body }); v2's ctx.app is
@@ -643,7 +938,7 @@ async function server({ client, directory }) {
     "tool.execute.after": async (input, output) => {
       if (!GATED_TOOLS.has(input.tool)) return
       const filePath = input.args && typeof input.args.filePath === "string" ? input.args.filePath : null
-      const r = gateCheckWrite(directory, filePath)
+      const r = await gateCheckWrite(directory, filePath)
       if (r && r.block) throw new Error(r.block)
       if (r && r.notes) {
         for (const note of r.notes) {
@@ -693,7 +988,7 @@ async function server({ client, directory }) {
         return
       }
       if (!event || event.type !== "session.idle") return
-      const r = gateIdleCheck(directory)
+      const r = await gateIdleCheck(directory)
       if (r) {
         await logToHost(client && client.app, {
           service: "vibeweaver-gate",
@@ -728,7 +1023,7 @@ async function setup(ctx) {
     if (event.status !== "completed") return
     const input = event.input
     const filePath = input && typeof input === "object" && typeof input.filePath === "string" ? input.filePath : null
-    const r = gateCheckWrite(directory, filePath)
+    const r = await gateCheckWrite(directory, filePath)
     if (r && r.block) throw new Error(r.block)
     if (r && r.notes) appendNotesToV2Result(event, r.notes)
     const cue = firstTouchCue(directory)
@@ -754,7 +1049,7 @@ async function setup(ctx) {
             }
           }
           if (!v2EventIsIdle(event)) continue
-          const r = gateIdleCheck(directory)
+          const r = await gateIdleCheck(directory)
           if (r) {
             await logToHost(null, {
               service: "vibeweaver-gate",

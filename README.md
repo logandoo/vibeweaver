@@ -7,10 +7,12 @@ Vibeweaver doesn't make a model stronger; it makes the ability already there act
 ## Quickstart
 
 ```bash
-git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver ~/.config/opencode/skills/vibeweaver
+git clone https://github.com/logandoo/vibeweaver
+bash vibeweaver/vibeweaver/install.sh   # mkdir -p + idempotent (cp -r breaks on missing parents / nests on re-run)
 ```
 
-Restart opencode and ask for the work; the skill triggers on any coding task.
+Restart opencode and ask for the work; the skill triggers on implement /
+modify / debug / deploy coding tasks (not on Q&A or pure consulting).
 Saying "strictly follow vibeweaver" at the start of the request makes triggering
 essentially certain. Plugins, optional extras, and the Windows path:
 [Install](#install).
@@ -241,10 +243,10 @@ checkable.
 ## Install
 
 ```bash
-git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver ~/.config/opencode/skills/vibeweaver
-# or, from a clone of this repo:
-./vibeweaver/install.sh    # Linux/macOS
-vibeweaver\install.bat     # Windows
+git clone https://github.com/logandoo/vibeweaver
+bash vibeweaver/vibeweaver/install.sh   # Linux/macOS (mkdir -p + idempotent)
+# Windows, from a clone of this repo:
+vibeweaver\install.bat
 ```
 
 Restart opencode. The skill triggers whenever you ask for a build, a fix, a debug
@@ -991,7 +993,7 @@ the agent's context explode and give up; untested, feedback welcome.
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 272 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm suites) / 41 mutation checks, including the latch-release regressions                                                      |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 324 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm, T36–T39 self-lock/lock-escape/scope/source-hygiene suites) / 41 mutation checks, including the latch-release regressions                                                      |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing
@@ -999,7 +1001,7 @@ the agent's context explode and give up; untested, feedback welcome.
 ```bash
 python3 verify_skill.py                     # package integrity: payload, links, markers, syntax
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
-node vibeweaver/scripts/audit_selftest.mjs  # 225 fixture checks (T6 skips without calibration data)
+node vibeweaver/scripts/audit_selftest.mjs  # 324 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 41 mutations, each must be caught
 ```
 

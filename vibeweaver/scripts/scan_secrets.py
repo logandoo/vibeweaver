@@ -2,11 +2,14 @@
 """scan_secrets.py — best-effort secret scan over a git diff or file list.
 
 Usage:
-  python3 scripts/scan_secrets.py                 # scan `git diff <base>..HEAD` added lines
+  python3 scripts/scan_secrets.py                 # scan `git diff HEAD` added lines (wave diff)
   python3 scripts/scan_secrets.py --diff BASE..HEAD
   python3 scripts/scan_secrets.py --files path1 path2 ...
-  python3 scripts/scan_secrets.py --all PATH      # scan every text file under PATH
+  python3 scripts/scan_secrets.py --all PATH      # scan every text file under PATH (working tree)
 
+W3 (2026-10-15): the completion checklist runs BOTH named checks — the diff
+scan (what this wave added) and `--all .` (what older waves swept in). A clean
+diff proves nothing about pre-committed keys.
 Exit 0 = clean. Exit 1 = findings (each printed as `FINDING <path>:<line>: <rule>`).
 Best-effort only — a clean run is NOT proof that no secret exists (asymmetry
 rule: establish absence with a named check, and this is one named check).
@@ -17,11 +20,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+# C3c (2026-10-15): rule table aligned with gitleaks (72977e4/ddcc753) —
+# modern OpenAI/Anthropic key shapes carry hyphenated segments the old
+# `sk-(?:ant-)?[A-Za-z0-9]{20,}` missed (sk-ant-api03-/sk-proj-). The
+# lookbehind keeps `disk-usage-...` from matching `sk-usage-...`.
 RULES = [
     ("aws-access-key-id", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("github-token", re.compile(r"gh[pousr]_[A-Za-z0-9]{36,}")),
     ("slack-token", re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}")),
-    ("openai-anthropic-key", re.compile(r"sk-(?:ant-)?[A-Za-z0-9]{20,}")),
+    ("openai-anthropic-key", re.compile(
+        r"(?<![A-Za-z0-9])sk-(?:proj-|svcacct-|admin-|ant-api\d{2}-|ant-admin\d{2}-|ant-oat\d{2}-|ant-)[A-Za-z0-9_\-]{16,}"
+        r"|(?<![A-Za-z0-9])sk-[A-Za-z0-9]{20,}"
+        r"|sk-[A-Za-z0-9_\-]{16,}T3BlbkFJ")),
     ("google-api-key", re.compile(r"AIza[0-9A-Za-z_-]{35}")),
     ("private-key-block", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY")),
     ("jwt", re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")),
@@ -30,6 +40,23 @@ RULES = [
 ]
 
 ALLOW = re.compile(r"(?i)(example|placeholder|dummy|sample|redacted|\*\*\*|<[a-z_]+>|your[_-]|xxxx|changeme|test[_-]?key|fake)")
+
+TEXT_SUFFIXES = {".py", ".js", ".mjs", ".ts", ".json", ".toml", ".yaml", ".yml",
+                 ".sh", ".md", ".txt", ".cfg", ".ini", ".tf"}
+# TruffleHog's ".env suffix trap": Path(".env").suffix == "" — a bare .env is
+# matched by NAME (and .env.* variants), not by suffix.
+ENV_NAME = re.compile(r"^\.env($|\.)")
+
+
+SKIP_DIRS = {".git", ".vibeweaver", "node_modules", ".venv", "venv", "__pycache__"}
+
+
+def is_scannable(p: Path) -> bool:
+    if any(part in SKIP_DIRS for part in p.parts):
+        return False  # harness state / deps: .vibeweaver is a TRANSCRIPT store —
+        # scanning echoes of inputs is a category error (it re-flags every
+        # test literal the session ever saw)
+    return p.is_file() and (p.suffix in TEXT_SUFFIXES or bool(ENV_NAME.match(p.name)) or p.suffix == ".env")
 
 
 def scan_text(path: str, text: str, added_only: bool = False, prefix_len: int = 0):
@@ -81,8 +108,7 @@ def main():
             findings += scan_text(str(p), p.read_text(errors="replace"))
     if args.all:
         for p in Path(args.all).rglob("*"):
-            if p.is_file() and p.suffix in {".py", ".js", ".mjs", ".ts", ".json", ".toml", ".yaml", ".yml",
-                                            ".env", ".sh", ".md", ".txt", ".cfg", ".ini", ".tf", ".js"}:
+            if is_scannable(p):
                 findings += scan_text(str(p), p.read_text(errors="replace"))
 
     if findings:

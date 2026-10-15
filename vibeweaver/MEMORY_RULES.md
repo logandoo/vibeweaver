@@ -272,13 +272,12 @@ Before implementing any change:
 7. **Check MEMORY.md caps** — If index exceeds 150 lines or 20KB, consolidate before adding more
 8. **Resolve the task working note** — distill `tests/working_note.md` (§A7.15) into the permanent topic files, then delete it (machine-checked by group 19 on the `--final` run)
 
-**The checklist item "Memory topic file written to memory/" is MANDATORY — do not skip it.**
-
 **The checklist item "Memory topic file written to memory/" is MANDATORY for
-any task that produced a lesson — do not skip it.** Lesson-less tasks
-(Class DOC / trivial changes, §V11.3) state `- memory: na (<why no lesson>)`
-in `tests/verification_log.md` instead of writing filler topics (A7.1
-"what NOT to save" — a forced empty topic is worse than none).
+any task that produced a lesson — lesson-triggered, not per-task ritual.**
+Lesson-less tasks (Class DOC / trivial changes, §V11.3) state
+`- memory: na (<why no lesson>)` in `tests/verification_log.md` instead of
+writing filler topics (A7.1 "what NOT to save" — a forced empty topic is
+worse than none).
 
 ---
 

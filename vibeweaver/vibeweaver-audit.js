@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs"
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import os from "node:os"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -93,11 +93,65 @@ function findProjectRoot(startDirs) {
 // and any segment of its project-relative path is a test directory —
 // covers tests/, dev/tests/, src/test/, … (the evidence-fix path must
 // never deadlock, per §A4.4.2 "tests/** stays writable").
+// D3 (2026-10-15): the check runs on a NORMALIZED path — the raw string
+// `"<root>/tests/../src/x.ts"` used to pass the segment test and exempt a
+// source write from the RED latch. New write targets may not exist yet, so
+// normalization = realpath of the nearest EXISTING ancestor + the remaining
+// lexical segments (realpathSync on the file itself would throw ENOENT);
+// when nothing exists, lexical path.resolve kills `..` anyway.
+function resolveWritePath(filePath, depth = 0) {
+  try {
+    // Review A2/B2/R2 (A4.9): when the target ITSELF exists and is a symlink
+    // (tests/app.js -> ../src/app.js), ancestor-only realpath kept the tests/
+    // segment and the write escaped the gate — resolve the whole path.
+    if (existsSync(filePath)) {
+      try {
+        return realpathSync(filePath)
+      } catch {
+        /* fall through */
+      }
+    }
+    // DANGLING symlink (re-review R2#1): the link exists (lstat) while its
+    // target does not yet — the OS write will follow it into the target.
+    // Resolve the link target recursively (bounded).
+    if (depth < 8) {
+      try {
+        const st = lstatSync(filePath)
+        if (st.isSymbolicLink()) {
+          const target = readlinkSync(filePath)
+          return resolveWritePath(path.resolve(path.dirname(filePath), target), depth + 1)
+        }
+      } catch {
+        /* not a symlink */
+      }
+    }
+    let rest = []
+    let dir = path.dirname(filePath)
+    for (;;) {
+      if (existsSync(dir)) {
+        try {
+          dir = realpathSync(dir)
+        } catch {
+          /* keep lexical dir */
+        }
+        break
+      }
+      rest.unshift(path.basename(dir))
+      const up = path.dirname(dir)
+      if (up === dir) break
+      dir = up
+    }
+    return path.resolve(path.join(dir, ...rest, path.basename(filePath)))
+  } catch {
+    return path.resolve(filePath)
+  }
+}
+
 function isTestDirPath(root, filePath) {
   if (typeof filePath !== "string" || !filePath) return false
-  const rel = filePath.startsWith(root + path.sep)
-    ? filePath.slice(root.length + path.sep.length)
-    : null
+  const normRoot = resolveWritePath(root)
+  const normFile = resolveWritePath(filePath)
+  const rel = normFile.startsWith(normRoot + path.sep) ? normFile.slice(normRoot.length + path.sep.length) : null
   if (rel == null) return false
   return rel.split(/[\\/]/).some((seg) => {
     const s = seg.toLowerCase()
@@ -378,18 +432,83 @@ function loopFinding(text) {
 
 function loopRecoveryText(finding) {
   if (finding && finding.kind === "noop-bash") {
-    return `[loop-guard] Your last tool calls degenerated into no-op echo/printf narration (${finding.pattern}) — echoing intent is NOT a tool call. STOP the echo loop. Do exactly ONE of: (1) emit the REAL tool call you kept announcing (e.g. Read/Edit — whatever your narration named) as an actual tool invocation — no echo markers, no narration; or (2) only if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table). BEFORE any completion output, append \`- stall: noop-bash echo narration — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10 — this interrupt IS the stall declaration; do not resume by echoing again).`
+    return `[loop-guard] Your last tool calls degenerated into no-op echo/printf narration (${finding.pattern}) — echoing intent is NOT a tool call. STOP the echo loop. Do exactly ONE of: (1) emit the REAL tool call you kept announcing (e.g. Read/Edit — whatever your narration named) as an actual tool invocation — no echo markers, no narration; or (2) only if every acceptance criterion is verified passing, emit the skill's final completion output (gate line + completion table). BEFORE any completion output, append \`- stall: noop-bash echo narration — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10 — this interrupt IS the stall declaration; do not resume by echoing again).`
   }
   if (finding && finding.kind === "identical-tool-run") {
-    return `[loop-guard] Your last tool calls degenerated into an identical-call loop (${finding.pattern}) — re-issuing the SAME tool call with the SAME arguments is not progress. STOP the repeats. Do exactly ONE of: (1) inspect the last result and re-issue the call with CHANGED arguments or a different tool, carrying a one-line diagnosis of why the previous attempt did not advance the task; or (2) if the repetition is legitimate polling, vary the polling arguments (cursor/timeout) if the tool takes any, or interleave a real action instead of re-issuing an identical call; or (3) proceed to the next real step of the task; or (4) only if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table). BEFORE any completion output, append \`- stall: identical-tool-run — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10 — this interrupt IS the stall declaration; do not resume by repeating the same call).`
+    return `[loop-guard] Your last tool calls degenerated into an identical-call loop (${finding.pattern}) — re-issuing the SAME tool call with the SAME arguments is not progress. STOP the repeats. Do exactly ONE of: (1) inspect the last result and re-issue the call with CHANGED arguments or a different tool, carrying a one-line diagnosis of why the previous attempt did not advance the task; or (2) if the repetition is legitimate polling, vary the polling arguments (cursor/timeout) if the tool takes any, or interleave a real action instead of re-issuing an identical call; or (3) proceed to the next real step of the task; or (4) only if every acceptance criterion is verified passing, emit the skill's final completion output (gate line + completion table). BEFORE any completion output, append \`- stall: identical-tool-run — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10 — this interrupt IS the stall declaration; do not resume by repeating the same call).`
   }
   if (finding && finding.kind === "tool-frequency") {
-    return `[loop-guard] Your last tool calls degenerated into a single-tool storm (${finding.pattern}) — hammering ONE tool is not progress by itself. STOP the streak. Do exactly ONE of: (1) consolidate: work with the results you ALREADY have, or replace many narrow queries with one broader/batched call; or (2) switch tools or approach, carrying a one-line diagnosis of what the streak was trying to establish; or (3) proceed to the next real step of the task; or (4) only if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table). Evidence honesty: BEFORE any completion output, IF the streak was a genuine stall, append \`- stall: tool-frequency — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10); IF the streak was legitimate bulk work, write ONE line saying that instead — never record a stall that did not happen. Do not resume by hammering the same tool.`
+    return `[loop-guard] Your last tool calls degenerated into a single-tool storm (${finding.pattern}) — hammering ONE tool is not progress by itself. STOP the streak. Do exactly ONE of: (1) consolidate: work with the results you ALREADY have, or replace many narrow queries with one broader/batched call; or (2) switch tools or approach, carrying a one-line diagnosis of what the streak was trying to establish; or (3) proceed to the next real step of the task; or (4) only if every acceptance criterion is verified passing, emit the skill's final completion output (gate line + completion table). Evidence honesty: BEFORE any completion output, IF the streak was a genuine stall, append \`- stall: tool-frequency — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10); IF the streak was legitimate bulk work, write ONE line saying that instead — never record a stall that did not happen. Do not resume by hammering the same tool.`
   }
   if (finding && finding.kind === "runaway") {
-    return `[loop-guard] RUNAWAY OUTPUT: ${finding.pattern} without a verified stop condition (the ceiling is the backstop bound — a repetition loop the shape detectors cannot see is indistinguishable from this; on hosts that supply no turn ids the bound is per-session). STOP emitting. Do exactly ONE of: (1) if every acceptance criterion is verified passing, emit the final completion output ([Verification Gate] + 8-column table) now — the evidence, not a re-narration; or (2) if work remains, emit ONE short status line naming the single next concrete step and continue with bounded output. Never re-narrate completed work.`
+    return `[loop-guard] RUNAWAY OUTPUT: ${finding.pattern} without a verified stop condition (the ceiling is the backstop bound — a repetition loop the shape detectors cannot see is indistinguishable from this; on hosts that supply no turn ids the bound is per-session). STOP emitting. Do exactly ONE of: (1) if every acceptance criterion is verified passing, emit the skill's final completion output (gate line + completion table) now — the evidence, not a re-narration; or (2) if work remains, emit ONE short status line naming the single next concrete step and continue with bounded output. Never re-narrate completed work.`
   }
   return `[loop-guard] Your output degenerated into meaningless repetition (${finding.kind}: ${finding.pattern}). STOP repeating. Reply with (1) the task you are solving in ONE line, (2) the single next concrete step, then continue normally — no sequences, no filler. If the task is actually complete, emit the final completion output instead.`
+}
+
+// ---------- detection/completion corpus gate (D1/D2, 2026-10-15) ----------
+// The session buffer mixes user speech, plugin-injected corrective prompts
+// and assistant output. Only ASSISTANT output is legitimate evidence of the
+// model's own behavior:
+//  - completion analysis must never see user-fed or plugin-injected marker
+//    text (self-prompt-injection / self-lock — review D2);
+//  - loop detection must never see user quotes or code-fence contents
+//    (legitimate repetition — review D1's false-positive class).
+// Plugin-injected messages are identified by their first-line tag
+// ([loop-guard] / [stop-guard]) — same strip the stop-guard whitelist uses.
+const PLUGIN_PROMPT_RE = /^\[(?:stop-guard|loop-guard)\]/
+
+function isPluginInjected(text) {
+  return typeof text === "string" && PLUGIN_PROMPT_RE.test(text)
+}
+
+// Assistant-only corpus: text parts whose message is NOT user-role and which
+// are not plugin-injected prompts. Parts with no role attribution (v2 deltas,
+// early v1 parts) count as assistant — they are the model's own output.
+function assistantCorpus(sess) {
+  const out = []
+  const parts = (sess && sess.textParts) || {}
+  const injected = (sess && sess.injectedPrompts) || []
+  for (const pid of Object.keys(parts)) {
+    const txt = parts[pid]
+    if (typeof txt !== "string" || !txt) continue
+    const mid = sess.partMsg ? sess.partMsg[pid] : null
+    const role = mid && sess.roles ? sess.roles[mid] : null
+    if (role === "user") continue
+    if (isPluginInjected(txt)) continue
+    // identity exclusion (review B5/A3): a part that CARRIES a prompt this
+    // plugin sent (exact head match) is our own injection echoed back — the
+    // prefix strip only covers the first line, this covers the body.
+    if (injected.some((p) => p && txt.includes(p.slice(0, 200)))) continue
+    out.push(txt)
+  }
+  return out.join("\n")
+}
+
+// Code fences are legitimate repetition (codegen); an UNCLOSED trailing
+// fence (streaming) is treated as code too — false positives cost more than
+// missed fence-internal degeneration (the turn ceiling still bounds it).
+function stripCodeFences(text) {
+  if (typeof text !== "string" || !text) return ""
+  return text.replace(/```[\s\S]*?(?:```|$)/g, "\n")
+}
+
+function loopCorpus(sess) {
+  return stripCodeFences(assistantCorpus(sess))
+}
+
+// Genuine user input (a human/user-role text part that is not a plugin
+// corrective prompt) re-arms the episode latches and DECAYS the per-channel
+// intervention counters by one (floor 0): a human interjection is a natural
+// break in whatever the model was repeating, and budget must not starve a
+// long interactive session (PLAN §2 D1-④ "用户输入自然衰减计数").
+function decayLoopBudget(sess) {
+  const lg = sess && sess.loopGuard
+  if (!lg || typeof lg !== "object") return
+  for (const k of ["armed", "armedNoop", "armedReasoning"]) if (typeof lg[k] === "boolean") lg[k] = true
+  for (const k of ["interventions", "interventionsNoop", "interventionsReasoning"]) {
+    if (Number.isFinite(lg[k]) && lg[k] > 0) lg[k] = lg[k] - 1
+  }
 }
 
 // ---------- audit machine (shared by the v1 + v2 adapters) ----------
@@ -409,8 +528,17 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     state = { sessions: {}, roots: {} }
   }
 
+  // D1 (2026-10-15): state persistence is scoped to vibeweaver work — a
+  // project with no tests/verification_log.md AND no skill-activated session
+  // must see ZERO filesystem writes (no .vibeweaver/, no session transcript
+  // on disk). In-memory observation still runs; nothing is persisted.
+  const persistable = () => {
+    if (findProjectRoot([directory])) return true
+    return Object.values(state.sessions).some((s) => s && s.skillLoaded)
+  }
   const flush = () => {
     try {
+      if (!persistable()) return
       // prune: keep only the most recent sessions so the state file stays bounded
       const ids = Object.keys(state.sessions)
       if (ids.length > 20) {
@@ -459,11 +587,8 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   //   1. legacy boolean state (ts===0, never session-scoped at birth) →
   //      legacy-state release on first contact, labeled for its true origin
   //      (also reachable for object latches that lost their ts);
-  //   2. a known DIFFERENT session touches the project → stale-session
-  //      release (a latch must never outlive the session that earned it);
-  //   3. TTL expiry (redTtlHours, default 24; audit.json) — checked before
-  //      new-task so an already-expired latch journals its dominant fact;
-  //   4. NEW TASK by the latching session itself (2026-10-02, multi-wave
+  //   2. TTL expiry (redTtlHours, default 24; audit.json);
+  //   3. NEW TASK by the latching session itself (2026-10-02, multi-wave
   //      DOC→CODE deadlock): tests/acceptance.md rewritten AFTER the latch
   //      is the protocol's own first action of a new task — and tests/ is
   //      writable under the latch, so the key is always reachable without
@@ -471,6 +596,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   //      as "new-task"; the old wave's debt stays in tests/gate_audit.md
   //      and the new wave's own completion claim re-checks everything
   //      (marker-count re-arm leg, runAudit final branch).
+  // D3 (2026-10-15, PLAN §2): the "stale-session" release is REMOVED — a
+  // foreign session's write used to clear the latch, so one subagent write
+  // bypassed the whole gate (review PoC). A foreign write now changes
+  // nothing; subagent/task-tool writes are foreign writes by definition.
   // Never releases a fresh latch of the CURRENT session without the
   // new-task key (in-session teeth mid-wave).
   // Returns the release record or null. Never throws.
@@ -498,13 +627,11 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       // (legacy boolean form) — label it as such, not as a fleet of unknowns.
       const reason = latch.ts === 0
         ? "legacy-state"
-        : cur && latch.sessionID !== cur
-          ? "stale-session"
-          : age > ttlHours * 3_600_000
-            ? "ttl-expiry"
-            : cur && latch.sessionID === cur && acceptanceMtime(root) > latch.ts
-              ? "new-task"
-              : null
+        : age > ttlHours * 3_600_000
+          ? "ttl-expiry"
+          : cur && latch.sessionID === cur && acceptanceMtime(root) > latch.ts
+            ? "new-task"
+            : null
       if (!reason) return null
       const rec = { ts: Date.now(), from: latch.sessionID || "unknown", bad: latch.bad, reason, via, by: cur || via }
       entry.red = null
@@ -542,8 +669,14 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
 
   // "final" phase only when the session actually completed a task; session.idle
   // fires after EVERY turn — final checks mid-task would deadlock the loop.
-  const completionHeuristic = (sess) =>
-    /\[Verification Gate\]/.test(sess.text) || /^\s*\| # \| Problem \| Research Sources/m.test(sess.text)
+  // D2 (2026-10-15): the marker is read from the ASSISTANT corpus only — a
+  // user-fed or plugin-injected gate line must never open the completion
+  // audit (self-lock / fake-completion), while the assistant's own final
+  // answer still does.
+  const completionHeuristic = (sess) => {
+    const corpus = assistantCorpus(sess)
+    return /\[Verification Gate\]/.test(corpus) || /^\s*\| # \| Problem \| Research Sources/m.test(corpus)
+  }
 
   const runAudit = async (sessionID, phase) => {
     const sess = state.sessions[sessionID]
@@ -556,7 +689,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const audit = auditProject({
       root,
       sessionID,
-      sessionText: sess.text,
+      sessionText: assistantCorpus(sess),
       tools: sess.tools,
       skillLoaded: loaded,
       phase,
@@ -626,7 +759,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         .map((c) => c.id)
         .sort()
         .join(",")
-      const gateCount = typeof sess.text === "string" ? sess.text.split(GATE_MARKER).length - 1 : 0
+      const gateCount = (() => {
+        const corpus = assistantCorpus(sess)
+        return corpus.split(GATE_MARKER).length - 1
+      })()
       if (audit.red) {
         if (!readLatch(state.roots[root])) {
           const sigs = state.roots[root].lastRedSigs || {}
@@ -669,6 +805,14 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (typeof onDegenerate !== "function") return
       const sess = state.sessions[sessionID]
       if (!sess) return
+      // D1 project gate (2026-10-15): the guard only runs inside an ACTIVE
+      // vibeweaver task — the project has tests/acceptance.md or this
+      // session activated the vibeweaver skill. Ordinary directories get
+      // zero behavior (no detection, and flush() below writes nothing).
+      if (!skillLoaded(sess)) {
+        const gateRoot = findProjectRoot([directory])
+        if (!gateRoot || !existsSync(path.join(gateRoot, "tests", "acceptance.md"))) return
+      }
       if (!sess.loopGuard || typeof sess.loopGuard !== "object") sess.loopGuard = { interventions: 0, interventionsNoop: 0, armed: true, armedNoop: true }
       const lg = sess.loopGuard
       // NaN-safe backfill (D-6): corrupt/hand-edited state lacking these
@@ -705,7 +849,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
                 })()
               )
             : null)
-        : loopFinding(reasoningChannel ? sess.reasoning : sess.text)
+        : loopFinding(reasoningChannel ? stripCodeFences(sess.reasoning) : loopCorpus(sess))
       // per-turn absolute ceiling (hermes #127234: periodic detectors can
       // answer "not yet" forever for shapes they cannot see — the ceiling is
       // the bound that makes runaway output finite). Synthesized once per
@@ -773,6 +917,13 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       }
       lg[usedKey]++
       flush() // arming + budget must survive a mid-episode restart (F9)
+      // record the corrective text as OUR injection (identity exclusion in
+      // assistantCorpus — review A3/B5: the prefix strip covers the first
+      // line, this covers a quoted/echoed body)
+      const injectedText = loopRecoveryText(finding)
+      if (!Array.isArray(sess.injectedPrompts)) sess.injectedPrompts = []
+      sess.injectedPrompts.push(injectedText)
+      if (sess.injectedPrompts.length > 5) sess.injectedPrompts = sess.injectedPrompts.slice(-5)
       void log({
         service: "vibeweaver-loopguard",
         level: "warn",
@@ -907,6 +1058,11 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         extra: { sessionID, trigger, fillKnown: fillKnown ? fill : undefined },
       })
       const text = core.stopGuardPrompt({ kind: trigger.kind, fill, fillKnown })
+      // identity exclusion (assistantCorpus) covers OUR injections — record
+      // stop-guard prompts the same way loop-guard prompts are recorded
+      if (!Array.isArray(sess.injectedPrompts)) sess.injectedPrompts = []
+      sess.injectedPrompts.push(text)
+      if (sess.injectedPrompts.length > 5) sess.injectedPrompts = sess.injectedPrompts.slice(-5)
       void Promise.resolve(onStopPrompt(sessionID, text)).catch(() => {})
     } catch {
       /* stop-guard must never break observation */
@@ -991,6 +1147,13 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         store[pid] = buf + ptext
         sess.turnChars = (sess.turnChars || 0) + ptext.length
       }
+      // D1-④: genuine user input (human user-role text, never a plugin
+      // corrective prompt) decays the loop-guard budget and re-arms episodes.
+      if (!reasoning) {
+        const midForPid = sess.partMsg[pid]
+        const roleForPid = midForPid && sess.roles ? sess.roles[midForPid] : null
+        if (roleForPid === "user" && !isPluginInjected(ptext)) decayLoopBudget(sess)
+      }
       if (reasoning) {
         sess.reasoning = capText(Object.values(sess.reasoningParts).join("\n"))
         maybeGuardCheck(sessionID, "reasoning")
@@ -1024,7 +1187,9 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
           if (canon.length > IN_CAP) t.truncated = true // truncation can forge identity (F10)
         }
       }
-      if (part.tool === "bash" && typeof st.output === "string") t.output = st.output.slice(0, OUT_CAP)
+      // result summary (D1-③) for ANY tool — the identical-run detector
+      // compares results, and only bash used to be captured
+      if (typeof st.output === "string" && st.output) t.output = st.output.slice(0, OUT_CAP)
       sess.tools.push(t)
       if (sess.tools.length > TOOL_CAP) sess.tools = sess.tools.slice(-TOOL_CAP)
       if (part.tool === "skill" && inp && typeof inp.name === "string" && inp.name.startsWith("vibeweaver")) sess.skillLoaded = true
@@ -1067,7 +1232,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   }
 
   const observeToolEnd = (sessionID, tool, result) => {
-    if (tool !== "bash" || typeof sessionID !== "string" || !sessionID) return
+    if (typeof sessionID !== "string" || !sessionID || typeof tool !== "string" || !tool) return
     // Tool.Result = { output?, content?: string | Content[], metadata? } —
     // content is the model-visible channel; output is the structured value.
     const content = result && typeof result === "object" ? result.content : result
@@ -1081,7 +1246,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     if (!text) return
     const sess = touchSession(sessionID)
     for (let i = sess.tools.length - 1; i >= 0; i--) {
-      if (sess.tools[i].tool === "bash" && !sess.tools[i].output) {
+      if (sess.tools[i].tool === tool && !sess.tools[i].output) {
         sess.tools[i].output = text.slice(0, OUT_CAP)
         break
       }
@@ -1162,17 +1327,17 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const selfLatched = cur === latch.sessionID
     return selfLatched
       ? "GATE-BLOCKED (vibeweaver-audit): YOUR session's mechanical audit is RED — read tests/gate_audit.md. To unblock: fix each [BAD] item (any test directory — tests/, dev/tests/, … — stays writable: repair the missing evidence and append `- audit-fix: …` entries to tests/verification_log.md), then re-emit a corrected [Verification Gate] line in your reply. The audit re-runs at every session idle and re-checks on every write. Starting a NEW task in this session? Per protocol write tests/acceptance.md first (Step 1 — tests/ is writable right now): a post-latch acceptance rewrite auto-releases the latch on your next gated write (journaled as new-task) — no other session, no TTL wait, no VIBEWEAVER_AUDIT=off needed; the old wave's debt stays in tests/gate_audit.md and your new wave's own final audit re-checks everything. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
-      : "GATE-BLOCKED (vibeweaver-audit): a mechanical RED latch for this project is still pending — read tests/gate_audit.md. Latches are scoped to the session that earned them and auto-release on a different session's first write/idle, on the latching session's own new task (tests/acceptance.md rewritten after the latch), or after the red TTL (default 24h) — continuing your turn (any idle) will clear a stale latch automatically, and a stale-buffer re-audit with an unchanged failure signature cannot resurrect a released latch (a NEW completion claim honestly can). Any test directory (tests/, dev/tests/, …) is writable right now. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
+      : "GATE-BLOCKED (vibeweaver-audit): a mechanical RED latch for this project is still pending — read tests/gate_audit.md. The latch belongs to the session that earned it and does NOT release on other sessions' writes (D3: subagent/task-tool writes count as foreign). It releases only on that session's own new task (tests/acceptance.md rewritten after the latch) or after the red TTL (default 24h). Any test directory (tests/, dev/tests/, …) stays writable so evidence can be repaired. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
   }
 
   // Session-idle driver (v1 "session.idle"; v2 "session.status" idle).
   const handleIdle = async (sessionID) => {
     if (typeof sessionID !== "string" || !sessionID) return
     if (process.env.VIBEWEAVER_AUDIT === "off") return
-    // A stale latch (other session / TTL / legacy) must not survive this
-    // session's turn — release BEFORE the audit so the takeover write
-    // path is open immediately. A fresh latch of THIS session survives
-    // (releaseStale refuses it) and its own final audit decides.
+    // A stale latch (legacy / TTL) must not survive forever — the release
+    // pass runs BEFORE the audit. D3: foreign sessions no longer release
+    // anything; a fresh latch of THIS session survives (releaseStale refuses
+    // it) and its own final audit decides.
     const idleRoot = findProjectRoot([directory])
     if (idleRoot) releaseStale(idleRoot, sessionID, "idle")
     flush()

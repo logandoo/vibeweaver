@@ -29,3 +29,19 @@ jobs:
 
       - name: Self-test suite
         run: python -m unittest discover -s tests -v
+
+      # W6 (PLAN): the JS harness is part of the gate — syntax checks are not
+      # tests. Node matrix alongside Python; run from the skill payload root.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Audit selftest + mutation sweep (node, required)
+        run: |
+          node vibeweaver/scripts/audit_selftest.mjs
+          node vibeweaver/scripts/mutation_sweep.mjs
+
+      - name: Plugin compat harness (node, non-blocking — 9 known gate-v1 fails)
+        run: node tests/plugin_compat_test.mjs
+        continue-on-error: true

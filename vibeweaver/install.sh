@@ -63,6 +63,8 @@ cp "${SCRIPT_DIR}/scripts/ui_fidelity.py" "${SKILLS_DIR}/scripts/ui_fidelity.py"
 echo "[OK] Installed: scripts/ui_fidelity.py"
 cp "${SCRIPT_DIR}/scripts/mm_probe.py" "${SKILLS_DIR}/scripts/mm_probe.py"
 echo "[OK] Installed: scripts/mm_probe.py"
+cp "${SCRIPT_DIR}/scripts/evidence_seal.py" "${SKILLS_DIR}/scripts/evidence_seal.py"
+echo "[OK] Installed: scripts/evidence_seal.py"
 echo "[OK] Installed: scripts/vibeweaver-audit-core.js"
 
 # Install the plugin pair (physical gate + Tier-0/1/2 auditor) into opencode's plugin dir
@@ -77,6 +79,6 @@ done
 
 echo ""
 echo "[OK] vibeweaver skill installed to: ${SKILLS_DIR}/"
-echo "     Files installed: $(( ${#FILES[@]} + 6 ))"
+echo "     Files installed: $(( ${#FILES[@]} + 7 ))"
 echo "     Plugins installed to: ${PLUGINS_DIR}/"
 echo "     Restart OpenCode to activate."

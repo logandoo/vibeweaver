@@ -62,8 +62,8 @@ function scaffold(root) {
   ].join("\n")
   writeFileSync(path.join(root, "tests/verification_log.md"), log)
   writeFileSync(path.join(root, "tests/acceptance.md"), "> cap=5  stall=3×\n1. a\n2. b\n")
-  writeFileSync(path.join(root, "tests/shot.png"), "x")
-  writeFileSync(path.join(root, "tests/flow.mp4"), "x")
+  writeFileSync(path.join(root, "tests/shot.png"), Buffer.from("89504e470d0a1a0a0000000d4948445200000280000001900806000000" + "00".repeat(32), "hex"))
+  writeFileSync(path.join(root, "tests/flow.mp4"), Buffer.from("00000018667479706d703432" + "00".repeat(24), "hex"))
   writeFileSync(path.join(root, "tests/flow_audio.wav"), "x")
   writeFileSync(path.join(root, "tests/workflows/wf.trace.log"), "ok")
   writeFileSync(path.join(root, "memory/MEMORY.md"), "# Index\n- [fix](fix.md)\n")
@@ -244,7 +244,7 @@ run("C18-doc-class-code-write", () => ({
   const assertSrc = path.resolve(import.meta.dirname, "assert_artifacts.py")
   if (existsSync(assertSrc)) writeFileSync(path.join(root, "tests/assert_artifacts.py"), readFileSync(assertSrc, "utf8"))
   writeFileSync(path.join(root, "tests/acceptance.md"), "> cap=5  stall=3×\n1. Delivered\n")
-  writeFileSync(path.join(root, "tests/report_p1.png"), "png")
+  writeFileSync(path.join(root, "tests/report_p1.png"), Buffer.from("89504e470d0a1a0a0000000d4948445200000280000001900806000000" + "00".repeat(32), "hex")) // render-gate PNG: magic + IHDR >= 320x200 (C2)
   writeFileSync(path.join(root, "memory/MEMORY.md"), "# Index\n- [fix](fix.md)\n")
   writeFileSync(path.join(root, "memory/fix.md"), "# Fix\n")
   execFileSync("git", ["init", "-q"], { cwd: root })
@@ -374,7 +374,7 @@ run("C18-doc-asset-no-render", (r) => {
   const root = path.join(TMP, "doc-asset-rendered")
   scaffold(root)
   writeFileSync(path.join(root, "tests/verification_log.md"), "## Task: asset | 2026-09-28\n- Baseline verified GREEN\n- iter 1 PASS: all\n")
-  writeFileSync(path.join(root, "tests/report_p1.png"), "png-bytes") // evidence binding: must exist on disk
+  writeFileSync(path.join(root, "tests/report_p1.png"), Buffer.from("89504e470d0a1a0a0000000d4948445200000280000001900806000000" + "00".repeat(32), "hex")) // evidence binding: must exist on disk
   const rendered = LITE_DOC_TEXT.replace("docs-drift: none (README does not describe the edited changelog entry)",
     "render: report.docx — tests/report_p1.png rendered page verified")
   const okAudit = auditProject({

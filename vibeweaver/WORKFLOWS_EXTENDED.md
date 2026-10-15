@@ -229,7 +229,7 @@ Binding order:
 
 **Trigger:** the task releases a build to an environment (staging, prod,
 app store, server, container registry). Engineering standard stands
-(ENGINEERING_STD §A7): **production deploys are human-confirmed — the agent
+(ENGINEERING_STD §A8): **production deploys are human-confirmed — the agent
 prepares (build, changelog, rollback path); the user authorizes the
 production action.** C5 makes that rule mechanical.
 
@@ -276,7 +276,7 @@ restore checks).
    reproduce or bound the blast radius; identify the last-known-good version
    (git tag/commit + deploy record).
 2. `1 incident record`: open `docs/POSTMORTEM_<date>_<slug>.md`
-   (APPENDIX §A9 template) with trigger → timeline → impact. It is a chain
+   (APPENDIX C6 postmortem template) with trigger → timeline → impact. It is a chain
    artifact: cite the alert/log that started it.
 3. `2 hotfix via C2`: full C2 discipline with ONE relaxation — the COV-9
    baseline is the pre-incident commit (or last-known-good deploy), and the

@@ -3,7 +3,7 @@
 
 Measures whether a re-implemented UI matches a reference, for tasks whose
 acceptance criteria name pixel/geometry fidelity (TESTING_PROTOCOLS.md
-§A4.1.2 — the T1/T2 measurement tiers; templates in APPENDIX.md §A12):
+§A4.1.2 — the T1/T2 measurement tiers; templates in APPENDIX.md §A4.1.2):
 
   diff   REF.png CAND.png  — pixel diff with the pixelmatch v5.3.0 algorithm
          (YIQ colorDelta + anti-aliasing detection; ported from
@@ -28,7 +28,7 @@ acceptance criteria name pixel/geometry fidelity (TESTING_PROTOCOLS.md
 
 Analysis is instrumental: deterministic, offline, no model/network/deps.
 Capture (Playwright at a fixed viewport/DPR, animations frozen, fonts
-awaited, caret hidden — APPENDIX.md §A12) happens in the project's own test
+awaited, caret hidden — APPENDIX.md §A4.1.2) happens in the project's own test
 code; this script only scores the captured artifacts.
 
 Exit codes: diff/boxes — 0 = pass · 1 = fail (diff/tolerance/overlap; a size

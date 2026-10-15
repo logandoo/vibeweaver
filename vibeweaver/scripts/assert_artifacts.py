@@ -13,9 +13,20 @@ a profile never weakens an applicable group. `--class DOC|CONFIG|CODE`
 (COV-13 / §V11, or the log's `- class:` basis line) N/A's the memory (4)
 and service-lifecycle (5) groups for the classes whose path card has no
 such risk."""
-import argparse, json, os, pathlib, re, subprocess, sys
+import argparse, hashlib, json, os, pathlib, re, subprocess, sys
 
-FAILS = []
+FAILS = []   # [{"code","severity","detail"}] — machine-readable per D4 (--json)
+WARN_LINES = []
+CUR_GROUP = "misc"
+
+
+def group(code: str):
+    global CUR_GROUP
+    CUR_GROUP = code
+
+
+def warn(msg: str, code: str = ""):
+    WARN_LINES.append({"code": code or CUR_GROUP, "detail": msg})
 PASSES = 0
 GIT_TIMEOUT = False
 
@@ -54,7 +65,10 @@ SECRET_RES = [
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     re.compile(r"ghp_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,}|"
                r"xox[baprs]-[A-Za-z0-9-]{16,}|"
-               r"sk-(?:proj-|ant-)?[A-Za-z0-9_\-]{16,}"),  # GitHub/Slack/OpenAI/Anthropic tokens
+               # C3c rule-table parity with scripts/scan_secrets.py: the
+               # lookbehind keeps `disk-usage-…`/`task-…` from matching
+               # `sk-usage-…`; hyphenated key segments stay covered.
+               r"(?<![A-Za-z0-9])sk-(?:proj-|svcacct-|admin-|ant-api\d{2}-|ant-admin\d{2}-|ant-oat\d{2}-|ant-)?[A-Za-z0-9_\-]{16,}"),
 ]
 # generic k = v: quoted literal values are candidates; UNQUOTED values
 # containing `.`/`(`/`)` are references or calls (os.environ.get(…),
@@ -88,6 +102,35 @@ def _git(root, *args):
         return -2, ""
 
 
+def _unquote_git(p: str) -> str:
+    """Decode git's C-quoted path ("a\\tb" / octal UTF-8 escapes) to the
+    real filename (dsh 2026-09-30 review; mainline merge 2026-10-15b)."""
+    if len(p) < 2 or p[0] != '"' or p[-1] != '"':
+        return p
+    body = p[1:-1]
+    simple = {"t": 9, "n": 10, "a": 7, "b": 8, "f": 12, "v": 11, "\\": 0x5C, '"': 0x22}
+    out = bytearray()
+    i, n = 0, len(body)
+    while i < n:
+        ch = body[i]
+        if ch == "\\" and i + 1 < n:
+            nxt = body[i + 1]
+            if nxt in simple:
+                out.append(simple[nxt])
+                i += 2
+                continue
+            if nxt in "01234567" and i + 3 < n and all(c in "01234567" for c in body[i + 2:i + 4]):
+                out.append(int(body[i + 1:i + 4], 8))
+                i += 4
+                continue
+            out.append(ord(nxt))
+            i += 2
+            continue
+        out.extend(ch.encode("utf-8"))
+        i += 1
+    return out.decode("utf-8", "replace")
+
+
 def wave_diff_text(root):
     """Change-wave diff: PER-COMMIT patches of newest `backup: before changes`
     commit..HEAD (a net range diff would hide intra-wave add-then-remove),
@@ -112,7 +155,7 @@ def wave_diff_text(root):
 def untracked_files(root):
     """Untracked, non-gitignored files (never visible in git diff)."""
     rc, out = _git(root, "ls-files", "--others", "--exclude-standard")
-    return [l for l in out.splitlines() if l.strip()] if rc == 0 else []
+    return [_unquote_git(l) for l in out.splitlines() if l.strip()] if rc == 0 else []
 
 
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
@@ -129,10 +172,12 @@ def parse_diff(text):
         if h:
             nline = int(h.group(1))
         elif line.startswith("--- a/"):
-            cur = line[6:]
+            # review R-I2: git C-quotes odd names ("tests/caf\303\251.py")
+            # and pads space-names with a trailing tab — normalize both
+            cur = _unquote_git(line[6:].rstrip("\t"))
             files.setdefault(cur, [[], []])
         elif line.startswith("+++ b/"):
-            cur = line[6:]
+            cur = _unquote_git(line[6:].rstrip("\t"))
             files.setdefault(cur, [[], []])
         elif line.startswith("--- /dev/null"):
             cur = None
@@ -159,7 +204,7 @@ def _is_test_code(path):
             or ".test." in n or ".spec." in n)
 
 
-def secret_scan(root, vl=""):
+def secret_scan(root, vl=""):  # vl = CURRENT task block (approval scoping)
     """Group 14 — secret scan. Returns (fails, warns). Only ADDED diff lines
     and untracked files; placeholder-marked lines exempt; .md warn-only;
     any assert_artifacts.py never scanned. A `vw-approved` inline marker
@@ -187,7 +232,10 @@ def secret_scan(root, vl=""):
             return
         (warns if path.endswith(".md") else fails).append(
             f"secret scan: {path}:{lineno}: credential-looking string "
-            f"on an added line — {text.strip()[:50]!r} (A4.4 content gate)")
+            # review A4/re-review R3: NEVER echo any matched content (this
+            # detail is routed into gate block messages / session logs) —
+            # cite shape only (length), zero secret material
+            f"on an added line — {len(text.strip())} chars matched (redacted) (A4.4 content gate)")
 
     for path, (added, _r) in parse_diff(wave_diff_text(root)).items():
         for lineno, l in added:
@@ -214,12 +262,20 @@ def secret_scan(root, vl=""):
     return fails, warns
 
 
-def test_change_guard(root, vl):
+SKIP_MARKER = re.compile(r"@pytest\.mark\.(?:skip|xfail)|@unittest\.skip|\b(?:it|test|describe|this)\.skip|\bxfail\s*\(|\bxtest\b|\bskipTest\s*\(")
+TEST_BASENAMES = {"conftest.py", "pytest.ini", "tox.ini", "setup.cfg",
+                  "jest.config.js", "jest.config.ts", "vitest.config.ts",
+                  "vitest.config.js"}
+
+
+def test_change_guard(root, vl):  # vl = CURRENT task block (license scoping, review R-I2)
     """Group 15 — test-change guard: REMOVED assertion lines in test code
     files require a `- test-change: <path> — <reason>` log line."""
     fails = []
-    for path, (_a, removed) in parse_diff(wave_diff_text(root)).items():
-        if not _is_test_code(path):
+    _diff = parse_diff(wave_diff_text(root))
+    _added_by = {p: a for p, (a, _r) in _diff.items()}
+    for path, (_a, removed) in _diff.items():
+        if not _is_test_code(path) and os.path.basename(path) not in TEST_BASENAMES:
             continue
         n = sum(1 for l in removed if ASSERT_LINE.match(l))
         if n and not re.search(r"^- test-change:.*" + re.escape(path), vl, re.M):
@@ -227,7 +283,64 @@ def test_change_guard(root, vl):
                 f"test-change guard: {path}: {n} assertion line(s) removed "
                 f"without a `- test-change:` justification in "
                 f"verification_log.md (A4.8 test integrity)")
+    # C3b (P1, BL-13): skip/xfail markers and test-runner config changes are
+    # test weakenings too — each needs its `- test-change:` reason.
+    for path, added in _added_by.items():
+        if not _is_test_code(path) and os.path.basename(path) not in TEST_BASENAMES:
+            continue
+        if os.path.basename(path) in TEST_BASENAMES and not re.search(
+                r"^- test-change:.*" + re.escape(path), vl, re.M):
+            fails.append(f"{path}: test-runner config (conftest/pytest.ini/tox.ini/…) changed "
+                         f"with no `- test-change: {path} — <reason>` line (C3b)")
+            continue
+        if any(SKIP_MARKER.search(l) for _n, l in added) and not re.search(
+                r"^- test-change:.*" + re.escape(path), vl, re.M):
+            fails.append(f"{path}: adds skip/xfail-style markers with no `- test-change: {path} — <reason>` "
+                         f"line (C3b — a skipped test is a weakened test)")
+    # C3b hash baseline: a test file that differs from the SEALED baseline
+    # (tests/test_baseline.json, written only by scripts/evidence_seal.py)
+    # needs a reason — this also catches weakenings committed BEFORE the wave
+    # anchor (invisible to the diff window). Missing baseline + test-code
+    # files in the wave: treated as a test change (BL-13 — no silent rebuild).
+    try:
+        _bl = json.loads(read(root / "tests" / "test_baseline.json") or "{}")
+    except Exception:
+        _bl = {}
+    _bl_exists = (root / "tests" / "test_baseline.json").exists()
+    _touched = {p for p in list(_diff.keys()) + untracked_files(root)
+                if _is_test_code(p) or os.path.basename(p) in TEST_BASENAMES}
+    if _bl_exists:
+        for path in sorted(_touched):
+            cur = hashlib.sha256((root / path).read_bytes()).hexdigest() if (root / path).is_file() else None
+            if cur != _bl.get(path) and not re.search(r"^- test-change:.*" + re.escape(path), vl, re.M):
+                fails.append(f"{path}: differs from the sealed test baseline and no `- test-change: {path} — <reason>` "
+                             f"line licenses it (C3b hash baseline)")
+
     return fails
+
+
+
+def code_fingerprint(root):
+    """digest of wave code content — SHARED CONTRACT with
+    scripts/evidence_seal.py: identical ext set AND identical file-set
+    derivation (backup..HEAD + uncommitted + untracked; review R-I2)."""
+    rc, sha = _git(root, "log", "--format=%H", "-1", "--fixed-strings",
+                   "--grep=backup: before changes")
+    paths = set()
+    if rc == 0 and sha.strip():
+        _, out = _git(root, "diff", "--name-only", f"{sha.strip()}..HEAD")
+        paths.update(l.strip() for l in out.splitlines() if l.strip())
+    _, out = _git(root, "diff", "--name-only", "HEAD")
+    paths.update(l.strip() for l in out.splitlines() if l.strip())
+    paths.update(untracked_files(root))
+    parts = []
+    for rel in sorted(_unquote_git(r) for r in paths):
+        ext = os.path.splitext(rel)[1].lower()
+        if ext not in FINGERPRINT_EXT or rel.startswith("tests/") or "assert_artifacts.py" in rel or "evidence_seal.py" in rel:
+            continue
+        fp = root / rel
+        parts.append(f"{rel}:{hashlib.sha256(fp.read_bytes()).hexdigest() if fp.is_file() else 'gone'}")
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
 
 
 def risk_tier(root):
@@ -245,11 +358,135 @@ def risk_tier(root):
     return []
 
 
-def check(ok: bool, msg: str):
+
+# --- C1/C2 (P1, 2026-10-15): derived task class + evidence media validation
+# fingerprint inputs — SHARED CONTRACT with evidence_seal.py (38 kinds)
+FINGERPRINT_EXT = {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".go", ".rs",
+                   ".java", ".sql", ".c", ".cc", ".cpp", ".h", ".hpp", ".kt",
+                   ".swift", ".php", ".rb", ".cs", ".sh", ".bash", ".bat",
+                   ".ps1", ".toml", ".yaml", ".yml", ".json", ".ini", ".cfg",
+                   ".conf", ".tf", ".tfvars", ".xml", ".css", ".scss", ".sass",
+                   ".less"}
+CODE_KIND_EXT = {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".go", ".rs",
+                 ".java", ".sql", ".c", ".cc", ".cpp", ".h", ".hpp", ".kt",
+                 ".swift", ".php", ".rb", ".cs"}
+CONFIG_KIND_EXT = {".sh", ".bash", ".bat", ".ps1", ".toml", ".yaml", ".yml",
+                   ".json", ".ini", ".cfg", ".conf", ".tf", ".tfvars", ".xml",
+                   ".css", ".scss", ".sass", ".less"}
+DOC_KIND_EXT = {".md", ".txt", ".rst", ".adoc", ".tex", ".docx", ".doc",
+                ".xlsx", ".xls", ".pptx", ".ppt", ".pdf", ".odt", ".ods",
+                ".odp", ".rtf", ".epub"}
+
+
+def derive_class(paths):
+    """C1 (§V11.2 ladder, first match by FILE KIND — never self-recollection):
+    CODE (logic-bearing source, incl. behavior tests) > CONFIG (config/scripts/
+    markup/CI) > DOC (prose · docs/ · memory/ · office assets). Returns
+    (class, summary) or ("", "") when the wave names no classifiable file.
+    Markup lives under CONFIG only when it is NOT under docs/ (design-doc
+    HTML is a DOC asset — §V11.9)."""
+    buckets = {"CODE": [], "CONFIG": [], "DOC": []}
+    for pth in paths:
+        p = pth.replace("\\", "/")
+        ext = os.path.splitext(p)[1].lower()
+        base = os.path.basename(p).lower()
+        if p in ("tests/assert_artifacts.py", "tests/evidence_seal.py"):
+            continue  # tooling copies (fixtures ship them) — not task code
+        if ext in CODE_KIND_EXT:
+            buckets["CODE"].append(pth)
+        elif ext in DOC_KIND_EXT or "/docs/" in "/" + p or p.startswith("docs/") or "/memory/" in "/" + p or p.startswith("memory/"):
+            buckets["DOC"].append(pth)
+        elif ext in CONFIG_KIND_EXT or base in ("dockerfile", "makefile", "jenkinsfile") or p.startswith(".github/"):
+            buckets["CONFIG"].append(pth)
+    for kind in ("CODE", "CONFIG", "DOC"):
+        if buckets[kind]:
+            # counts + kinds only — never file names (S11b: downstream
+            # negative checks scan the output; names also leak paths)
+            exts = sorted({os.path.splitext(x)[1].lower() or os.path.basename(x).lower() for x in buckets[kind]})
+            return kind, f"{len(buckets[kind])} file(s) kinds {'/'.join(exts[:5])}"
+    return "", ""
+
+
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+
+def media_probe(path: pathlib.Path):
+    """C2 (2026-10-15): (ok, detail) — magic-bytes per media kind. A 1-byte
+    'screenshot' named *.png is not evidence (the old st_size>0 check let it
+    through). PNG additionally reports IHDR dimensions."""
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(4096)
+    except OSError as exc:
+        return False, f"unreadable ({exc})"
+    ext = path.suffix.lower()
+    if ext == ".png":
+        if not head.startswith(PNG_MAGIC):
+            return False, "not a PNG (bad magic bytes)"
+        if len(head) < 24 or head[12:16] != b"IHDR":
+            return False, "PNG without IHDR chunk"
+        w, h = __import__("struct").unpack(">II", head[16:24])
+        return True, f"PNG {w}x{h}"
+    if ext == ".webm":
+        ok = head.startswith(b"\x1a\x45\xdf\xa3")
+        return ok, "WebM/EBML" if ok else "not WebM (bad magic bytes)"
+    if ext == ".wav":
+        ok = len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WAVE"
+        return ok, "WAV/RIFF" if ok else "not WAV (bad magic bytes)"
+    if ext in (".mp4", ".m4v", ".mov"):
+        ok = len(head) >= 12 and head[4:8] == b"ftyp"
+        return ok, "MP4/ftyp" if ok else "not MP4 (bad ftyp)"
+    if ext == ".mp3":
+        ok = head.startswith(b"ID3") or (len(head) >= 2 and head[0] == 0xFF and (head[1] & 0xE0) == 0xE0)
+        return ok, "MP3" if ok else "not MP3 (bad magic)"
+    return True, "untyped evidence (existence only)"
+
+
+def png_dims(path: pathlib.Path):
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(24)
+        if not head.startswith(PNG_MAGIC) or len(head) < 24 or head[12:16] != b"IHDR":
+            return None
+        return __import__("struct").unpack(">II", head[16:24])
+    except OSError:
+        return None
+
+
+def script_syntax_check(path: pathlib.Path):
+    """C2: a delivered script must be runnable syntax — non-empty, shebang for
+    shell, then the parser: `bash -n` (.sh), `node --check` (.js/.mjs),
+    py_compile (.py). Returns (ok, detail)."""
+    try:
+        if path.stat().st_size == 0:
+            return False, "empty script (0 bytes)"
+        first = path.read_text(errors="replace").splitlines()[0] if path.stat().st_size else ""
+    except OSError as exc:
+        return False, f"unreadable ({exc})"
+    ext = path.suffix.lower()
+    if ext in (".sh", ".bash") and not first.startswith("#!"):
+        return False, "missing shebang"
+    try:
+        if ext in (".sh", ".bash"):
+            r = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True, timeout=10)
+            return r.returncode == 0, ("syntax ok" if r.returncode == 0 else (r.stderr.strip() or "bash -n failed")[:120])
+        if ext in (".js", ".mjs"):
+            r = subprocess.run(["node", "--check", str(path)], capture_output=True, text=True, timeout=10)
+            return r.returncode == 0, ("syntax ok" if r.returncode == 0 else (r.stderr.strip() or "node --check failed")[:120])
+        if ext == ".py":
+            r = subprocess.run([sys.executable, "-m", "py_compile", str(path)], capture_output=True, text=True, timeout=10)
+            return r.returncode == 0, ("syntax ok" if r.returncode == 0 else (r.stderr.strip() or "py_compile failed")[:120])
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return False, f"checker unavailable ({exc})"
+    return True, "no parser for ext (existence only)"
+
+def check(ok: bool, msg: str, code: str = "", severity: str = "block"):
+    """D4 structured result: every failure carries code/severity/detail so the
+    gate keys on exit code + severity (never prose keywords)."""
     global PASSES
     PASSES += 1
     if not ok:
-        FAILS.append(msg)
+        FAILS.append({"code": code or CUR_GROUP, "severity": severity, "detail": msg})
 
 
 def read(p: pathlib.Path) -> str:
@@ -289,7 +526,13 @@ def main():
                     help="COV-13 task class (§V11): DOC N/A's memory + service-lifecycle groups; CONFIG N/A's memory when the log carries `- memory: na (<why>)`. Default: auto-detect from the `- class: <X> — <basis>` first entry of the task block in tests/verification_log.md")
     ap.add_argument("--final", action="store_true",
                     help="completion-time run (A4.4.1): additionally enforces group 19 — tests/working_note.md must be distilled+deleted (§A7.15). Mid-task / physical-gate runs omit this flag.")
+    ap.add_argument("--json", action="store_true",
+                    help="D4 machine-readable result: print ONLY {ok, passes, fails:[{code,severity,detail}]} on stdout (diagnostics on stderr)")
     args = ap.parse_args()
+
+    def info(msg=""):
+        # --json keeps stdout PURE JSON; diagnostics move to stderr
+        print(msg, file=sys.stderr if args.json else sys.stdout)
 
     root = pathlib.Path(__file__).resolve().parent.parent
 
@@ -315,7 +558,7 @@ def main():
                          f"profile overrides ignored (A4.4.1 profile)")
     KNOWN_PROFILES = ("service", "backend-api", "web-static", "cli", "library")
     if prof_name and prof_name not in KNOWN_PROFILES:
-        print(f"profile: {prof_name} — WARN unknown profile name, preset "
+        info(f"profile: {prof_name} — WARN unknown profile name, preset "
               f"skips not applied; only explicit keys below take effect")
     for k in ("no_service", "no_ui", "no_new_project"):
         if k in prof_cfg and not isinstance(prof_cfg[k], bool):
@@ -343,7 +586,7 @@ def main():
         skips.append("new-project gates N/A")
     if prof_name or skips or any(prof_cfg.get(k) is not None
                                  for k in ("no_service", "no_ui", "no_new_project")):
-        print("profile: " + (prof_name or "custom")
+        info("profile: " + (prof_name or "custom")
               + (" — " + "; ".join(skips) if skips else " — full gates"))
 
     tests = root / "tests"
@@ -359,19 +602,92 @@ def main():
     cls_basis = "--class flag"
     # Multi-block logs: the CURRENT task is the LAST `## ` block — an older
     # block's `- class:` / `- memory: na` is history and licenses nothing here.
-    cur_block = re.split(r"(?m)^(?=## )", vl)[-1] if vl else ""
-    if not cls:
-        m_all = re.findall(r"^-[ \t]*class:[ \t]*(DOC|CONFIG|CODE)[ \t]*[—-][ \t]*(.+)$", cur_block, re.M | re.I)
-        if m_all:
-            cls = m_all[-1][0].upper()
-            cls_basis = "log: - class: " + m_all[-1][0] + " — " + m_all[-1][1].strip()[:60]
-    else:
+    # A trailing non-task `## ` heading must not truncate the current task
+    # (review R-I4) — the task block is the last ITER-BEARING block, same
+    # selection group 20 uses.
+    def _last_iter_block(block_text: str) -> str:
+        _live = []
+        _fence = False
+        for _l in block_text.splitlines():
+            if FENCE.match(_l):
+                _fence = not _fence
+                continue
+            if not _fence:
+                _live.append(_l)
+        _cur = ""
+        for _b in re.split(r"(?m)^(?=## )", "\n".join(_live)):
+            if re.search(r"(?m)^- iter \d+ (?:PASS|FAIL)\b", _b):
+                _cur = _b
+        return _cur or re.split(r"(?m)^(?=## )", block_text)[-1]
+
+    cur_block = _last_iter_block(vl) if vl else ""
+
+    # Fence/quote-aware line filter (dsh 2026-09-30): fenced examples and
+    # blockquoted echoes never license anything (class · render · exec rows).
+    def _live_lines(block: str):
+        in_fence = False
+        out = []
+        for _l in block.splitlines():
+            if FENCE.match(_l):
+                in_fence = not in_fence
+                continue
+            if in_fence or _l.lstrip().startswith(">"):
+                continue
+            out.append(_l)
+        return out
+
+    # Widened class-line grammar (dsh 2026-09-30): indent · list bullets ·
+    # spaced colon · all three dash variants · optional basis — an author must
+    # not hide the FIRST declaration behind a later flush-left line.
+    _class_re = re.compile(
+        r"^\s*(?:[-*]|\d+[.)])?\s*class\s*:\s*(DOC|CONFIG|CODE)\b\s*(?:[—–-]\s*(.+))?$", re.I)
+    m_all = []
+    for _l in _live_lines(cur_block):
+        _m = _class_re.match(_l)
+        if _m:
+            m_all.append((_m.group(1).upper(), (_m.group(2) or "").strip()))
+    _classes = [m[0] for m in m_all]
+    if m_all:
+        # One class per task (§V11.7): FIRST entry is the basis line; a later
+        # DIFFERENT `- class:` is a contradiction/append attempt — escalate by
+        # EDITING the line, never appending (§V11.4#3 只升不降).
+        _dups = [c for c in _classes[1:] if c != _classes[0]]
+        if _dups:
+            group("18")
+            check(False, f"tests/verification_log.md: class contradiction/append — "
+                         f"`- class: {_classes[0]}` then `- class: {_dups[-1]}` in one task block "
+                         f"(one class per task §V11.7; 升类=改写该行非追加，只升不降 §V11.4#3)")
+    if not cls and m_all:
+        cls = _classes[0]
+        cls_basis = "log: - class: " + m_all[0][0] + (" — " + m_all[0][1][:60] if m_all[0][1] else "")
+    if cls and m_all and args.task_class:
         # flag-vs-log cross-check: a contradicting --class must not silently
         # disable the class's own gates (§V11.7 one class per task).
-        m_flag_log = re.findall(r"^-[ \t]*class:[ \t]*(DOC|CONFIG|CODE)\b", cur_block, re.M | re.I)
-        if m_flag_log and m_flag_log[-1].upper() != cls:
-            check(False, f"--class {cls} contradicts the log's `- class: {m_flag_log[-1].upper()}` "
+        group("18")
+        if m_all[0][0] != cls:
+            check(False, f"--class {cls} contradicts the log's `- class: {m_all[0][0]}` "
                          f"in the current task block — one class per task (§V11.7)")
+    # 18b) C1 (P1, BL-15): class DERIVES from the wave diff's file kinds
+    # (§V11.2 ladder). The log/flag class is a CLAIM cross-checked against the
+    # derivation — SWE-bench-Pro-style: never trust the agent's self-report.
+    # Hard whenever the wave names classifiable files (a silent misreport must
+    # not dodge the class's own gates). Zero-declared: derivation fills in.
+    _c1_paths = sorted(set(parse_diff(wave_diff_text(root)).keys()) | set(untracked_files(root)))
+    _derived, _dsum = derive_class(_c1_paths)
+    _rank = {"DOC": 1, "CONFIG": 2, "CODE": 3}
+    if _derived:
+        if not cls:
+            cls = _derived
+            cls_basis = "derived from wave diff: " + _dsum
+        elif _rank.get(cls, 0) < _rank.get(_derived, 0):
+            # FAIL only the LENIENT direction (a code wave claiming DOC dodges
+            # the class's gates); an over-strict declaration merely runs more
+            # gates and is never a misreport in the harmful direction.
+            group("18")
+            check(False, f"task class mismatch (C1): the wave diff's file kinds derive {_derived} "
+                         f"({_dsum}) but this task claims the MORE LENIENT `class: {cls}` "
+                         f"({cls_basis}) — restate `- class:` honestly or move the offending "
+                         f"files out of the wave")
     class_skip_memory = (cls == "DOC" and not re.search(
         r"^- iter \d+ FAIL|^- stall:|cap-hit", cur_block, re.M)) or (
         cls == "CONFIG" and bool(re.search(r"^-[ \t]*memory:[ \t]*na[ \t]*\(", cur_block, re.M | re.I)))
@@ -393,65 +709,140 @@ def main():
                   ["ls-files", "--others", "--exclude-standard"]):
         _rc, _out = _git(root, *_args)
         for _line in _out.splitlines():
-            _line = _line.strip()
-            if not _line or _line.startswith("D"):
+            if not _line.strip():
                 continue
-            _parts = _line.split("\t")
-            if len(_parts) >= 2:
-                _paths.add(_parts[-1])
+            if "\t" in _line:
+                # name-status row: the STATUS column carries deletions — only
+                # THERE does `D` mean "not a delivery" (dsh 2026-09-30 C-fix:
+                # a bare path starting with `D` is a delivery). Rename/copy
+                # rows (`R100\told\tnew`) deliver the LAST field.
+                _status, _, _rest = _line.partition("\t")
+                if _status.strip().startswith("D"):
+                    continue
+                if _rest:
+                    _paths.add(_unquote_git(_rest.split("\t")[-1]))
+            else:
+                # `git ls-files --others` prints bare single-column paths — a
+                # tab-less line IS the path, not a malformed name-status row.
+                _paths.add(_unquote_git(_line))
     _wave_assets = sorted(p for p in _paths if _asset_re.search(p))
-    _render_lines = [l for l in cur_block.splitlines()
-                     if re.match(r"^[\s>*+—–-]*\s*render:", l, re.I) and not l.lstrip().startswith(">")]
+    _render_lines = [l for l in _live_lines(cur_block) if re.match(r"^\s*(?:[-*]\s+)?render\s*:", l, re.I)]
     _toolchain_re = re.compile(r"soffice|libreoffice|pymupdf|pdftoppm|poppler|imagemagick", re.I)
 
     def _line_ok(_l):
-        _pngs = [f for f in re.findall(r"tests/(\S+\.(?:png|webm))", _l)
-                 if not os.path.basename(f).lower().startswith("probe_vision.")]
-        _on_disk = any((tests / f).exists() and (tests / f).stat().st_size > 0 for f in _pngs)
-        _na = bool(re.search(r"N/A", _l, re.I)) and bool(_toolchain_re.search(_l)) and "<" not in _l
-        return _on_disk or _na
+        # dsh §V11.9 binding: EVERY cited image must exist non-empty under
+        # tests/ (no path escapes — one real png cannot launder a fabricated
+        # co-citation); N/A only for rows citing NO images. Mainline C2/BL-14
+        # on top: real media magic + IHDR >= 320x200 for render PNGs.
+        _pngs = []
+        for f in re.findall(r"tests/([\w./-]*[\w-]+\.(?:png|webm))", _l, re.I):
+            if os.path.basename(f).lower().startswith("probe_vision."):
+                continue
+            _norm = os.path.normpath(f)
+            if _norm.startswith("..") or os.path.isabs(_norm):
+                return False
+            _pngs.append(_norm)
+        if not _pngs:
+            return bool(re.search(r"N/A", _l, re.I)) and bool(_toolchain_re.search(_l)) and "<" not in _l
+        for _f in _pngs:
+            _p = tests / _f
+            if not (_p.exists() and _p.stat().st_size > 0):
+                return False
+            _ok_m, _det = media_probe(_p)
+            if not _ok_m:
+                return False
+            if _p.suffix.lower() == ".png":
+                _d = png_dims(_p)
+                if not _d or _d[0] < 320 or _d[1] < 200:
+                    return False
+        return True
+
+    _split_re = re.compile(r"\s+[—–-]\s+")
+
+    def _declared_of(_l):
+        _m = re.match(r"^\s*(?:[-*]\s+)?(?:render|exec-check)\s*:\s*", _l, re.I)
+        if not _m:
+            return None
+        _rest = _l[_m.end():]
+        return _split_re.split(_rest, maxsplit=1)[0].strip().strip('`"\'') or None
 
     def _named(_p, _l):
-        _base = os.path.basename(_p).lower()
-        _stem = os.path.splitext(_base)[0]
-        return _base in _l.lower() or (len(_stem) >= 4 and _stem in _l.lower())
+        # dsh §V11.9 per-asset binding: the row must DECLARE this asset — the
+        # token before the first spaced dash separator, normpath-compared.
+        _d = _declared_of(_l)
+        if not _d:
+            return False
+        _p_norm = os.path.normpath(_p.replace("\\", "/")).replace("\\", "/")
+        _d_norm = os.path.normpath(_d.replace("\\", "/")).replace("\\", "/")
+        if _p_norm == _d_norm:
+            return True
+        if "/" in _d_norm:
+            return False
+        if os.path.basename(_p_norm).lower() != _d_norm.lower():
+            return False
+        _same = [a for a in _wave_assets
+                 if os.path.basename(a.replace("\\", "/")).lower() == _d_norm.lower()]
+        return len(_same) <= 1
 
     _uncovered = [p for p in _wave_assets
                   if not any(_named(p, l) and _line_ok(l) for l in _render_lines)]
+    # 17a) §V11.9 DOC-asset render gate (NO RENDER, NO DONE)
+    group("17a")
     if _uncovered:
         check(False, f"§V11.9 DOC-asset render gate: {_uncovered[0]} delivered without bound render "
-                     "evidence — add `render: <asset> — <existing page images>` or `render: <asset> — "
-                     "N/A (<missing tool>)` to the log (NO RENDER, NO DONE)")
+                     "evidence — add `render: <asset> — <existing page images>` or "
+                     "`render: <asset> — N/A (soffice missing)` (name the CONCRETE missing tool — "
+                     "soffice|libreoffice|pymupdf|pdftoppm|poppler|imagemagick — never a placeholder) "
+                     "to the log (NO RENDER, NO DONE)")
     # 17b) §V11.9 exec-check: delivered office assets need the named
+    group("17b")
     # executable-behavior check recorded (vbaProject/PDF JS/macro sheet).
-    _exec_lines = [l for l in cur_block.splitlines() if re.match(r"^[\s>*-]*\s*exec-check:", l, re.I)]
+    _exec_lines = [l for l in _live_lines(cur_block) if re.match(r"^\s*(?:[-*]\s+)?exec-check\s*:", l, re.I)]
+
+    def _exec_ok(_l):
+        # verdict is the token AFTER the separator — "unclean"/"not clean"
+        # never certifies (substring 'clean' launders it otherwise).
+        _parts = _split_re.split(_l, maxsplit=1)
+        if len(_parts) < 2:
+            return False
+        _verdict = _parts[1].strip().lower()
+        return bool(re.match(r"clean\b", _verdict) or re.match(r"escalat", _verdict))
+
     _exec_uncovered = [p for p in _wave_assets
-                       if not any(_named(p, l) and re.search(r"clean|escalat", l, re.I) for l in _exec_lines)]
+                       if not any(_named(p, l) and _exec_ok(l) for l in _exec_lines)]
     if _exec_uncovered:
         check(False, f"§V11.9 exec-check: {_exec_uncovered[0]} delivered without a recorded "
                      "executable-behavior check — add `exec-check: <asset> — clean` or "
                      "`exec-check: <asset> — escalated → Class CODE` (vbaProject.bin / PDF JS / macro sheet)")
     if cls:
-        print(f"class: {cls} — {cls_basis}"
+        info(f"class: {cls} — {cls_basis}"
               + ("; group 4 N/A (no lesson / docs-only wave)" if class_skip_memory else "")
               + ("; group 5 N/A (no service lifecycle in a DOC wave)" if class_skip_service else ""))
 
     # 1) verification_log — exists, has >=1 standard iteration entry (COV-1)
+    group("1")
     check(vl and len(vl.strip()) > 0, "tests/verification_log.md missing or empty (COV-1)")
-    check(bool(re.search(r"^- iter \d+ (PASS|FAIL):", vl, re.M)),
+    check(bool(re.search(r"^- iter \d+ (PASS|FAIL)\b", vl, re.M)),
           "verification_log.md has no `- iter N PASS/FAIL:` entries (A4.1 Step 4)")
 
     # 2) acceptance.md — exists, first line cap/stall stop-condition (COV-7)
+    group("2")
     check(bool(re.search(r"^>\s*cap=5\s+stall=3", acc, re.M)),
           "tests/acceptance.md missing first line `> cap=5  stall=3×` (COV-7)")
 
     # 3) screenshots cited in the log files must exist >0 bytes (A4.4)
-    for png in re.findall(r"tests/(\S+\.png)", vl + "\n" + acc):
+    #    C2 (P1): + magic bytes — a 1-byte file named *.png is not evidence
+    group("3")
+    for png in re.findall(r"tests/(\S+\.png)", vl + "\n" + acc, re.I):
         p = tests / png
-        check(p.exists() and p.stat().st_size > 0,
-              f"screenshot claimed but missing/empty: tests/{png} (A4.4)")
+        if not (p.exists() and p.stat().st_size > 0):
+            check(False, f"screenshot claimed but missing/empty: tests/{png} (A4.4)")
+            continue
+        ok_media, detail = media_probe(p)
+        check(ok_media, f"screenshot tests/{png} is not a real PNG: {detail} (C2 media magic)")
 
     # 4) memory — MEMORY.md + >=1 topic file + index pointers (A7.9/A7.10)
+    group("4")
     #    Class DOC / lesson-less CONFIG: N/A (§V11.3 lesson-triggered) —
     #    printed above as `class: … group 4 N/A` gate evidence.
     if not class_skip_memory:
@@ -467,6 +858,7 @@ def main():
                   "memory/: at least one topic file besides MEMORY.md (A7.9)")
 
     # 4b) trigger literal-prefix lint (§A7.16) — a trigger glob whose literal
+    group("4b")
     #     leading path no longer exists in the repo is a SILENT non-delivery
     #     (same failure class as a stale reference, A7.6 rule 8). Globs
     #     starting with `**` carry no literal prefix and are exempt. Runs
@@ -512,6 +904,7 @@ def main():
                           f"memory/{topic.name}: trigger {glob_pat!r} — literal prefix {prefix!r} no longer exists in the repo (stale trigger = silent non-delivery, §A7.16)")
 
     # 5) scripts — start/stop/restart (+ project_build unless no-UI) (A2/COV-2)
+    group("5")
     #    exec-bit is only meaningful on POSIX; on Windows .sh files ride along
     #    and only their existence is enforceable.
     #    Profiles (cli/library/web-static) skip this group — structurally N/A
@@ -531,8 +924,26 @@ def main():
         if not backend_only:
             bp = root / "script" / "linux" / "project_build.sh"
             check(bp.exists(), "script/linux/project_build.sh missing (A2; use --backend-only if no UI)")
+    # 5b) C2 (P1): delivered scripts must be runnable syntax — non-empty,
+    #     shebang on shell, parser-clean (bash -n / node --check / py_compile).
+    group("5b")
+    if not no_service and not class_skip_service:
+        seen_scripts = set()
+        for sdir in (root / "script",):
+            if not sdir.exists():
+                continue
+            for sp in sorted(sdir.rglob("*"))[:80]:
+                if not sp.is_file() or sp.suffix.lower() not in (".sh", ".bash", ".bat", ".js", ".mjs", ".py"):
+                    continue
+                if "assert_artifacts.py" in sp.name:
+                    continue
+                seen_scripts.add(sp)
+        for sp in sorted(seen_scripts):
+            ok_syn, syn_detail = script_syntax_check(sp)
+            check(ok_syn, f"{sp.relative_to(root)} fails script syntax check: {syn_detail} (C2)")
 
     # 6) git — new projects: repo exists with >=2 commits (C1 step 1/15, A9)
+    group("6")
     if not existing:
         try:
             r = subprocess.run(["git", "-C", str(root), "log", "--oneline"],
@@ -545,6 +956,7 @@ def main():
               f"new-project git repo needs >=2 commits (init + final); found {n_commits} (C1 step 1/15)")
 
     # 7) §A5 design docs — new projects (skipped with --existing) (A5 / C1 step 2)
+    group("7")
     if not existing:
         for doc in ["FLOW_DESIGN.html", "DATABASE_DESIGN.html", "BACKEND_DESIGN.html"]:
             check((root / doc).exists(), f"new-project design doc missing: {doc} (A5 / C1 step 2)")
@@ -553,6 +965,7 @@ def main():
                   "new-project design doc missing: PAGE_DESIGN.html (A5; use --backend-only if no UI)")
 
     # 8) README + requirements — new projects (skipped with --existing) (C1 step 15)
+    group("8")
     if not existing:
         check(any((root / n).exists() for n in ["README.md", "README.html"]),
               "new-project README.md/README.html missing (C1 step 15)")
@@ -560,30 +973,48 @@ def main():
               "new-project requirements.txt/package.json missing (C1 step 15)")
 
     # 9) COV-9 — Modify-Existing tasks: baseline verdict recorded on disk (COV-9)
+    group("9")
     #    State-skip is a Class DOC license; CONFIG/CODE run the baseline (§V11.3) —
     #    their skip must name a mid-task escalation, never "documentation-only".
     if existing:
-        baseline_line = bool(re.search(r"Baseline verified GREEN", vl, re.M))
-        escalation_skip = bool(re.search(r"COV-9 skipped[^\n]*escalat", vl, re.M | re.I))
-        doc_skip = bool(re.search(r"COV-9 skipped", vl, re.M)) and cls in ("DOC", "")
-        check(baseline_line or escalation_skip or doc_skip,
-              "tests/verification_log.md missing `- Baseline verified GREEN` (COV-9); "
-              "`- COV-9 skipped —` licenses Class DOC only — CONFIG/CODE run the baseline "
-              "or name an escalation (§V11.3)")
+        # Review B5: scoped to the CURRENT task block — one historical green
+        # baseline must never license every later change-wave ("EVERY
+        # change-wave gets its own three lines", COV-9).
+        baseline_line = bool(re.search(r"Baseline verified GREEN", cur_block, re.M))
+        # Review B6: the THIRD COV-9 literal (pre-existing failures) now has a
+        # machine-recognized form — "Baseline has N pre-existing failures" plus
+        # a named disposition (awaiting decision / quarantined / escalation / ADR).
+        red_baseline = bool(re.search(r"Baseline has \d+ pre-existing failures", cur_block, re.M)) and bool(
+            re.search(r"awaiting decision|quarantin|escalat|ADR", cur_block, re.I))
+        escalation_skip = bool(re.search(r"COV-9 skipped[^\n]*escalat", cur_block, re.M | re.I))
+        # Review B5: the DOC state-skip is licensed only by an EXPLICIT
+        # `- class: DOC` — an unlabeled task block is not a DOC task.
+        doc_skip = bool(re.search(r"COV-9 skipped", cur_block, re.M)) and cls == "DOC"
+        check(baseline_line or red_baseline or escalation_skip or doc_skip,
+              "current task block missing the COV-9 baseline verdict (per change-wave): "
+              "`- Baseline verified GREEN`, or `- Baseline has N pre-existing failures` with a "
+              "named disposition, or `- COV-9 skipped —` (Class DOC only) / an escalation (§V11.3)")
 
     # 10) A4.7b — workflow traces cited in the log must exist >0 bytes (A4.7b)
+    group("10")
     for wf in re.findall(r"tests/workflows/(\S+?\.trace\.log)", vl):
         p = tests / "workflows" / wf
         check(p.exists() and p.stat().st_size > 0,
               f"workflow trace claimed but missing/empty: tests/workflows/{wf} (A4.7b)")
 
     # 11) A4.1 — video/audio evidence cited in the log must exist >0 bytes (A4.1 Step 2/3)
-    for m in re.findall(r"tests/(\S+\.(?:webm|wav|mp4|mp3))", vl):
+    #     C2 (P1): + magic bytes per kind (webm/wav/mp4/mp3)
+    group("11")
+    for m in re.findall(r"tests/(\S+\.(?:webm|wav|mp4|mp3))", vl, re.I):
         p = tests / m
-        check(p.exists() and p.stat().st_size > 0,
-              f"media evidence claimed but missing/empty: tests/{m} (A4.1)")
+        if not (p.exists() and p.stat().st_size > 0):
+            check(False, f"media evidence claimed but missing/empty: tests/{m} (A4.1)")
+            continue
+        ok_media, detail = media_probe(p)
+        check(ok_media, f"media evidence tests/{m} has wrong format: {detail} (C2 media magic)")
 
     # 12) FAIL diagnosis clause — every failed iteration must carry its diagnosis
+    group("12")
     #     (A4.1 Step 4 — a retry without its diagnosis is the same attempt again)
     for i, line in enumerate(vl.splitlines(), 1):
         if re.match(r"^- iter \d+ FAIL:", line.strip()):
@@ -591,6 +1022,7 @@ def main():
                   f"verification_log.md line {i}: FAIL entry lacks `diagnosis:` clause (A4.1 Step 4)")
 
     # 12b) diagnosis substance (log-format lint) — the diagnosis must be one
+    group("12b")
     #      falsifiable clause, not a placeholder token (§A4.1 Step 4). The
     #      capture runs to the `| changed:` field (not the first `|`) so a
     #      diagnosis mentioning alternation is not truncated into a false
@@ -604,28 +1036,64 @@ def main():
                       f"verification_log.md line {i}: FAIL diagnosis is a placeholder — one falsifiable clause required (A4.1 Step 4 log lint)")
 
     # 13) claim-without-coverage — a verification claim must state what it covered
+    group("13")
     #     (A4.4 Gate Function — "verified" without a stated scope is not a result)
     for i, snippet in claim_without_coverage(vl):
         check(False,
               f"verification_log.md line {i}: claim without stated coverage — {snippet!r} (A4.4 claim rule)")
 
     # 14) secret scan — the change-wave diff / untracked files must not ADD
+    group("14")
     #     credential-looking lines (.md warn-only; placeholder-marked exempt)
-    s14_fails, s14_warns = secret_scan(root, vl)
+    s14_fails, s14_warns = secret_scan(root, cur_block)
     for w in s14_warns:
-        print("WARN " + w)
+        warn(w, "14")
     for f in s14_fails:
         check(False, f)
 
     # 15) test-change guard — removed test assertions need a logged reason
-    for f in test_change_guard(root, vl):
+    group("15")
+    for f in test_change_guard(root, cur_block):
         check(False, f)
 
+    # 15b) C3 (P1, BL-11/12): evidence manifest — tamper + freshness.
+    #     The manifest is written ONLY by scripts/evidence_seal.py; a hash
+    #     mismatch means the evidence changed after sealing, and a stale
+    #     code_fingerprint means the evidence predates later code changes
+    #     ("先造证据后改代码"). At completion (--final) cited media must be
+    #     sealed at all (missing != success - Agent Evidence spec).
+    group("15b")
+    _man_p = tests / "evidence_manifest.json"
+    if _man_p.exists():
+        try:
+            _man = json.loads(read(_man_p) or "{}")
+        except Exception:
+            _man = {}
+        for _rel, _meta in sorted((_man.get("files") or {}).items()):
+            _fp = root / _rel
+            if not _fp.is_file():
+                check(False, f"sealed evidence missing: {_rel} (evidence_manifest) - evidence deleted after seal (C3)")
+                continue
+            _cur = hashlib.sha256(_fp.read_bytes()).hexdigest()
+            check(_cur == (_meta or {}).get("sha256"),
+                  f"sealed evidence {_rel} hash mismatch (C3 tamper) - the file changed after "
+                  f"scripts/evidence_seal.py sealed it; re-run the covering tests and re-seal")
+        check(code_fingerprint(root) == _man.get("code_fingerprint"),
+              "sealed evidence is STALE (C3 freshness) - wave code changed after evidence_seal.py "
+              "ran; re-run the covering tests and re-seal (missing != success)")
+    elif args.final:
+        _cited_media = re.findall(r"tests/(\S+\.(?:png|webm|wav|mp4|mp3))", vl, re.I)
+        if _cited_media:
+            check(False, f"cited media evidence is not sealed (C3) - run `python3 scripts/evidence_seal.py` "
+                         f"(writes tests/evidence_manifest.json; {len(set(_cited_media))} file(s) cited)")
+
     # 16) risk-tier — risk-tier code paths require the A4.9 review package
+    group("16")
     for f in risk_tier(root):
         check(False, f)
 
     # 19) working-note lifecycle (--final only) — the task working memory is a
+    group("19")
     #     scratch artifact: distilled into memory/ (A7.9) and deleted BEFORE
     #     the completion table; a leftover means an undistilled lesson or a
     #     zombie state file leaking into the next task (§A7.15)
@@ -634,6 +1102,7 @@ def main():
               "tests/working_note.md still present at completion — distill into memory/ (A7.9) and delete it first (§A7.15 working-note lifecycle)")
 
     # 20) working-note creation side (§A7.15) — group 19 checks the note is
+    group("20")
     #     GONE at completion; this group checks it EXISTED during the work.
     #     Fence-aware (a quoted example launders nothing) and scoped to the
     #     LAST ITER-BEARING block — a trailing non-task `## ` heading must not
@@ -650,11 +1119,11 @@ def main():
     blocks = re.split(r"(?m)^(?=## )", "\n".join(live))
     cur = ""
     for _b in blocks:
-        if re.search(r"(?m)^- iter \d+ (?:PASS|FAIL):", _b):
+        if re.search(r"(?m)^- iter \d+ (?:PASS|FAIL)\b", _b):
             cur = _b
     if cur:
-        iters = len(re.findall(r"(?m)^- iter \d+ (?:PASS|FAIL):", cur))
-        has_fail = bool(re.search(r"(?m)^- iter \d+ FAIL:", cur))
+        iters = len(re.findall(r"(?m)^- iter \d+ (?:PASS|FAIL)\b", cur))
+        has_fail = bool(re.search(r"(?m)^- iter \d+ FAIL\b", cur))
         if iters >= 2 or has_fail:
             check(bool(re.search(r"(?m)^- working-note:\s*\S", cur)),
                   "verification_log.md current task block: ≥2 iterations / a FAIL without "
@@ -662,13 +1131,20 @@ def main():
                   "or a stated `- working-note: na (<why>)` (§A7.15 creation side)")
 
     if GIT_TIMEOUT:
-        print("WARN groups 14-16: a git call timed out — content gates ran "
-              "on partial data (fail-open); re-run to confirm")
+        warn("groups 14-16: a git call timed out — content gates ran "
+             "on partial data (fail-open); re-run to confirm", "git")
 
+    all_fails = list(FAILS) + [{"code": w.get("code", CUR_GROUP), "severity": "warn", "detail": w.get("detail", str(w))} for w in WARN_LINES]
+    if args.json:
+        ok = not FAILS  # warns never flip ok (advisory by definition)
+        print(json.dumps({"ok": ok, "passes": PASSES, "fails": all_fails}))
+        sys.exit(0 if ok else 1)
+    for w in WARN_LINES:
+        print("WARN " + w.get("detail", str(w)))
     if FAILS:
         print("ASSERT FAILURES (%d):" % len(FAILS))
         for f in FAILS:
-            print("  - " + f)
+            print("  - " + f["detail"])
         sys.exit(1)
     print(f"assert_artifacts.py: all {PASSES} checks pass (exit 0)")
 

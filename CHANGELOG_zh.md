@@ -2,6 +2,18 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-15b：硬化波收口 — P0-P1 证据真实性 + 文本架构债清偿
+
+**缺口。** 外部评审（34f4b84）× SOTA 对标给出 16 项发现、四类伤害：插件边界（loop-guard 在普通目录也跑、把用户/工具/代码围栏文本当模型输出；纠正提示携带完成标记字面量=自锁；他会话一写就清 RED 锁；`tests/../src/x` 与符号链接测试路径逃逸写门禁）、门禁诚实（BLOCKING_HINTS 关键词分类让无关键词失败行通过=fail-open；python 缺失/崩溃/超时/占位检查器静默 PASS）、证据真实性（class 取日志自述、1 字节"截图"、证据早于被验代码、测试削弱对 diff 窗口不可见、探测答案快哈希可离线穷举、backlog 提及当测试跑）、git 安全（`git add -A` 把用户未跟踪文件扫进备份提交）。
+
+**机制。** W1/W3：loop-guard 作用域门（acceptance.md 或 skill）+ assistant 专属语料（剔用户/插件注入/代码围栏；工具结果比对使轮询≠循环；用户输入衰减预算）+ 路径规范化（祖先 realpath + 悬挂 symlink readlink）+ 删 stale-session 释放；COV-9 改 tracked-only（`git add -u && git commit --allow-empty`）。W2：`assert_artifacts --json`（code/severity/detail）+ fail-closed 门禁（检查不可执行=BLOCK，legacy 散文副本同样 fail-closed）+ 依赖集结果缓存（wave-diff 感知）+ 媒体 magic/脚本语法校验 + `evidence_seal.py` 封册（sha256 + 代码指纹：篡改与"先造证据后改代码"都 FAIL）+ skip/xfail/配置改动守卫与封册基线 + 探测答案整 token PBKDF2（28^10×200k）+ backlog 执行证据。P3-E2：gate line 单源（T39 锁定）+ §A7 三处撞车全局重编号（memory=§A7、communication=§A8、模板挂族号）+ lesson-triggered 记忆义务 + COV-13 计划先行。W5-F：mini 多 runner + 撤掉绕过配方（测试改动要 `- test-change:`）+ cap=5/stall=3× + `script/check.sh` 标志。W4：polyglot 三件套题面、测试定位限测试补丁、每 run mktemp 工作目录 + 独立 HOME + web 禁网、peek-check 污染打标。W6：CI 增 node harness、安装走 install.sh。
+
+**验证。** audit_selftest 324/0（T36 自锁、T37 锁逃逸、T38 作用域/语料、T39 源卫生+单源）、mutation sweep 41/0、gate fail-closed 23/23（评审 5 场景全 BLOCK）、assert fixtures 26/26、scan_secrets 24/24、backlog 5/5、mm_probe 往返、mini 10/10、repo verify_skill 9 checks + unittest 56/56；两轮对抗评审（2 Critical + 12 Important 修复）+ 复审 + FCV；四副本逐字节一致（24 文件 payload 含新 evidence_seal.py）。
+
+## 2026-10-15a：评审路线的盲区台账
+
+评审路线（docs/PLAN_review_improvement_20261015.md）随附实施级盲区台账（BL-1..BL-26）：评审 11 项 FP 语料不在树内（合成语料替代验收）、缓存键必须覆盖 wave-diff 面、符号链接文件需整路径解析、v2 事件面无 role（身份排除闭合自锁，用户伪造标记是命名残留）、树内检查器可伪造=命名信任模型（防懒惰伪造，根治归封册波）。上述修复逐条按台账落地。
+
 ## 2026-10-14c: loop-guard 身份层 + 频率层 —— 工具调用风暴自动停止
 
 **缺口。** 一次会话里同一条 MCP 调用 `weave-connector_ssh_shell_open [profile=newsrv, name=p01c]` 连发约 450 次、零夹杂文本——所有停止机制全部沉默。tool 通道只有一个检测器（`noop-bash`，仅 bash：`t.tool !== "bash"` 即断），文本检测器全是字节级，而"相邻相同工具调用"是 D-5 已知接受的盲区（D-5 拒绝的是*折叠*相同观测——理由充分——但身份*检测*从未建过）。

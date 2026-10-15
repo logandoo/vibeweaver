@@ -1,8 +1,12 @@
 ---
 name: vibeweaver-mini
 description: |
-  MANDATORY for every coding task: run the checker, fix the first failure, repeat
-  until it prints ALL CHECKS PASS. Do not claim done before that line.
+  Small-change deterministic loop ONLY: run the checker, fix the first failure,
+  repeat until it prints ALL CHECKS PASS; do not claim done before that line.
+  Trigger for SMALL single-path code changes (one file / one failing check).
+  NOT for multi-file features, scaffolding, deploys or debugging sessions —
+  those run the vibeweaver skill. NOT for question answering, explanation or
+  pure consulting — neither skill runs for those.
 ---
 
 # Mini — the deterministic loop

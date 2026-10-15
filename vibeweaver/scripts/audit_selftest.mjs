@@ -8,7 +8,8 @@
 // informational (printed, not failed) — it exists to tune regexes.
 
 import { execFileSync } from "node:child_process"
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs"
+import os from "node:os"
 import { pathToFileURL } from "node:url"
 import path from "node:path"
 
@@ -43,6 +44,10 @@ function newFixture(name) {
   const root = path.join(TMP, name)
   rmSync(root, { recursive: true, force: true })
   for (const d of ["tests/workflows", "memory", "script/linux"]) mkdirSync(path.join(root, d), { recursive: true })
+  // D1 project gate (2026-10-15): fixtures are vibeweaver-ACTIVE projects —
+  // the loop-guard runs only with tests/acceptance.md present or the skill
+  // activated. Tests probing the inactive state build their own fixture.
+  write(root, "tests/acceptance.md", "> cap=5  stall=3×\n1. fixture\n")
   return root
 }
 
@@ -87,9 +92,11 @@ function scaffoldComplete(root) {
   ].join("\n")
   write(root, "tests/verification_log.md", log)
   write(root, "tests/acceptance.md", "> cap=5  stall=3×\n\n# Acceptance — Fixture\n1. Username field exists\n2. No error banner\n")
-  write(root, "tests/shot.png", "png-bytes")
-  write(root, "tests/flow.mp4", "mp4-bytes")
-  write(root, "tests/flow_audio.wav", "wav-bytes")
+  // C2 (P1) media fixtures must be FORMAT-VALID (magic bytes) — the checks
+  // now reject 1-byte pseudo-screenshots by design
+  write(root, "tests/shot.png", Buffer.from("89504e470d0a1a0a0000000d4948445200000280000001900806000000" + "00".repeat(32), "hex"))
+  write(root, "tests/flow.mp4", Buffer.from("00000018667479706d703432" + "00".repeat(24), "hex"))
+  write(root, "tests/flow_audio.wav", Buffer.from("524946462400000057415645666d7420" + "00".repeat(24), "hex"))
   write(root, "tests/workflows/login.trace.log", "step1 201 ok\nstep2 201 ok\nstep3 200 ok\n")
   write(root, "memory/MEMORY.md", "# Project Memory Index\n- [fix fixture](fix_fixture.md)\n")
   write(root, "memory/fix_fixture.md", "# Fix Fixture\nstatus: ⏳\n")
@@ -614,8 +621,11 @@ async function latchRed(plugin, sessionId, root) {
 // callers asserting a block must check for GATE-BLOCKED, so an unexpected
 // error (test bug) can never masquerade as a pass.
 async function tryWrite(plugin, root, relPath, sessionId) {
+  // "RAW:" prefix bypasses path.join normalization — the adversarial path
+  // (tests/../src/a.js) must reach the plugin exactly as a hostile tool arg.
+  const filePath = relPath.startsWith("RAW:") ? root + "/" + relPath.slice(4) : path.join(root, relPath)
   try {
-    await plugin["tool.execute.before"]({ tool: "write", sessionID: sessionId, args: { filePath: path.join(root, relPath) } })
+    await plugin["tool.execute.before"]({ tool: "write", sessionID: sessionId, args: { filePath } })
     return true
   } catch (e) {
     return e.message
@@ -631,8 +641,9 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   const aResult = await tryWrite(plugin, root, "src/a.ts", "ses_t16_a")
   const aBlocked = typeof aResult === "string" && /GATE-BLOCKED/.test(aResult)
   rec("T16 latching session stays blocked (in-session teeth)", aBlocked, aBlocked ? "A blocked" : "A NOT blocked — teeth lost: " + aResult)
-  const bAllowed = (await tryWrite(plugin, root, "src/b.ts", "ses_t16_b")) === true
-  rec("T16 different session write auto-releases latch", bAllowed, bAllowed ? "takeover unblocked" : "deadlock — B still blocked")
+  const bResult = await tryWrite(plugin, root, "src/b.ts", "ses_t16_b")
+  const bBlocked = typeof bResult === "string" && /GATE-BLOCKED/.test(bResult)
+  rec("T16 different session write does NOT release latch (D3: stale-session release removed)", bBlocked, bBlocked ? "takeover blocked — lock survives foreign writes" : "LATCH LOST on foreign write: " + bResult)
 }
 
 // ---- T17: nested test dir (dev/tests/) stays writable while self-RED ----
@@ -670,21 +681,26 @@ async function tryWrite(plugin, root, relPath, sessionId) {
 {
   const root = newFixture("t19-trail")
   write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+  write(root, "t19-config.json", JSON.stringify({ redTtlHours: -1 })) // force-expire (age > -1h): avoids the age=0 ms race of 0
   const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
   const emit = (type, props) => plugin.event({ event: { type, properties: props } })
   // A latches RED.
   await emit("message.part.updated", { sessionID: "ses_t19_a", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
   await emit("message.part.updated", { sessionID: "ses_t19_a", part: { id: "t1", type: "text", text: "Verifier: mm-sensor [image]\n[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1" } })
   await emit("session.idle", { sessionID: "ses_t19_a" })
-  // B loads the skill; B's write releases A's latch; B then reports.
+  // D3: a foreign write alone no longer releases (T16 pins that). Exercise the
+  // release JOURNAL through a legitimate reason — redTtlHours:0 expires the
+  // latch at B's write (ttl-expiry), and B's report surfaces the trail.
   await emit("message.part.updated", { sessionID: "ses_t19_b", part: { id: "k2", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root, "t19-config.json")
   const bAllowed = (await tryWrite(plugin, root, "src/b.ts", "ses_t19_b")) === true
+  delete process.env.VIBEWEAVER_AUDIT_CONFIG
   await emit("message.part.updated", { sessionID: "ses_t19_b", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: direct read | Loop executed: no | Iterations: 0" } })
   await emit("session.idle", { sessionID: "ses_t19_b" })
   const sp = path.join(root, ".vibeweaver", "audit-state.json")
   const st = JSON.parse(readFileSync(sp, "utf8"))
   const rel = st.roots[root] && st.roots[root].redReleases
-  rec("T19 release recorded in state (redReleases)", bAllowed && Array.isArray(rel) && rel.length >= 1, `releases=${rel ? rel.length : 0}`)
+  rec("T19 release recorded in state (redReleases)", bAllowed && Array.isArray(rel) && rel.length >= 1 && rel[rel.length - 1].reason === "ttl-expiry", `releases=${rel ? rel.length : 0} last=${rel && rel.length ? rel[rel.length - 1].reason : "none"}`)
   const report = existsSync(path.join(root, "tests", "gate_audit.md")) ? readFileSyncSafe(path.join(root, "tests", "gate_audit.md")) : ""
   rec("T19 release trail surfaced in report footer", /## Stale RED releases/.test(report), /## Stale RED releases/.test(report) ? "footer present" : "footer missing")
 }
@@ -1466,10 +1482,15 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   await latchRed(plugin, "ses_t30", root)
   // Age the latch 1h on disk and reload it into a fresh machine instance,
   // so a ts refresh (Date.now()) is unambiguous even within one millisecond.
+  // The acceptance.md is backdated BEFORE the aged latch ts: this scenario is
+  // "same task still open" — a pre-latch acceptance must never look like the
+  // new-task release key (its mtime is compared against latch.ts).
   const sp = path.join(root, ".vibeweaver", "audit-state.json")
   const st0 = JSON.parse(readFileSync(sp, "utf8"))
   st0.roots[root].red.ts = Date.now() - 3_600_000
   writeFileSync(sp, JSON.stringify(st0))
+  const old = new Date(Date.now() - 2 * 3600 * 1000)
+  utimesSync(path.join(root, "tests", "acceptance.md"), old, old)
   const plugin2 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
   const ts0 = JSON.parse(readFileSync(sp, "utf8")).roots[root].red.ts
   // idle on the RELOADED machine (it holds the aged latch); plugin1's
@@ -1482,8 +1503,13 @@ async function tryWrite(plugin, root, relPath, sessionId) {
     !!st1.red && st1.red.ts === ts0,
     st1.red ? (st1.red.ts === ts0 ? "ts preserved" : `ts refreshed ${ts0} -> ${st1.red.ts}`) : "latch vanished"
   )
-  // A different session takes over; then the original session idles again.
+  // A different session takes over after a legal release (D3: foreign writes
+  // don't release — redTtlHours:-1 force-expires the latch); then the original
+  // session idles again — the released latch must NOT resurrect.
+  write(root, "t30-config.json", JSON.stringify({ redTtlHours: -1 }))
+  process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root, "t30-config.json")
   await tryWrite(plugin2, root, "src/b.ts", "ses_t30_b")
+  delete process.env.VIBEWEAVER_AUDIT_CONFIG
   await emit2("session.idle", { sessionID: "ses_t30" })
   const st2 = JSON.parse(readFileSync(sp, "utf8")).roots[root]
   rec(
@@ -1529,12 +1555,16 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
   const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
   const emit = (type, props) => plugin.event({ event: { type, properties: props } })
-  // A latches RED; B takes over (release, durable by design); then B emits
-  // ITS OWN completion claim and fails the same template checks. The
+  // A latches RED; B takes over after a LEGAL release (redTtlHours:0 expires
+  // the latch — D3 removed the foreign-write release, T16 pins that); then B
+  // emits ITS OWN completion claim and fails the same template checks. The
   // signature is identical (template-driven BAD set) but it belongs to a
   // DIFFERENT session's genuine fresh audit — it must re-latch.
   await latchRed(plugin, "ses_t32_a", root)
+  write(root, "t32-config.json", JSON.stringify({ redTtlHours: -1 }))
+  process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root, "t32-config.json")
   await tryWrite(plugin, root, "src/b.ts", "ses_t32_b")
+  delete process.env.VIBEWEAVER_AUDIT_CONFIG
   await emit("message.part.updated", { sessionID: "ses_t32_b", part: { id: "k2", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
   await emit("message.part.updated", { sessionID: "ses_t32_b", part: { id: "t9", type: "text", text: "[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
   await emit("session.idle", { sessionID: "ses_t32_b" })
@@ -1628,7 +1658,11 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   await emit33("message.part.updated", { sessionID: "ses_t33_a", part: { id: "t1", type: "text", text: "Verifier: mm-sensor [image]\n[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1" } })
   await emit33("session.idle", { sessionID: "ses_t33_a" })
   await emit33("message.part.updated", { sessionID: "ses_t33_b", part: { id: "k2", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  // legal release (D3: foreign writes don't release) — redTtlHours:0
+  write(root33, "t33-config.json", JSON.stringify({ redTtlHours: -1 }))
+  process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root33, "t33-config.json")
   const released33 = (await tryWrite(plugin33, root33, "src/b.ts", "ses_t33_b")) === true
+  delete process.env.VIBEWEAVER_AUDIT_CONFIG
   await emit33("message.part.updated", { sessionID: "ses_t33_b", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: direct read | Loop executed: no | Iterations: 0" } })
   await emit33("session.idle", { sessionID: "ses_t33_b" })
   const report33 = existsSync(path.join(root33, "tests", "gate_audit.md")) ? readFileSyncSafe(path.join(root33, "tests", "gate_audit.md")) : ""
@@ -1636,7 +1670,7 @@ async function tryWrite(plugin, root, relPath, sessionId) {
     "T33e integration: after a real release cycle the prior render's line is still in gate_audit.md",
     released33 &&
       report33.split(oldLine).length - 1 === 1 &&
-      /released: latched RED \(BAD=\d+, session ses_t33_a\) → cleared via stale-session/.test(report33),
+      /released: latched RED \(BAD=\d+, session ses_t33_a\) → cleared via ttl-expiry/.test(report33),
     released33 ? (report33.includes(oldLine) ? "preserved once + state line present" : "LOST — the state cap dropped it from the render") : "release flow broke"
   )
 }
@@ -2745,6 +2779,313 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     delete process.env.VIBEWEAVER_AUDIT_CONFIG
     rec("T35f loopGuardToolFrequencyMin=4 -> storm fires at 4 varied reads", calls.abort === 1, `abort=${calls.abort}`)
   }
+}
+
+// =====================================================================
+// T36 — D2 self-lock (PLAN §2 D2, BLINDSPOTS BL-9): corrective prompts
+// carry NO completion-marker literals; completion analysis is
+// assistant-only + plugin-injected-message-excluded.
+// =====================================================================
+{
+  const markerFree = (s) => !/\[Verification Gate\]/.test(s) && !/\|\s*#\s*\|\s*Problem\s*\|/.test(s) && !/HARD-GATE-[12]/.test(s)
+  const root36 = newFixture("t36-selflock")
+  write(root36, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const calls = { abort: 0, prompts: [] }
+  const plugin36 = await VibeweaverAudit({
+    client: {
+      app: { log: async () => {} },
+      session: {
+        abort: async () => {
+          calls.abort++
+        },
+        prompt: async (args) => {
+          const parts = args && args.body && args.body.parts
+          calls.prompts.push((parts && parts[0] && parts[0].text) || "")
+        },
+      },
+    },
+    directory: root36,
+  })
+  const emitPart = (sid, part) => plugin36.event({ event: { type: "message.part.updated", properties: { sessionID: sid, part } } })
+  // branch 1: noop-bash
+  for (let i = 0; i < 4; i++) await emitPart("ses_t36a", { id: `n${i}`, type: "tool", tool: "bash", state: { status: "completed", input: { command: `echo "n${i}"` } } })
+  // branch 2: identical-tool-run
+  for (let i = 0; i < 4; i++) await emitPart("ses_t36b", { id: `i${i}`, type: "tool", tool: "read", state: { status: "completed", input: { filePath: "/tmp/same.txt" } } })
+  // branch 3: tool-frequency
+  for (let i = 0; i < 20; i++) await emitPart("ses_t36c", { id: `f${i}`, type: "tool", tool: "read", state: { status: "completed", input: { filePath: `/tmp/f${i}.txt` } } })
+  // branch 4 (default): sequence wall
+  await emitPart("ses_t36d", { id: "sq", type: "text", text: Array.from({ length: 14 }, (_, i) => String(100 + i)).join("\n") + "\n" })
+  const kinds = ["noop-bash", "identical-tool-run", "tool-frequency", "default/sequence"]
+  rec("T36a corrective prompts captured for 4 finding kinds", calls.prompts.length === 4, `prompts=${calls.prompts.length} abort=${calls.abort}`)
+  calls.prompts.forEach((p, i) => {
+    rec(`T36b ${kinds[i]} prompt carries NO completion-marker literal`, markerFree(p), p.slice(0, 120))
+    rec(`T36b ${kinds[i]} prompt still demands the completion output`, /completion output|final completion/i.test(p), p.slice(0, 120))
+  })
+  // branch 5: runaway (turn ceiling) — ~80KB of non-periodic assistant text
+  {
+    const WORDS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"]
+    const blob = Array.from({ length: 4200 }, (_, i) => `${WORDS[i % 8]}-${i} payload`).join("\n")
+    await emitPart("ses_t36e", { id: "run", type: "text", text: blob })
+    const p = calls.prompts[calls.prompts.length - 1] || ""
+    rec("T36c runaway prompt captured and marker-free", calls.prompts.length === 5 && markerFree(p), `prompts=${calls.prompts.length} head=${p.slice(0, 80)}`)
+    rec("T36c runaway prompt still demands the completion output", /completion output|final completion/i.test(p), p.slice(0, 120))
+  }
+
+  // ---- T36d/e: fed-back marker text must NOT enter completion analysis ----
+  const gateText = [
+    "Verifier: mm-sensor [image]",
+    "[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 1 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass",
+  ].join("\n")
+  {
+    const root36f = newFixture("t36-fb-user")
+    write(root36f, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const plugin36f = await VibeweaverAudit({ client: { app: { log: async () => {} }, session: { abort: async () => {}, prompt: async () => {} } }, directory: root36f })
+    const emit = (type, props) => plugin36f.event({ event: { type, properties: props } })
+    await emit("message.part.updated", { sessionID: "ses_t36f", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+    await emit("message.updated", { sessionID: "ses_t36f", info: { id: "m_u", role: "user" } })
+    await emit("message.part.updated", { sessionID: "ses_t36f", part: { id: "p_u", type: "text", messageID: "m_u", text: gateText } })
+    await emit("session.idle", { sessionID: "ses_t36f" })
+    const st = JSON.parse(readFileSync(path.join(root36f, ".vibeweaver", "audit-state.json"), "utf8")).roots[root36f] || {}
+    rec("T36d user-fed gate-line text does NOT trigger the completion audit (no latch)", st.red == null, `red=${JSON.stringify(st.red)}`)
+  }
+  {
+    const root36g = newFixture("t36-fb-inj")
+    write(root36g, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const plugin36g = await VibeweaverAudit({ client: { app: { log: async () => {} }, session: { abort: async () => {}, prompt: async () => {} } }, directory: root36g })
+    const emit = (type, props) => plugin36g.event({ event: { type, properties: props } })
+    await emit("message.part.updated", { sessionID: "ses_t36g", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+    await emit("message.part.updated", { sessionID: "ses_t36g", part: { id: "p_i", type: "text", text: "[loop-guard] " + gateText } })
+    await emit("session.idle", { sessionID: "ses_t36g" })
+    const st = JSON.parse(readFileSync(path.join(root36g, ".vibeweaver", "audit-state.json"), "utf8")).roots[root36g] || {}
+    rec("T36e plugin-injected [loop-guard] marker text does NOT trigger the completion audit", st.red == null, `red=${JSON.stringify(st.red)}`)
+  }
+  {
+    const root36h = newFixture("t36-fb-ctrl")
+    write(root36h, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const plugin36h = await VibeweaverAudit({ client: { app: { log: async () => {} }, session: { abort: async () => {}, prompt: async () => {} } }, directory: root36h })
+    const emit = (type, props) => plugin36h.event({ event: { type, properties: props } })
+    await emit("message.part.updated", { sessionID: "ses_t36h", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+    await emit("message.part.updated", { sessionID: "ses_t36h", part: { id: "p_a", type: "text", text: gateText } })
+    await emit("session.idle", { sessionID: "ses_t36h" })
+    const st = JSON.parse(readFileSync(path.join(root36h, ".vibeweaver", "audit-state.json"), "utf8")).roots[root36h] || {}
+    rec("T36f genuine assistant gate-line STILL triggers the completion audit (control)", !!st.red, `red=${JSON.stringify(st.red)}`)
+  }
+}
+
+// =====================================================================
+// T37 — D3 lock bypass (PLAN §2 D3, BLINDSPOTS BL-5/6/7): path
+// normalization before the tests/-prefix check + write-target realpath.
+// =====================================================================
+{
+  const root37 = newFixture("t37-traversal")
+  write(root37, "tests/verification_log.md", "placeholder — no iter entries\n")
+  mkdirSync(path.join(root37, "src"), { recursive: true })
+  const plugin37 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root37 })
+  await latchRed(plugin37, "ses_t37", root37)
+  const esc = await tryWrite(plugin37, root37, "RAW:tests/../src/a.js", "ses_t37")
+  const escBlocked = typeof esc === "string" && /GATE-BLOCKED/.test(esc)
+  rec("T37a tests/../src/a.js escape write is BLOCKED under RED (PoC)", escBlocked, escBlocked ? "traversal blocked" : "ESCAPED: " + esc)
+  const newEv = await tryWrite(plugin37, root37, "tests/evidence_new/shot.png", "ses_t37")
+  rec("T37b new-file write under tests/ stays allowed (evidence path, PoC-safe)", newEv === true, newEv === true ? "evidence path open" : "deadlocked: " + newEv)
+  try {
+    rmSync(path.join(root37, "src", "linktarget"), { force: true })
+    mkdirSync(path.join(root37, "src", "linktarget"), { recursive: true })
+    rmSync(path.join(root37, "tests", "lnk"), { force: true })
+    execFileSync("ln", ["-s", path.join(root37, "src", "linktarget"), path.join(root37, "tests", "lnk")])
+    const sym = await tryWrite(plugin37, root37, "tests/lnk/evil.js", "ses_t37")
+    const symBlocked = typeof sym === "string" && /GATE-BLOCKED/.test(sym)
+    rec("T37c symlinked tests/ dir pointing at src/ is NOT an evidence path", symBlocked, symBlocked ? "symlink escape blocked" : "ESCAPED via symlink: " + sym)
+  } catch (e) {
+    rec("T37c symlinked tests/ dir pointing at src/ is NOT an evidence path", false, "fixture error: " + e.message)
+  }
+  // Review A2/B2: a symlinked FILE (tests/app.js -> ../src/app.js) used to
+  // keep the tests/ segment and escape — the whole path must be realpath'd.
+  try {
+    writeFileSync(path.join(root37, "src", "app.js"), "export const x = 1\n")
+    rmSync(path.join(root37, "tests", "app.js"), { force: true })
+    execFileSync("ln", ["-s", path.join(root37, "src", "app.js"), path.join(root37, "tests", "app.js")])
+    const fsym = await tryWrite(plugin37, root37, "tests/app.js", "ses_t37")
+    const fsymBlocked = typeof fsym === "string" && /GATE-BLOCKED/.test(fsym)
+    rec("T37d symlinked FILE tests/app.js -> src/app.js is NOT an evidence path", fsymBlocked, fsymBlocked ? "file-symlink escape blocked" : "ESCAPED via file symlink: " + fsym)
+  } catch (e) {
+    rec("T37d symlinked FILE tests/app.js -> src/app.js is NOT an evidence path", false, "fixture error: " + e.message)
+  }
+  // re-review R2#1: a DANGLING file symlink (target not yet created) must
+  // also resolve outside the evidence exemption — the OS write follows it.
+  try {
+    rmSync(path.join(root37, "tests", "dangle.js"), { force: true })
+    execFileSync("ln", ["-s", path.join(root37, "src", "notyet.js"), path.join(root37, "tests", "dangle.js")])
+    const dsym = await tryWrite(plugin37, root37, "tests/dangle.js", "ses_t37")
+    const dsymBlocked = typeof dsym === "string" && /GATE-BLOCKED/.test(dsym)
+    rec("T37e dangling symlink tests/dangle.js -> src/notyet.js is NOT an evidence path", dsymBlocked, dsymBlocked ? "dangling-symlink escape blocked" : "ESCAPED via dangling symlink: " + dsym)
+  } catch (e) {
+    rec("T37e dangling symlink tests/dangle.js -> src/notyet.js is NOT an evidence path", false, "fixture error: " + e.message)
+  }
+}
+
+// =====================================================================
+// T38 — D1 loop-guard scope + corpus gate (PLAN §2 D1, BLINDSPOTS BL-8):
+// project gate (acceptance.md or skill activated), assistant-only corpus
+// (user messages / code fences excluded), tool result-summary identity.
+// =====================================================================
+{
+  // T38a — ordinary directory: zero behavior, zero writes.
+  // The fixture lives under the OS tmpdir with a CLEAN ancestor chain: findProjectRoot
+  // walks upwards, and a stray tests/verification_log.md in a shared /tmp parent
+  // (left by other harnesses) would make every child look vibeweaver-active.
+  const root38 = path.join(os.tmpdir(), "t38-ordinary-" + process.pid)
+  rmSync(root38, { recursive: true, force: true })
+  mkdirSync(path.join(root38, "src"), { recursive: true })
+  const calls38 = { abort: 0, prompts: 0 }
+  const plugin38 = await VibeweaverAudit({
+    client: {
+      app: { log: async () => {} },
+      session: { abort: async () => { calls38.abort++ }, prompt: async () => { calls38.prompts++ } },
+    },
+    directory: root38,
+  })
+  await plugin38.event({ event: { type: "message.part.updated", properties: { sessionID: "ses_t38", part: { id: "t0", type: "text", text: "degenerate line text here\n".repeat(4) } } } })
+  await plugin38.event({ event: { type: "session.idle", properties: { sessionID: "ses_t38" } } })
+  rec("T38a ordinary dir (no acceptance.md, no skill) -> loop-guard silent", calls38.abort === 0 && calls38.prompts === 0, `abort=${calls38.abort} prompts=${calls38.prompts}`)
+  rec("T38a ordinary dir -> no .vibeweaver/ state written (zero behavior)", !existsSync(path.join(root38, ".vibeweaver")), existsSync(path.join(root38, ".vibeweaver")) ? "state dir created" : "no writes")
+
+  // T38b — same degeneration with the vibeweaver skill activated: fires
+  const root38b = newFixture("t38-skillgate")
+  rmSync(path.join(root38b, "tests", "acceptance.md"), { force: true }) // skill-only gate: no acceptance.md yet
+  write(root38b, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const calls38b = { abort: 0 }
+  const plugin38b = await VibeweaverAudit({
+    client: {
+      app: { log: async () => {} },
+      session: { abort: async () => { calls38b.abort++ }, prompt: async () => {} },
+    },
+    directory: root38b,
+  })
+  await plugin38b.event({ event: { type: "message.part.updated", properties: { sessionID: "ses_t38b", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } } } })
+  await plugin38b.event({ event: { type: "message.part.updated", properties: { sessionID: "ses_t38b", part: { id: "t0", type: "text", text: "degenerate line text here\n".repeat(4) } } } })
+  rec("T38b skill-activated session (no acceptance.md yet) -> guard fires", calls38b.abort === 1, `abort=${calls38b.abort}`)
+
+  // T38c-f — corpus gate on the text channel
+  const root38c = newFixture("t38-corpus")
+  write(root38c, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const calls38c = { abort: 0, prompts: [] }
+  const plugin38c = await VibeweaverAudit({
+    client: {
+      app: { log: async () => {} },
+      session: { abort: async () => { calls38c.abort++ }, prompt: async (a) => { const p = a && a.body && a.body.parts; calls38c.prompts.push((p && p[0] && p[0].text) || "") } },
+    },
+    directory: root38c,
+  })
+  const emit38 = (type, props) => plugin38c.event({ event: { type, properties: props } })
+  const sid38 = "ses_t38c"
+  await emit38("message.part.updated", { sessionID: sid38, part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  await emit38("message.updated", { sessionID: sid38, info: { id: "m_u1", role: "user" } })
+  await emit38("message.part.updated", { sessionID: sid38, part: { id: "p_u1", type: "text", messageID: "m_u1", text: "quoted block from the user\n".repeat(6) } })
+  rec("T38c user-role message with repeated lines -> NO finding (user corpus excluded)", calls38c.abort === 0, `abort=${calls38c.abort}`)
+  await emit38("message.part.updated", { sessionID: sid38, part: { id: "p_c1", type: "text", text: "here is the generated code:\n```\nrepeated code line here\nrepeated code line here\nrepeated code line here\nrepeated code line here\n```\ndone\n" } })
+  rec("T38d assistant code fence with repeated lines -> NO finding (fences stripped)", calls38c.abort === 0, `abort=${calls38c.abort}`)
+  await emit38("message.part.updated", { sessionID: sid38, part: { id: "p_a1", type: "text", text: "degenerate line text here\n".repeat(4) } })
+  rec("T38e assistant plain repeated lines -> finding fires (control)", calls38c.abort === 1, `abort=${calls38c.abort}`)
+
+  // T38f/g — tool channel result-summary identity
+  const root38d = newFixture("t38-toolres")
+  write(root38d, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const calls38d = { abort: 0 }
+  const plugin38d = await VibeweaverAudit({
+    client: { app: { log: async () => {} }, session: { abort: async () => { calls38d.abort++ }, prompt: async () => {} } },
+    directory: root38d,
+  })
+  const emitTool = (sid, id, output) =>
+    plugin38d.event({ event: { type: "message.part.updated", properties: { sessionID: sid, part: { id, type: "tool", tool: "bash", state: { status: "completed", input: { command: "git status" }, output } } } } })
+  for (let i = 0; i < 4; i++) await emitTool("ses_t38f", `g${i}`, `working tree state line ${i} DIFFERS`)
+  rec("T38f identical args but DIFFERENT results -> NO finding (polling is progress)", calls38d.abort === 0, `abort=${calls38d.abort}`)
+  for (let i = 0; i < 4; i++) await emitTool("ses_t38g", `h${i}`, "working tree clean\n")
+  rec("T38g identical args and identical results -> finding fires (true loop)", calls38d.abort === 1, `abort=${calls38d.abort}`)
+
+  // T38h — divergent KNOWN results must not bridge across unknowns (review A6)
+  for (let i = 0; i < 4; i++) await emitTool("ses_t38h", `b${i}`, i === 1 || i === 3 ? undefined : i < 2 ? "state A" : "state B")
+  rec("T38h known-A, unknown, known-B, unknown -> NO finding (no bridge across unknowns)", calls38d.abort === 1, `abort=${calls38d.abort}`)
+
+  // T38i — genuine user input decays the intervention budget (D1-④)
+  const root38e = newFixture("t38-decay")
+  write(root38e, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const calls38e = { abort: 0, logs: [] }
+  const plugin38e = await VibeweaverAudit({
+    client: {
+      app: { log: async (e) => calls38e.logs.push((e && e.body && e.body.message) || "") },
+      session: { abort: async () => { calls38e.abort++ }, prompt: async () => {} },
+    },
+    directory: root38e,
+  })
+  const emit38e = (type, props) => plugin38e.event({ event: { type, properties: props } })
+  const sid38e = "ses_t38i"
+  await emit38e("message.part.updated", { sessionID: sid38e, part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+  await emit38e("message.part.updated", { sessionID: sid38e, part: { id: "d0", type: "text", text: "degenerate line text here\n".repeat(4) } })
+  await emit38e("message.part.updated", { sessionID: sid38e, part: { id: "ok0", type: "text", text: "moving on\n" } })
+  await emit38e("message.part.updated", { sessionID: sid38e, part: { id: "d1", type: "text", text: "degenerate line text here\n".repeat(4) } })
+  await emit38e("message.part.updated", { sessionID: sid38e, part: { id: "ok1", type: "text", text: "moving on again\n" } })
+  await emit38e("message.part.updated", { sessionID: sid38e, part: { id: "d2", type: "text", text: "degenerate line text here\n".repeat(4) } })
+  const budgetLog = calls38e.logs.some((m) => /budget exhausted/i.test(m))
+  rec("T38i budget 2 spent -> 3rd episode log-only", calls38e.abort === 2 && budgetLog, `abort=${calls38e.abort} log=${budgetLog}`)
+  await emit38e("message.updated", { sessionID: sid38e, info: { id: "m_u", role: "user" } })
+  await emit38e("message.part.updated", { sessionID: sid38e, part: { id: "p_u", type: "text", messageID: "m_u", text: "human interjection — try a different angle\n" } })
+  await emit38e("message.part.updated", { sessionID: sid38e, part: { id: "ok2", type: "text", text: "understood\n" } })
+  await emit38e("message.part.updated", { sessionID: sid38e, part: { id: "d3", type: "text", text: "degenerate line text here\n".repeat(4) } })
+  rec("T38i genuine user input decays the budget (next episode fires again)", calls38e.abort === 3, `abort=${calls38e.abort}`)
+}
+
+// =====================================================================
+// T39 — source hygiene (PLAN §2 D5): plugin/core sources contain no
+// control characters (NUL/0x01 sentinels make rg treat files as binary);
+// companions stay within the one-Read 45KB budget (BL-17).
+// =====================================================================
+{
+  for (const f of ["vibeweaver-audit.js", "vibeweaver-gate.js", "scripts/vibeweaver-audit-core.js"]) {
+    const src = readFileSync(path.resolve(import.meta.dirname, "..", f), "utf8")
+    const bad = /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(src)
+    rec(`T39 ${f} contains no control characters (rg-searchable)`, !bad, bad ? "control byte present" : "clean")
+  }
+  const root39 = path.resolve(import.meta.dirname, "..")
+  const companions = ["COMPLETION_GATE.md", "TESTING_PROTOCOLS.md", "VERIFICATION_UPGRADES.md", "APPENDIX.md", "REFERENCE.md", "WORKFLOWS_EXTENDED.md", "MEMORY_RULES.md", "MEMORY_TEMPLATES.md", "ENGINEERING_STD.md", "CODING_PRINCIPLES.md"]
+  for (const f of companions) {
+    const n = readFileSync(path.join(root39, f)).length
+    rec(`T39 ${f} within the 45000B companion budget`, n <= 45000, `${n}B`)
+  }
+  const skillBytes = readFileSync(path.join(root39, "SKILL.md")).length
+  rec("T39 SKILL.md within the 49000B budget (T11 parity)", skillBytes < 49000, `${skillBytes}B`)
+  // E2 single source (BL-17): the complete gate-line TEMPLATE lives in
+  // SKILL.md §A4.4 exactly once across the payload — a second copy rots
+  // silently (the COMPLETION_GATE one lost Lane/Class/Fresh-verify) and an
+  // agent copying it emits a gate line the audit rejects.
+  const payloadMds = ["SKILL.md", "COMPLETION_GATE.md", "TESTING_PROTOCOLS.md", "VERIFICATION_UPGRADES.md", "REFERENCE.md", "APPENDIX.md", "WORKFLOWS_EXTENDED.md", "MEMORY_RULES.md", "MEMORY_TEMPLATES.md", "ENGINEERING_STD.md", "CODING_PRINCIPLES.md"]
+  const templateHead = /\[Verification Gate\] Verifier: mm-sensor/g
+  let templateCopies = 0
+  const copyWhere = []
+  for (const f of payloadMds) {
+    const n = (readFileSync(path.join(root39, f), "utf8").match(templateHead) || []).length
+    if (n) copyWhere.push(`${f}×${n}`)
+    templateCopies += n
+  }
+  rec("T39 gate-line template exists exactly once (SKILL.md §A4.4 single source)", templateCopies === 1 && copyWhere.length === 1 && copyWhere[0].startsWith("SKILL.md"), `copies=${templateCopies} at ${copyWhere.join(",") || "none"}`)
+  // E2 numbering uniqueness: §A7 = memory ONLY (MEMORY_RULES A7.x), §A8 =
+  // communication (ENGINEERING_STD), the plan template hangs under C3 (no
+  // §A7 number) — the old three-way collision must not return.
+  const headingOf = (f) => readFileSync(path.join(root39, f), "utf8").split("\n").filter((l) => /^#{2,3} /.test(l)).join("\n")
+  const engHead = headingOf("ENGINEERING_STD.md")
+  const appHead = headingOf("APPENDIX.md")
+  const skillHead = headingOf("SKILL.md")
+  const memHead = headingOf("MEMORY_RULES.md")
+  rec("T39 §A7 is uniquely the memory family (no §A7 heading in ENG/APPENDIX/SKILL)",
+    /A7\.1 /.test(memHead) && !/§A7/.test(engHead) && !/§A7/.test(appHead) && !/A7\. Project Memory/.test(skillHead.replace("### A7. Project Memory (memory/memdir)", "")) && /### A7\. Project Memory/.test(skillHead),
+    `eng=${/§A7/.test(engHead)} appendix=${/§A7/.test(appHead)} skillA7=${/### A7\. Project Memory/.test(skillHead)}`)
+  const oldShadows = ["§A1.", "§A5.", "§A6.", "§A8.", "§A9.", "§A10.", "§A11.", "§A12."]
+  const shadowLeft = oldShadows.filter((h) => appHead.includes(h))
+  rec("T39 §A8 is uniquely communication; APPENDIX old shadow headings are gone",
+    /§A8\. Communication/.test(engHead) && shadowLeft.length === 0,
+    `eng=${/§A8\. Communication/.test(engHead)} shadows=${shadowLeft.join(",") || "none"}`)
+  rec("T39 plan template hangs under C3 (no bare §A7 template heading)",
+    /C3 Plan Template/.test(appHead) && !/§A7\. Large-Task/.test(appHead),
+    appHead.split("\n").filter((l) => /C3|§A7/.test(l)).join(" | "))
 }
 
 // ---------- summary ----------

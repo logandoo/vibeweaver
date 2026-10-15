@@ -1,12 +1,12 @@
 > This file contains executable code snippets for [SKILL.md](SKILL.md). Copy and use directly in projects.
 > 
-> **Stack note**: §A1, §A2, §A4 are universal (apply to any project). §A3 is FastAPI-specific. §A5 is an example template — adapt to your project's actual config. §A6 is for the default FastAPI+React+Vite stack — adapt to your project's build tooling.
+> **Stack note**: the §A4.x test templates are universal (any project); §A4.7.2 is FastAPI-specific. §A3 is an example config template — adapt to your project. §A2 is for the default FastAPI+React+Vite stack — adapt to your build tooling.
 
 # Vibeweaver — Appendix: Executable Code Library
 
 ---
 
-## §A1. Playwright Media Capture Test — Video + Audio + Screenshot (Universal)
+## §A4.5 Playwright Media Capture Test — Video + Audio + Screenshot (Universal)
 
 Captures the page operation flow as **video** (Playwright `record_video`),
 **in-page audio** (Web Audio capture script injected via `add_init_script`),
@@ -263,7 +263,7 @@ python tests/flow_capture_test.py
 
 ---
 
-## §A2. Backend API Test — httpx (Universal)
+## §A4.7.1 Backend API Test — httpx (Universal)
 
 Save as `tests/api_test.py`:
 
@@ -322,7 +322,7 @@ if __name__ == "__main__":
 
 ---
 
-## §A3. FastAPI Fallback Route — History Routing (FastAPI Only)
+## §A4.7.2 FastAPI Fallback Route — History Routing (FastAPI Only)
 
 Add to `backend/app/main.py`:
 
@@ -341,7 +341,7 @@ async def serve_spa(full_path: str):
 
 ---
 
-## §A4. WebSocket Test — websockets (Universal)
+## §A4.7.3 WebSocket Test — websockets (Universal)
 
 Save as `tests/ws_test.py`:
 
@@ -389,7 +389,7 @@ if __name__ == "__main__":
 
 ---
 
-## §A5. config.toml Full Template (Example — Adapt to Your Project)
+## §A3 config.toml Full Template (Example — Adapt to Your Project)
 
 > **WARNING**: This is an example template for new FastAPI+PostgreSQL projects. All values below (including password `8i9o0p-[=]` and database name `psy`) are EXAMPLES only. **For existing projects, read and preserve the project's actual config values.** For non-PostgreSQL databases, adapt the `[database]` section accordingly.
 
@@ -422,7 +422,7 @@ max_tokens = 4096
 
 ---
 
-## §A6. Script Templates (Default: FastAPI + React + Vite — Adapt for Other Stacks)
+## §A2 Script Templates (Default: FastAPI + React + Vite — Adapt for Other Stacks)
 
 ### Linux/macOS: `script/linux/project_build.sh`
 
@@ -529,7 +529,7 @@ echo "[RESTART] Done."
 
 ---
 
-## §A7. Large-Task Implementation Plan Template
+## C3 Plan Template — Large-Task Implementation Plan
 
 Save as `docs/PLAN.md` (see [REFERENCE.md → Part C: C3](REFERENCE.md)). Write it assuming the executor has zero project context; every step carries actual content, never placeholders.
 
@@ -606,7 +606,7 @@ git commit -m "feat: add <specific behavior>"
 
 ---
 
-## §A8. G-DED Artifact Assertion Script — `tests/assert_artifacts.py`
+## §A4.4.1 G-DED Artifact Assertion Script — `tests/assert_artifacts.py`
 
 > Universal. Required by [COMPLETION_GATE.md §A4.4.1](COMPLETION_GATE.md).
 > Byte-checks the artifacts behind every `[Verification Gate]` / `[Memory Gate]`
@@ -671,7 +671,7 @@ incomplete variant is re-copied, never patched by hand.
 
 ---
 
-## §A9. Incident Postmortem Template — `docs/POSTMORTEM_<date>_<slug>.md`
+## C6 Incident Postmortem Template — `docs/POSTMORTEM_<date>_<slug>.md`
 
 For incidents that reached a working system (production breakage, user-reported
 failure, anything that escaped the loops or recurred). A bug found and fixed in
@@ -723,7 +723,7 @@ re-run. Until then the postmortem stays in the owner's triage queue.
 
 ---
 
-## §A10. A4.7b Workflow Trace Template (Universal)
+## §A4.7b Workflow Trace Template (Universal)
 
 One scenario per file under `tests/workflows/`; real HTTP against the server
 started via `script/` (COV-2), clean start state, state transitions
@@ -754,7 +754,7 @@ def test_register_then_create_then_persist(base_url=BASE):
 
 ---
 
-## §A11. Trusted Oracle & Deterministic Checker (Universal)
+## §A4.8 Trusted Oracle & Deterministic Checker (Universal)
 
 **Oracle hierarchy — what may certify a task:**
 
@@ -908,7 +908,7 @@ recorded as open questions, never invented.
 
 ---
 
-## §A12. Design-Copy Fidelity — Capture + Measurement (Universal)
+## §A4.1.2 Design-Copy Fidelity — Capture + Measurement (Universal)
 
 Protocol: TESTING_PROTOCOLS.md §A4.1.2 (T0 identical capture · T1 geometry/
 occlusion · T2 pixel diff · T3 VLM-semantics-only). Measurement script:
