@@ -1226,10 +1226,19 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       // (quadratic over a streaming turn — the 57GB malloc storm), and the
       // `includes` pair is O(n·m) on big strings. Exact-duplicate and a
       // bounded superset probe cover the real streaming shapes.
-      if (ptext === buf) return
-      const dup = ptext.length <= 4096 && buf.includes(ptext)
-      if (dup) {
-        // duplicate/partial re-emission — state unchanged: skip the
+      //
+      // Duplicate = WHOLE-BUFFER re-emission (`ptext === buf`) of a REAL part
+      // state (≥ the detector's minimum period) — the old arbitrary-substring
+      // `includes` ate ordinary delta chunks that merely occurred inside the
+      // buffer (common words), silently truncating the observed stream AND
+      // starving turnChars: the runaway ceiling stayed dark in production
+      // while long runaway turns kept streaming (2026-10-17 crashes). Small
+      // buffers always append: an identical-chunk spam ("!"×N delivered as
+      // 1-char deltas) must keep accumulating or the wall detectors go blind
+      // to it (T42); the cost of a double-appended tiny re-emission is a few
+      // chars of turnChars, nothing the ≥3-copy bars can see.
+      if (ptext === buf && buf.length >= LOOP_CHAR_MIN_PERIOD) {
+        // duplicate re-emission — state unchanged: skip the
         // re-check AND the episode-clock advance (re-checking unchanged
         // text can re-fire on a stale tail; advancing lastMsgID on a
         // re-associated id fakes a new turn — review C2/N3)
@@ -1385,12 +1394,21 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     // Tool.Result = { output?, content?: string | Content[], metadata? } —
     // content is the model-visible channel; output is the structured value.
     const content = result && typeof result === "object" ? result.content : result
-    let text =
-      typeof content === "string"
-        ? content
-        : Array.isArray(content)
-          ? content.filter((c) => c && c.type === "text" && typeof c.text === "string").map((c) => c.text).join("\n")
-          : ""
+    let text = ""
+    if (typeof content === "string") text = content
+    else if (Array.isArray(content)) {
+      // bounded gather: only enough blocks to fill the OUT_CAP summary —
+      // joining an unbounded block array materializes the whole result
+      const parts = []
+      let got = 0
+      for (const c of content) {
+        if (!c || c.type !== "text" || typeof c.text !== "string" || !c.text) continue
+        parts.push(c.text)
+        got += c.text.length
+        if (got >= OUT_CAP * 2) break
+      }
+      text = parts.join("\n")
+    }
     if (!text && result && typeof result === "object" && typeof result.output === "string") text = result.output
     if (!text) return
     const sess = touchSession(sessionID)
@@ -1434,9 +1452,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
     const buf = store[pid] || ""
     // same three-shape robustness as the v1 cumulative-update branch, same
-    // bounded rules (SIGTRAP round 2 — never materialize buf+joined)
-    if (joined === buf) return
-    if (joined.length <= 4096 && buf.includes(joined)) return
+    // bounded rules (SIGTRAP round 2 — never materialize buf+joined); the
+    // duplicate shape is whole-buffer re-emission of a real part state only
+    // (substring/tail matches must never eat real content — 2026-10-17)
+    if (joined === buf && buf.length >= LOOP_CHAR_MIN_PERIOD) return
     const cumulative = joined.length > buf.length && buf.length > 0 && (buf.length <= 1024 ? joined.includes(buf) : joined.startsWith(buf.slice(0, 64)))
     const added = cumulative ? Math.max(0, joined.length - buf.length) : joined.length
     if (cumulative) {

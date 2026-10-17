@@ -3147,6 +3147,34 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   rec("T41 head-anchor gate line survives corpus bounding", /Audit (GREEN|ESCALATE)/.test(auditLine) || !/B1/.test(logs.join(" ")), auditLine || "no audit line (B1 not BAD)")
 }
 
+{
+  // T42: delta chunks must never be eaten by the duplicate heuristic — a
+  // stream of small chunks containing common substrings accumulates fully,
+  // and the runaway ceiling fires at the 64KB turn bound (2026-10-17: the
+  // old `buf.includes(chunk)` dropped ordinary deltas, starved turnChars and
+  // left the ceiling dark while runaway turns kept streaming).
+  const root42 = newFixture("t42-deltas")
+  write(root42, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const calls = { abort: 0 }
+  const plugin42 = await VibeweaverAudit({
+    client: {
+      app: { log: async () => {} },
+      session: { abort: async () => { calls.abort++ }, prompt: async () => {} },
+    },
+    directory: root42,
+  })
+  const chunk = "the test error " // 16 chars — repeated words, would match inside buf
+  for (let i = 0; i < 5000; i++) {
+    await plugin42.event({
+      event: {
+        type: "message.part.updated",
+        properties: { sessionID: "ses_t42", part: { id: "d1", type: "text", text: chunk, messageID: "m1" } },
+      },
+    })
+  }
+  rec("T42 delta stream accumulates (no substring-eating) and runaway ceiling fires", calls.abort >= 1, `abort=${calls.abort} (expect >=1 at 64KB of 16-char chunks)`)
+}
+
 // ---------- summary ----------
 console.log("\n=== SUMMARY ===")
 console.log(`fixture checks: ${results.length}, failures: ${failures}${skips ? `, skipped: ${skips}` : ""}`)
