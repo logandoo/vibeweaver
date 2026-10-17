@@ -672,7 +672,15 @@ session is never aborted after a completed turn):
   false positives not; quoted spans are stripped, ≥2 pattern hits = meta-
   discussion not a declaration, a single hit must carry cessation intent or
   end the message), OR that message ended with `finish: "length"`
-  (output-limit truncation ≠ completion — host bug class opencode#40146);
+  (output-limit truncation ≠ completion — host bug class opencode#40146),
+  OR the **positive on-disk predicate** holds: `tests/acceptance.md` exists,
+  the current task block has no `- final-run: … pass=N/fail=0`, the last
+  assistant message has no `[Verification Gate]`, a successful write/edit
+  occurred after the last user message, and no whitelist entry below holds.
+  No euphemism is required — this is the silent-stop leg weak models take
+  (they simply end after a partial edit). A host error/abort fences every
+  trigger until a later successful write; a user Q&A turn after the write
+  does not fire (turn-scoped);
 - NO terminal-state whitelist entry, each scoped so history cannot immunize
   the present: `tests/paused_state.md` written DURING this session · a
   Class-E stop in `tests/decisions.md` written during this session · a
@@ -702,8 +710,9 @@ corrective (v2 mode · budget exhausted · no prompt channel) is journaled to
 `.vibeweaver/audit-state.json` (cap 5, same-episode deduped) and replayed
 into the `## Stop-debt` section of every later `tests/gate_audit.md` — it
 surfaces at the next audit/final and in Tier-2 human review. Silent
-abandonment (no claim at all) is indistinguishable from a user walking away
-and stays a known gap (Tier-2).
+abandonment with an active `acceptance.md` + ≥1 write/edit is covered by the
+positive predicate; a session with no acceptance/tool call remains
+indistinguishable from a user walking away and stays a known gap (Tier-2).
 
 **Corrective prompt contract:** names the contradiction (claim vs measured
 fill / vs on-disk incompleteness), lists the four legal stops, points at

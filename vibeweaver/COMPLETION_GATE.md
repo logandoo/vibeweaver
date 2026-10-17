@@ -13,7 +13,7 @@
 - **A4.4 Completion Output** — Covenant Recall · 9-item pre-output self-audit ·
   Gate Function · log-discipline rule · gate-line field semantics · E2E depth
   ladder · 8-column table spec + forbidden alternatives
-- **A4.4.1 G-DED Executable Artifact Assertions** — 19-group assertion table · flags ·
+- **A4.4.1 G-DED Executable Artifact Assertions** — 21-group assertion table · flags ·
   copy + self-verify
 - **A4.4.3 Artifact Chain** — every artifact names its upstream link; the
   chain is the audit trail
@@ -150,7 +150,7 @@ Formal compliance is not evidence. Before emitting the `[Verification Gate]`
 line, you MUST run the executable assertion script in the project root:
 
 ```bash
-python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --final: completion-time run (group 19)
+python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --final: completion-time run (groups 19+21)
 ```
 
 - Exit code 0 → append the LITERAL field `assert_artifacts.py: pass=N/fail=0`
@@ -161,9 +161,9 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
 - Flags: `--existing` (Modify-Existing task → skips the new-project §A5
   design-doc checks and the git-init expectation) · `--backend-only` (no UI
   → skips `PAGE_DESIGN.html` and `script/linux/project_build.sh`).
-  New-project tasks run WITHOUT `--existing`. **`--final`: the
-  completion-time run** (the manual A4.4.1 invocation before the gate line)
-  additionally enforces group 19 (working-note lifecycle, §A7.15); mid-task
+  New-project tasks run WITHOUT `--existing`. **`--final`: the pre-gate
+  A4.4.1 run** additionally enforces group 19 (working-note) + the group-21
+  blob check; mid-task
   runs and the physical gate (§A4.4.2) omit it so an in-use
   `tests/working_note.md` never blocks iteration. **Record the run:** append
   `- final-run: --final — pass=N/fail=0` to the current
@@ -193,13 +193,15 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
 | 11 | every `tests/*.webm` / `tests/*.wav` / `tests/*.mp4` / `tests/*.mp3` cited in `verification_log.md` exists and >0 bytes | A4.1 Step 2/3 |
 | 12 | every `- iter N FAIL:` log line carries its `diagnosis:` clause, and (12b log-format lint) the clause is substantive — ≥10 chars, not a placeholder token (`-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`) | A4.1 Step 4 |
 | 13 | no claim word (verified/confirmed/validated/tested/proven + Chinese 已验证/已确认/已测试…) appears on a prose log line without a coverage scope on that same line (fenced blocks, headings, tables, iter/baseline lines exempt) | A4.4 claim rule |
-| 14 | **secret scan** — no credential-looking string (AWS access key · `-----BEGIN … PRIVATE KEY-----` block · `ghp_`/`github_pat_`/`xox*`/`sk-` incl. `sk-proj-`/`sk-ant-` tokens · JSON or k=v form `api_key`/`secret`/`password`/`token` `= value` with value ≥12 chars; unquoted reference/call values like `os.environ.get(…)`/`config.x`/`self.x` are NOT flagged) appears on an ADDED line of the change-wave diff (per-commit patches of newest `backup: before changes` commit..HEAD + uncommitted; no backup commit → last commit + uncommitted; untracked non-ignored files are scanned whole). Lines carrying a placeholder marker (example/sample/dummy/placeholder/changeme/redacted/fake/`<…>`) are exempt; `*.md` hits print WARN but do not FAIL; any `assert_artifacts.py` is never scanned. **User-approved credentials:** a `vw-approved` marker exempts a line ONLY when the line also matches a credential pattern (prose mentions are no-ops) AND `verification_log.md` carries the path-scoped pairing `- secret-approved: <path> — <reason>` (marker count per path ≤ approvals; pairing failure FAILs regardless of file type) | A4.4 content gate |
+| 14 | **secret scan** — no credential-looking string (AWS access key · `-----BEGIN … PRIVATE KEY-----` block · `ghp_`/`github_pat_`/`xox*`/`sk-` incl. `sk-proj-`/`sk-ant-` tokens · JSON or k=v form `api_key`/`secret`/`password`/`token` `= value` with value ≥12 chars; unquoted reference/call values like `os.environ.get(…)`/`config.x`/`self.x` are NOT flagged) appears on an ADDED line of the change-wave diff (per-commit patches of newest `backup: before changes` commit..HEAD + uncommitted; no backup commit → last commit + uncommitted; untracked non-ignored + ignored secret-named files (`.env*`, keys/certs) are scanned whole). Lines carrying a placeholder marker (example/sample/dummy/placeholder/changeme/redacted/fake/`<…>`) are exempt; `*.md` hits print WARN but do not FAIL; any `assert_artifacts.py` is never scanned. **User-approved credentials:** a `vw-approved` marker exempts a line ONLY when the line also matches a credential pattern (prose mentions are no-ops) AND `verification_log.md` carries the path-scoped pairing `- secret-approved: <path> — <reason>` (marker count per path ≤ approvals; pairing failure FAILs regardless of file type) | A4.4 content gate |
 | 15 | **test-change guard** — no REMOVED assertion line (`assert` · `self.assert*` · `expect(` · `pytest.raises` · `require(` · `def test_` · `it(` · `test(` · `func Test` · `@Test`) in a test code file (path segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*` basename; code extensions only — whole-file deletions included) unless `verification_log.md` carries a `- test-change: <path> — <reason>` line. An agent fixing code must not silently weaken the check on that code; NEW test files in the wave need their own `- test-change:` line too (C3b hash baseline) | A4.8 test integrity |
 | 16 | **risk-tier** — when the change-wave diff or an untracked file touches a risk-tier code path (`auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` path segment; code extensions only — deletions included), `tests/review_package.md` exists and >0 bytes — A4.9 review is non-skippable for risk-tier paths (existence check; package FRESHNESS is enforced by the §A4.9 scoped re-review process) | A4.9 risk tiering |
 | 17a | **DOC-asset render gate (§V11.9)** — when the change wave DELIVERS an office/document asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave scope: `backup: before changes`..HEAD + uncommitted + untracked, deletions excluded), `tests/verification_log.md` carries a `render:` line naming that asset bound to existing >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain: soffice/libreoffice/pymupdf/pdftoppm/poppler/imagemagick>)`. **NO RENDER, NO DONE**; fires in EVERY class (a mixed CODE wave shipping a docx owes the same render) | §V11.9 render gate |
 | 17b | **exec-check (§V11.9)** — every delivered office asset also needs a recorded executable-behavior check: an `exec-check:` line naming the asset with `clean` or `escalat…` (vbaProject.bin / PDF JavaScript / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
 | 18 | **task-class coherence (COV-13)** — `--class DOC\|CONFIG\|CODE` (or the log's `- class:` first entry of the current task block) N/A's only the class's structurally-free groups (DOC: memory 4 + service-lifecycle 5; CONFIG: memory 4 when the log carries `- memory: na (<why>)`); a `--class` flag contradicting the log's class is a NAMED failure (§V11.7 one class per task); a class never weakens an applicable group | COV-13 / §V11 |
 | 19 | **working-note lifecycle (§A7.15, `--final` only)** — `tests/working_note.md` must NOT exist at completion time: the task working memory is distilled into `memory/` (A7.9) and deleted before the completion table; a leftover is an undistilled lesson or zombie state leaking into the next task | A7.15 / A7.10 check 6 |
+| 20 | **working-note creation side** — ≥2 iterations or a FAIL requires `- working-note:` lifecycle lines (created → updated → distilled → deleted) or `na (<why>)` in the current task block | §A7.15 |
+| 21 | **repo hygiene / VCS budget** — `.gitignore` present + stack patterns; no tracked vendor/cache; untracked ≤2,000; `.git` ≤1 GiB (warn >200 MiB); largest blob ≤40 MiB at `--final`; wave >2,000 paths fails (no scan) | COV-9 / A10.1 |
 
 The script byte-checks the artifacts behind every Gate Function claim — the
 external verifier for claims mm-sensor cannot see. The **canonical file is
@@ -215,15 +217,15 @@ cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
 ```
 
 The only allowed edit after copying is adding project-specific assertion
-lines — never remove or weaken groups 1-19.
+lines — never remove or weaken groups 1-21.
 
 **Self-verify the copy is complete (MUST do after copying it):** the script
-MUST contain each of these 21 markers — `verification_log` · `cap=5` ·
+MUST contain each of these 22 markers — `verification_log` · `cap=5` ·
 `screenshot` · `MEMORY.md` · `start.sh` · `git repo needs` · `FLOW_DESIGN` ·
 `README` · `Baseline verified GREEN` · `workflow trace` · `media evidence` ·
 `diagnosis:` · `claim without stated coverage` · `secret scan` ·
 `test-change:` · `risk-tier` · `secret-approved` · `DOC-asset render gate` ·
-`exec-check` · `working_note` · `working-note`. Grep the file for all 21;
+`exec-check` · `working_note` · `working-note` · `repo-hygiene`. Grep all 22;
 ANY
 missing marker means an incomplete variant — re-copy from the canonical file.
 A script missing a marker will not catch the missing artifact; a complete
@@ -618,6 +620,10 @@ Before declaring any task complete, explicitly list and confirm:
       assertion removed without a `- test-change: <path> — <reason>` log line
       (group 15) · risk-tier code paths reviewed with
       `tests/review_package.md` on disk (group 16)
+- [ ] ★ **Repo hygiene (group 21 / A10.1)** — `.gitignore` covers the
+      detected stack; no tracked vendor/cache path; untracked non-ignored
+      ≤2,000; `.git` ≤1 GiB; largest blob ≤40 MiB at `--final`; gate line
+      carries `repo-hygiene: pass (…)` (or `na (no git repo)`)
 - [ ] Artifact chain linked (§A4.4.3) — acceptance.md names its source, log
       entries cite criterion #s, review_package records its diff range, fix
       memory carries commit hashes

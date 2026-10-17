@@ -108,14 +108,17 @@ python tests/api_test.py
 Decompose user query, ask clarifying questions for ambiguities.
 **Also: Create `memory/MEMORY.md` index** (see [MEMORY_TEMPLATES.md](MEMORY_TEMPLATES.md) for template).
 
-### Step 1: Initialize Git Repository
+### Step 1: Initialize Git Repository + .gitignore
 ```bash
 git init
+# BEFORE installing dependencies: write .gitignore from APPENDIX §A12
+git add .gitignore && git commit -m "chore: repo hygiene baseline"
 git add -u && git add <explicit new paths> && git commit -m "Initial project setup"
 ```
-(A fresh scaffold may `git add -A` only when YOU created every file in the
-directory this task — never when user files may exist; untracked user files
-like `.env` must never enter the repo.)
+NEVER `git add -A` in a mixed workspace — it sweeps untracked user files
+(`.env`) and dependency caches (`.pnpm-store`, `node_modules`) into history.
+Untracked user files must never enter the repo; there is no fresh-scaffold
+exception.
 
 ### Step 2: Generate Design Documents
 - **FLOW_DESIGN.html** — Mermaid flowcharts & sequence diagrams
@@ -475,6 +478,10 @@ design). Everything else stays fully autonomous.
 
 #### Step 5: Git — Commit Before and After + Verify Clean Baseline
 ```bash
+# Preflight (A10.1 / assert group 21): .gitignore exists, no tracked vendor,
+# untracked ≤ 2k, .git ≤ 1 GiB. RED → fix .gitignore + `git rm -r --cached --ignore-unmatch`
+# FIRST; history rewrite (filter-repo) is Class-E, user-approved only.
+python3 tests/assert_artifacts.py --existing --json   # copy canonical script if missing
 git add -u && git commit --allow-empty -m "backup: before changes"   # baseline (tracked-only — never `git add -A`)
 # ... make changes ...
 git add -u && git add <explicit new paths> && git commit -m "feat: description of change"

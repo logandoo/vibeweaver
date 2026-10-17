@@ -672,27 +672,46 @@ export function stopEuphemism(text) {
 export function currentLogBlock(logText) {
   if (!logText || typeof logText !== "string") return ""
   const blocks = logText.split(/^(?=## )/m)
-  return blocks.length ? blocks[blocks.length - 1] : logText
+  // Prefer the LAST `## Task` block: a new task may have no `- iter` yet
+  // (baseline-only window) and must not inherit the previous task's
+  // final-run. Fall back to the last iter-bearing block, then the last block
+  // (trailing `## Notes`/`## Correction` still loses to a Task block).
+  let task = ""
+  let cur = ""
+  for (const b of blocks) {
+    if (/^## Task\b/m.test(b)) task = b
+    if (/^- iter \d+ (?:PASS|FAIL)\b/m.test(b)) cur = b
+  }
+  return task || cur || (blocks.length ? blocks[blocks.length - 1] : logText)
 }
 
 // Pure verdict over a trigger + the terminal-state whitelist. Never throws.
 //   trigger    {kind:"euphemism"|"truncation", match} | null
+//   positiveIncomplete  no trigger, but on-disk task is incomplete (no
+//              `- final-run:` pass=0/fail=0 and no gate marker) and the
+//              session wrote after the last user message
 //   taskActive acceptance.md exists AND the session produced tool calls AND
 //              the current log block has no final-run (wave not completed)
 //   pausedState / classE / gateMarker / userStop / tailQuestion — whitelist
 //   telemetry  host carries message-level usage (v1 yes, v2 no)
-// → { action: "prompt"|"debt"|"ignore", why, kind? }
+// → { action: "prompt"|"debt"|"ignore", why, kind? } — kind may be
+//   "incomplete" when the positive predicate fired without a euphemism.
 export function stopGuardDecision(o) {
   const t = o && o.trigger
-  if (!t) return { action: "ignore", why: "no-trigger" }
+  // Positive completion predicate (§V12): no euphemism is required when the
+  // ON-DISK task is demonstrably incomplete (no final-run, no gate line).
+  // This closes the silent-stop gap that the euphemism detector cannot see.
+  const positive = !!(o && o.positiveIncomplete)
+  if (!t && !positive) return { action: "ignore", why: "no-trigger" }
   if (!o.taskActive) return { action: "ignore", why: "no-active-task" }
   if (o.pausedState) return { action: "ignore", why: "whitelisted:paused-state" }
   if (o.classE) return { action: "ignore", why: "whitelisted:class-e" }
+  if (o.errorFence) return { action: "ignore", why: "whitelisted:error-abort" }
   if (o.gateMarker) return { action: "ignore", why: "whitelisted:gate-marker" }
   if (o.userStop) return { action: "ignore", why: "whitelisted:user-stop" }
   if (o.tailQuestion) return { action: "ignore", why: "whitelisted:tail-question" }
-  if (!o.telemetry) return { action: "debt", why: "v2-no-telemetry", kind: t.kind }
-  return { action: "prompt", kind: t.kind }
+  if (!o.telemetry) return { action: "debt", why: "v2-no-telemetry", kind: t ? t.kind : "incomplete" }
+  return { action: "prompt", kind: t ? t.kind : "incomplete" }
 }
 
 // Corrective prompt (§V12 contract): names the contradiction, lists the four
@@ -702,8 +721,10 @@ export function stopGuardPrompt({ kind, fill, fillKnown }) {
   const what =
     kind === "truncation"
       ? 'Your last turn ended with finish:"length" (output-limit truncation) — a truncated turn is NOT a completed task (host bug class opencode#40146).'
-      : "Your last message declared context exhaustion and stopped mid-task."
-  const known = fillKnown && Number.isFinite(fill)
+      : kind === "incomplete"
+        ? "On-disk state says this task is NOT complete: tests/acceptance.md exists, but the current task block has no `- final-run: --final … pass=N/fail=0` and your last message has no `[Verification Gate]`."
+        : "Your last message declared context exhaustion and stopped mid-task."
+  const known = kind === "euphemism" && fillKnown && Number.isFinite(fill)
   const fillLine = known
     ? fill < 0.9
       ? ` Measured context fill ≈ ${Math.round(fill * 100)}% (harness telemetry, one turn stale) — an exhaustion claim far below the limit has no basis.`
@@ -841,8 +862,7 @@ export function auditProject(opts) {
   const liteClass = classField === "DOC" || classField === "CONFIG"
   // Class basis line: scoped to the CURRENT (last `##`) task block — an older
   // block's `- class:` is history and must not license the current task.
-  const logBlocks = log.split(/^(?=## )/m)
-  const curLogBlock = logBlocks.length ? logBlocks[logBlocks.length - 1] : log
+  const curLogBlock = currentLogBlock(log)
   const logClassM = [...curLogBlock.matchAll(/^-[ \t]*class:[ \t]*(DOC|CONFIG|CODE)[ \t]*[—-][ \t]*(\S[^\n]*)/gim)]
   const logClass = logClassM.length ? logClassM[logClassM.length - 1][1].toUpperCase() : ""
   const SKIP_REASONS = /documentation-only|doc-only|config-only|no runtime|no build|no UI|no service|na reason|no lesson|nothing persistable|informational only|纯文档|纯配置/i
@@ -891,8 +911,8 @@ export function auditProject(opts) {
   // the completion-time run (group 19 et al.) actually executed is this log
   // line; without it group 19 silently never fires.
   if (gateLine) {
-    if (/-[ \t]*final-run:[ \t]*--final\b/i.test(curLogBlock)) check(checks, "B12", "final-run evidence (`- final-run: --final …` in current task block)", "OK", "found")
-    else check(checks, "B12", "final-run evidence (`- final-run: --final …` in current task block)", "BAD", "completion claimed without a `- final-run: --final … pass=N/fail=0` log line — the completion-time assert run (group 19) never machine-executed (§A4.4.1)")
+    if (/-[ \t]*final-run:[^\n]*--final[^\n]*pass=[1-9]\d*[ \t]*\/[ \t]*fail=0/i.test(curLogBlock)) check(checks, "B12", "final-run evidence (`- final-run: --final … pass=N/fail=0` in current task block)", "OK", "found")
+    else check(checks, "B12", "final-run evidence (`- final-run: --final … pass=N/fail=0` in current task block)", "BAD", "completion claimed without a `- final-run: … --final … pass=N/fail=0` log line — the completion-time assert run (group 19) never machine-executed (§A4.4.1)")
   }
 
   // Group C — claim ↔ artifact cross-checks (triage)
@@ -1093,6 +1113,13 @@ export function auditProject(opts) {
   if (na2Ok(hard2)) check(checks, "C15", "`HARD-GATE-2` value", "OK", hard2)
   else if (na2Unc(hard2)) check(checks, "C15", "`HARD-GATE-2` value", "UNCERTAIN", "na without a stated reason line (documentation-only/config-only/no lesson/...)")
   else check(checks, "C15", "`HARD-GATE-2` value", hard2 ? "BAD" : "UNCERTAIN", hard2 || "claim absent")
+
+  // C19 — repo-hygiene field: advisory presence (group 21 is the hard gate),
+  // but an explicit `fail` is BAD and a bare `na` needs a reason.
+  const repoH = field(/repo-hygiene:\s*(\w+)/i)
+  if (repoH === "pass") check(checks, "C19", "`repo-hygiene` value", "OK", "pass")
+  else if (repoH === "na") check(checks, "C19", "`repo-hygiene` value", (liteClass || reasonLineStated) ? "OK" : "UNCERTAIN", "na without a stated reason")
+  else if (repoH) check(checks, "C19", "`repo-hygiene` value", "BAD", `unexpected value: ${repoH}`)
 
   const assertsPath = path.join(testsDir, "assert_artifacts.py")
   const assertRun = existsSync(assertsPath) ? runAssert(root) : null

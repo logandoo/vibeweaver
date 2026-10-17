@@ -95,9 +95,9 @@ you write.
 **behavior-semantic change** (even a one-file diff) — dispatch an independent
 reviewer (opencode `task` tool) over `git diff <baseline>..<head>` BEFORE the
 completion table; fix Critical/Important, re-run covering tests, record Minor
-to memory. "Files changed" counts EVERY path in `git diff --stat` (tests/docs/
-config included). Non-trigger: the gate-line reason MUST cite `git diff
---stat` output (actual count + kind), not self-recollection. Risk-tier paths
+to memory. "Files changed" = every path in `git diff --stat`. Non-trigger:
+the gate-line reason MUST cite `git diff --stat` (count + kind), not
+recollection. Risk-tier paths
 (auth/security/payment/billing/crypto/migration/permission/acl) are
 NON-SKIPPABLE. Lane L default: TWO adversarial fresh-context reviewers
 (VERIFICATION_UPGRADES §V4). Full protocol: §A4.9.
@@ -105,18 +105,20 @@ NON-SKIPPABLE. Lane L default: TWO adversarial fresh-context reviewers
 `COV-9. Baseline-GREEN before any change (Modify-Existing)` — for every
 Modify-Existing task, your narration MUST include all three of these
 literal tokens IN ORDER, on separate lines after you survey the project:
+Preflight (A10.1/21) before backup: `.gitignore`, no tracked vendor,
+budgets; RED = stop.
 ```
 git add -u && git commit --allow-empty -m "backup: before changes"
-bash script/linux/<existing-build-or-start-script>.sh  (or existing test runner)  — run-once baseline check
+bash script/linux/<existing-build-or-start>.sh (or test runner) — run-once baseline
 Baseline verified GREEN — proceed  (or: Baseline has N pre-existing failures → reported to user, logged to tests/verification_log.md, awaiting decision)
 ```
-"Build passed earlier" does NOT count — EVERY change-wave gets its own three
-lines. Record the verdict as the FIRST entry under the task heading in
-`tests/verification_log.md` — the file, not narration, is what group 9
-machine-checks. Pre-existing failures: report +
+"Build passed earlier" does NOT count — EVERY
+change-wave gets its own three lines. Record the verdict as the
+FIRST entry under the task heading in `tests/verification_log.md` — the file,
+not narration, is what group 9 machine-checks. Pre-existing failures: report +
 ask (GUIDED) or ADR + proceed with failures quarantined by scope (AUTO).
-Skipping this makes every later failure unattributable —
-forbidden. Class DOC may state-skip with:
+Skipping makes later failures unattributable — forbidden. Class DOC may
+state-skip with:
 `COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)`;
 Class CONFIG runs the baseline (§V11.3).
 
@@ -471,7 +473,7 @@ this completion`. (4) `[Memory Gate] Passed: …` (or `na (reason)` per §V11.3)
 (5) the gate line — EXACT
 shape, both HARD-GATE tokens LITERAL, each `pass` / `na`:
 ```
-[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Lane: S/M/L | Class: DOC|CONFIG|CODE | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | Fresh-verify: pass/N/A | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
+[Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Lane: S/M/L | Class: DOC|CONFIG|CODE | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | Fresh-verify: pass/N/A | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | repo-hygiene: pass/na (…) | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
 ```
 (6) the 8-column completion table — EXACT header order:
 ```

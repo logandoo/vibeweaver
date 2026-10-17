@@ -616,7 +616,7 @@ git commit -m "feat: add <specific behavior>"
 > Flags: `--existing` (Modify-Existing task → skip new-project §A5 design-doc
 > + git checks) · `--backend-only` (no UI → skip `PAGE_DESIGN.html` and
 > `script/linux/project_build.sh`).
-> The assertion groups (1-19) mirror COMPLETION_GATE.md §A4.4.1's minimum-check table.
+> The assertion groups (1-21) mirror COMPLETION_GATE.md §A4.4.1's minimum-check table.
 
 **The canonical script is `scripts/assert_artifacts.py` in this skill's
 directory** — copy it, do NOT retype it (self-written variants omit check
@@ -1043,3 +1043,101 @@ comparative-judgment-unreliable in `tests/verification_log.md` and localize
 differences via T1/T2 clusters — never side-by-side eyeballing. Protocol
 guard: do NOT open `probe_compare.expected` or brute-force `--compare-check`
 — the report must come from the pixels (same rule as the token probe).
+
+## §A12 Repository Hygiene Templates (Universal)
+
+### A12.1 `.gitignore` — write BEFORE installing dependencies
+
+Adapt the sections to the detected stack; keep the **evidence** paths
+(`tests/`, `memory/`, `docs/`) unignored. Every pattern below is cheap
+insurance against the 2026-10-17 incident (pnpm store + browser cache + SQL
+dumps committed by one `git add -A`).
+
+```gitignore
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+site-packages/
+
+# Node / pnpm / yarn
+node_modules/
+.pnpm-store/
+.yarn/cache/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-error.log*
+
+# Frontend build / test output
+.next/
+.nuxt/
+.parcel-cache/
+coverage/
+playwright-report/
+test-results/
+**/ms-playwright/
+**/Library/Caches/
+
+# Secrets / local config (never commit; still scan the working tree)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+config.local.toml
+
+# Large archives / dumps (use releases or external storage)
+*.zip
+*.tar.gz
+*.tgz
+*.sql.gz
+dump-*.sql
+
+# Harness / local state
+.vibeweaver/
+```
+
+### A12.2 `script/git_safe_commit.sh` — staging budget check
+
+Use this wrapper for baseline/milestone commits. It rejects tracked vendor
+paths and oversized staged changes before `git commit`; the authoritative
+check remains `assert_artifacts.py` group 21.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+bad=$(git diff --cached --name-only | grep -E '(^|/)(node_modules|\.pnpm-store|\.venv|venv|site-packages|__pycache__|\.next|coverage|ms-playwright)(/|$)' || true)
+if [ -n "$bad" ]; then
+  echo "git_safe_commit: REFUSED — staged vendor/cache paths:" >&2
+  echo "$bad" >&2
+  echo "Run: git rm -r --cached <paths>; add .gitignore; retry." >&2
+  exit 1
+fi
+total=$(git diff --cached --numstat | awk '{s+=$1+$2} END{print s+0}')
+if [ -n "$total" ] && [ "$total" -gt 2000000 ]; then
+  echo "git_safe_commit: REFUSED — staged change has $total changed lines; split it." >&2
+  exit 1
+fi
+git commit "$@"
+```
+
+`git diff --cached --numstat` counts changed lines, not bytes (a binary file
+shows `-`); the `--final` blob check is the byte authority. For a strict
+pre-commit hook, also run `python3 tests/assert_artifacts.py --existing --json`
+and reject a non-zero exit.

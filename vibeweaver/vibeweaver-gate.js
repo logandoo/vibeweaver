@@ -1,4 +1,5 @@
 import { execFile, execFileSync } from "node:child_process"
+import { createHash } from "node:crypto"
 import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
@@ -41,6 +42,18 @@ const STATE_FILE = "state.json"
 const STALL_RUN = 3        // consecutive same-file ops before a stall is worth reporting
 const MAX_OPS = 20         // history kept per project
 const ASSERT_TIMEOUT_MS_DEFAULT = 15000
+// 2026-10-18 incident: a pnpm store committed by `git add -A` left 45k
+// untracked paths; the old recursive digest stat'ed them on every write and
+// the 15s assert timeout turned each write into GATE-BLOCKED. The digest is
+// a cache key, not a scan: bound paths/time and return a lossy (uncached) key
+// (never `no-git`, which silently disabled the gate).
+const GIT_DIGEST_MAX_PATHS = 2000
+const GIT_DIGEST_MAX_MS = 1500
+const GIT_DIGEST_MAX_DEPTH = 12
+const GIT_DIGEST_MAX_BUFFER = 8 << 20
+// A lossy digest MUST NOT feed the result cache: overflow/timeout/depth
+// truncation would otherwise freeze a green verdict while content changes.
+const LOSSY_DIGEST = new Set()
 function assertTimeoutMs() {
   const n = Number(process.env.VIBEWEAVER_ASSERT_TIMEOUT_MS)
   return Number.isFinite(n) && n > 0 ? n : ASSERT_TIMEOUT_MS_DEFAULT
@@ -97,6 +110,40 @@ function depFingerprint(root) {
   addDirRecursive(path.join(root, "tests"), 3)
   addDirRecursive(path.join(root, "memory"), 2)
   addDirRecursive(path.join(root, "script"), 3)
+  // Group 14 now scans ignored secret-named files; the cache key MUST see
+  // their content churn or a clean .env can freeze a PASS (and clearing a
+  // leaked .env can freeze the BLOCK). Bounded: depth 4, 200 entries.
+  const secretRe = /(^\.env($|\.)|\.(pem|key|crt)$|^config\.local\.)/i
+  const secretSkip = new Set([".git", ".vibeweaver", "node_modules", ".pnpm-store",
+    ".venv", "venv", "site-packages", "__pycache__", "dist", "build", "target",
+    "coverage", ".next", ".nuxt", ".cache", "Library", "ms-playwright",
+    "playwright-report", "test-results"])
+  let secretSeen = 0
+  const addSecretStats = (dir, depth) => {
+    if (depth > 4 || secretSeen > 200) return
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      parts.push("secret:~")
+      return
+    }
+    for (const e of entries) {
+      if (secretSeen++ > 200) return
+      const p = path.join(dir, e.name)
+      if (e.isDirectory()) {
+        if (depth < 4 && !secretSkip.has(e.name)) addSecretStats(p, depth + 1)
+      } else if (secretRe.test(e.name)) {
+        try {
+          const st = statSync(p)
+          parts.push(`secret:${path.relative(root, p)}:${st.size}@${st.mtimeMs}`)
+        } catch {
+          parts.push(`secret:${path.relative(root, p)}:-`)
+        }
+      }
+    }
+  }
+  addSecretStats(root, 0)
   add(path.join(root, ".git", "HEAD"))
   add(path.join(root, ".git", "index"))
   return parts.join("|") + "\n" + gitDigest(root)
@@ -108,52 +155,84 @@ function depFingerprint(root) {
 // file or untracked .env would never re-run the secret scan). Digest = the
 // porcelain status listing + a stat of every dirty/untracked path.
 function gitDigest(root) {
+  let out
   try {
-    const out = execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8", timeout: 2000, stdio: ["ignore", "pipe", "pipe"] })
-    const parts = [out]
-    const statOne = (p, prefix, depth = 0) => {
-      const abs = path.join(root, p)
-      let s
-      try {
-        s = statSync(abs)
-      } catch {
-        parts.push(`${prefix}${p}:-`)
+    out = execFileSync("git", ["status", "--porcelain"], {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 2000,
+      maxBuffer: GIT_DIGEST_MAX_BUFFER,
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+  } catch (e) {
+    // Only a genuinely absent repo/binary is `no-git`; a timeout/overflow is
+    // a LOSSY digest and must never serve a cached verdict.
+    if (e && e.code === "ENOENT") return "no-git"
+    // A non-repo checkout is legitimately no-git; a 128 from a repo that HAS
+    // .git (corrupt index/ownership/config) is lossy and must not be cached.
+    if (e && e.status === 128 && !existsSync(path.join(root, ".git"))) return "no-git"
+    return lossyKey()
+  }
+  LOSSY_DIGEST.delete(root)
+  const started = Date.now()
+  const parts = [out]
+  let seen = 0
+  let overflow = false
+  function lossyKey() {
+    LOSSY_DIGEST.add(root)
+    // Unique per call: forces a re-run and prevents a stale PASS cache hit.
+    return "git-digest-lossy:" + Date.now() + ":" + Math.random().toString(16).slice(2)
+  }
+  const statOne = (p, prefix, depth = 0) => {
+    if (overflow) return
+    if (seen++ >= GIT_DIGEST_MAX_PATHS || Date.now() - started > GIT_DIGEST_MAX_MS) {
+      overflow = true
+      return
+    }
+    const abs = path.join(root, p)
+    let s
+    try {
+      s = statSync(abs)
+    } catch {
+      parts.push(`${prefix}${p}:-`)
+      overflow = true
+      return
+    }
+    if (s.isDirectory()) {
+      // re-review R1: porcelain collapses fully-untracked dirs to `?? dir/`
+      // — content edits INSIDE the dir never move the dir mtime, so a small
+      // dir must still be walked. The global path/time budget above is the
+      // bound: a 45k-file tree returns a lossy (uncached) key after 2k paths.
+      if (depth >= GIT_DIGEST_MAX_DEPTH) {
+        parts.push(`${prefix}${p}:…`)
+        overflow = true
         return
       }
-      if (s.isDirectory()) {
-        // re-review R1: porcelain collapses fully-untracked dirs to `?? dir/`
-        // — content edits INSIDE the dir never move the dir mtime, yet group
-        // 14 scans those files. Walk (bounded) and stat the entries. Depth
-        // cap (2026-10-17 SIGTRAP hardening): the cache-key walk must never
-        // recurse without a bound — PATH_MAX stops pathological trees in
-        // practice, but the contract is the bound, not the OS.
-        if (depth >= 24) {
-          parts.push(`${prefix}${p}:…`)
-          return
+      try {
+        const entries = readdirSync(abs).sort()
+        for (const e of entries) {
+          if (overflow) break
+          statOne(path.join(p, e), prefix, depth + 1)
         }
-        try {
-          const entries = readdirSync(abs).sort().slice(0, 200)
-          for (const e of entries) statOne(path.join(p, e), prefix, depth + 1)
-        } catch {
-          parts.push(`${prefix}${p}:~`)
-        }
-      } else {
-        parts.push(`${prefix}${p}:${s.size}@${s.mtimeMs}`)
+      } catch {
+        parts.push(`${prefix}${p}:~`)
+        overflow = true
       }
+    } else {
+      parts.push(`${prefix}${p}:${s.size}@${s.mtimeMs}`)
     }
-    for (const line of out.split("\n")) {
-      const raw = line.slice(3).trim().replace(/^"|"$/g, "")
-      if (!raw) continue
-      const p = raw.includes("->") ? raw.split("->").pop().trim() : raw
-      // harness state is not evidence — its churn (stall observer rewrites)
-      // must not defeat the result cache (re-review R6)
-      if (p === ".vibeweaver" || p.startsWith(".vibeweaver/")) continue
-      statOne(p, "")
-    }
-    return parts.join("\n")
-  } catch {
-    return "no-git"
   }
+  for (const line of out.split("\n")) {
+    if (overflow) break
+    const raw = line.slice(3).trim().replace(/^"|"$/g, "")
+    if (!raw) continue
+    const p = raw.includes("->") ? raw.split("->").pop().trim() : raw
+    // harness state is not evidence — its churn (stall observer rewrites)
+    // must not defeat the result cache (re-review R6)
+    if (p === ".vibeweaver" || p.startsWith(".vibeweaver/")) continue
+    statOne(p, "")
+  }
+  return overflow ? lossyKey() : parts.join("\n")
 }
 
 function sizeOf(p) {
@@ -226,7 +305,11 @@ function resolvePython() {
       /* next */
     }
   }
-  return "python3"
+  // Fail-closed fallback identity: the FIRST unresolved probe returns this
+  // string; cache it too, or every later flag attempt passes `null` to
+  // execFile (TypeError instead of the intended ENOENT/block).
+  _pyExe = "python3"
+  return _pyExe
 }
 
 function runPython(script, flags, cwd) {
@@ -374,12 +457,15 @@ async function checkGate(root) {
   const assertsPath = path.join(root, "tests", "assert_artifacts.py")
   if (existsSync(assertsPath)) {
     const key = depFingerprint(root)
-    if (RESULT_CACHE.has(key)) return RESULT_CACHE.get(key) // may be null = cached PASS
+    const lossy = LOSSY_DIGEST.has(root)
+    if (!lossy && RESULT_CACHE.has(key)) return RESULT_CACHE.get(key) // may be null = cached PASS
     const r = await runAssert(root)
     let result
     if (r.ok) {
-      if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
-      RESULT_CACHE.set(key, null) // cache the CLEAN verdict (the note is out-of-band)
+      if (!lossy) {
+        if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
+        RESULT_CACHE.set(key, null) // cache the CLEAN verdict (the note is out-of-band)
+      }
       const flags = r.flags || ""
       if (flags && flags !== "(none)") {
         const noteKey = root + "|" + flags
@@ -400,8 +486,10 @@ async function checkGate(root) {
       const { blocking, warnings } = collectMessages(r.attempts)
       result = { blocking, warnings, attempts: r.attempts.map((a) => `[${a.flags}]`) }
     }
-    if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
-    RESULT_CACHE.set(key, result)
+    if (!lossy) {
+      if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
+      RESULT_CACHE.set(key, result)
+    }
     return result
   }
   const failures = inlineCheck(root)

@@ -1104,7 +1104,6 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       }
       let trigger = core.stopEuphemism(aTail)
       if (!trigger && sess.usage && sess.usage.finish === "length") trigger = { kind: "truncation", match: "length" }
-      if (!trigger) return
       // whitelist — every leg scoped so history can never immunize the present:
       // paused/Class-E only count when recorded DURING this session (review F5);
       // the gate marker only counts in the SAME message as the claim (F4).
@@ -1133,9 +1132,22 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
           uText
         ) && !/((?:don't|do not|never)\s+(?:stop|cancel|quit)|不要停|别停|不能停)/i.test(uText)
       const curBlock = typeof core.currentLogBlock === "function" ? core.currentLogBlock(safeRead(path.join(root, "tests", "verification_log.md"))) : ""
-      const waveComplete = /-[ \t]*final-run:[ \t]*--final\b/i.test(curBlock)
+      const waveComplete = /-[ \t]*final-run:[^\n]*--final[^\n]*pass=[1-9]\d*[ \t]*\/[ \t]*fail=0/i.test(curBlock)
       const taskActive = existsSync(path.join(root, "tests", "acceptance.md")) && sess.tools.length > 0 && !waveComplete
-      const decision = core.stopGuardDecision({ trigger, taskActive, pausedState, classE, gateMarker, tailQuestion, userStop, telemetry: hasTelemetry })
+      // Positive predicate (§V12): a silent stop with an active task on disk
+      // and a WRITE AFTER THE LAST USER MESSAGE is incomplete by evidence.
+      // The turn scoping is essential: a user asking "what changed?" after a
+      // partial edit must not be auto-resumed. A host error/abort fences the
+      // predicate until a later successful write.
+      const wroteAfterUser = Number.isFinite(sess.lastWriteAt)
+        && (!Number.isFinite(sess.lastUserAt) || sess.lastWriteAt > sess.lastUserAt)
+      const errorFence = Number.isFinite(sess.lastErrorAt)
+        && !(Number.isFinite(sess.lastWriteAt) && sess.lastWriteAt > sess.lastErrorAt)
+      const positiveIncomplete = !trigger && taskActive && !gateMarker && !tailQuestion
+        && !userStop && !pausedState && !classE && wroteAfterUser && !errorFence
+      if (!trigger && !positiveIncomplete) return
+      const effectiveTrigger = trigger || { kind: "incomplete", match: "no-final-run" }
+      const decision = core.stopGuardDecision({ trigger, positiveIncomplete, taskActive, pausedState, classE, errorFence, gateMarker, tailQuestion, userStop, telemetry: hasTelemetry })
       if (decision.action === "ignore") return
       if (!sg.armed) return
       sg.armed = false
@@ -1145,12 +1157,12 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       const canPrompt = typeof onStopPrompt === "function"
       if (decision.action === "debt" || sg.interventions >= maxI || !canPrompt) {
         const why = decision.action === "debt" ? decision.why : !canPrompt ? "no-prompt-channel" : "budget-exhausted"
-        journalStopDebt(root, sessionID, trigger, why)
+        journalStopDebt(root, sessionID, effectiveTrigger, why)
         void log({
           service: "vibeweaver-stopguard",
           level: "info",
-          message: `false-stop episode (${trigger.kind}: ${String(trigger.match).slice(0, 60)}) — intervention budget exhausted (${maxI}/session/stop) or no prompt channel — journaled as stop-debt (${why})`,
-          extra: { sessionID, trigger, why },
+          message: `false-stop episode (${effectiveTrigger.kind}: ${String(effectiveTrigger.match).slice(0, 60)}) — intervention budget exhausted (${maxI}/session/stop) or no prompt channel — journaled as stop-debt (${why})`,
+          extra: { sessionID, trigger: effectiveTrigger, why },
         })
         return
       }
@@ -1165,10 +1177,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       void log({
         service: "vibeweaver-stopguard",
         level: "warn",
-        message: `false-stop detected (${trigger.kind}: ${String(trigger.match).slice(0, 60)}) — posting corrective prompt (${sg.interventions}/${maxI}/stop)`,
-        extra: { sessionID, trigger, fillKnown: fillKnown ? fill : undefined },
+        message: `false-stop detected (${effectiveTrigger.kind}: ${String(effectiveTrigger.match).slice(0, 60)}) — posting corrective prompt (${sg.interventions}/${maxI}/stop)`,
+        extra: { sessionID, trigger: effectiveTrigger, fillKnown: fillKnown ? fill : undefined },
       })
-      const text = core.stopGuardPrompt({ kind: trigger.kind, fill, fillKnown })
+      const text = core.stopGuardPrompt({ kind: effectiveTrigger.kind, fill, fillKnown })
       // identity exclusion (assistantCorpus) covers OUR injections — record
       // stop-guard prompts the same way loop-guard prompts are recorded
       if (!Array.isArray(sess.injectedPrompts)) sess.injectedPrompts = []
@@ -1188,7 +1200,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       sess.roles[info.id] = info.role
       const ids = Object.keys(sess.roles)
       if (ids.length > 400) delete sess.roles[ids[0]]
-      if (info.role === "user") sess.lastUserMid = info.id
+      if (info.role === "user") {
+        sess.lastUserMid = info.id
+        sess.lastUserAt = Date.now()
+      }
       if (info.role === "assistant") {
         // merge, never overwrite wholesale (review F7): a token-less or
         // finish-less field update must not zero the last real measurement.
@@ -1314,6 +1329,11 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
           }
         }
       }
+      // Successful, first observation only: a v1 re-observation or a failed
+      // write must not clear the abort fence / turn scope.
+      if ((part.tool === "write" || part.tool === "edit") && st.status === "completed") {
+        sess.lastWriteAt = Date.now()
+      }
       const inp = st.input && typeof st.input === "object" ? st.input : null
       if (inp) {
         if (typeof inp.filePath === "string") t.filePath = inp.filePath
@@ -1409,6 +1429,9 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
 
   const observeToolEnd = (sessionID, tool, result) => {
     if (typeof sessionID !== "string" || !sessionID || typeof tool !== "string" || !tool) return
+    if (tool === "write" || tool === "edit") {
+      touchSession(sessionID).lastWriteAt = Date.now()
+    }
     // Tool.Result = { output?, content?: string | Content[], metadata? } —
     // content is the model-visible channel; output is the structured value.
     const content = result && typeof result === "object" ? result.content : result
@@ -1503,6 +1526,13 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     if (typeof name === "string" && name.startsWith("vibeweaver")) sess.skillLoaded = true
   }
 
+  // Host error/abort: never auto-resume a turn the user just cancelled.
+  // A later successful write clears the error fence.
+  const observeError = (sessionID) => {
+    if (typeof sessionID !== "string" || !sessionID) return
+    touchSession(sessionID).lastErrorAt = Date.now()
+  }
+
   // RED-latch write gate (shared by both execute.before adapters).
   // Returns the block message to throw, or null.
   const beforeWrite = ({ tool, sessionID, filePath }) => {
@@ -1557,6 +1587,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     observeTextDelta,
     observeFullContent,
     observeSkill,
+    observeError,
     beforeWrite,
     handleIdle,
   }
@@ -1633,6 +1664,8 @@ async function server({ client, directory }) {
         m.observePart(sessionID, props.part)
       } else if (event.type === "message.updated" && sessionID) {
         m.observeMessage(sessionID, props.info)
+      } else if (event.type === "session.error" && sessionID) {
+        m.observeError(sessionID)
       } else if (event.type === "session.idle" && sessionID) {
         await m.handleIdle(sessionID)
       }
@@ -1734,6 +1767,8 @@ async function setup(ctx) {
             m.observeFullContent(sessionID, data.messageID, data.content)
           } else if (event.type === "session.skill.activated" && sessionID) {
             m.observeSkill(sessionID, data.name)
+          } else if (event.type === "session.error" && sessionID) {
+            m.observeError(sessionID)
           } else if (event.type === "session.status" && sessionID && data.status && data.status.type === "idle") {
             await m.handleIdle(sessionID)
           }

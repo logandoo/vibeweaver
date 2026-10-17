@@ -15,7 +15,7 @@ import path from "node:path"
 
 const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
 const CORE_MODULE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
-const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopGuardDecision, stopGuardPrompt, identicalToolRunFinding, toolIdentity, canonicalJson, toolFrequencyFinding } = await import(pathToFileURL(CORE_MODULE))
+const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopGuardDecision, stopGuardPrompt, currentLogBlock, identicalToolRunFinding, toolIdentity, canonicalJson, toolFrequencyFinding } = await import(pathToFileURL(CORE_MODULE))
 // Dual-compat module surface: current plugin default-exports { id, server, setup };
 // fall back to the legacy named export when testing an older copy.
 const auditModule = await import(pathToFileURL(AUDIT_MODULE))
@@ -48,6 +48,7 @@ function newFixture(name) {
   // the loop-guard runs only with tests/acceptance.md present or the skill
   // activated. Tests probing the inactive state build their own fixture.
   write(root, "tests/acceptance.md", "> cap=5  stall=3×\n1. fixture\n")
+  write(root, ".gitignore", ".DS_Store\n__pycache__/\n.venv/\nnode_modules/\n.pnpm-store/\n.env\n")
   return root
 }
 
@@ -416,7 +417,7 @@ const baseTools = () => [
   const required = [
     "Class:", "Loop executed:", "Iterations:", "Media graded externally:", "E2E depth:", "TDD RED evidence:",
     "Fresh-run on final tree:", "Code review:", "assert_artifacts.py: pass=", "covenant_recall:",
-    "memory_gate:", "HARD-GATE-1:", "HARD-GATE-2:",
+    "memory_gate:", "repo-hygiene:", "HARD-GATE-1:", "HARD-GATE-2:",
   ]
   const missing = required.filter((f) => !(template && template[0].includes(f)))
   rec("T11 gate-line template ↔ audit field coupling", !missing.length && !!template, missing.length ? `template fields missing: ${missing.join(",")}` : "all audit field regexes match the current SKILL.md template")
@@ -2129,6 +2130,26 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   dExpect("T27c8 clean trigger on v1 → prompt", base, "prompt")
   dExpect("T27c9 clean trigger on v2 (no telemetry) → debt, never prompt", { ...base, telemetry: false }, "debt")
   dExpect("T27c10 truncation trigger → prompt", { ...base, trigger: { kind: "truncation", match: "length" } }, "prompt")
+  // Positive completion predicate: no euphemism is needed when the on-disk
+  // task is incomplete. This is the silent-stop gap (§V12).
+  dExpect("T27c11 on-disk incomplete, no euphemism → prompt",
+    { ...base, trigger: null, positiveIncomplete: true }, "prompt")
+  dExpect("T27c12 on-disk incomplete on v2 → debt, never prompt",
+    { ...base, trigger: null, positiveIncomplete: true, telemetry: false }, "debt")
+  dExpect("T27c13 on-disk incomplete + paused_state → ignore",
+    { ...base, trigger: null, positiveIncomplete: true, pausedState: true }, "ignore")
+  dExpect("T27c14 on-disk incomplete + gate marker → ignore",
+    { ...base, trigger: null, positiveIncomplete: true, gateMarker: true }, "ignore")
+  const blk = typeof currentLogBlock === "function"
+    ? currentLogBlock("## Task: x\n- iter 1 PASS: x\n- final-run: --final — pass=1/fail=0\n## Notes\ntrailing prose\n")
+    : ""
+  rec("T27c15 currentLogBlock picks the last iter-bearing block (trailing heading safe)",
+    /final-run/.test(blk) && !/Notes/.test(blk), blk.slice(0, 100))
+  const blk2 = typeof currentLogBlock === "function"
+    ? currentLogBlock("## Task: old\n- iter 1 PASS: x\n- final-run: --final — pass=1/fail=0\n## Task: new\n- Baseline verified GREEN\n")
+    : ""
+  rec("T27c16 currentLogBlock prefers a new Task block over the old final-run",
+    /Baseline verified GREEN/.test(blk2) && !/final-run/.test(blk2), blk2.slice(0, 100))
 
   // ---- corrective prompt contract ----
   const pt = hasStopGuard ? stopGuardPrompt({ kind: "euphemism", fill: 0.15, fillKnown: true }) : ""
@@ -2139,6 +2160,12 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   rec("T27d4 prompt points at working_note for resume", hasStopGuard ? /working_note/.test(pt) : false, "")
   const pt3 = hasStopGuard ? stopGuardPrompt({ kind: "truncation", fillKnown: false }) : ""
   rec("T27d5 truncation prompt names output-limit truncation ≠ complete", hasStopGuard ? /truncat|length|output.limit/i.test(pt3) : false, pt3.slice(0, 120))
+  const pt4 = hasStopGuard ? stopGuardPrompt({ kind: "incomplete", fillKnown: false }) : ""
+  rec("T27d6 incomplete prompt names on-disk final-run gap",
+    hasStopGuard ? /final-run/.test(pt4) && /acceptance\.md/.test(pt4) : false, pt4.slice(0, 140))
+  const pt5 = hasStopGuard ? stopGuardPrompt({ kind: "incomplete", fill: 0.2, fillKnown: true }) : ""
+  rec("T27d7 incomplete prompt never carries an exhaustion fill accusation",
+    hasStopGuard ? !/20%|no basis/.test(pt5) : false, pt5.slice(0, 140))
 
   // ---- v1 adapter integration: idle-triggered prompt, budget, arming, debt ----
   {
@@ -2207,6 +2234,48 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     await idle()
     const report = readFileSync(path.join(root27, "tests", "gate_audit.md"), "utf8")
     rec("T27e8 debt replayed into gate_audit.md stop-debt section", /## Stop-debt/.test(report) && /stop-debt:/.test(report), report.split("\n").filter((l) => /stop-debt/i.test(l)).join(" | ").slice(0, 140))
+  }
+
+  // ---- positive on-disk incomplete: silent stop (no euphemism) must prompt ----
+  {
+    const root27p = newFixture("t27-positive")
+    write(root27p, "tests/verification_log.md", "## Task: fixture\n- iter 1 FAIL: x | diagnosis: d | changed: a.ts\n- working-note: created (fixture — active task)\n")
+    write(root27p, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+    const calls = { prompts: [] }
+    const plugin27p = await VibeweaverAudit({
+      client: {
+        app: { log: async () => {} },
+        session: { abort: async () => {}, prompt: async (a) => calls.prompts.push((a && a.body && a.body.parts && a.body.parts[0] && a.body.parts[0].text) || "") },
+      },
+      directory: root27p,
+    })
+    const sid = "ses_t27p"
+    const ev = (type, properties) => plugin27p.event({ event: { type, properties } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "write", state: { status: "completed", input: { filePath: path.join(root27p, "src", "a.ts") } } } })
+    await ev("message.updated", { sessionID: sid, info: { id: "m1", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "p1", messageID: "m1", type: "text", text: "Done." } })
+    await ev("session.idle", { sessionID: sid })
+    rec("T27e9 silent stop + on-disk incomplete → positive corrective prompt",
+      calls.prompts.length === 1 && /final-run/.test(calls.prompts[0] || ""),
+      `prompts=${calls.prompts.length} ${(calls.prompts[0] || "").slice(0, 140)}`)
+    // Turn scoping: a user Q&A turn after the write must NOT be auto-resumed.
+    await ev("message.updated", { sessionID: sid, info: { id: "u2", role: "user" } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "pu2", messageID: "u2", type: "text", text: "What changed?" } })
+    await ev("message.updated", { sessionID: sid, info: { id: "m2", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "p2", messageID: "m2", type: "text", text: "Only the validation order." } })
+    await ev("session.idle", { sessionID: sid })
+    rec("T27e10 user Q&A after a write is not auto-resumed (turn-scoped)",
+      calls.prompts.length === 1, `prompts=${calls.prompts.length}`)
+    // Host error/abort fence: a later error after the write suppresses the
+    // positive leg (don't auto-resume a cancelled/broken turn).
+    await ev("message.part.updated", { sessionID: sid, part: { id: "t2", type: "tool", tool: "write", state: { status: "completed", input: { filePath: path.join(root27p, "src", "b.ts") } } } })
+    await ev("session.error", { sessionID: sid })
+    await ev("message.updated", { sessionID: sid, info: { id: "m3", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "p3", messageID: "m3", type: "text", text: "上下文快耗尽了，先到这里。" } })
+    await ev("session.idle", { sessionID: sid })
+    rec("T27e11 host error fences BOTH euphemism and positive triggers (no auto-resume)",
+      calls.prompts.length === 1, `prompts=${calls.prompts.length}`)
   }
 
   // ---- user stop directive → whitelisted, no prompt ----

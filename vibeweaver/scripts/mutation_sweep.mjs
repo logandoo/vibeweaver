@@ -80,6 +80,7 @@ function scaffold(root) {
   ].join("\n")
   writeFileSync(path.join(root, "tests/verification_log.md"), log)
   writeFileSync(path.join(root, "tests/acceptance.md"), "> cap=5  stall=3×\n1. a\n2. b\n")
+  writeFileSync(path.join(root, ".gitignore"), ".DS_Store\n__pycache__/\n.venv/\nnode_modules/\n.pnpm-store/\n.env\n")
   writeFileSync(path.join(root, "tests/shot.png"), Buffer.from("89504e470d0a1a0a0000000d4948445200000280000001900806000000" + "00".repeat(32), "hex"))
   writeFileSync(path.join(root, "tests/flow.mp4"), Buffer.from("00000018667479706d703432" + "00".repeat(24), "hex"))
   writeFileSync(path.join(root, "tests/flow_audio.wav"), "x")
@@ -158,6 +159,7 @@ run("C18-doc-class-code-write", () => ({
   const root = path.join(TMP, "lite-doc-clean")
   rmSync(root, { recursive: true, force: true })
   mkdirSync(path.join(root, "tests"), { recursive: true })
+  writeFileSync(path.join(root, ".gitignore"), ".DS_Store\n__pycache__/\n.venv/\nnode_modules/\n.pnpm-store/\n.env\n")
   writeFileSync(path.join(root, "tests/verification_log.md"), [
     "## Task: changelog entry | 2026-09-28",
     "- class: DOC — CHANGELOG.md prose only",
@@ -216,6 +218,7 @@ run("C18-doc-class-code-write", () => ({
   const root = path.join(TMP, "config-mem-na")
   rmSync(root, { recursive: true, force: true })
   for (const d of ["tests", "script/linux"]) mkdirSync(path.join(root, d), { recursive: true })
+  writeFileSync(path.join(root, ".gitignore"), ".DS_Store\n__pycache__/\n.venv/\nnode_modules/\n.pnpm-store/\n.env\n")
   const mkLog = (memLine) => [
     "## Task: config tweak | 2026-09-28",
     "- class: CONFIG — config.toml only",
@@ -266,6 +269,7 @@ run("C18-doc-class-code-write", () => ({
   const root = path.join(TMP, "exec-check-row")
   rmSync(root, { recursive: true, force: true })
   for (const d of ["tests", "output", "memory"]) mkdirSync(path.join(root, d), { recursive: true })
+  writeFileSync(path.join(root, ".gitignore"), ".DS_Store\n__pycache__/\n.venv/\nnode_modules/\n.pnpm-store/\n.env\n")
   const assertSrc = path.resolve(import.meta.dirname, "assert_artifacts.py")
   if (existsSync(assertSrc)) writeFileSync(path.join(root, "tests/assert_artifacts.py"), readFileSync(assertSrc, "utf8"))
   writeFileSync(path.join(root, "tests/acceptance.md"), "> cap=5  stall=3×\n1. Delivered\n")

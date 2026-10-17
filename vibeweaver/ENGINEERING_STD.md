@@ -140,3 +140,56 @@ them, STOP and reassess before continuing.
 - Production deploys are human-confirmed: the agent prepares (build,
   changelog, rollback path); the user authorizes the production action —
   no autonomous deploy to production targets
+
+### §A10.1 Repository hygiene / VCS budget (COV-9 preflight · assert group 21)
+
+**Why this exists (2026-10-17/18 incident).** An old `git add -A` backup
+commit swept a pnpm store, Playwright browser cache, SQL dumps and a zip into
+history (~1.3 GiB). `.gitignore` was added afterwards and `git rm --cached`
+untracked the files, but the `.git` pack stayed **1.9 GiB / 85,302 objects**;
+`git log --all -- .pnpm-store` still reached ~45k paths. The gate then walked
+and scanned that tree on every write until it was disabled. **Untrack is not
+history cleanup; `.gitignore` is prevention, not a cure.**
+
+Run the preflight BEFORE the baseline commit (C2 Step 5) and before installing
+dependencies (C1 Step 1). `assert_artifacts.py` group 21 is the machine check;
+it runs in every class/profile and cannot be skipped.
+
+| Check | Warn | Hard fail |
+|---|---:|---:|
+| `.gitignore` present | — | missing |
+| tracked dependency/cache path (`node_modules`, `.pnpm-store`, `.venv`, `site-packages`, `__pycache__`, `.next`, `.nuxt`, `coverage`, Playwright caches) | — | any |
+| `.gitignore` covers the detected stack (`node_modules/`; `.pnpm-store/` when pnpm; `.venv/`/`venv/` when Python) | — | missing pattern when the manifest exists |
+| untracked, non-ignored files | > 500 | > 2,000 (fail; partial scans refused) |
+| `.git` size (`git count-objects -v`) | > 200 MiB | > 1 GiB |
+| largest reachable blob (`--final`, `rev-list --all`) | > 10 MiB | > 40 MiB |
+| change-wave paths | — | > 2,000 (split the wave) |
+
+**Remediation (index only — safe):**
+
+```bash
+# 1) write/extend .gitignore first (APPENDIX §A12), then:
+git rm -r --cached --ignore-unmatch node_modules .pnpm-store .venv dist build
+git add .gitignore && git commit -m "chore: untrack dependency/build caches"
+# 2) verify the index is clean:
+git ls-files | rg '(^|/)(node_modules|\.pnpm-store|\.venv|site-packages)/' || echo clean
+git count-objects -vH
+```
+
+**History rewrite (destructive — Class-E, user approval required):**
+
+```bash
+git clone --mirror <repo> ../<repo>-backup-$(date +%Y%m%d).git
+git filter-repo --path .pnpm-store --path node_modules --path .venv \
+  --path '*.zip' --path '*.sql.gz' --invert-paths
+git reflog expire --expire=now --all && git gc --prune=now --aggressive
+# coordinate with every collaborator before force-pushing; keep the mirror.
+```
+
+Do not run this automatically. A history rewrite changes every commit hash;
+the user owns that decision. Record it in `tests/decisions.md` (Class-E) and
+verify `git rev-list --objects --all | rg '\.pnpm-store/'` is empty afterward.
+
+**Staging rule:** `git add -u && git add <explicit new paths>` only. Never
+`git add -A` / `git add .` in a mixed workspace. A pre-commit hook is useful
+but bypassable with `--no-verify`; the authoritative gate is group 21.
