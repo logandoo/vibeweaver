@@ -13,7 +13,7 @@ a profile never weakens an applicable group. `--class DOC|CONFIG|CODE`
 (COV-13 / §V11, or the log's `- class:` basis line) N/A's the memory (4)
 and service-lifecycle (5) groups for the classes whose path card has no
 such risk."""
-import argparse, hashlib, json, os, pathlib, re, subprocess, sys
+import argparse, hashlib, json, os, pathlib, re, shutil, subprocess, sys
 
 FAILS = []   # [{"code","severity","detail"}] — machine-readable per D4 (--json)
 WARN_LINES = []
@@ -453,6 +453,46 @@ def png_dims(path: pathlib.Path):
         return None
 
 
+_BASH_EXE = None
+_BASH_PROBED = False
+
+
+def _bash_exe():
+    """Resolve a WORKING bash, once per process (2026-10-17, windows CI):
+    `subprocess.run(["bash"], ...)` resolves `bash` to the System32 WSL stub
+    before Git Bash — the stub exits non-zero with EMPTY stderr when no WSL
+    distro is registered, which looked like "bash -n failed" on every .sh.
+    Probe candidates with `bash -c 'exit 0'` and fall back to the standard
+    Git for Windows paths; VIBEWEAVER_BASH overrides. None = no parser
+    (fail-closed at the call site)."""
+    global _BASH_EXE, _BASH_PROBED
+    if _BASH_PROBED:
+        return _BASH_EXE
+    _BASH_PROBED = True
+    cands = []
+    if os.environ.get("VIBEWEAVER_BASH"):
+        cands.append(os.environ["VIBEWEAVER_BASH"])
+    w = shutil.which("bash")
+    if w:
+        cands.append(w)
+    if os.name == "nt":
+        cands += [
+            r"C:\Program Files\Git\bin\bash.exe",
+            r"C:\Program Files\Git\usr\bin\bash.exe",
+            r"C:\Program Files (x86)\Git\bin\bash.exe",
+        ]
+    for c in cands:
+        if not c or not os.path.isfile(c):
+            continue
+        try:
+            if subprocess.run([c, "-c", "exit 0"], capture_output=True, timeout=10).returncode == 0:
+                _BASH_EXE = c
+                return c
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+    return None
+
+
 def script_syntax_check(path: pathlib.Path):
     """C2: a delivered script must be runnable syntax — non-empty, shebang for
     shell, then the parser: `bash -n` (.sh), `node --check` (.js/.mjs),
@@ -476,8 +516,12 @@ def script_syntax_check(path: pathlib.Path):
         return False, "missing shebang"
     try:
         if ext in (".sh", ".bash"):
-            r = subprocess.run(["bash", "-n"], input=text, capture_output=True, text=True, timeout=10)
-            return r.returncode == 0, ("syntax ok" if r.returncode == 0 else (r.stderr.strip() or "bash -n failed")[:120])
+            exe = _bash_exe()
+            if not exe:
+                return False, "checker unavailable (no working bash on PATH)"
+            r = subprocess.run([exe, "-n"], input=text, capture_output=True, text=True, timeout=10)
+            detail = r.stderr.strip() or f"bash -n failed (rc={r.returncode} via {os.path.basename(str(exe))})"
+            return r.returncode == 0, ("syntax ok" if r.returncode == 0 else detail[:120])
         if ext in (".js", ".mjs"):
             r = subprocess.run(["node", "--check", str(path)], capture_output=True, text=True, timeout=10)
             return r.returncode == 0, ("syntax ok" if r.returncode == 0 else (r.stderr.strip() or "node --check failed")[:120])
