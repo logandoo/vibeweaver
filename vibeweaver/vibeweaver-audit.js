@@ -60,6 +60,37 @@ const OUT_CAP = 300
 const RED_TTL_HOURS_DEFAULT = 24
 const RELEASES_CAP = 5
 
+// Bounded input-size estimate for tool arguments (SIGTRAP hardening round 3,
+// 2026-10-17): `canonicalJson(inp)` deep-copies and stringifies the FULL
+// argument object — a multi-MB `write`/`ssh_sftp_write` content re-observed
+// N times (v1 re-emits the part on every state change) is N full copies of
+// the payload (the crashed processes: 58.8GB malloc / 12GB JS heap). Strings
+// cost their length (O(1) to read), the walk itself is step-bounded; over
+// budget the caller records a truncated identity instead — which is exactly
+// the F10 semantics oversized args already had.
+function inputTooBig(inp, budget = 8192) {
+  let cost = 2
+  const stack = [inp]
+  let steps = 0
+  while (stack.length) {
+    if (++steps > 2000) return true
+    const v = stack.pop()
+    if (typeof v === "string") cost += v.length + 2
+    else if (Array.isArray(v)) {
+      cost += 2
+      for (let i = 0; i < v.length; i++) stack.push(v[i])
+    } else if (v && typeof v === "object") {
+      cost += 2
+      for (const k of Object.keys(v)) {
+        cost += k.length + 3
+        stack.push(v[k])
+      }
+    } else cost += 4
+    if (cost > budget) return true
+  }
+  return false
+}
+
 // ---------- helpers (never throw) ----------
 
 function sizeOf(p) {
@@ -1217,6 +1248,19 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       const t = { tool: part.tool, t: Date.now() }
       noteMsg(sess, part.messageID)
       if (typeof part.id === "string" && part.id) t.pid = part.id
+      // Re-observation of a call we already recorded (v1 re-emits the part on
+      // every state change): only fill a missing result — never re-process
+      // the input (SIGTRAP round 3: each re-emission used to deep-copy and
+      // stringify the FULL tool arguments).
+      if (t.pid) {
+        for (let i = sess.tools.length - 1; i >= 0 && i >= sess.tools.length - 40; i--) {
+          const prev = sess.tools[i]
+          if (prev && prev.pid === t.pid) {
+            if (typeof st.output === "string" && st.output && !prev.output) prev.output = st.output.slice(0, OUT_CAP)
+            return
+          }
+        }
+      }
       const inp = st.input && typeof st.input === "object" ? st.input : null
       if (inp) {
         if (typeof inp.filePath === "string") t.filePath = inp.filePath
@@ -1226,12 +1270,18 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         }
         if (typeof inp.name === "string") t.name = inp.name
         // canonical args identity (identical-tool-run): status-only
-        // re-observations carry NO input and must never fabricate one
+        // re-observations carry NO input and must never fabricate one;
+        // oversized inputs keep the F10 truncated identity instead of being
+        // deep-copied (inputTooBig is O(1) on a big string property).
         let canon = ""
-        try {
-          canon = typeof core.canonicalJson === "function" ? core.canonicalJson(inp) : JSON.stringify(inp)
-        } catch {
-          canon = "" // a throwing input must never break observation
+        if (inputTooBig(inp)) {
+          t.truncated = true
+        } else {
+          try {
+            canon = typeof core.canonicalJson === "function" ? core.canonicalJson(inp) : JSON.stringify(inp)
+          } catch {
+            canon = "" // a throwing input must never break observation
+          }
         }
         if (canon) {
           t.args = canon.length > IN_CAP ? canon.slice(0, IN_CAP) : canon
@@ -1265,11 +1315,17 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         if (inp.command.length > IN_CAP) t.truncated = true // truncation can forge a literal (F10)
       }
       if (typeof inp.name === "string") t.name = inp.name
+      // oversized inputs keep the truncated identity (inputTooBig, SIGTRAP
+      // round 3) instead of being deep-copied by canonicalJson
       let canon = ""
-      try {
-        canon = typeof core.canonicalJson === "function" ? core.canonicalJson(inp) : JSON.stringify(inp)
-      } catch {
-        canon = "" // a throwing input must never fail the tool hook
+      if (inputTooBig(inp)) {
+        t.truncated = true
+      } else {
+        try {
+          canon = typeof core.canonicalJson === "function" ? core.canonicalJson(inp) : JSON.stringify(inp)
+        } catch {
+          canon = "" // a throwing input must never fail the tool hook
+        }
       }
       if (canon) {
         t.args = canon.length > IN_CAP ? canon.slice(0, IN_CAP) : canon

@@ -109,7 +109,7 @@ function depFingerprint(root) {
 // porcelain status listing + a stat of every dirty/untracked path.
 function gitDigest(root) {
   try {
-    const out = execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8", timeout: 2000 })
+    const out = execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8", timeout: 2000, stdio: ["ignore", "pipe", "pipe"] })
     const parts = [out]
     const statOne = (p, prefix, depth = 0) => {
       const abs = path.join(root, p)
