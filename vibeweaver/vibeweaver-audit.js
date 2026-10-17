@@ -938,6 +938,42 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const maybeLoopCheck = (sessionID) => maybeGuardCheck(sessionID, "text")
   const maybeToolLoopCheck = (sessionID) => maybeGuardCheck(sessionID, "tool")
 
+  // ---- bounded observation buffers (SIGTRAP/OOM hardening, 2026-10-17) ----
+  // The corpus rebuild (Object.values(store).join + assistantCorpus +
+  // stripCodeFences) is O(corpus) work AND allocations per observation. Over
+  // a long streaming turn that is quadratic in turn length — measured ~90GB
+  // of allocation churn for a 30k-delta turn under bun; the crashed opencode
+  // processes (2026-10-17 DiagnosticReports) died inside libpas' allocator
+  // with 59.7GB of malloc virtual (allocation-failure CRASH() = SIGTRAP).
+  // Three bounds fix it: (1) every part buffer is capped (same head/tail
+  // budget as the corpus), (2) the part maps are pruned to PARTS_MAX, (3)
+  // detector scans run on a byte cadence once a TURN is large — small
+  // corpora still scan every observation (exact detection timing; the
+  // selftest and short turns depend on it), and the detector's own window is
+  // only the 98KB tail anyway.
+  const PARTS_MAX = 64
+  const SCAN_STEP = 256
+  const SCAN_SMALL = 32_768
+  const capPart = (s) => (s.length > TEXT_CAP_HEAD + TEXT_CAP_TAIL ? s.slice(0, TEXT_CAP_HEAD) + "\n…[truncated]…\n" + s.slice(-TEXT_CAP_TAIL) : s)
+  const pruneParts = (store) => {
+    const keys = Object.keys(store)
+    for (let i = 0; i + PARTS_MAX < keys.length; i++) delete store[keys[i]]
+  }
+  const maybeTextScan = (sessionID, sess, channel, added) => {
+    if ((sess.turnChars || 0) > SCAN_SMALL) {
+      sess.scanBytes = (sess.scanBytes || 0) + (added > 0 ? added : 0)
+      if (sess.scanBytes < SCAN_STEP) return
+      sess.scanBytes = 0
+    }
+    if (channel === "reasoning") {
+      sess.reasoning = capText(Object.values(sess.reasoningParts || {}).join("\n"))
+      maybeGuardCheck(sessionID, "reasoning")
+    } else {
+      sess.text = capText(Object.values(sess.textParts).join("\n"))
+      maybeLoopCheck(sessionID)
+    }
+  }
+
   // ---- stop-guard (§V12): false-stop detection at session idle ----
   // Trigger = stop-euphemism in the LAST assistant message's text (or
   // finish:"length" truncation). Whitelist first, budget 2/session, debt
@@ -1127,7 +1163,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
       const pid = part.id || (reasoning ? "reasoning" : "text")
       const buf = store[pid] || ""
-      if (buf.includes(ptext)) {
+      if (ptext.length <= buf.length && buf.includes(ptext)) {
         // duplicate/partial re-emission — state unchanged: skip the
         // re-check AND the episode-clock advance (re-checking unchanged
         // text can re-fire on a stale tail; advancing lastMsgID on a
@@ -1140,13 +1176,14 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const pids = Object.keys(sess.partMsg)
         if (pids.length > 400) delete sess.partMsg[pids[0]]
       }
-      if (ptext.includes(buf)) {
-        store[pid] = ptext
+      if (ptext.length <= TEXT_CAP_HEAD + TEXT_CAP_TAIL && ptext.includes(buf)) {
+        store[pid] = capPart(ptext)
         sess.turnChars = (sess.turnChars || 0) + Math.max(0, ptext.length - buf.length)
       } else {
-        store[pid] = buf + ptext
+        store[pid] = capPart(buf + ptext)
         sess.turnChars = (sess.turnChars || 0) + ptext.length
       }
+      pruneParts(store)
       // D1-④: genuine user input (human user-role text, never a plugin
       // corrective prompt) decays the loop-guard budget and re-arms episodes.
       if (!reasoning) {
@@ -1154,13 +1191,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const roleForPid = midForPid && sess.roles ? sess.roles[midForPid] : null
         if (roleForPid === "user" && !isPluginInjected(ptext)) decayLoopBudget(sess)
       }
-      if (reasoning) {
-        sess.reasoning = capText(Object.values(sess.reasoningParts).join("\n"))
-        maybeGuardCheck(sessionID, "reasoning")
-      } else {
-        sess.text = capText(Object.values(sess.textParts).join("\n"))
-        maybeLoopCheck(sessionID)
-      }
+      maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", ptext.length)
     } else if (part.type === "tool" && part.tool) {
       const st = part.state || {}
       const t = { tool: part.tool, t: Date.now() }
@@ -1262,14 +1293,9 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     noteMsg(sess, messageID)
     sess.turnChars = (sess.turnChars || 0) + delta.length
     const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
-    store[pid] = (store[pid] || "") + delta
-    if (reasoning) {
-      sess.reasoning = capText(Object.values(sess.reasoningParts).join("\n"))
-      maybeGuardCheck(sessionID, "reasoning")
-    } else {
-      sess.text = capText(Object.values(sess.textParts).join("\n"))
-      maybeLoopCheck(sessionID)
-    }
+    store[pid] = capPart((store[pid] || "") + delta)
+    pruneParts(store)
+    maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", delta.length)
   }
 
   const ingestFull = (sess, sessionID, messageID, items, reasoning) => {
@@ -1287,16 +1313,12 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
     const buf = store[pid] || ""
     // same three-shape robustness as the v1 cumulative-update branch
-    if (buf.includes(joined)) return
-    store[pid] = joined.includes(buf) ? joined : buf + joined
-    sess.turnChars = (sess.turnChars || 0) + (joined.includes(buf) ? Math.max(0, joined.length - buf.length) : joined.length)
-    if (reasoning) {
-      sess.reasoning = capText(Object.values(sess.reasoningParts).join("\n"))
-      maybeGuardCheck(sessionID, "reasoning")
-    } else {
-      sess.text = capText(Object.values(sess.textParts).join("\n"))
-      maybeLoopCheck(sessionID)
-    }
+    if (joined.length <= buf.length && buf.includes(joined)) return
+    const replaced = joined.length <= TEXT_CAP_HEAD + TEXT_CAP_TAIL && joined.includes(buf)
+    store[pid] = capPart(replaced ? joined : buf + joined)
+    pruneParts(store)
+    sess.turnChars = (sess.turnChars || 0) + (replaced ? Math.max(0, joined.length - buf.length) : joined.length)
+    maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", joined.length)
   }
 
   const observeFullContent = (sessionID, messageID, content) => {

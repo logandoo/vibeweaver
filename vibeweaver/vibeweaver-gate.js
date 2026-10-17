@@ -111,7 +111,7 @@ function gitDigest(root) {
   try {
     const out = execFileSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8", timeout: 2000 })
     const parts = [out]
-    const statOne = (p, prefix) => {
+    const statOne = (p, prefix, depth = 0) => {
       const abs = path.join(root, p)
       let s
       try {
@@ -123,10 +123,17 @@ function gitDigest(root) {
       if (s.isDirectory()) {
         // re-review R1: porcelain collapses fully-untracked dirs to `?? dir/`
         // — content edits INSIDE the dir never move the dir mtime, yet group
-        // 14 scans those files. Walk (bounded) and stat the entries.
+        // 14 scans those files. Walk (bounded) and stat the entries. Depth
+        // cap (2026-10-17 SIGTRAP hardening): the cache-key walk must never
+        // recurse without a bound — PATH_MAX stops pathological trees in
+        // practice, but the contract is the bound, not the OS.
+        if (depth >= 24) {
+          parts.push(`${prefix}${p}:…`)
+          return
+        }
         try {
           const entries = readdirSync(abs).sort().slice(0, 200)
-          for (const e of entries) statOne(path.join(p, e), prefix)
+          for (const e of entries) statOne(path.join(p, e), prefix, depth + 1)
         } catch {
           parts.push(`${prefix}${p}:~`)
         }

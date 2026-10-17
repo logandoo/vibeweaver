@@ -2,6 +2,14 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-17：SIGTRAP 崩溃修复 — 观察热路径不再每个 token 重建两次语料
+
+**缺口。** opencode 反复 `terminated by signal SIGTRAP (Trace/BPT trap)`。同日上午两份崩溃报告（同一长会话、均在 LLM 流式生成中）形状一致：JavaScriptCore 的通用 `CRASH()` 桩，触发者是 libpas 分配器分配失败——进程 Malloc 虚拟达 59.7GB。是分配风暴，不是逻辑断言。来源是本 skill 自己的宿主插件：每个 text/reasoning 观察都全量重建会话语料（`Object.values(textParts).join` + 检测语料里的第二次过滤 join + 全语料正则）——**每 token** O(corpus) 工作与分配，长 turn 二次方；同时 part 缓冲与 part 映射无界增长。loop-guard 按设计每 session/channel 最多干预两次（防 thrash），预算耗尽后 runaway turn 不再被打断，二次方成本持续叠加直到分配器失败。bun 下 30k-delta turn 复现了该画像：约 90GB 分配 churn。
+
+**机制。** 观察路径三道界：每个 part 缓冲封顶（沿用语料自己的 170KB 头/尾预算）、part 映射只留最近 64 key、turn 超 32KB 后检测扫描按字节节流（每 256 字节一扫——检测窗本来就只看 98KB tail，延迟 1-3 token；小语料仍逐观察扫，短 turn 与 selftest 的检测时序不变）。形状判别 `includes` 加长度界限（超大更新按 append 后封顶，不做 O(n·m) 比对）。两处递归加帽作为加固：gate 缓存键的目录 walk（≤24 层）与 `canonicalJson` 嵌套 args walk（≤32 层）。修复后同负载：RSS 平台 82MB（原 254MB 且仍在涨）、part 长度恒 170KB、快 5 倍。
+
+**验证。** audit_selftest 324/0 与 mutation sweep 41/0（均与改动前基线持平——无回归，检测器契约未动）、repo verify_skill coherent + unittest 绿、四副本逐字节一致（dev → system plugins/skills、open-source、repo）。崩溃取证留在项目记忆：两份 `.ips` 栈、opencode.log 会话时间线、lldb 反汇编锁定 trap 桩与 libpas 失败路径。
+
 ## 2026-10-15b：硬化波收口 — P0-P1 证据真实性 + 文本架构债清偿
 
 **缺口。** 外部评审（34f4b84）× SOTA 对标给出 16 项发现、四类伤害：插件边界（loop-guard 在普通目录也跑、把用户/工具/代码围栏文本当模型输出；纠正提示携带完成标记字面量=自锁；他会话一写就清 RED 锁；`tests/../src/x` 与符号链接测试路径逃逸写门禁）、门禁诚实（BLOCKING_HINTS 关键词分类让无关键词失败行通过=fail-open；python 缺失/崩溃/超时/占位检查器静默 PASS）、证据真实性（class 取日志自述、1 字节"截图"、证据早于被验代码、测试削弱对 diff 窗口不可见、探测答案快哈希可离线穷举、backlog 提及当测试跑）、git 安全（`git add -A` 把用户未跟踪文件扫进备份提交）。

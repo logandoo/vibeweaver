@@ -308,16 +308,23 @@ const IDENTICAL_RUN_MIN = 4
 // `__proto__` input key from hitting the setter and silently vanishing
 // (which would forge identity between distinct inputs).
 export function canonicalJson(value) {
-  const norm = (v) => {
-    if (Array.isArray(v)) return v.map(norm)
+  // Depth cap (2026-10-17 SIGTRAP hardening): recursion here mirrors the
+  // input's JSON nesting and the stringify below recurses natively over the
+  // copy — a pathological tool argument (model-emitted) could nest far
+  // deeper than any real call. At the cap the subtree collapses to a marker;
+  // identity stays consistent because both compared sides use this function.
+  const MAX_DEPTH = 32
+  const norm = (v, d) => {
+    if (d >= MAX_DEPTH) return "[deep]"
+    if (Array.isArray(v)) return v.map((x) => norm(x, d + 1))
     if (v && typeof v === "object") {
       const out = Object.create(null)
-      for (const k of Object.keys(v).sort()) out[k] = norm(v[k])
+      for (const k of Object.keys(v).sort()) out[k] = norm(v[k], d + 1)
       return out
     }
     return v
   }
-  return JSON.stringify(norm(value))
+  return JSON.stringify(norm(value, 0))
 }
 
 // Re-canonicalize a recorded args string when it parses as JSON (legacy
