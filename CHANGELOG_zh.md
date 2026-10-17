@@ -6,7 +6,7 @@
 
 **缺口。** opencode 反复 `terminated by signal SIGTRAP (Trace/BPT trap)`。同日上午两份崩溃报告（同一长会话、均在 LLM 流式生成中）形状一致：JavaScriptCore 的通用 `CRASH()` 桩，触发者是 libpas 分配器分配失败——进程 Malloc 虚拟达 59.7GB。是分配风暴，不是逻辑断言。来源是本 skill 自己的宿主插件：每个 text/reasoning 观察都全量重建会话语料（`Object.values(textParts).join` + 检测语料里的第二次过滤 join + 全语料正则）——**每 token** O(corpus) 工作与分配，长 turn 二次方；同时 part 缓冲与 part 映射无界增长。loop-guard 按设计每 session/channel 最多干预两次（防 thrash），预算耗尽后 runaway turn 不再被打断，二次方成本持续叠加直到分配器失败。bun 下 30k-delta turn 复现了该画像：约 90GB 分配 churn。
 
-**机制。** 观察路径三道界：每个 part 缓冲封顶（沿用语料自己的 170KB 头/尾预算）、part 映射只留最近 64 key、turn 超 32KB 后检测扫描按字节节流（每 256 字节一扫——检测窗本来就只看 98KB tail，延迟 1-3 token；小语料仍逐观察扫，短 turn 与 selftest 的检测时序不变）。形状判别 `includes` 加长度界限（超大更新按 append 后封顶，不做 O(n·m) 比对）。两处递归加帽作为加固：gate 缓存键的目录 walk（≤24 层）与 `canonicalJson` 嵌套 args walk（≤32 层）。修复后同负载：RSS 平台 82MB（原 254MB 且仍在涨）、part 长度恒 170KB、快 5 倍。
+**机制。** 观察路径不再物化语料或全量累积更新：part 缓冲封顶到语料自己的 170KB 头/尾预算（超预算合并直接取 `head(buf) + tail(ptext)`——与"拼接后再封顶"逐字节等价，几 MB 的累积更新永远不会被拼接）、part 映射只留最近 64 key、delta 追加走 rope O(1) 超 2× 上限才 flatten、检测扫描按**新增**字节节流（turn 超 32KB 后每 256 字节一扫——检测窗本来就只看 98KB tail，延迟 1-3 token；小语料仍逐观察扫，短 turn 与 selftest 的检测时序不变）。superset/重发判定有界化（`startsWith` + 小 needle `includes`）。两处递归加帽：gate 缓存键目录 walk（≤24 层）与 `canonicalJson` 嵌套 args walk（≤32 层）。这版修复的第一刀在 cumulative 形态上仍是二次方——同日被真实插件驱动（`server()` + v1 event 钩子、三种流式形态）打穿（20k 事件爬到 3902MB）；第二刀后三形态在同负载下全部持平 ~200-250MB。
 
 **验证。** audit_selftest 324/0 与 mutation sweep 41/0（均与改动前基线持平——无回归，检测器契约未动）、repo verify_skill coherent + unittest 绿、四副本逐字节一致（dev → system plugins/skills、open-source、repo）。崩溃取证留在项目记忆：两份 `.ips` 栈、opencode.log 会话时间线、lldb 反汇编锁定 trap 桩与 libpas 失败路径。
 

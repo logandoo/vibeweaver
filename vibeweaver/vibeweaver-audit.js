@@ -1163,7 +1163,15 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
       const pid = part.id || (reasoning ? "reasoning" : "text")
       const buf = store[pid] || ""
-      if (ptext.length <= buf.length && buf.includes(ptext)) {
+      // Three-shape robustness (cumulative / delta / duplicate re-emission)
+      // with BOUNDED per-event work (SIGTRAP hardening round 2, 2026-10-17):
+      // `buf + ptext` materializes the FULL cumulative text every event
+      // (quadratic over a streaming turn — the 57GB malloc storm), and the
+      // `includes` pair is O(n·m) on big strings. Exact-duplicate and a
+      // bounded superset probe cover the real streaming shapes.
+      if (ptext === buf) return
+      const dup = ptext.length <= 4096 && buf.includes(ptext)
+      if (dup) {
         // duplicate/partial re-emission — state unchanged: skip the
         // re-check AND the episode-clock advance (re-checking unchanged
         // text can re-fire on a stale tail; advancing lastMsgID on a
@@ -1176,12 +1184,24 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const pids = Object.keys(sess.partMsg)
         if (pids.length > 400) delete sess.partMsg[pids[0]]
       }
-      if (ptext.length <= TEXT_CAP_HEAD + TEXT_CAP_TAIL && ptext.includes(buf)) {
+      // superset (cumulative update): exact `startsWith` for grown buffers,
+      // `includes` only for small ones; a capped buffer carries the truncation
+      // marker so a later cumulative update falls to the bounded merge below
+      // (its head/tail land exactly where capText(buf + ptext) would keep them).
+      const cumulative = ptext.length > buf.length && buf.length > 0 && (buf.length <= 1024 ? ptext.includes(buf) : ptext.startsWith(buf.slice(0, 64)))
+      const added = cumulative ? Math.max(0, ptext.length - buf.length) : ptext.length
+      if (cumulative) {
         store[pid] = capPart(ptext)
-        sess.turnChars = (sess.turnChars || 0) + Math.max(0, ptext.length - buf.length)
+        sess.turnChars = (sess.turnChars || 0) + added
+      } else if (buf.length + ptext.length > TEXT_CAP_HEAD + TEXT_CAP_TAIL) {
+        // byte-equivalent of capText(buf + ptext) WITHOUT materializing it:
+        // head(buf) + marker + tail(ptext) — the detectors read the tail and
+        // the audit reads head+tail, so nothing observable is lost.
+        store[pid] = buf.slice(0, TEXT_CAP_HEAD) + "\n…[truncated]…\n" + ptext.slice(-TEXT_CAP_TAIL)
+        sess.turnChars = (sess.turnChars || 0) + added
       } else {
         store[pid] = capPart(buf + ptext)
-        sess.turnChars = (sess.turnChars || 0) + ptext.length
+        sess.turnChars = (sess.turnChars || 0) + added
       }
       pruneParts(store)
       // D1-④: genuine user input (human user-role text, never a plugin
@@ -1191,7 +1211,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const roleForPid = midForPid && sess.roles ? sess.roles[midForPid] : null
         if (roleForPid === "user" && !isPluginInjected(ptext)) decayLoopBudget(sess)
       }
-      maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", ptext.length)
+      maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", added)
     } else if (part.type === "tool" && part.tool) {
       const st = part.state || {}
       const t = { tool: part.tool, t: Date.now() }
@@ -1293,7 +1313,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     noteMsg(sess, messageID)
     sess.turnChars = (sess.turnChars || 0) + delta.length
     const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
-    store[pid] = capPart((store[pid] || "") + delta)
+    // rope-append O(1); flatten+cap only on overshoot (per-token capPart
+    // re-flattened the whole buffer every delta — SIGTRAP round 2)
+    const next = (store[pid] || "") + delta
+    store[pid] = next.length > (TEXT_CAP_HEAD + TEXT_CAP_TAIL) * 2 ? capPart(next) : next
     pruneParts(store)
     maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", delta.length)
   }
@@ -1312,13 +1335,24 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const pid = typeof messageID === "string" && messageID ? messageID : reasoning ? "reasoning" : "text"
     const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
     const buf = store[pid] || ""
-    // same three-shape robustness as the v1 cumulative-update branch
-    if (joined.length <= buf.length && buf.includes(joined)) return
-    const replaced = joined.length <= TEXT_CAP_HEAD + TEXT_CAP_TAIL && joined.includes(buf)
-    store[pid] = capPart(replaced ? joined : buf + joined)
+    // same three-shape robustness as the v1 cumulative-update branch, same
+    // bounded rules (SIGTRAP round 2 — never materialize buf+joined)
+    if (joined === buf) return
+    if (joined.length <= 4096 && buf.includes(joined)) return
+    const cumulative = joined.length > buf.length && buf.length > 0 && (buf.length <= 1024 ? joined.includes(buf) : joined.startsWith(buf.slice(0, 64)))
+    const added = cumulative ? Math.max(0, joined.length - buf.length) : joined.length
+    if (cumulative) {
+      store[pid] = capPart(joined)
+      sess.turnChars = (sess.turnChars || 0) + added
+    } else if (buf.length + joined.length > TEXT_CAP_HEAD + TEXT_CAP_TAIL) {
+      store[pid] = buf.slice(0, TEXT_CAP_HEAD) + "\n…[truncated]…\n" + joined.slice(-TEXT_CAP_TAIL)
+      sess.turnChars = (sess.turnChars || 0) + added
+    } else {
+      store[pid] = capPart(buf + joined)
+      sess.turnChars = (sess.turnChars || 0) + added
+    }
     pruneParts(store)
-    sess.turnChars = (sess.turnChars || 0) + (replaced ? Math.max(0, joined.length - buf.length) : joined.length)
-    maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", joined.length)
+    maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", added)
   }
 
   const observeFullContent = (sessionID, messageID, content) => {
