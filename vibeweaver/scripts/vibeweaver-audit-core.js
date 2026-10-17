@@ -6,7 +6,7 @@
 // must live outside the scanned directory.
 
 import { execFileSync } from "node:child_process"
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
+import { closeSync, existsSync, fstatSync, openSync, readFileSync, readdirSync, statSync } from "node:fs"
 import path from "node:path"
 import crypto from "node:crypto"
 
@@ -42,12 +42,40 @@ function mtimeOf(p) {
   }
 }
 
-function safeRead(p) {
+// Bounded reader (class contract, 2026-10-17 — Bun #26323: readFileSync on a
+// >2GB file is an UNCATCATCHABLE SIGTRAP in the runtime opencode bundles;
+// create_external* admits 2^31..2^32-1 lengths into WTF and traps): refuse by
+// SIZE, before any read. fd-based (open → fstat → read SAME fd) so a
+// size-gate can't be raced by a swap between stat and read (A4.9 round-1
+// Minor). Cap 64MB — legitimate evidence logs are far under; a bigger
+// "evidence" file is treated as absent (fail-closed downstream).
+export const READ_CAP = 64 * 1024 * 1024
+
+export function safeReadBounded(p, cap = READ_CAP) {
+  let fd = null
   try {
-    return statSync(p).size > 0 ? readFileSync(p, "utf8") : ""
+    fd = openSync(p, "r")
+    const s = fstatSync(fd).size
+    if (!(s > 0) || s > cap) return ""
+    return readFileSync(fd, "utf8")
   } catch {
     return ""
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* never crash on close */
+      }
+    }
   }
+}
+
+function safeRead(p) {
+  // production path — same bounded reader (A4.9 round-1 Critical: the live
+  // runAudit reads agent-writable evidence files; the class bound must hold
+  // on the reader that actually runs, not on a side export)
+  return safeReadBounded(p, READ_CAP)
 }
 
 function findProjectRoot(startDirs) {

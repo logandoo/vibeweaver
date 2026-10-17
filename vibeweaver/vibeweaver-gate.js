@@ -1,5 +1,5 @@
 import { execFile, execFileSync } from "node:child_process"
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
+import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 // vibeweaver physical gate — https://opencode.ai
@@ -164,11 +164,28 @@ function sizeOf(p) {
   }
 }
 
-function safeRead(p) {
+// Bounded reader (class contract, 2026-10-17 — Bun #26323: readFileSync on a
+// >2GB file is an uncatchable SIGTRAP in the runtime opencode bundles):
+// refuse by SIZE before any read; a bigger file is treated as absent.
+const READ_CAP = 64 * 1024 * 1024
+
+function safeRead(p, cap = READ_CAP) {
+  let fd = null
   try {
-    return statSync(p).size > 0 ? readFileSync(p, "utf8") : ""
+    fd = openSync(p, "r")
+    const s = fstatSync(fd).size
+    if (!(s > 0) || s > cap) return ""
+    return readFileSync(fd, "utf8")
   } catch {
     return ""
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* never crash on close */
+      }
+    }
   }
 }
 
@@ -406,7 +423,7 @@ function stallObservation(root, file) {
     let st = { ops: [] }
     if (existsSync(p)) {
       try {
-        st = JSON.parse(readFileSync(p, "utf8"))
+        st = JSON.parse(safeRead(p) || "null")
       } catch {
         st = { ops: [] }
       }
@@ -606,7 +623,7 @@ function recordCueFires(root, notes) {
     let stats = {}
     if (existsSync(p)) {
       try {
-        stats = JSON.parse(readFileSync(p, "utf8"))
+        stats = JSON.parse(safeRead(p) || "null")
       } catch {
         stats = {}
       }
@@ -746,7 +763,7 @@ function snapshotTextOf(root) {
   try {
     const p = path.join(root, STATE_DIR, SNAPSHOT_FILE)
     if (!existsSync(p)) return ""
-    const d = JSON.parse(readFileSync(p, "utf8"))
+    const d = JSON.parse(safeRead(p) || "null")
     return typeof d.text === "string" ? d.text : ""
   } catch {
     return ""
@@ -810,7 +827,7 @@ function recordMemoryDelivery(root, kind) {
     let st = {}
     if (existsSync(p)) {
       try {
-        st = JSON.parse(readFileSync(p, "utf8"))
+        st = JSON.parse(safeRead(p) || "null")
       } catch {
         st = {}
       }

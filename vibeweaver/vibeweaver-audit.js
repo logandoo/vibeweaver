@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
+import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import os from "node:os"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -101,11 +101,29 @@ function sizeOf(p) {
   }
 }
 
-function safeRead(p) {
+// Bounded reader (class contract, 2026-10-17 — Bun #26323: readFileSync on a
+// >2GB file is an uncatchable SIGTRAP in the runtime opencode bundles):
+// fd-based size gate (open → fstat → read SAME fd — no stat/read TOCTOU);
+// a bigger file is treated as absent. ALL reads go through here.
+const READ_CAP = 64 * 1024 * 1024
+
+function safeRead(p, cap = READ_CAP) {
+  let fd = null
   try {
-    return statSync(p).size > 0 ? readFileSync(p, "utf8") : ""
+    fd = openSync(p, "r")
+    const s = fstatSync(fd).size
+    if (!(s > 0) || s > cap) return ""
+    return readFileSync(fd, "utf8")
   } catch {
     return ""
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* never crash on close */
+      }
+    }
   }
 }
 
@@ -613,7 +631,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const readConfig = () => {
     try {
       const p = process.env.VIBEWEAVER_AUDIT_CONFIG || path.join(os.homedir(), ".config", "opencode", "vibeweaver", "audit.json")
-      if (existsSync(p)) return JSON.parse(readFileSync(p, "utf8"))
+      if (existsSync(p)) return JSON.parse(safeRead(p) || "null")
     } catch {
       /* defaults */
     }
@@ -752,7 +770,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     // render's release lines with the current state lines (union + dedupe).
     let priorReport = ""
     try {
-      priorReport = readFileSync(path.join(root, "tests", AUDIT_FILE), "utf8")
+      priorReport = safeRead(path.join(root, "tests", AUDIT_FILE))
     } catch {
       /* first run — no prior render */
     }

@@ -3175,6 +3175,31 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   rec("T42 delta stream accumulates (no substring-eating) and runaway ceiling fires", calls.abort >= 1, `abort=${calls.abort} (expect >=1 at 64KB of 16-char chunks)`)
 }
 
+{
+  // T43 — class bound (A4.8 RED first): NO string constructor in the plugin
+  // stack may receive a ≥2GB input. Bun #26323 / PR #37216: `readFileSync(p,
+  // "utf-8")` on a >2GB file is an UNCATCATCHABLE SIGTRAP in the runtime
+  // opencode bundles (create_external* lets 2^31..2^32-1 lengths into WTF);
+  // chatbot's tree carries a 3.03GB .git pack and the five crashes share
+  // exactly that assert. The reader must refuse by SIZE, before any read.
+  const coreMod = await import(pathToFileURL(path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")).href)
+  const big = path.join(TMP, "t43-3gb.bin")
+  rmSync(big, { force: true })
+  writeFileSync(big, "")
+  execFileSync("truncate", ["-s", "3G", big])
+  const t0 = Date.now()
+  const got = typeof coreMod.safeReadBounded === "function" ? await coreMod.safeReadBounded(big) : undefined
+  const ms = Date.now() - t0
+  const small = path.join(TMP, "t43-small.txt")
+  writeFileSync(small, "hello-bounded-read")
+  const okSmall = typeof coreMod.safeReadBounded === "function" ? await coreMod.safeReadBounded(small) : undefined
+  rec("T43 >=2GB file refused by size before any string constructor", got === "" && ms < 2000,
+    `got=${JSON.stringify(String(got).slice(0, 24))} ms=${ms} (expect "" fast)`)
+  rec("T43 bounded read still returns content under the cap", okSmall === "hello-bounded-read",
+    `got=${JSON.stringify(String(okSmall).slice(0, 24))}`)
+  rmSync(big, { force: true })
+}
+
 // ---------- summary ----------
 console.log("\n=== SUMMARY ===")
 console.log(`fixture checks: ${results.length}, failures: ${failures}${skips ? `, skipped: ${skips}` : ""}`)
