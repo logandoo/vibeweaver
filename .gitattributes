@@ -1,0 +1,14 @@
+# Line endings are part of the contract: byte caps (T11 SKILL.md ≤49000B),
+# content checks and `bash -n` are all byte-sensitive — windows autocrlf
+# otherwise mangles checkouts (windows-latest CI saw SKILL.md 49732B vs
+# 48967B = +1 CR per line, and every .sh unparseable). Force LF everywhere;
+# batch files keep CRLF (cmd.exe goto/label semantics).
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.webm binary
+*.wav binary
+*.mp4 binary
+*.mp3 binary
+*.ico binary
+*.zip binary

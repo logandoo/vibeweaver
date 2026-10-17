@@ -9,6 +9,24 @@ import path from "node:path"
 const CORE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
 const { auditProject } = await import(pathToFileURL(CORE))
 
+// Windows ships `python`, POSIX ships `python3` (2026-10-17 CI fix) — probe
+// once and cache; VIBEWEAVER_PYTHON overrides.
+function resolvePython() {
+  const cands = []
+  if (process.env.VIBEWEAVER_PYTHON) cands.push(process.env.VIBEWEAVER_PYTHON)
+  if (process.platform === "win32") cands.push("python", "python3", "py")
+  else cands.push("python3", "python")
+  for (const c of cands) {
+    try {
+      execFileSync(c, ["--version"], { encoding: "utf8", timeout: 10000, stdio: ["ignore", "pipe", "pipe"] })
+      return c
+    } catch {
+      /* next */
+    }
+  }
+  return "python3"
+}
+
 const TMP = "/tmp/vibeweaver-mutation-sweep"
 let pass = 0
 let fail = 0
@@ -166,12 +184,13 @@ run("C18-doc-class-code-write", () => ({
   })
   const bad = audit.checks.filter((c) => c.verdict === "BAD").map((c) => c.id)
   let assertOk = false
+  const py = resolvePython()
   try {
-    execFileSync("python3", [path.join(root, "tests", "assert_artifacts.py"), "--class", "DOC"], { cwd: root, stdio: "pipe", timeout: 15000 })
+    execFileSync(py, [path.join(root, "tests", "assert_artifacts.py"), "--class", "DOC"], { cwd: root, stdio: "pipe", timeout: 15000 })
     assertOk = true
   } catch {
     try {
-      execFileSync("python3", [path.join(root, "tests", "assert_artifacts.py"), "--existing", "--class", "DOC"], { cwd: root, stdio: "pipe", timeout: 15000 })
+      execFileSync(py, [path.join(root, "tests", "assert_artifacts.py"), "--existing", "--class", "DOC"], { cwd: root, stdio: "pipe", timeout: 15000 })
       assertOk = true
     } catch { assertOk = false }
   }

@@ -187,10 +187,34 @@ function findProjectRoot(startDirs) {
 // itself a BLOCK, never a pass (METR Hawk: fail loudly / deny by default).
 // The old keyword classifier (BLOCKING_HINTS) let hint-free failures through;
 // every real failure line now blocks, and the run itself is validated:
-//   python3 missing · timeout · crash · placeholder/stub -> BLOCK.
+//   python missing · timeout · crash · placeholder/stub -> BLOCK.
+// Interpreter resolution (2026-10-17 CI): windows ships `python`, POSIX
+// `python3`, and `python3` there can be the Windows-Store stub — probe once
+// and cache; VIBEWEAVER_PYTHON overrides.
+let _pyExe = null
+let _pyProbed = false
+function resolvePython() {
+  if (_pyProbed) return _pyExe
+  _pyProbed = true
+  const cands = []
+  if (process.env.VIBEWEAVER_PYTHON) cands.push(process.env.VIBEWEAVER_PYTHON)
+  if (process.platform === "win32") cands.push("python", "python3", "py")
+  else cands.push("python3", "python")
+  for (const c of cands) {
+    try {
+      execFileSync(c, ["--version"], { encoding: "utf8", timeout: 10000, stdio: ["ignore", "pipe", "pipe"] })
+      _pyExe = c
+      return c
+    } catch {
+      /* next */
+    }
+  }
+  return "python3"
+}
+
 function runPython(script, flags, cwd) {
   return new Promise((resolve) => {
-    execFile("python3", [script, ...flags], { cwd, encoding: "utf8", timeout: assertTimeoutMs(), maxBuffer: 2 << 20 }, (err, stdout, stderr) => {
+    execFile(resolvePython(), [script, ...flags], { cwd, encoding: "utf8", timeout: assertTimeoutMs(), maxBuffer: 2 << 20 }, (err, stdout, stderr) => {
       resolve({ err: err || null, stdout: stdout || "", stderr: stderr || "" })
     })
   })

@@ -118,11 +118,40 @@ function gitCodeChangedAfter(root, sinceMs) {
 
 const FLAG_COMBOS = [[], ["--existing"], ["--backend-only"], ["--existing", "--backend-only"]]
 
+// Resolve a WORKING Python interpreter (2026-10-17, windows CI): the runner
+// ships `python` while POSIX ships `python3`, and `python3` on windows-latest
+// can be the Windows-Store stub — hardcoding it made A4 (`assert_artifacts.py
+// exit 0`) fail everywhere on Windows. Probe `--version`, cache per process;
+// VIBEWEAVER_PYTHON overrides. None = the check reports "cannot run"
+// (fail-closed: an unverifiable task is not a passing task).
+let _pyExe = null
+let _pyProbed = false
+function resolvePython() {
+  if (_pyProbed) return _pyExe
+  _pyProbed = true
+  const cands = []
+  if (process.env.VIBEWEAVER_PYTHON) cands.push(process.env.VIBEWEAVER_PYTHON)
+  if (process.platform === "win32") cands.push("python", "python3", "py")
+  else cands.push("python3", "python")
+  for (const c of cands) {
+    try {
+      execFileSync(c, ["--version"], { encoding: "utf8", timeout: 10000, stdio: ["ignore", "pipe", "pipe"] })
+      _pyExe = c
+      return c
+    } catch {
+      /* try next candidate */
+    }
+  }
+  return null
+}
+
 function runAssert(root) {
   const attempts = []
+  const py = resolvePython()
+  if (!py) return { ok: false, attempts: [{ flags: "(all)", output: "python interpreter unavailable (set VIBEWEAVER_PYTHON)" }] }
   for (const flags of FLAG_COMBOS) {
     try {
-      const out = execFileSync("python3", [path.join(root, "tests", "assert_artifacts.py"), ...flags], {
+      const out = execFileSync(py, [path.join(root, "tests", "assert_artifacts.py"), ...flags], {
         cwd: root,
         encoding: "utf8",
         timeout: 15000,
