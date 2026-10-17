@@ -456,19 +456,27 @@ def png_dims(path: pathlib.Path):
 def script_syntax_check(path: pathlib.Path):
     """C2: a delivered script must be runnable syntax — non-empty, shebang for
     shell, then the parser: `bash -n` (.sh), `node --check` (.js/.mjs),
-    py_compile (.py). Returns (ok, detail)."""
+    py_compile (.py). Returns (ok, detail).
+    Portability (2026-10-17): the shell parser reads the content from STDIN
+    with BOM/CRLF normalized — the verdict is about the script's SYNTAX, not
+    git's checkout line-ending policy, and a Windows `bash` opening a
+    backslash path is not portable across runners (windows-latest failed
+    every .sh with an empty-stderr `bash -n` while the same bytes parsed
+    clean elsewhere)."""
     try:
-        if path.stat().st_size == 0:
-            return False, "empty script (0 bytes)"
-        first = path.read_text(errors="replace").splitlines()[0] if path.stat().st_size else ""
+        raw = path.read_bytes()
     except OSError as exc:
         return False, f"unreadable ({exc})"
+    if not raw:
+        return False, "empty script (0 bytes)"
+    text = raw.decode("utf-8", errors="replace").lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+    first = text.splitlines()[0] if text else ""
     ext = path.suffix.lower()
     if ext in (".sh", ".bash") and not first.startswith("#!"):
         return False, "missing shebang"
     try:
         if ext in (".sh", ".bash"):
-            r = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True, timeout=10)
+            r = subprocess.run(["bash", "-n"], input=text, capture_output=True, text=True, timeout=10)
             return r.returncode == 0, ("syntax ok" if r.returncode == 0 else (r.stderr.strip() or "bash -n failed")[:120])
         if ext in (".js", ".mjs"):
             r = subprocess.run(["node", "--check", str(path)], capture_output=True, text=True, timeout=10)

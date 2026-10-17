@@ -66,7 +66,7 @@ class TestAssertOnProject(unittest.TestCase):
     @unittest.skipUnless(shutil.which("git"), "git not available")
     def test_new_project_passes(self):
         build = self.tmp / "script" / "linux" / "project_build.sh"
-        build.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        build.write_bytes(b"#!/bin/sh\nexit 0\n")  # LF explicit: text mode translates to CRLF on Windows
         if os.name != "nt":
             build.chmod(0o755)
         run(["git", "-C", str(self.tmp), "init", "-q"])
