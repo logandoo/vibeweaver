@@ -15,6 +15,18 @@ and service-lifecycle (5) groups for the classes whose path card has no
 such risk."""
 import argparse, hashlib, json, os, pathlib, re, shutil, subprocess, sys
 
+# Deterministic output encoding (2026-10-17 windows/CI): the locale encoding
+# is cp1252/ascii on non-UTF-8 systems while every evidence string here is
+# UTF-8 — `print` raised UnicodeEncodeError mid-run (the A4 "assert failed"
+# class), and child-output decoding raised UnicodeDecodeError in reader
+# threads. Consumers (gate/audit plugin, node harness) decode our stdout as
+# UTF-8. errors="replace": the checker must never die on odd bytes.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 FAILS = []   # [{"code","severity","detail"}] — machine-readable per D4 (--json)
 WARN_LINES = []
 CUR_GROUP = "misc"
@@ -93,7 +105,7 @@ def _git(root, *args):
     global GIT_TIMEOUT
     try:
         r = subprocess.run(["git", "-C", str(root), *args],
-                           capture_output=True, text=True, timeout=20)
+                           capture_output=True, encoding="utf-8", errors="replace", timeout=20)
         return r.returncode, r.stdout
     except FileNotFoundError:
         return -1, ""
@@ -519,14 +531,14 @@ def script_syntax_check(path: pathlib.Path):
             exe = _bash_exe()
             if not exe:
                 return False, "checker unavailable (no working bash on PATH)"
-            r = subprocess.run([exe, "-n"], input=text, capture_output=True, text=True, timeout=10)
+            r = subprocess.run([exe, "-n"], input=text, capture_output=True, encoding="utf-8", errors="replace", timeout=10)
             detail = r.stderr.strip() or f"bash -n failed (rc={r.returncode} via {os.path.basename(str(exe))})"
             return r.returncode == 0, ("syntax ok" if r.returncode == 0 else detail[:120])
         if ext in (".js", ".mjs"):
-            r = subprocess.run(["node", "--check", str(path)], capture_output=True, text=True, timeout=10)
+            r = subprocess.run(["node", "--check", str(path)], capture_output=True, encoding="utf-8", errors="replace", timeout=10)
             return r.returncode == 0, ("syntax ok" if r.returncode == 0 else (r.stderr.strip() or "node --check failed")[:120])
         if ext == ".py":
-            r = subprocess.run([sys.executable, "-m", "py_compile", str(path)], capture_output=True, text=True, timeout=10)
+            r = subprocess.run([sys.executable, "-m", "py_compile", str(path)], capture_output=True, encoding="utf-8", errors="replace", timeout=10)
             return r.returncode == 0, ("syntax ok" if r.returncode == 0 else (r.stderr.strip() or "py_compile failed")[:120])
     except (OSError, subprocess.TimeoutExpired) as exc:
         return False, f"checker unavailable ({exc})"
@@ -999,7 +1011,7 @@ def main():
     if not existing:
         try:
             r = subprocess.run(["git", "-C", str(root), "log", "--oneline"],
-                               capture_output=True, text=True, timeout=20)
+                               capture_output=True, encoding="utf-8", errors="replace", timeout=20)
             rc, out = r.returncode, r.stdout
         except (FileNotFoundError, subprocess.TimeoutExpired):
             rc, out = -1, ""
