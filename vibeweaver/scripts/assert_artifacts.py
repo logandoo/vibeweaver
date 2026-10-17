@@ -528,6 +528,14 @@ def script_syntax_check(path: pathlib.Path):
         return False, "missing shebang"
     try:
         if ext in (".sh", ".bash"):
+            # CRLF is its own verdict (ShellCheck SC1017 = error): a CRLF
+            # script is not runnable at the execution host — the parser below
+            # sees normalized text so "syntax" and "line endings" stay
+            # independent judgments. Raw bytes carry the truth (text is
+            # normalized below's parser input).
+            if b"\r" in raw:
+                return False, ("CRLF/CR line endings (SC1017) — run `tr -d '\\r' <in >out` or dos2unix; "
+                               "prevent with .gitattributes `*.sh text eol=lf`")
             exe = _bash_exe()
             if not exe:
                 return False, "checker unavailable (no working bash on PATH)"

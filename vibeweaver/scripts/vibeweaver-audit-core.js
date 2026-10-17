@@ -356,6 +356,61 @@ export function canonicalJson(value) {
   return JSON.stringify(norm(value, 0))
 }
 
+// Bounded identity for oversized tool inputs (2026-10-17 effectiveness fix).
+// Industry shape: sampled fingerprint for large inputs — head + tail + size
+// (lien content-hash: >1MB -> 8KB+8KB+size; sglang hash_file_sampled;
+// vtcode FNV-1a head hash). No deep copy, no full stringify: the walk is
+// step-bounded and big strings contribute only their length plus head/tail
+// samples. Known limitation, identical to those: two inputs differing ONLY
+// in the deep middle of one big string fingerprint identically — the cost is
+// one budgeted soft nudge, never a block. Values-free by construction: the
+// fingerprint is internal identity and never re-emitted in patterns.
+export function bigFingerprint(value) {
+  const fnv = (h, s) => {
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i)
+      h = Math.imul(h, 0x01000193) >>> 0
+    }
+    return h
+  }
+  let h = 0x811c9dc5
+  let total = 0
+  let steps = 0
+  const stack = [value]
+  while (stack.length && steps < 2000) {
+    steps++
+    const v = stack.pop()
+    if (typeof v === "string") {
+      total += v.length
+      h = fnv(h, `S${v.length}|`)
+      if (v.length <= 4096) h = fnv(h, v)
+      else {
+        h = fnv(h, v.slice(0, 2048))
+        h = fnv(h, v.slice(-2048))
+      }
+    } else if (Array.isArray(v)) {
+      h = fnv(h, `A${v.length}|`)
+      const n = v.length
+      const idxs = []
+      const head = Math.min(32, n)
+      for (let i = 0; i < head; i++) idxs.push(i)
+      if (n > 64) for (let i = n - 32; i < n; i++) idxs.push(i)
+      else if (n > 32) for (let i = 32; i < n; i++) idxs.push(i)
+      for (let i = idxs.length - 1; i >= 0; i--) stack.push(v[idxs[i]])
+    } else if (v && typeof v === "object") {
+      const ks = Object.keys(v).sort()
+      h = fnv(h, `O${ks.length}|`)
+      for (let i = ks.length - 1; i >= 0; i--) {
+        h = fnv(h, `${ks[i]}|`)
+        stack.push(v[ks[i]])
+      }
+    } else {
+      h = fnv(h, `P${String(v)}|`)
+    }
+  }
+  return `${(h >>> 0).toString(16)}:${total}:${steps}`
+}
+
 // Re-canonicalize a recorded args string when it parses as JSON (legacy
 // unsorted producers), else keep it verbatim (truncated/non-JSON identity).
 function canonicalArgsString(s) {

@@ -513,7 +513,14 @@ function assistantCorpus(sess) {
     if (injected.some((p) => p && txt.includes(p.slice(0, 200)))) continue
     out.push(txt)
   }
-  return out.join("\n")
+  // head+tail bound (2026-10-17 effectiveness fix): the audit's sessionText
+  // is capped like the scan corpus — keep the session-head anchors and the
+  // completion tail, middle-truncate with a visible marker (codex-rs
+  // middle-truncation / "truncate the middle, not the edges").
+  const joined = out.join("\n")
+  return joined.length > TEXT_CAP_HEAD + TEXT_CAP_TAIL
+    ? joined.slice(0, TEXT_CAP_HEAD) + "\n…[truncated]…\n" + joined.slice(-TEXT_CAP_TAIL)
+    : joined
 }
 
 // Code fences are legitimate repetition (codegen); an UNCLOSED trailing
@@ -982,13 +989,32 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   // corpora still scan every observation (exact detection timing; the
   // selftest and short turns depend on it), and the detector's own window is
   // only the 98KB tail anyway.
-  const PARTS_MAX = 64
+  const PARTS_BUDGET = 2_000_000
+  const PARTS_KEEP_NEW = 8
+  const PARTS_HARD_MAX = 512
   const SCAN_STEP = 256
   const SCAN_SMALL = 32_768
   const capPart = (s) => (s.length > TEXT_CAP_HEAD + TEXT_CAP_TAIL ? s.slice(0, TEXT_CAP_HEAD) + "\n…[truncated]…\n" + s.slice(-TEXT_CAP_TAIL) : s)
+  // Middle-evicting corpus bound (industry shape: "truncate the middle, not
+  // the edges" — Arize; protect_first_n/protect_last_n — Revka; codex-rs
+  // middle truncation). The FIRST part is the session-head anchor (baseline
+  // narration class — what a count-based 64-part cut used to drop) and the
+  // NEWEST parts carry the completion output: both are high-value regions
+  // ("Lost in the Middle"). Evict oldest MIDDLE parts first, under a total
+  // byte budget; the head anchor and the newest PARTS_KEEP_NEW never go.
   const pruneParts = (store) => {
     const keys = Object.keys(store)
-    for (let i = 0; i + PARTS_MAX < keys.length; i++) delete store[keys[i]]
+    const n = keys.length
+    const evictEnd = n - Math.min(PARTS_KEEP_NEW, n)
+    if (evictEnd <= 1) return
+    let total = 0
+    for (const k of keys) total += (store[k] || "").length
+    let count = n
+    for (let i = 1; i < evictEnd && (total > PARTS_BUDGET || count > PARTS_HARD_MAX); i++) {
+      total -= (store[keys[i]] || "").length
+      delete store[keys[i]]
+      count--
+    }
   }
   const maybeTextScan = (sessionID, sess, channel, added) => {
     if ((sess.turnChars || 0) > SCAN_SMALL) {
@@ -1271,11 +1297,20 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         if (typeof inp.name === "string") t.name = inp.name
         // canonical args identity (identical-tool-run): status-only
         // re-observations carry NO input and must never fabricate one;
-        // oversized inputs keep the F10 truncated identity instead of being
-        // deep-copied (inputTooBig is O(1) on a big string property).
+        // oversized inputs get a bounded sampled FINGERPRINT (F10 refinement:
+        // what breaks a run is a truncated/forgeable identity — a
+        // deterministic fingerprint keeps identity, so identical-tool-run
+        // still sees big-args storms) instead of a deep copy.
         let canon = ""
         if (inputTooBig(inp)) {
-          t.truncated = true
+          if (typeof core.bigFingerprint === "function") {
+            try {
+              canon = "big:" + core.bigFingerprint(inp)
+            } catch {
+              canon = ""
+            }
+          }
+          if (!canon) t.truncated = true // no fingerprint available: F10 fallback
         } else {
           try {
             canon = typeof core.canonicalJson === "function" ? core.canonicalJson(inp) : JSON.stringify(inp)
@@ -1315,11 +1350,18 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         if (inp.command.length > IN_CAP) t.truncated = true // truncation can forge a literal (F10)
       }
       if (typeof inp.name === "string") t.name = inp.name
-      // oversized inputs keep the truncated identity (inputTooBig, SIGTRAP
-      // round 3) instead of being deep-copied by canonicalJson
+      // oversized inputs get a bounded sampled fingerprint (F10 refinement,
+      // same as the v1 branch) instead of being deep-copied by canonicalJson
       let canon = ""
       if (inputTooBig(inp)) {
-        t.truncated = true
+        if (typeof core.bigFingerprint === "function") {
+          try {
+            canon = "big:" + core.bigFingerprint(inp)
+          } catch {
+            canon = ""
+          }
+        }
+        if (!canon) t.truncated = true // no fingerprint available: F10 fallback
       } else {
         try {
           canon = typeof core.canonicalJson === "function" ? core.canonicalJson(inp) : JSON.stringify(inp)

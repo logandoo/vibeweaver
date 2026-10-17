@@ -3089,6 +3089,64 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     appHead.split("\n").filter((l) => /C3|§A7/.test(l)).join(" | "))
 }
 
+// ---------- T40/T41 — effectiveness guards for the SIGTRAP hardening ----------
+{
+  // T40: oversized tool inputs keep a deterministic sampled identity — an
+  // identical big-args storm must still trip identical-tool-run (F10
+  // refinement: a truncated identity breaks runs, a fingerprint does not).
+  const root40 = newFixture("t40-bigargs")
+  write(root40, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const calls = { abort: 0 }
+  const plugin40 = await VibeweaverAudit({
+    client: {
+      app: { log: async () => {} },
+      session: { abort: async () => { calls.abort++ }, prompt: async () => {} },
+    },
+    directory: root40,
+  })
+  const emitBig = (sid, id, content) =>
+    plugin40.event({
+      event: {
+        type: "message.part.updated",
+        properties: { sessionID: sid, part: { id, type: "tool", tool: "write", state: { status: "running", input: { filePath: "/x/big.txt", content } } } },
+      },
+    })
+  const big = "x".repeat(20000)
+  for (let i = 0; i < 4; i++) await emitBig("ses_t40a", `b${i}`, big)
+  rec("T40 identical oversized-args storm -> identical-tool-run fires", calls.abort === 1, `abort=${calls.abort}`)
+  for (let i = 0; i < 4; i++) await emitBig("ses_t40b", `c${i}`, big + i) // differ only in tail
+  rec("T40 differing oversized args -> no identical-run at 4", calls.abort === 1, `abort=${calls.abort}`)
+}
+{
+  // T41: the session-head anchor survives corpus bounding — a gate line in
+  // the FIRST part must still be visible to the audit after 600 filler parts
+  // (the count-based 64-part cut evicted it: false BAD B1 -> false RED).
+  const root41 = newFixture("t41-anchor")
+  write(root41, "tests/verification_log.md", "placeholder — no iter entries\n")
+  const logs = []
+  const plugin41 = await VibeweaverAudit({
+    client: { app: { log: async (e) => logs.push((e && e.body && e.body.message) || "") }, session: {} },
+    directory: root41,
+  })
+  await plugin41.event({
+    event: {
+      type: "message.part.updated",
+      properties: { sessionID: "ses_t41", part: { id: "head", type: "text", text: "anchor [Verification Gate] Verifier: direct read | Class: CODE | Loop executed: yes", messageID: "m0" } },
+    },
+  })
+  for (let i = 0; i < 600; i++) {
+    await plugin41.event({
+      event: {
+        type: "message.part.updated",
+        properties: { sessionID: "ses_t41", part: { id: `f${i}`, type: "text", text: `filler ${i} ` + "y".repeat(4000), messageID: `m${i + 1}` } },
+      },
+    })
+  }
+  await plugin41.event({ event: { type: "session.idle", properties: { sessionID: "ses_t41" } } })
+  const auditLine = logs.find((m) => /Audit (RED|GREEN|ESCALATE)/.test(m)) || ""
+  rec("T41 head-anchor gate line survives corpus bounding", /Audit (GREEN|ESCALATE)/.test(auditLine) || !/B1/.test(logs.join(" ")), auditLine || "no audit line (B1 not BAD)")
+}
+
 // ---------- summary ----------
 console.log("\n=== SUMMARY ===")
 console.log(`fixture checks: ${results.length}, failures: ${failures}${skips ? `, skipped: ${skips}` : ""}`)
