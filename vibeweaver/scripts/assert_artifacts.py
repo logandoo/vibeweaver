@@ -109,9 +109,9 @@ SECRET_RES = [
 # never flagged. Values outside the base charset (spaces, !#%…) may
 # escape — documented tradeoff, biased against false-blocking.
 GENERIC_KV = re.compile(
-    r"(?i)(?<![A-Za-z0-9])(?:[A-Za-z0-9]+[_-])*"
+    r"(?i)(?<![A-Za-z0-9])(?:[A-Za-z0-9]{1,32}[_-]){0,4}"
     r"(?:api[_-]?key|apikey|secret|password|passwd|pwd|token|"
-    r"private[_-]?key|access[_-]?key)(?:[_-][A-Za-z0-9]+)*"
+    r"private[_-]?key|access[_-]?key)(?:[_-][A-Za-z0-9]{1,32}){0,4}"
     r"[\"']?\s*[:=]\s*(?P<q>[\"']?)(?P<v>[A-Za-z0-9_/+.\-]{12,})")
 PLACEHOLDER = re.compile(r"(?i)example|sample|dummy|placeholder|changeme|"
                          r"redacted|fake|<[^>]+>")
@@ -749,7 +749,12 @@ def _ignored(root: pathlib.Path, rel: str) -> bool:
     # travels with the repo; a staged-only, nested-untracked, or global
     # excludes file named `.gitignore` does not count.
     rc2, _ = _git(root, "cat-file", "-e", f"HEAD:{src}")
-    return rc2 == 0
+    if rc2 != 0:
+        return False
+    # The matching PATTERN must be committed too: an uncommitted `.gitignore`
+    # edit is local-only protection (the incident can recur on a fresh clone).
+    rc3, _ = _git(root, "diff", "--quiet", "HEAD", "--", src)
+    return rc3 == 0
 
 
 def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
@@ -772,9 +777,9 @@ def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
 
     check((root / ".gitignore").is_file(),
           "repo-hygiene: .gitignore missing — write it BEFORE installing dependencies (A10.1/APPENDIX §A12)")
-    rc, _ = _git(root, "ls-files", "--error-unmatch", ".gitignore")
+    rc, _ = _git(root, "cat-file", "-e", "HEAD:.gitignore")
     check(rc == 0,
-          "repo-hygiene: .gitignore is untracked — commit it so collaborators/CI get the protection")
+          "repo-hygiene: .gitignore is not committed in HEAD — commit it so collaborators/CI get the protection")
 
     node_dirs = _manifest_dirs(root, NODE_MANIFESTS)
     pnpm_dirs = _manifest_dirs(root, ("pnpm-lock.yaml", "pnpm-workspace.yaml"))
@@ -977,7 +982,8 @@ def main():
                 _live.append(_l)
         _cur = ""
         for _b in re.split(r"(?m)^(?=## )", "\n".join(_live)):
-            if re.search(r"(?m)^- iter \d+ (?:PASS|FAIL)\b", _b):
+            if (re.search(r"(?m)^## Task\b", _b)
+                    or re.search(r"(?m)^- iter \d+ (?:PASS|FAIL)\b", _b)):
                 _cur = _b
         return _cur or re.split(r"(?m)^(?=## )", block_text)[-1]
 

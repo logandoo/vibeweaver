@@ -1325,6 +1325,12 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
           const prev = sess.tools[i]
           if (prev && prev.pid === t.pid) {
             if (typeof st.output === "string" && st.output && !prev.output) prev.output = st.output.slice(0, OUT_CAP)
+            // v1 emits running → completed for the SAME part id; the early
+            // return used to skip the completion timestamp and kill the
+            // positive stop-guard on real hosts.
+            if (st.status === "completed" && (part.tool === "write" || part.tool === "edit")) {
+              sess.lastWriteAt = Date.now()
+            }
             return
           }
         }

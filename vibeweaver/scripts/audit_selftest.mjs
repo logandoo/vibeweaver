@@ -2150,6 +2150,11 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     : ""
   rec("T27c16 currentLogBlock prefers a new Task block over the old final-run",
     /Baseline verified GREEN/.test(blk2) && !/final-run/.test(blk2), blk2.slice(0, 100))
+  const blk3 = typeof currentLogBlock === "function"
+    ? currentLogBlock("## Task: old\n- iter 1 PASS: x\n- final-run: --final — pass=1/fail=0\n## Verification Log — new wave\n- iter 2 PASS: y\n")
+    : ""
+  rec("T27c17 newer non-Task iter block beats an older completed Task",
+    /iter 2 PASS/.test(blk3) && !/final-run/.test(blk3), blk3.slice(0, 100))
 
   // ---- corrective prompt contract ----
   const pt = hasStopGuard ? stopGuardPrompt({ kind: "euphemism", fill: 0.15, fillKnown: true }) : ""
@@ -2252,6 +2257,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     const sid = "ses_t27p"
     const ev = (type, properties) => plugin27p.event({ event: { type, properties } })
     await ev("message.part.updated", { sessionID: sid, part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "write", state: { status: "running", input: { filePath: path.join(root27p, "src", "a.ts") } } } })
     await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "write", state: { status: "completed", input: { filePath: path.join(root27p, "src", "a.ts") } } } })
     await ev("message.updated", { sessionID: sid, info: { id: "m1", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } } })
     await ev("message.part.updated", { sessionID: sid, part: { id: "p1", messageID: "m1", type: "text", text: "Done." } })

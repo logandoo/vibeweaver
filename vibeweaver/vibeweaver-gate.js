@@ -54,6 +54,7 @@ const GIT_DIGEST_MAX_BUFFER = 8 << 20
 // A lossy digest MUST NOT feed the result cache: overflow/timeout/depth
 // truncation would otherwise freeze a green verdict while content changes.
 const LOSSY_DIGEST = new Set()
+const LOSSY_FINGERPRINT = new Set()
 function assertTimeoutMs() {
   const n = Number(process.env.VIBEWEAVER_ASSERT_TIMEOUT_MS)
   return Number.isFinite(n) && n > 0 ? n : ASSERT_TIMEOUT_MS_DEFAULT
@@ -72,6 +73,7 @@ const RESULT_CACHE_MAX = 32
 const LENIENT_NOTED = new Set()
 
 function depFingerprint(root) {
+  LOSSY_FINGERPRINT.delete(root)
   const parts = [root]
   const add = (p) => {
     try {
@@ -120,19 +122,30 @@ function depFingerprint(root) {
     "playwright-report", "test-results"])
   let secretSeen = 0
   const addSecretStats = (dir, depth) => {
-    if (depth > 4 || secretSeen > 200) return
+    if (depth > 4 || secretSeen > 200) {
+      LOSSY_FINGERPRINT.add(root)
+      return
+    }
     let entries
     try {
       entries = readdirSync(dir, { withFileTypes: true })
     } catch {
       parts.push("secret:~")
+      LOSSY_FINGERPRINT.add(root)
       return
     }
     for (const e of entries) {
-      if (secretSeen++ > 200) return
+      if (secretSeen++ > 200) {
+        LOSSY_FINGERPRINT.add(root)
+        return
+      }
       const p = path.join(dir, e.name)
       if (e.isDirectory()) {
-        if (depth < 4 && !secretSkip.has(e.name)) addSecretStats(p, depth + 1)
+        if (depth >= 4) {
+          LOSSY_FINGERPRINT.add(root)
+        } else if (!secretSkip.has(e.name)) {
+          addSecretStats(p, depth + 1)
+        }
       } else if (secretRe.test(e.name)) {
         try {
           const st = statSync(p)
@@ -457,7 +470,7 @@ async function checkGate(root) {
   const assertsPath = path.join(root, "tests", "assert_artifacts.py")
   if (existsSync(assertsPath)) {
     const key = depFingerprint(root)
-    const lossy = LOSSY_DIGEST.has(root)
+    const lossy = LOSSY_DIGEST.has(root) || LOSSY_FINGERPRINT.has(root)
     if (!lossy && RESULT_CACHE.has(key)) return RESULT_CACHE.get(key) // may be null = cached PASS
     const r = await runAssert(root)
     let result

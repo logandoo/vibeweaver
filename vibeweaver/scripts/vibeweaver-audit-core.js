@@ -676,19 +676,20 @@ export function currentLogBlock(logText) {
   // (baseline-only window) and must not inherit the previous task's
   // final-run. Fall back to the last iter-bearing block, then the last block
   // (trailing `## Notes`/`## Correction` still loses to a Task block).
-  let task = ""
-  let cur = ""
+  let selected = ""
   for (const b of blocks) {
-    if (/^## Task\b/m.test(b)) task = b
-    if (/^- iter \d+ (?:PASS|FAIL)\b/m.test(b)) cur = b
+    // A newer iter-bearing section (`## Verification Log …`, `## Correction`)
+    // must beat an older completed Task block; a trailing non-iter `## Notes`
+    // must not beat it. Single positional cursor, not Task-first priority.
+    if (/^## Task\b/m.test(b) || /^- iter \d+ (?:PASS|FAIL)\b/m.test(b)) selected = b
   }
-  return task || cur || (blocks.length ? blocks[blocks.length - 1] : logText)
+  return selected || (blocks.length ? blocks[blocks.length - 1] : logText)
 }
 
 // Pure verdict over a trigger + the terminal-state whitelist. Never throws.
 //   trigger    {kind:"euphemism"|"truncation", match} | null
 //   positiveIncomplete  no trigger, but on-disk task is incomplete (no
-//              `- final-run:` pass=0/fail=0 and no gate marker) and the
+//              `- final-run: … pass=N/fail=0` and no gate marker) and the
 //              session wrote after the last user message
 //   taskActive acceptance.md exists AND the session produced tool calls AND
 //              the current log block has no final-run (wave not completed)
@@ -1118,7 +1119,7 @@ export function auditProject(opts) {
   // but an explicit `fail` is BAD and a bare `na` needs a reason.
   const repoH = field(/repo-hygiene:\s*(\w+)/i)
   if (repoH === "pass") check(checks, "C19", "`repo-hygiene` value", "OK", "pass")
-  else if (repoH === "na") check(checks, "C19", "`repo-hygiene` value", (liteClass || reasonLineStated) ? "OK" : "UNCERTAIN", "na without a stated reason")
+  else if (repoH === "na") check(checks, "C19", "`repo-hygiene` value", "OK", "na (group 21 is the machine gate)")
   else if (repoH) check(checks, "C19", "`repo-hygiene` value", "BAD", `unexpected value: ${repoH}`)
 
   const assertsPath = path.join(testsDir, "assert_artifacts.py")

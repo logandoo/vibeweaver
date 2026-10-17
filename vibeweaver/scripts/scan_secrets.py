@@ -39,9 +39,9 @@ RULES = [
     ("private-key-block", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY")),
     ("jwt", re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")),
     ("generic-credential", re.compile(
-        r"(?i)(?<![A-Za-z0-9])(?:[A-Za-z0-9]+[_-])*"
+        r"(?i)(?<![A-Za-z0-9])(?:[A-Za-z0-9]{1,32}[_-]){0,4}"
         r"(?:api[_-]?key|apikey|secret|password|passwd|pwd|token|credential)"
-        r"(?:[_-][A-Za-z0-9]+)*\s*[=:]\s*[\"']?[A-Za-z0-9+/_.-]{12,}[\"']?")),
+        r"(?:[_-][A-Za-z0-9]{1,32}){0,4}\s*[=:]\s*[\"']?[A-Za-z0-9+/_.-]{12,}[\"']?")),
 ]
 
 ALLOW = re.compile(r"(?i)(example|placeholder|dummy|sample|redacted|\*\*\*|<[a-z_]+>|your[_-]|xxxx|changeme|test[_-]?key|fake)")
@@ -264,7 +264,9 @@ def main():
                 rel = p.relative_to(base).as_posix()
             except ValueError:
                 rel = p.name
-            if rel in approved:
+            # Path approval is for ignored secret-CARRIER files (`.env*`,
+            # keys/certs), never for an arbitrary tracked source file.
+            if rel in approved and SECRET_NAME_RE.search(p.name):
                 continue
             files += 1
             if files > MAX_FILES or total > MAX_BYTES:
