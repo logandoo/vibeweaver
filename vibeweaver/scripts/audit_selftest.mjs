@@ -161,7 +161,8 @@ const baseTools = () => [
   })
   rec("T1 clean pass", audit.bad === 0 && !audit.escalate, `BAD=${audit.bad} UNCERTAIN=${audit.uncertain} escalate=${audit.escalate}`)
   const badIds = audit.checks.filter((c) => c.verdict === "BAD").map((c) => c.id)
-  rec("T1 no BAD checks", badIds.length === 0, badIds.join(",") || "none")
+  const a4ev = (audit.checks.find((c) => c.id === "A4") || {}).evidence || ""
+  rec("T1 no BAD checks", badIds.length === 0, (badIds.join(",") || "none") + (badIds.includes("A4") && a4ev ? ` | A4 evidence: ${a4ev}` : ""))
 }
 
 // =====================================================================

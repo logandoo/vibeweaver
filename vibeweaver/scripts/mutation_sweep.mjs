@@ -184,15 +184,21 @@ run("C18-doc-class-code-write", () => ({
   })
   const bad = audit.checks.filter((c) => c.verdict === "BAD").map((c) => c.id)
   let assertOk = false
+  let assertErr = ""
   const py = resolvePython()
   try {
     execFileSync(py, [path.join(root, "tests", "assert_artifacts.py"), "--class", "DOC"], { cwd: root, stdio: "pipe", timeout: 15000 })
     assertOk = true
-  } catch {
+  } catch (e1) {
+    assertErr = `${e1.stdout || ""}${e1.stderr || ""}`.trim().slice(0, 300)
     try {
       execFileSync(py, [path.join(root, "tests", "assert_artifacts.py"), "--existing", "--class", "DOC"], { cwd: root, stdio: "pipe", timeout: 15000 })
       assertOk = true
-    } catch { assertOk = false }
+      assertErr = ""
+    } catch (e2) {
+      assertErr = `${assertErr} || ${e2.stdout || ""}${e2.stderr || ""}`.trim().slice(0, 300)
+      assertOk = false
+    }
   }
   const ok = bad.length === 0 && assertOk
   if (ok) {
@@ -200,7 +206,7 @@ run("C18-doc-class-code-write", () => ({
     console.log(`PASS  lite-doc-clean -> BAD=[] assert_artifacts(class DOC)=exit 0`)
   } else {
     fail++
-    console.log(`FAIL  lite-doc-clean -> BAD=[${bad.join(",")}] assert=${assertOk}`)
+    console.log(`FAIL  lite-doc-clean -> BAD=[${bad.join(",")}] assert=${assertOk}${assertErr ? ` :: ${assertErr}` : ""}`)
   }
 }
 
