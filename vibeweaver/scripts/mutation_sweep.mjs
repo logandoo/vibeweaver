@@ -2,7 +2,7 @@
 // thing in the clean fixture and assert the audit flags it BAD.
 // Usage: node scripts/mutation_sweep.mjs   (deterministic, no LLM, no network)
 import { execFileSync } from "node:child_process"
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs"
 import { pathToFileURL } from "node:url"
 import path from "node:path"
 
@@ -176,6 +176,9 @@ run("C18-doc-class-code-write", () => ({
   execFileSync("git", ["config", "user.name", "m"], { cwd: root })
   execFileSync("git", ["add", "-A"], { cwd: root })
   execFileSync("git", ["commit", "-qm", "docs: changelog entry"], { cwd: root })
+  // Windows CI can land the fixture commit in the next wall-clock second;
+  // make the log unambiguously newer than the commit (C6 freshness fixture).
+  try { const now = new Date(Date.now() + 2000); utimesSync(path.join(root, "tests", "verification_log.md"), now, now) } catch { /* best-effort */ }
   const audit = auditProject({
     root,
     sessionID: "ses_lite_doc",

@@ -21,7 +21,7 @@ const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCo
 const auditModule = await import(pathToFileURL(AUDIT_MODULE))
 const VibeweaverAudit = auditModule.VibeweaverAudit || (auditModule.default && auditModule.default.server)
 
-const TMP = "/tmp/vibeweaver-audit-test"
+const TMP = path.join(os.tmpdir(), "vibeweaver-audit-test")
 const results = []
 let failures = 0
 let skips = 0

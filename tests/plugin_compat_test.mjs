@@ -16,13 +16,26 @@
 
 import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import os from "node:os"
 import { pathToFileURL } from "node:url"
 import path from "node:path"
 
-const GATE_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-gate.js")
-const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
-const AUDIT_CORE = path.resolve(import.meta.dirname, "..", "scripts", "vibeweaver-audit-core.js")
-const TMP = "/tmp/vw-compat-test"
+const GATE_MODULE = (() => {
+  const local = path.resolve(import.meta.dirname, "..", "vibeweaver-gate.js")
+  const nested = path.resolve(import.meta.dirname, "..", "vibeweaver", "vibeweaver-gate.js")
+  return existsSync(local) ? local : nested
+})()
+const AUDIT_MODULE = (() => {
+  const local = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
+  const nested = path.resolve(import.meta.dirname, "..", "vibeweaver", "vibeweaver-audit.js")
+  return existsSync(local) ? local : nested
+})()
+const AUDIT_CORE = (() => {
+  const local = path.resolve(import.meta.dirname, "..", "scripts", "vibeweaver-audit-core.js")
+  const nested = path.resolve(import.meta.dirname, "..", "vibeweaver", "scripts", "vibeweaver-audit-core.js")
+  return existsSync(local) ? local : nested
+})()
+const TMP = path.join(os.tmpdir(), "vw-compat-test")
 
 let failures = 0
 let count = 0
