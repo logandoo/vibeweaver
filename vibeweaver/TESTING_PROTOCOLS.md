@@ -199,10 +199,11 @@ markers as bash calls; if your reasoning names a tool, the next emission is
 THAT tool call. Bare literal `echo`/`printf` narration runs (≥4 consecutive,
 no side effects) are mechanically interrupted (loop-guard `noop-bash`); the
 interrupt IS the stall declaration (§A4.10 — log `- stall: noop-bash …`).
-**Repetition ≠ progress (binding):** re-issuing the SAME call with the SAME
-arguments (≥4 distinct calls, any tool — MCP included) is `identical-tool-run`;
-hammering ONE tool with varying args (≥20 distinct calls) is `tool-frequency`.
-Each interrupt IS the stall declaration (§A4.10).
+**Repetition ≠ progress:** re-issuing the SAME call with the SAME arguments
+(≥4 distinct calls, any tool) is `identical-tool-run`. Varied-args same-tool
+streaks are bulk work, not a loop signal; `tool-frequency` is opt-in
+(`loopGuardToolFrequencyMin` ≥4; default off). Each interrupt IS the stall
+declaration.
 Decorated variants (`>`/`|`/`$(…)`/chained) and interleaved real-action
 loops are known gaps.
 
@@ -677,8 +678,8 @@ narration markers standing in for an announced tool call; the loop-guard's
 IS a stall declaration (log `- stall: noop-bash …` and take the escape
 below). **≥4 consecutive identical tool calls** (same tool + canonical args,
 MCP included; pid re-observations don't count) → `identical-tool-run`
-interrupt; **≥20 consecutive same-tool calls** (single-tool storm, args
-vary) → `tool-frequency` interrupt. Each interrupt IS the stall declaration
+interrupt. `tool-frequency` needs explicit `loopGuardToolFrequencyMin`;
+bulk work isn't a loop. Interrupts are stall declarations
 (log `- stall: <kind> …`, take the escape below). **Any two signals → declare
 the stall explicitly in the log**
 (`- stall: <signals> — stopping pure iteration`). An undeclared stall

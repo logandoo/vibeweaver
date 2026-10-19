@@ -164,12 +164,11 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
   New-project tasks run WITHOUT `--existing`. **`--final`: the pre-gate
   A4.4.1 run** additionally enforces group 19 (working-note) + the group-21
   blob check; mid-task
-  runs and the physical gate (§A4.4.2) omit it so an in-use
-  `tests/working_note.md` never blocks iteration. **Record the run:** append
+  runs and the physical gate omit it so an in-use working_note never blocks iteration. **Record the run:** append
+  `- assert-run: assert_artifacts.py: all N checks pass` and
   `- final-run: --final — pass=N/fail=0` to the current
-  task block of `tests/verification_log.md` — the audit's B12 check
-  machine-verifies this line at completion (without it, group 19's
-  enforcement is unprovable). **Profiles:**
+  task block of `tests/verification_log.md` — B12 requires both/seal at completion
+  (group 19 is otherwise unprovable). **Profiles:**
   `--profile service|backend-api|web-static|cli|library` (or
   `tests/project_profile.json`) declaratively skips structurally-N/A groups
   (service lifecycle for libraries/CLIs; UI for backend-only kinds) — the
@@ -444,20 +443,20 @@ excludes timestamp logs and `page N of M`; a single trailing status line does
 not mask the run); (e) punctuation-only walls — a punct-only suffix period
 counts only once the wall's own trailing punctuation run is ≥2KB (a big
 report ending in a short rule/banner and ASCII-art separators stay clean);
-plus a per-turn absolute ceiling: one turn's output beyond 64KB raises a
-`runaway` interrupt with its own corrective prompt (re-armed per 64KB of
-growth, budget-capped — the backstop bound for shapes no periodic detector
-can see). Repeated JSX/HTML
+plus a visible-text-only ceiling: >256KB fires `runaway` (re-armed per 256KB;
+`loopGuardTurnCeilingBytes`, min 64KB; reasoning excluded, independent 1MB
+backstop `loopGuardReasoningCeilingBytes` (min 256KB); id-less hosts reset at
+the user boundary — unseen-shape backstop). Repeated JSX/HTML
 elements ×3 and pure-punctuation runs stay clean by the same bar. On trigger
 the plugin interrupts the session (v1 `session.abort` / v2
 `session.interrupt({continue:false})`) and posts a corrective prompt naming
 the pattern (restate the task in one line + the single next concrete step).
 One intervention per degeneration episode (re-arms after clean text or a NEW
-assistant turn — a stubborn model re-degenerating in fresh turns gets its own
-intervention; same-turn continuation never re-fires), budget 2 per session per
+assistant turn — fresh-turn re-degeneration gets its own intervention;
+same-turn continuation never re-fires), budget 2 per session per
 channel (further episodes are log-only, config
-`loopGuardMaxInterventions` in `audit.json`). Near-misses are excluded by
-construction: numbered lists with content (`1. step`) are not bare tokens;
+`loopGuardMaxInterventions` in `audit.json`). Near-misses excluded:
+numbered lists with content (`1. step`) are not bare tokens;
 a 2× repetition is below the bar. Disable per-run:
 `VIBEWEAVER_LOOPGUARD=off`.
 

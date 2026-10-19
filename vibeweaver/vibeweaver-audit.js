@@ -1,4 +1,5 @@
 import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
+import { createHash } from "node:crypto"
 import path from "node:path"
 import os from "node:os"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -285,7 +286,15 @@ const LOOP_CHAR_MAX_CANDIDATES = 16
 const LOOP_CHAR_GATE_LINE = 256
 const LOOP_MAX_LINE_PERIOD = 640
 const LOOP_SHAPE_MIN = 16
-const LOOP_TURN_CEILING = 65536
+// W10: 64KB counted hidden reasoning too and killed long legitimate turns.
+// The ceiling is now visible-text-only, 256KB, and configurable upward.
+const LOOP_TURN_CEILING = 262144
+const LOOP_TURN_CEILING_MIN = 65536
+// Reasoning is excluded from the visible-output ceiling (long chains of
+// thought are legitimate), but it still needs a high absolute backstop for
+// non-periodic runaway reasoning. 1MB is ~4x the visible ceiling.
+const LOOP_REASONING_CEILING = 1048576
+const LOOP_REASONING_CEILING_MIN = 262144
 const LOOP_PUNCT_WALL_MIN = 2048
 
 function lettersToIndex(s) {
@@ -490,7 +499,7 @@ function loopRecoveryText(finding) {
     return `[loop-guard] Your last tool calls degenerated into a single-tool storm (${finding.pattern}) — hammering ONE tool is not progress by itself. STOP the streak. Do exactly ONE of: (1) consolidate: work with the results you ALREADY have, or replace many narrow queries with one broader/batched call; or (2) switch tools or approach, carrying a one-line diagnosis of what the streak was trying to establish; or (3) proceed to the next real step of the task; or (4) only if every acceptance criterion is verified passing, emit the skill's final completion output (gate line + completion table). Evidence honesty: BEFORE any completion output, IF the streak was a genuine stall, append \`- stall: tool-frequency — <what you were trying to do>\` to tests/verification_log.md and count it in your [Convergence] stalls (TESTING_PROTOCOLS §A4.10); IF the streak was legitimate bulk work, write ONE line saying that instead — never record a stall that did not happen. Do not resume by hammering the same tool.`
   }
   if (finding && finding.kind === "runaway") {
-    return `[loop-guard] RUNAWAY OUTPUT: ${finding.pattern} without a verified stop condition (the ceiling is the backstop bound — a repetition loop the shape detectors cannot see is indistinguishable from this; on hosts that supply no turn ids the bound is per-session). STOP emitting. Do exactly ONE of: (1) if every acceptance criterion is verified passing, emit the skill's final completion output (gate line + completion table) now — the evidence, not a re-narration; or (2) if work remains, emit ONE short status line naming the single next concrete step and continue with bounded output. Never re-narrate completed work.`
+    return `[loop-guard] OUTPUT CEILING: ${finding.pattern} (visible text only; hidden reasoning has its own higher backstop; a host without turn ids resets this at the observed user boundary). This is a budget backstop, not a repetition verdict. Do exactly ONE of: (1) if the task is complete, emit the final completion output now — gate line + completion table, no re-narration; or (2) if work remains, emit ONE short checkpoint (what is done + the single next concrete step) and continue in the next turn with bounded output. Do not repeat or re-narrate the same content.`
   }
   return `[loop-guard] Your output degenerated into meaningless repetition (${finding.kind}: ${finding.pattern}). STOP repeating. Reply with (1) the task you are solving in ONE line, (2) the single next concrete step, then continue normally — no sequences, no filler. If the task is actually complete, emit the final completion output instead.`
 }
@@ -506,10 +515,56 @@ function loopRecoveryText(finding) {
 // Plugin-injected messages are identified by their first-line tag
 // ([loop-guard] / [stop-guard]) — same strip the stop-guard whitelist uses.
 const PLUGIN_PROMPT_RE = /^\[(?:stop-guard|loop-guard)\]/
+// W10: path-shape test usable without a project root (observation hot path).
+// Protocol/report paths are evidence, not "the model stopped mid-code".
+const EVIDENCE_PATH_RE = /(^|\/)(tests|docs|memory|\.vibeweaver)\//i
+const EVIDENCE_FILE_RE = /(^|\/)(acceptance\.md|verification_log\.md|working_note\.md|gate_audit\.md|paused_state\.md|decisions\.md)$/i
+// W11: prose/asset writes are legitimate under a Class DOC claim; anything
+// else (code/config/binary data) is cross-checked as a code write.
+const PROSE_WRITE_RE = /(?:\.(md|txt|rst|log|png|webm|wav|mp4|mp3|docx|doc|xlsx|xls|pptx|ppt|pdf|odt|ods|odp|rtf|odg|epub|mht|docm|xlsm|pptm|html|htm)|(^|\/)(LICENSE|NOTICE|COPYING|README|CHANGELOG|AUTHORS))$/i
+// W11 re-review: code-write detection is extension/path based, NOT "not
+// prose" — a read-only audit writing findings.csv/report.json is not code.
+const CODE_WRITE_RE = /\.(py|js|mjs|ts|tsx|jsx|go|rs|java|c|cc|cpp|h|hpp|rb|php|cs|kt|swift|m|scala|pl|sh|bash|css|scss|sass|less|vue|svelte|astro|sql|json|jsonc|yaml|yml|toml|xml|ini|cfg|conf|properties|gradle|lock|mk|env|proto|graphql)$/i
+const REPORT_PATH_RE = /(^|\/)(reports?|output|outputs|artifacts?|findings?|results?|summaries|summary)\//i
+const REPORT_NAME_RE = /(^|\/)(report|reports|finding|findings|result|results|summary|analysis)[^/]*\.(html?|json|ya?ml|xml|csv|tsv|txt|md)$/i
+const DATA_REPORT_NAME_RE = /(^|\/)(data|metrics|audit|stats|coverage|table|tables|numbers)[^/]*\.(json|ya?ml|csv|tsv|txt)$/i
+const CONFIG_NAME_RE = /(^|\/)(config|schema|package|settings|manifest|tsconfig|webpack|vite|rollup|babel|requirements|pnpm-lock|package-lock|yarn\.lock|Cargo\.lock|poetry\.lock|composer\.lock)[^/]*\.(json|jsonc|ya?ml|toml|xml|ini|cfg|conf|js|ts|txt|lock)$/i
+const EXTENSIONLESS_CODE_RE = /(^|\/)(Makefile|Dockerfile|Containerfile|go\.mod|go\.sum|Gemfile|Gemfile\.lock|Procfile|CMakeLists\.txt|Rakefile|Justfile|Brewfile)$/i
+const inCodeDir = (fp) => /(^|\/)(src|lib|app|apps|packages?|server|internal|core|services?|backend|frontend|cmd|pkg|modules?|daemon)\//i.test(fp)
+const isCodeWritePath = (fp) => {
+  if (typeof fp !== "string" || !fp) return false
+  if (EXTENSIONLESS_CODE_RE.test(fp)) return true
+  if (/(^|\/)README\.html?$/i.test(fp)) return false
+  if (/\.(html?|htm)$/i.test(fp)) {
+    if (/(^|\/)(docs|tests|memory)\//i.test(fp)) return false
+    // Only a report-NAMED html outside a code dir is exempt; a UI app under
+    // output/ or src/report.html is code.
+    if (REPORT_NAME_RE.test(fp) && !inCodeDir(fp)) return false
+    return true
+  }
+  if (CODE_WRITE_RE.test(fp)) {
+    // Report/data artifacts are not code — but ONLY report-shaped extensions,
+    // never a code/config file that happens to live under output/reports/.
+    if (/(^|\/)(reports?|output|outputs|artifacts?|findings?|results?|summaries|summary)\//i.test(fp)
+      && !CONFIG_NAME_RE.test(fp)
+      && /\.(json|jsonc|ya?ml|xml|csv|tsv|txt|md|html?)$/i.test(fp)) return false
+    if (REPORT_NAME_RE.test(fp) && !inCodeDir(fp)) return false
+    if (DATA_REPORT_NAME_RE.test(fp) && !inCodeDir(fp)) return false
+    return true
+  }
+  return false
+}
+function looksEvidencePath(filePath) {
+  if (typeof filePath !== "string" || !filePath) return true
+  const p = filePath.split(path.sep).join("/")
+  return EVIDENCE_PATH_RE.test(p) || EVIDENCE_FILE_RE.test(p)
+}
 
 function isPluginInjected(text) {
   return typeof text === "string" && PLUGIN_PROMPT_RE.test(text)
 }
+
+const hashText = (s) => createHash("sha1").update(typeof s === "string" ? s : "").digest("hex")
 
 // Assistant-only corpus: text parts whose message is NOT user-role and which
 // are not plugin-injected prompts. Parts with no role attribution (v2 deltas,
@@ -615,9 +670,40 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const s = state.sessions[sessionID]
     if (!s.roles) s.roles = {} // messageID → role (stop-guard, bounded)
     if (!s.partMsg) s.partMsg = {} // text-partID → messageID (stop-guard, bounded)
+    if (!s.msgAt) s.msgAt = {} // messageID → first observation time (W10 turn scope, bounded)
+    if (!s.msgSeqAt) s.msgSeqAt = {} // messageID → monotonic observation order (same-ms safe)
+    if (!Number.isFinite(s.msgSeq)) s.msgSeq = 0
+    if (!s.partSeqAt) s.partSeqAt = {} // text-partID → monotonic observation order (W11 gate ordering)
+    if (!s.gateSeqAt) s.gateSeqAt = {} // text-partID → seq when the gate marker FIRST appeared
+    if (!s.gateCountAt) s.gateCountAt = {} // text-partID → gate marker count (id-less part detection)
+    if (!Number.isFinite(s.partSeq)) s.partSeq = 0
+    if (!Number.isFinite(s.partSeqPruneAt)) s.partSeqPruneAt = 0
+    if (!s.msgChurnAt) s.msgChurnAt = [] // messageID change times (W11 churn guard)
+    if (!Number.isFinite(s.userLogLen)) s.userLogLen = null // verification_log length at the user turn
+    if (typeof s.userLogHash !== "string") s.userLogHash = "" // sha1 of that prefix (rewrite detection)
+    if (!Array.isArray(s.turnWritePaths)) s.turnWritePaths = [] // current-turn writes (bounded, audit aid)
+    if (!Array.isArray(s.turnMsgIDs)) s.turnMsgIDs = [] // role-less turn text messageIDs (v2 gate scope)
+    if (s.turnCodeWrite === undefined) s.turnCodeWrite = false // sticky: a known code write this turn
+    if (!Number.isFinite(s.lastTaskWritePartSeq)) s.lastTaskWritePartSeq = NaN
+    if (s.lastTaskWriteUnknown === undefined) s.lastTaskWriteUnknown = false
+    if (s.toolFreqWarned === undefined) s.toolFreqWarned = false // W12 warn-only layer (once/session)
     if (s.lastUserMid === undefined) s.lastUserMid = null
     if (s.usage === undefined) s.usage = null // last assistant message telemetry
     if (!Number.isFinite(s.createdTs)) s.createdTs = Date.now() // session-scope anchor for stop-guard whitelists (F5)
+    // W11 re-review: v2/no-user-event hosts need a session-start log boundary
+    // too; otherwise an old completed block satisfies waveComplete for a new
+    // task. A v1 user turn overwrites this snapshot.
+    if (s.userLogLen === null) {
+      try {
+        const r = findProjectRoot([directory])
+        const txt = r ? safeRead(path.join(r, "tests", "verification_log.md")) : ""
+        s.userLogLen = txt.length
+        s.userLogHash = hashText(txt)
+      } catch {
+        s.userLogLen = 0
+        s.userLogHash = hashText("")
+      }
+    }
     return s
   }
 
@@ -628,10 +714,19 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
 
   // Config lives OUTSIDE the agent's write scope — the agent could otherwise
   // weaken its own auditor (optimizer must never own its objective function).
+  // Short TTL cache: the guard reads this on hot paths (tool events, long
+  // deltas). Keyed by path so tests/config switches never reuse stale bytes;
+  // the config lives outside the agent's write scope, so 1s is safe.
+  let cfgCache = { key: "", at: 0, val: null }
   const readConfig = () => {
     try {
       const p = process.env.VIBEWEAVER_AUDIT_CONFIG || path.join(os.homedir(), ".config", "opencode", "vibeweaver", "audit.json")
-      if (existsSync(p)) return JSON.parse(safeRead(p) || "null")
+      const now = Date.now()
+      if (cfgCache.key === p && now - cfgCache.at < 1000) return cfgCache.val || {}
+      let val = {}
+      if (existsSync(p)) val = JSON.parse(safeRead(p) || "null") || {}
+      cfgCache = { key: p, at: now, val }
+      return val
     } catch {
       /* defaults */
     }
@@ -871,6 +966,17 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       }
       if (!sess.loopGuard || typeof sess.loopGuard !== "object") sess.loopGuard = { interventions: 0, interventionsNoop: 0, armed: true, armedNoop: true }
       const lg = sess.loopGuard
+      // Config is read lazily: doing a JSON parse on every streamed delta is
+      // a hot-path regression. The ceiling only matters above the minimum;
+      // the tool chain needs the opt-in key; budgets read it on a finding.
+      let cfg = null
+      const getCfg = () => cfg || (cfg = readConfig())
+      const cfgCeiling = (sess.turnChars || 0) > LOOP_TURN_CEILING_MIN ? Number(getCfg().loopGuardTurnCeilingBytes) : NaN
+      const turnCeiling = Number.isFinite(cfgCeiling) && cfgCeiling >= LOOP_TURN_CEILING_MIN ? cfgCeiling : LOOP_TURN_CEILING
+      const cfgReasoningCeiling = channel === "reasoning" ? Number(getCfg().loopGuardReasoningCeilingBytes) : NaN
+      const reasoningCeiling = Number.isFinite(cfgReasoningCeiling) && cfgReasoningCeiling >= LOOP_REASONING_CEILING_MIN ? cfgReasoningCeiling : LOOP_REASONING_CEILING
+      const cfgFreqMin = channel === "tool" ? Number(getCfg().loopGuardToolFrequencyMin) : NaN
+      const freqOptIn = Number.isInteger(cfgFreqMin) && cfgFreqMin >= 4
       // NaN-safe backfill (D-6): corrupt/hand-edited state lacking these
       // fields must never bypass the budget (NaN >= max is always false).
       if (!Number.isFinite(lg.interventions)) lg.interventions = 0
@@ -896,16 +1002,31 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
                 })()
               )
             : null) ||
-          (typeof core.toolFrequencyFinding === "function"
-            ? core.toolFrequencyFinding(
-                sess.tools,
-                (() => {
-                  const n = Number(readConfig().loopGuardToolFrequencyMin)
-                  return Number.isInteger(n) && n >= 4 ? n : undefined
-                })()
-              )
+          // W10: tool-name frequency is a low-specificity signal (legitimate
+          // bulk work is a same-tool streak). Opt-in only: an explicit
+          // integer config restores the detector; default = off.
+          (freqOptIn && typeof core.toolFrequencyFinding === "function"
+            ? core.toolFrequencyFinding(sess.tools, cfgFreqMin)
             : null)
         : loopFinding(reasoningChannel ? stripCodeFences(sess.reasoning) : loopCorpus(sess))
+      // W12 P2-4: a high-threshold WARN-ONLY layer restores coverage for the
+      // varied-args single-tool storm (40-450 calls) without aborting. It
+      // journals one advisory line per session; the opt-in abort stays above.
+      if (!finding && toolChannel && typeof core.toolFrequencyFinding === "function" && !sess.toolFreqWarned) {
+        const warnCfg = Number(getCfg().loopGuardToolFrequencyWarnMin)
+        const warnMin = Number.isInteger(warnCfg) && warnCfg >= 20 ? warnCfg : 120
+        const warn = core.toolFrequencyFinding(sess.tools, warnMin)
+        if (warn) {
+          sess.toolFreqWarned = true
+          void log({
+            service: "vibeweaver-loopguard",
+            level: "info",
+            message: `tool-frequency warning (warn-only, no abort): ${warn.pattern} — consolidate or switch tool`,
+            extra: { sessionID },
+          })
+          flush()
+        }
+      }
       // per-turn absolute ceiling (hermes #127234: periodic detectors can
       // answer "not yet" forever for shapes they cannot see — the ceiling is
       // the bound that makes runaway output finite). Synthesized once per
@@ -917,11 +1038,24 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (
         !finding &&
         !toolChannel &&
-        (sess.turnChars || 0) > LOOP_TURN_CEILING &&
-        (sess.turnChars || 0) >= (sess.turnCeilingAt || 0) + LOOP_TURN_CEILING
+        !reasoningChannel &&
+        (sess.turnChars || 0) > turnCeiling &&
+        (sess.turnChars || 0) >= (sess.turnCeilingAt || 0) + turnCeiling
       ) {
         sess.turnCeilingAt = sess.turnChars
-        finding = { kind: "runaway", pattern: `turn output exceeded ${LOOP_TURN_CEILING} bytes` }
+        finding = { kind: "runaway", pattern: `turn output exceeded ${turnCeiling} bytes` }
+      }
+      // Reasoning has its own high absolute backstop: hidden chains of thought
+      // are excluded from the visible 256KB ceiling, but a non-periodic 1MB+
+      // reasoning stream must still be bounded (review I4).
+      if (
+        !finding &&
+        reasoningChannel &&
+        (sess.reasoningChars || 0) > reasoningCeiling &&
+        (sess.reasoningChars || 0) >= (sess.reasoningCeilingAt || 0) + reasoningCeiling
+      ) {
+        sess.reasoningCeilingAt = sess.reasoningChars
+        finding = { kind: "runaway", pattern: `reasoning output exceeded ${reasoningCeiling} bytes` }
       }
       // one intervention per degeneration EPISODE: after firing, stay
       // disarmed while the same pattern still sits at the tail (the
@@ -948,16 +1082,15 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
           // latched organic finding (the stubborn-wall case): the ceiling
           // RESCUES the turn when a growth window has been crossed — without
           // this the turn is cut at most once and then unbounded (re-review N1)
-          if (!toolChannel && (sess.turnChars || 0) >= (sess.turnCeilingAt || 0) + LOOP_TURN_CEILING) {
+          if (!toolChannel && (sess.turnChars || 0) >= (sess.turnCeilingAt || 0) + turnCeiling) {
             sess.turnCeilingAt = sess.turnChars
-            finding = { kind: "runaway", pattern: `turn output exceeded ${LOOP_TURN_CEILING} bytes` }
+            finding = { kind: "runaway", pattern: `turn output exceeded ${turnCeiling} bytes` }
           } else return
         }
       }
       lg[armedKey] = false
       lg[fireKey] = sess.lastMsgID
-      const cfg = readConfig()
-      const maxInterventions = Number.isFinite(cfg.loopGuardMaxInterventions) ? cfg.loopGuardMaxInterventions : LOOP_MAX_INTERVENTIONS_DEFAULT
+      const maxInterventions = Number.isFinite(getCfg().loopGuardMaxInterventions) ? getCfg().loopGuardMaxInterventions : LOOP_MAX_INTERVENTIONS_DEFAULT
       if (lg[usedKey] >= maxInterventions) {
         // budget exhausted for THIS channel: never interrupt again on it,
         // but log every NEW episode (armed semantics guarantee this is a
@@ -1066,6 +1199,103 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     return parts.join("\n")
   }
 
+  // W10 helpers: turn-scoped assistant text, task-class read, and an
+  // evidence-path filter so writing acceptance/log/report files cannot
+  // masquerade as "the model stopped mid-code".
+  const isEvidencePath = (root, filePath) => {
+    if (typeof filePath !== "string" || !filePath) return true
+    const rel = path.relative(root, path.resolve(root, filePath)).split(path.sep).join("/")
+    if (rel.startsWith("..")) return true
+    return looksEvidencePath(rel)
+  }
+  const gateInfoSince = (sess, sinceAt, sinceMid) => {
+    let seq = 0
+    let inLast = false
+    if (!sess || !sess.partMsg) return { seq, inLast }
+    const roles = sess.roles && Object.keys(sess.roles).length
+    if (!roles) {
+      // v2/role-less: scan only message ids observed in the CURRENT turn
+      // (gate + a later "Done." in the same turn are both accepted); after an
+      // idle the set is cleared, so an old gate cannot suppress new debt.
+      const ids = Array.isArray(sess.turnMsgIDs) && sess.turnMsgIDs.length ? sess.turnMsgIDs : null
+      if (ids) {
+        for (const mid of ids) {
+          const txt = sess.textParts && sess.textParts[mid]
+          if (typeof txt !== "string" || !txt.includes(GATE_MARKER)) continue
+          if (mid === sess.lastMsgID || mid === ids[ids.length - 1]) inLast = true
+          const gs = sess.gateSeqAt && sess.gateSeqAt[mid]
+          const ps = sess.partSeqAt && sess.partSeqAt[mid]
+          const order = Number.isFinite(gs) ? gs : Number.isFinite(ps) ? ps : 0
+          if (order > seq) seq = order
+        }
+        return { seq, inLast }
+      }
+      // Legacy role-less fallback: latest text part only.
+      let bestPid = ""
+      let bestSeq = -1
+      for (const pid of Object.keys(sess.textParts || {})) {
+        const ps = sess.partSeqAt && sess.partSeqAt[pid]
+        const n = Number.isFinite(ps) ? ps : 0
+        if (n > bestSeq) { bestSeq = n; bestPid = pid }
+      }
+      if (!bestPid) return { seq: 0, inLast: false }
+      const txt = sess.textParts[bestPid]
+      if (typeof txt !== "string" || !txt.includes(GATE_MARKER)) return { seq: 0, inLast: false }
+      const gs = sess.gateSeqAt && sess.gateSeqAt[bestPid]
+      return { seq: Number.isFinite(gs) ? gs : bestSeq, inLast: true }
+    }
+    const userSeq = sinceMid && sess.msgSeqAt ? sess.msgSeqAt[sinceMid] : NaN
+    const hasUserBoundary = Number.isFinite(userSeq) || Number.isFinite(sinceAt)
+    if (!hasUserBoundary) {
+      // No user event: scan the current turn's assistant messages. A gate
+      // after the last task write is valid even if a final "Done." follows;
+      // an old gate with no write after it is only valid in the last message.
+      const ids = Array.isArray(sess.turnMsgIDs) && sess.turnMsgIDs.length
+        ? sess.turnMsgIDs
+        : sess.lastMsgID ? [sess.lastMsgID] : []
+      if (!ids.length) return { seq: 0, inLast: false }
+      for (const pid of Object.keys(sess.partMsg)) {
+        const mid = sess.partMsg[pid]
+        if (!mid || !ids.includes(mid)) continue
+        const txt = typeof sess.textParts[pid] === "string" ? sess.textParts[pid] : ""
+        if (!txt || !txt.includes(GATE_MARKER)) continue
+        if (mid === sess.lastMsgID) inLast = true
+        const gs = sess.gateSeqAt && sess.gateSeqAt[pid]
+        const ps = sess.partSeqAt && sess.partSeqAt[pid]
+        const order = Number.isFinite(gs) ? gs : Number.isFinite(ps) ? ps : 0
+        if (order > seq) seq = order
+      }
+      return { seq, inLast }
+    }
+    for (const pid of Object.keys(sess.partMsg)) {
+      const mid = sess.partMsg[pid]
+      if (!mid) continue
+      // Unknown roles count as assistant (v1 parts may precede message.updated).
+      if (sess.roles[mid] && sess.roles[mid] !== "assistant") continue
+      const at = sess.msgAt && sess.msgAt[mid]
+      const mseq = sess.msgSeqAt && sess.msgSeqAt[mid]
+      const after = Number.isFinite(userSeq) && Number.isFinite(mseq)
+        ? mseq >= userSeq
+        : Number.isFinite(at) && at >= sinceAt
+      if (!after) continue
+      const txt = typeof sess.textParts[pid] === "string" ? sess.textParts[pid] : ""
+      if (!txt || !txt.includes(GATE_MARKER)) continue
+      inLast = true // user turn scopes the whole assistant tail
+      // First-seen gate seq (NOT the part's latest cumulative stamp).
+      const gs = sess.gateSeqAt && sess.gateSeqAt[pid]
+      const ps = sess.partSeqAt && sess.partSeqAt[pid]
+      const order = Number.isFinite(gs) ? gs : Number.isFinite(ps) ? ps : 0
+      if (order > seq) seq = order
+    }
+    return { seq, inLast }
+  }
+  const taskClassOf = (block) => {
+    // FIRST class declaration in the selected block: a later `- class: DOC`
+    // appended to a CODE block must not relicense it.
+    const m = String(block || "").match(/^\s*-\s*class:\s*(DOC|CONFIG|CODE)\b/im)
+    return m ? m[1].toUpperCase() : ""
+  }
+
   const journalStopDebt = (root, sessionID, trigger, why) => {
     try {
       if (!state.roots[root]) state.roots[root] = {}
@@ -1095,6 +1325,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (!Number.isFinite(sg.interventions)) sg.interventions = 0
       const lastMid = sess.usage && typeof sess.usage.messageID === "string" ? sess.usage.messageID : null
       const aTail = lastMid ? msgText(sess, lastMid) : (sess.text || "").slice(-2048) // v2 fallback: assistant-sourced deltas
+      const uText = msgText(sess, sess.lastUserMid).replace(/^\[(stop-guard|loop-guard)\][^\n]*/gm, "")
       // episode key: the assistant message id when known, else a tail snapshot
       // (null-lastMid hosts must not re-arm on every idle — review F3)
       const armKey = lastMid || "tail:" + aTail.slice(-256)
@@ -1111,43 +1342,105 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       let pausedState = false
       let classE = false
       try {
-        pausedState = Math.floor(statSync(path.join(root, "tests", "paused_state.md"), { throwIfNoEntry: false })?.mtimeMs ?? 0) >= sessionStart && sessionStart > 0
+        const pp = path.join(root, "tests", "paused_state.md")
+        const pm = Math.floor(statSync(pp, { throwIfNoEntry: false })?.mtimeMs ?? 0)
+        pausedState = pm >= sessionStart && sessionStart > 0
+          && typeof core.pausedPacketValid === "function" && core.pausedPacketValid(safeRead(pp))
+          && typeof core.pausedDeclaration === "function" && core.pausedDeclaration(aTail)
       } catch {
         /* absent */
       }
       try {
         const dp = path.join(root, "tests", "decisions.md")
-        classE = Math.floor(statSync(dp, { throwIfNoEntry: false })?.mtimeMs ?? 0) >= sessionStart && sessionStart > 0 && /Class-E/i.test(safeRead(dp))
+        const dm = Math.floor(statSync(dp, { throwIfNoEntry: false })?.mtimeMs ?? 0)
+        classE = dm >= sessionStart && sessionStart > 0
+          && typeof core.classERecordValid === "function" && core.classERecordValid(safeRead(dp))
+          && typeof core.classEUserApproval === "function" && core.classEUserApproval(uText)
+          && /Class-E/i.test(aTail)
       } catch {
         /* absent */
       }
-      const gateMarker = /\[Verification Gate\]/.test(aTail)
-      const tailQuestion = /[?？]\s*$/.test(aTail.trim())
       // userStop: plugin-authored prompts are stripped first (review F1 — the
       // guard must never whitelist itself), then a DIRECTIVE-shaped match with
       // negation exclusion ("don't stop" is not a stop directive — F6).
-      const uText = msgText(sess, sess.lastUserMid).replace(/^\[(stop-guard|loop-guard)\][^\n]*/gm, "")
       const userStop =
         /(^\s*(?:please\s+)?(?:stop|cancel|quit)\b(?!\s+(?:the|a|an)\s)|\bplease\s+(?:stop|cancel|quit)\b|\b(?:stop|cancel|quit)\s+(?:here|now|it|this|coding|working|for today)\b|停一下|停下来|停止吧|别做了|别再做|取消吧|到此为止|今天到这)/i.test(
           uText
         ) && !/((?:don't|do not|never)\s+(?:stop|cancel|quit)|不要停|别停|不能停)/i.test(uText)
-      const curBlock = typeof core.currentLogBlock === "function" ? core.currentLogBlock(safeRead(path.join(root, "tests", "verification_log.md"))) : ""
-      const waveComplete = /-[ \t]*final-run:[^\n]*--final[^\n]*pass=[1-9]\d*[ \t]*\/[ \t]*fail=0/i.test(curBlock)
+      const logPath = path.join(root, "tests", "verification_log.md")
+      const logText = safeRead(logPath)
+      const userLogLen = Number.isFinite(sess.userLogLen) ? sess.userLogLen : null
+      // W11 P0-2: a length is not an identity. Completion/class evidence is
+      // read only from an APPEND-ONLY suffix; any rewrite/prepend/truncation
+      // fails closed (no stale final-run resurrection).
+      let appendOnly = true
+      if (userLogLen !== null) {
+        appendOnly = logText.length >= userLogLen
+          && typeof sess.userLogHash === "string" && sess.userLogHash
+          && hashText(logText.slice(0, userLogLen)) === sess.userLogHash
+      }
+      const turnLog = userLogLen === null ? logText : appendOnly ? logText.slice(userLogLen) : ""
+      // W11 re-review: scan the CURRENT task block, not the whole turn slice —
+      // a prior task in the same turn must not authenticate a later one. The
+      // selector falls back to an evidence-bearing mid-block when there is no
+      // `## Task` heading (trailing `## Notes` must not hide the final-run).
+      const curBlock = typeof core.currentEvidenceBlock === "function"
+        ? core.currentEvidenceBlock(turnLog)
+        : userLogLen === null ? logText : turnLog
+      // W11 P0-1/P0-2: the current task block's LAST final-run must be corroborated.
+      const finalEv = typeof core.finalRunEvidence === "function"
+        ? core.finalRunEvidence(curBlock, { root, sinceMs: Number.isFinite(sess.lastUserAt) ? sess.lastUserAt : sessionStart })
+        : { trusted: false, reason: "helper-missing" }
+      const waveComplete = !!finalEv.trusted
       const taskActive = existsSync(path.join(root, "tests", "acceptance.md")) && sess.tools.length > 0 && !waveComplete
-      // Positive predicate (§V12): a silent stop with an active task on disk
-      // and a WRITE AFTER THE LAST USER MESSAGE is incomplete by evidence.
-      // The turn scoping is essential: a user asking "what changed?" after a
-      // partial edit must not be auto-resumed. A host error/abort fences the
-      // predicate until a later successful write.
-      const wroteAfterUser = Number.isFinite(sess.lastWriteAt)
-        && (!Number.isFinite(sess.lastUserAt) || sess.lastWriteAt > sess.lastUserAt)
+      // W10 scoping: absence of final-run is not proof of abandonment.
+      // - Class DOC / a user-scoped read-only instruction is a legitimate
+      //   terminal state (C4 audit, evaluation-only, prose).
+      // - Awaiting user approval (period-terminated requests included) is a
+      //   legitimate pause; the old trailing-? check missed most of them.
+      // - The gate marker is turn-scoped AND write-ordered (W11 P0-4).
+      const cls = taskClassOf(curBlock)
+      // W11 P0-5: a DOC claim is cross-checked against KNOWN code writes this
+      // turn (sticky boolean, not an evictable path list). Unknown paths are
+      // NOT treated as code for a DOC claim (status-only hosts would always
+      // false-positive); the CODE positive path still uses them.
+      const codeWriteThisTurn = !!sess.turnCodeWrite
+      const forgedClass = cls === "DOC" && codeWriteThisTurn
+      const readOnlyByUser = typeof core.stopReadOnlyInstruction === "function" && core.stopReadOnlyInstruction(uText)
+      // A read-only instruction is invalidated by a known code write: the
+      // model did the thing the user forbade, then went silent.
+      const readOnlyTask = (cls === "DOC" && !forgedClass) || (readOnlyByUser && !codeWriteThisTurn)
+      const awaitingUser = typeof core.stopAwaitingUser === "function" ? core.stopAwaitingUser(aTail) : /[?？]\s*$/.test(aTail.trim())
+      // W11 P1-2: the legacy `tailQuestion` whitelist is now the refined
+      // awaiting detector — a bare trailing `?` is not a decision request.
+      const tailQuestion = awaitingUser
+      const gateInfo = gateInfoSince(sess, sess.lastUserAt, sess.lastUserMid)
+      // Positive task evidence: a write/edit to a NON-evidence path after the
+      // last user message. Writing acceptance.md/log/report only is not
+      // "stopped mid-code".
+      const writeSeq = sess.msgSeqAt && sess.lastTaskWriteMsgID ? sess.msgSeqAt[sess.lastTaskWriteMsgID] : NaN
+      const userSeq = sess.msgSeqAt && sess.lastUserMid ? sess.msgSeqAt[sess.lastUserMid] : NaN
+      const writeMsgAt = sess.msgAt && sess.lastTaskWriteMsgID ? sess.msgAt[sess.lastTaskWriteMsgID] : NaN
+      const userMsgAt = sess.msgAt && sess.lastUserMid ? sess.msgAt[sess.lastUserMid] : NaN
+      const writeAfterUser = Number.isFinite(writeSeq) && Number.isFinite(userSeq)
+        ? writeSeq > userSeq
+        : Number.isFinite(writeMsgAt) && Number.isFinite(userMsgAt)
+          ? writeMsgAt >= userMsgAt
+          : Number.isFinite(sess.lastUserAt)
+          ? sess.lastTaskWriteAt >= sess.lastUserAt
+          : sess.lastTaskWriteAt >= (sess.createdTs || 0)
+      const wroteTaskAfterUser = Number.isFinite(sess.lastTaskWriteAt) && writeAfterUser
+        && (sess.lastTaskWriteUnknown || !looksEvidencePath(sess.lastTaskWritePath))
+      const gateMarker = gateInfo.seq > 0 && (wroteTaskAfterUser
+        ? (Number.isFinite(sess.lastTaskWritePartSeq) && gateInfo.seq >= sess.lastTaskWritePartSeq)
+        : gateInfo.inLast)
       const errorFence = Number.isFinite(sess.lastErrorAt)
         && !(Number.isFinite(sess.lastWriteAt) && sess.lastWriteAt > sess.lastErrorAt)
-      const positiveIncomplete = !trigger && taskActive && !gateMarker && !tailQuestion
-        && !userStop && !pausedState && !classE && wroteAfterUser && !errorFence
+      const positiveIncomplete = !trigger && taskActive && !readOnlyTask && !awaitingUser
+        && !gateMarker && !userStop && !pausedState && !classE && wroteTaskAfterUser && !errorFence
       if (!trigger && !positiveIncomplete) return
-      const effectiveTrigger = trigger || { kind: "incomplete", match: "no-final-run" }
-      const decision = core.stopGuardDecision({ trigger, positiveIncomplete, taskActive, pausedState, classE, errorFence, gateMarker, tailQuestion, userStop, telemetry: hasTelemetry })
+      const effectiveTrigger = trigger || { kind: "incomplete", match: finalEv.reason === "unbound-final-run" ? "untrusted-final-run" : "no-final-run" }
+      const decision = core.stopGuardDecision({ trigger, positiveIncomplete, taskActive, readOnlyTask, awaitingUser, pausedState, classE, errorFence, gateMarker, tailQuestion, userStop, telemetry: hasTelemetry })
       if (decision.action === "ignore") return
       if (!sg.armed) return
       sg.armed = false
@@ -1198,11 +1491,51 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const sess = touchSession(sessionID)
     if (typeof info.id === "string" && typeof info.role === "string") {
       sess.roles[info.id] = info.role
+      if (!sess.msgAt) sess.msgAt = {}
+      if (!Number.isFinite(sess.msgAt[info.id])) sess.msgAt[info.id] = Date.now()
+      if (!sess.msgSeqAt) sess.msgSeqAt = {}
+      if (!Number.isFinite(sess.msgSeqAt[info.id])) {
+        sess.msgSeq = (Number.isFinite(sess.msgSeq) ? sess.msgSeq : 0) + 1
+        sess.msgSeqAt[info.id] = sess.msgSeq
+      }
       const ids = Object.keys(sess.roles)
       if (ids.length > 400) delete sess.roles[ids[0]]
+      const mids = Object.keys(sess.msgAt)
+      if (mids.length > 400) delete sess.msgAt[mids[0]]
+      const seqs = Object.keys(sess.msgSeqAt)
+      if (seqs.length > 400) delete sess.msgSeqAt[seqs[0]]
       if (info.role === "user") {
-        sess.lastUserMid = info.id
-        sess.lastUserAt = Date.now()
+        // Re-emissions of the SAME user message must not move the turn
+        // boundary past this turn's write/gate evidence (review I2).
+        if (sess.lastUserMid !== info.id) {
+          sess.lastUserMid = info.id
+          sess.lastUserAt = Date.now()
+          // W10 id-less hosts: a genuine user turn is the reset boundary;
+          // otherwise turnChars accumulates for the whole session.
+          sess.turnChars = 0
+          sess.turnCeilingAt = 0
+          sess.reasoningChars = 0
+          sess.reasoningCeilingAt = 0
+          sess.msgChurnAt = []
+          sess.turnMsgIDs = []
+          sess.toolFreqWarned = false
+          // W11: evidence written BEFORE this user message belongs to an
+          // earlier task. Completion/class checks read only the log slice
+          // appended after this point.
+          sess.turnWritePaths = []
+          sess.turnCodeWrite = false
+          sess.lastTaskWriteUnknown = false
+          sess.lastTaskWritePartSeq = NaN
+          try {
+            const uRoot = findProjectRoot([directory])
+            const uLog = uRoot ? safeRead(path.join(uRoot, "tests", "verification_log.md")) : ""
+            sess.userLogLen = uLog.length
+            sess.userLogHash = hashText(uLog)
+          } catch {
+            sess.userLogLen = 0
+            sess.userLogHash = hashText("")
+          }
+        }
       }
       if (info.role === "assistant") {
         // merge, never overwrite wholesale (review F7): a token-less or
@@ -1224,15 +1557,189 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   }
 
   // ---- v1 observation: message.part.updated parts ----
-  // Episode clock + per-turn output volume: any messageID change starts a
-  // new turn (turnChars resets — the ceiling counts ONE turn's output).
+  // Episode clock + per-turn output volume: a USER boundary starts a new turn.
+  // W11: messageID changes normally also start a new assistant response, but a
+  // host that mints a new id per delta/part must not reset the ceiling on every
+  // chunk. >=4 id changes inside 5s is treated as churn: counters keep
+  // accumulating across the churn.
+  const nextPartSeq = (sess) => {
+    sess.partSeq = (Number.isFinite(sess.partSeq) ? sess.partSeq : 0) + 1
+    return sess.partSeq
+  }
+  const stampPart = (sess, pid, text, chunk, cumulative) => {
+    if (typeof pid !== "string" || !pid) return
+    if (!sess.partSeqAt) sess.partSeqAt = {}
+    if (!sess.gateSeqAt) sess.gateSeqAt = {}
+    if (!sess.gateCountAt) sess.gateCountAt = {}
+    if (!sess.gateTextLenAt) sess.gateTextLenAt = {}
+    const seq = nextPartSeq(sess)
+    sess.partSeqAt[pid] = seq
+    if (typeof text === "string") {
+      const prevLen = sess.gateTextLenAt[pid] || 0
+      let hay = ""
+      if (cumulative) {
+        // Only scan the grown tail (+ 18-char overlap for a split marker).
+        if (text.length > prevLen) hay = text.slice(Math.max(0, prevLen - 18))
+        else if (prevLen === 0) hay = text
+      } else {
+        const body = typeof chunk === "string" ? chunk : text
+        const beforeLen = body.length < text.length ? text.length - body.length : 0
+        hay = text.slice(Math.max(0, beforeLen - 18), text.length)
+      }
+      const hits = (hay.match(/\[Verification Gate\]/g) || []).length
+      if (hits > 0) {
+        sess.gateSeqAt[pid] = seq
+        sess.gateCountAt[pid] = (sess.gateCountAt[pid] || 0) + hits
+      } else if (cumulative && text.length < prevLen) {
+        delete sess.gateSeqAt[pid]
+        sess.gateCountAt[pid] = 0
+      }
+      sess.gateTextLenAt[pid] = text.length
+    }
+    sess.partSeqPruneAt = (sess.partSeqPruneAt || 0) + 1
+    if (sess.partSeqPruneAt >= 64) {
+      sess.partSeqPruneAt = 0
+      const ids = Object.keys(sess.partSeqAt)
+      if (ids.length > 400) {
+        const drop = ids.slice(0, ids.length - 400)
+        for (const k of drop) {
+          delete sess.partSeqAt[k]
+          delete sess.gateSeqAt[k]
+          delete sess.gateCountAt[k]
+          delete sess.gateTextLenAt[k]
+        }
+      }
+    }
+  }
   const noteMsg = (sess, messageID) => {
     if (typeof messageID !== "string" || !messageID) return
     if (sess.lastMsgID !== messageID) {
-      sess.turnChars = 0
-      sess.turnCeilingAt = 0
+      const now = Date.now()
+      if (!Array.isArray(sess.msgChurnAt)) sess.msgChurnAt = []
+      sess.msgChurnAt.push(now)
+      while (sess.msgChurnAt.length && now - sess.msgChurnAt[0] > 5000) sess.msgChurnAt.shift()
+      if (sess.msgChurnAt.length > 8) sess.msgChurnAt = sess.msgChurnAt.slice(-8)
+      const churn = sess.msgChurnAt.length >= 4
+      if (!churn) {
+        sess.turnChars = 0
+        sess.turnCeilingAt = 0
+        sess.reasoningChars = 0
+        sess.reasoningCeilingAt = 0
+      }
     }
     sess.lastMsgID = messageID
+  }
+  const noteTurnMsg = (sess, messageID) => {
+    if (typeof messageID !== "string" || !messageID) return
+    if (!Array.isArray(sess.turnMsgIDs)) sess.turnMsgIDs = []
+    if (!sess.turnMsgIDs.includes(messageID)) sess.turnMsgIDs.push(messageID)
+    if (sess.turnMsgIDs.length > 100) sess.turnMsgIDs = sess.turnMsgIDs.slice(-100)
+  }
+
+  const markTurnWrite = (sess, filePath, unknown) => {
+    const fp = typeof filePath === "string" ? filePath : ""
+    // Sticky boolean survives the bounded path-list eviction (a DOC claim must
+    // not be washable by 50 later prose writes).
+    if (!unknown && isCodeWritePath(fp)) sess.turnCodeWrite = true
+    if (!Array.isArray(sess.turnWritePaths)) sess.turnWritePaths = []
+    sess.turnWritePaths.push({ path: fp, unknown: !!unknown, at: Date.now() })
+    if (sess.turnWritePaths.length > 50) sess.turnWritePaths = sess.turnWritePaths.slice(-50)
+  }
+  // W11 P1-4: write evidence is recorded ONCE per call, and only for a
+  // completed write. A missing filePath is unknown (not evidence) — the
+  // positive path decides by class instead of silently losing the write.
+  const recordWriteEvidence = (sess, filePath, messageID) => {
+    const fp = typeof filePath === "string" ? filePath : ""
+    const unknown = !fp
+    markTurnWrite(sess, fp, unknown)
+    sess.lastWriteAt = Date.now()
+    // Prose evidence (tests/*.md, docs/*.md, reports) is not a task write;
+    // code under tests/ (e.g. a test harness) still is.
+    if (!unknown && looksEvidencePath(fp) && PROSE_WRITE_RE.test(fp)) return
+    sess.lastTaskWriteAt = Date.now()
+    sess.lastTaskWritePath = fp
+    sess.lastTaskWriteMsgID = messageID || null
+    sess.lastTaskWriteUnknown = unknown
+    sess.lastTaskWritePartSeq = nextPartSeq(sess)
+  }
+  // W11: v1 hosts may write files through bash (`cat > src/a.ts`). A silent
+  // stop after only such a write must still be caught. Conservative parse:
+  // only explicit redirects / tee / cp / mv targets; evidence paths are
+  // filtered by recordWriteEvidence.
+  const bashWriteTargets = (command) => {
+    if (typeof command !== "string" || !command) return []
+    // A heredoc body is data, not a command line; the redirect lives on the
+    // first line, possibly AFTER `<<'EOF'` (`cat <<EOF > src/a.ts`). Scan the
+    // first line when a heredoc is declared, otherwise the whole command.
+    const heredocAt = command.indexOf("<<")
+    const nl = command.indexOf("\n")
+    const first = heredocAt >= 0 && nl > heredocAt ? command.slice(0, nl) : command
+    const out = []
+    let q = null
+    let esc = false
+    for (let i = 0; i < first.length; i++) {
+      const ch = first[i]
+      if (esc) { esc = false; continue }
+      if (ch === "\\") { esc = true; continue }
+      if (q) { if (ch === q) q = null; continue }
+      if (ch === "'" || ch === '"') { q = ch; continue }
+      if (ch !== ">") continue
+      if (first[i + 1] === "&") { i++; continue } // >&1
+      // fd redirect only when the digit run is a standalone token (2>), not
+      // part of a filename (foo2>).
+      let d = i - 1
+      while (d >= 0 && /\d/.test(first[d])) d--
+      if (d < i - 1 && (d < 0 || /[\s;&|()]/.test(first[d]))) continue
+      let j = i + 1
+      if (first[j] === ">") j++
+      while (j < first.length && /\s/.test(first[j])) j++
+      const start = j
+      while (j < first.length && !/[\s;&|()<>]/.test(first[j])) j++
+      const target = first.slice(start, j).replace(/^['"]+|['"]+$/g, "")
+      if (target) out.push(target)
+      i = j - 1
+    }
+    const tokens = (s) => s.match(/(?:[^\s'"]+|"[^"]*"|'[^']*')+/g) || []
+    for (const m of first.matchAll(/\b(tee|cp|mv)\b([^;&|()\n]*)/g)) {
+      const raw = tokens(m[2])
+      if (m[1] !== "tee") {
+        const ti = raw.indexOf("-t")
+        if (ti >= 0 && raw[ti + 1]) { out.push(raw[ti + 1]); continue }
+        const tds = raw.indexOf("--target-directory")
+        if (tds >= 0 && raw[tds + 1]) { out.push(raw[tds + 1]); continue }
+        const td = raw.find((t) => t.startsWith("--target-directory="))
+        if (td) { out.push(td.slice(td.indexOf("=") + 1)); continue }
+        const combined = raw.find((t) => /^-[A-Za-z]*t[A-Za-z]*$/.test(t))
+        const attachedT = raw.find((t) => /^-[A-Za-z]*t\S+/.test(t))
+        if (attachedT) {
+          const val = attachedT.slice(attachedT.indexOf("t") + 1)
+          if (val) { out.push(val); continue }
+        }
+        if (combined) {
+          const idx = raw.indexOf(combined)
+          if (raw[idx + 1]) { out.push(raw[idx + 1]); continue }
+        }
+      }
+      const args = raw.map((t) => t.replace(/^['"]+|['"]+$/g, "")).filter((t) => t && !t.startsWith("-"))
+      if (m[1] === "tee") out.push(...args)
+      else if (args.length >= 2) out.push(args[args.length - 1]) // destination
+    }
+    return out
+      .map((p) => p.replace(/^['"]+|['"]+$/g, ""))
+      .filter((p) => p && !p.startsWith("&") && !p.startsWith("-"))
+  }
+  const recordBashWrites = (sess, command, messageID, holder) => {
+    if (!holder || holder.writeRecorded) return
+    const root = findProjectRoot([directory])
+    const targets = bashWriteTargets(command).filter((p) => {
+      if (p.startsWith("/dev/")) return false
+      if (!root) return true
+      const abs = path.resolve(root, p)
+      return abs === root || abs.startsWith(root + path.sep)
+    })
+    if (!targets.length) return
+    for (const target of targets) recordWriteEvidence(sess, target, messageID)
+    holder.writeRecorded = true
   }
 
   const observePart = (sessionID, part) => {
@@ -1280,6 +1787,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (typeof part.messageID === "string" && part.messageID) {
         sess.partMsg[pid] = part.messageID
         noteMsg(sess, part.messageID)
+        noteTurnMsg(sess, part.messageID)
         const pids = Object.keys(sess.partMsg)
         if (pids.length > 400) delete sess.partMsg[pids[0]]
       }
@@ -1291,18 +1799,22 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       const added = cumulative ? Math.max(0, ptext.length - buf.length) : ptext.length
       if (cumulative) {
         store[pid] = capPart(ptext)
-        sess.turnChars = (sess.turnChars || 0) + added
+        if (reasoning) sess.reasoningChars = (sess.reasoningChars || 0) + added
+        else sess.turnChars = (sess.turnChars || 0) + added
       } else if (buf.length + ptext.length > TEXT_CAP_HEAD + TEXT_CAP_TAIL) {
         // byte-equivalent of capText(buf + ptext) WITHOUT materializing it:
         // head(buf) + marker + tail(ptext) — the detectors read the tail and
         // the audit reads head+tail, so nothing observable is lost.
         store[pid] = buf.slice(0, TEXT_CAP_HEAD) + "\n…[truncated]…\n" + ptext.slice(-TEXT_CAP_TAIL)
-        sess.turnChars = (sess.turnChars || 0) + added
+        if (reasoning) sess.reasoningChars = (sess.reasoningChars || 0) + added
+        else sess.turnChars = (sess.turnChars || 0) + added
       } else {
         store[pid] = capPart(buf + ptext)
-        sess.turnChars = (sess.turnChars || 0) + added
+        if (reasoning) sess.reasoningChars = (sess.reasoningChars || 0) + added
+        else sess.turnChars = (sess.turnChars || 0) + added
       }
       pruneParts(store)
+      stampPart(sess, pid, store[pid], ptext, cumulative)
       // D1-④: genuine user input (human user-role text, never a plugin
       // corrective prompt) decays the loop-guard budget and re-arms episodes.
       if (!reasoning) {
@@ -1327,9 +1839,14 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
             if (typeof st.output === "string" && st.output && !prev.output) prev.output = st.output.slice(0, OUT_CAP)
             // v1 emits running → completed for the SAME part id; the early
             // return used to skip the completion timestamp and kill the
-            // positive stop-guard on real hosts.
-            if (st.status === "completed" && (part.tool === "write" || part.tool === "edit")) {
-              sess.lastWriteAt = Date.now()
+            // positive stop-guard on real hosts. Record the write ONCE.
+            if (st.status === "completed" && (part.tool === "write" || part.tool === "edit") && !prev.writeRecorded) {
+              const fp = (st.input && typeof st.input.filePath === "string" ? st.input.filePath : prev.filePath) || ""
+              recordWriteEvidence(sess, fp, part.messageID || null)
+              prev.writeRecorded = true
+            }
+            if (st.status === "completed" && part.tool === "bash" && st.input && typeof st.input.command === "string") {
+              recordBashWrites(sess, st.input.command, part.messageID || null, prev)
             }
             return
           }
@@ -1338,7 +1855,12 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       // Successful, first observation only: a v1 re-observation or a failed
       // write must not clear the abort fence / turn scope.
       if ((part.tool === "write" || part.tool === "edit") && st.status === "completed") {
-        sess.lastWriteAt = Date.now()
+        const fp = st.input && typeof st.input.filePath === "string" ? st.input.filePath : ""
+        recordWriteEvidence(sess, fp, part.messageID || null)
+        t.writeRecorded = true
+      }
+      if (part.tool === "bash" && st.status === "completed" && st.input && typeof st.input.command === "string") {
+        recordBashWrites(sess, st.input.command, part.messageID || null, t)
       }
       const inp = st.input && typeof st.input === "object" ? st.input : null
       if (inp) {
@@ -1393,6 +1915,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     noteMsg(sess, messageID)
     const t = { tool, t: Date.now() }
     if (typeof callID === "string" && callID) t.pid = callID
+    if (typeof messageID === "string" && messageID) t.mid = messageID
     // args identity only when input was ACTUALLY observed — a call observed
     // without input must never fabricate the `{}` identity (acceptance #4)
     const inp = input && typeof input === "object" ? input : null
@@ -1433,10 +1956,47 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     maybeToolLoopCheck(sessionID)
   }
 
-  const observeToolEnd = (sessionID, tool, result) => {
+  const observeToolEnd = (sessionID, tool, result, callID) => {
     if (typeof sessionID !== "string" || !sessionID || typeof tool !== "string" || !tool) return
+    const sess = touchSession(sessionID)
+    // W11 P1-4: v2 write evidence is recorded only after a successful
+    // execute.after. A blocked/failed write never produces this event (the
+    // hook filters status !== "completed"), so it cannot pollute the debt.
     if (tool === "write" || tool === "edit") {
-      touchSession(sessionID).lastWriteAt = Date.now()
+      let idx = -1
+      if (typeof callID === "string" && callID) {
+        for (let i = sess.tools.length - 1; i >= 0; i--) {
+          if (sess.tools[i] && sess.tools[i].pid === callID) { idx = i; break }
+        }
+      }
+      if (idx < 0) {
+        for (let i = sess.tools.length - 1; i >= 0; i--) {
+          if (sess.tools[i] && sess.tools[i].tool === tool && !sess.tools[i].writeRecorded) { idx = i; break }
+        }
+      }
+      if (idx >= 0 && !sess.tools[idx].writeRecorded) {
+        const entry = sess.tools[idx]
+        recordWriteEvidence(sess, entry.filePath || "", entry.mid || null)
+        entry.writeRecorded = true
+      }
+    }
+    // W11 re-review: v2 bash redirects are writes too. Match the completed
+    // call by id (or the latest unrecorded bash observation).
+    if (tool === "bash") {
+      let idx = -1
+      if (typeof callID === "string" && callID) {
+        for (let i = sess.tools.length - 1; i >= 0; i--) {
+          if (sess.tools[i] && sess.tools[i].pid === callID) { idx = i; break }
+        }
+      }
+      if (idx < 0) {
+        for (let i = sess.tools.length - 1; i >= 0; i--) {
+          if (sess.tools[i] && sess.tools[i].tool === "bash" && !sess.tools[i].writeRecorded) { idx = i; break }
+        }
+      }
+      if (idx >= 0 && sess.tools[idx].command) {
+        recordBashWrites(sess, sess.tools[idx].command, sess.tools[idx].mid || null, sess.tools[idx])
+      }
     }
     // Tool.Result = { output?, content?: string | Content[], metadata? } —
     // content is the model-visible channel; output is the structured value.
@@ -1458,7 +2018,6 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     }
     if (!text && result && typeof result === "object" && typeof result.output === "string") text = result.output
     if (!text) return
-    const sess = touchSession(sessionID)
     for (let i = sess.tools.length - 1; i >= 0; i--) {
       if (sess.tools[i].tool === tool && !sess.tools[i].output) {
         sess.tools[i].output = text.slice(0, OUT_CAP)
@@ -1472,15 +2031,20 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const sess = touchSession(sessionID)
     const reasoning = channel === "reasoning"
     const pid = typeof messageID === "string" && messageID ? messageID : reasoning ? "reasoning" : "text"
-    // session.text.delta events are pure increments in emission order
+    // session.text.delta events are pure increments in emission order.
+    // W10: hidden reasoning is not visible-output runaway — only text counts
+    // toward the ceiling (the reasoning channel still has shape detectors).
     noteMsg(sess, messageID)
-    sess.turnChars = (sess.turnChars || 0) + delta.length
+    noteTurnMsg(sess, messageID)
+    if (reasoning) sess.reasoningChars = (sess.reasoningChars || 0) + delta.length
+    else sess.turnChars = (sess.turnChars || 0) + delta.length
     const store = reasoning ? sess.reasoningParts || (sess.reasoningParts = {}) : sess.textParts
     // rope-append O(1); flatten+cap only on overshoot (per-token capPart
     // re-flattened the whole buffer every delta — SIGTRAP round 2)
     const next = (store[pid] || "") + delta
     store[pid] = next.length > (TEXT_CAP_HEAD + TEXT_CAP_TAIL) * 2 ? capPart(next) : next
     pruneParts(store)
+    stampPart(sess, pid, store[pid], delta, false)
     maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", delta.length)
   }
 
@@ -1491,6 +2055,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       .join("\n")
     if (!joined) return
     noteMsg(sess, messageID)
+    noteTurnMsg(sess, messageID)
     // bare messageID as key (NEVER a per-channel suffix — the same content
     // arriving via deltas AND content-updates must reconcile into ONE buffer
     // entry and count ONCE; the "#r" suffix double-counted turnChars and
@@ -1507,15 +2072,19 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const added = cumulative ? Math.max(0, joined.length - buf.length) : joined.length
     if (cumulative) {
       store[pid] = capPart(joined)
-      sess.turnChars = (sess.turnChars || 0) + added
+      if (reasoning) sess.reasoningChars = (sess.reasoningChars || 0) + added
+      else sess.turnChars = (sess.turnChars || 0) + added
     } else if (buf.length + joined.length > TEXT_CAP_HEAD + TEXT_CAP_TAIL) {
       store[pid] = buf.slice(0, TEXT_CAP_HEAD) + "\n…[truncated]…\n" + joined.slice(-TEXT_CAP_TAIL)
-      sess.turnChars = (sess.turnChars || 0) + added
+      if (reasoning) sess.reasoningChars = (sess.reasoningChars || 0) + added
+      else sess.turnChars = (sess.turnChars || 0) + added
     } else {
       store[pid] = capPart(buf + joined)
-      sess.turnChars = (sess.turnChars || 0) + added
+      if (reasoning) sess.reasoningChars = (sess.reasoningChars || 0) + added
+      else sess.turnChars = (sess.turnChars || 0) + added
     }
     pruneParts(store)
+    stampPart(sess, pid, store[pid], joined, cumulative)
     maybeTextScan(sessionID, sess, reasoning ? "reasoning" : "text", added)
   }
 
@@ -1583,6 +2152,42 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       })
     }
     maybeStopGuard(sessionID)
+    // W11: v2 has no user-role boundary; clear the turn write evidence and
+    // re-anchor the log at idle so a later task cannot inherit an earlier
+    // CODE write or a completed old block. Role-less v1 hosts keep their
+    // session-start snapshot (their writes stay attributable).
+    const s2 = state.sessions[sessionID]
+    const hasUserRole = !!(s2 && s2.roles && Object.values(s2.roles).includes("user"))
+    const roleLess = !hasUserRole
+    if (s2 && (!hasTelemetry || roleLess)) {
+      s2.turnWritePaths = []
+      s2.turnMsgIDs = []
+      s2.toolFreqWarned = false
+      s2.turnCodeWrite = false
+      s2.lastTaskWriteAt = 0
+      s2.lastTaskWritePath = ""
+      s2.lastTaskWriteUnknown = false
+      s2.lastTaskWritePartSeq = NaN
+      // A host with no user-role boundary has no other way to scope a turn;
+      // clear the gate bookkeeping so an old gate cannot whitelist the next
+      // one. Keep textParts/partMsg so the normal audit can still see the
+      // completion text (T22 latch self-clear depends on it).
+      s2.gateSeqAt = {}
+      s2.gateCountAt = {}
+      s2.gateTextLenAt = {}
+      s2.partSeqAt = {}
+      s2.turnChars = 0
+      s2.turnCeilingAt = 0
+      s2.reasoningChars = 0
+      s2.reasoningCeilingAt = 0
+      try {
+        const txt = idleRoot ? safeRead(path.join(idleRoot, "tests", "verification_log.md")) : ""
+        s2.userLogLen = txt.length
+        s2.userLogHash = hashText(txt)
+      } catch {
+        /* keep the previous anchor */
+      }
+    }
   }
 
   return {
@@ -1751,7 +2356,7 @@ async function setup(ctx) {
   registrations.push(
     await ctx.tool.hook("execute.after", async (event) => {
       if (!event || event.status !== "completed") return
-      m.observeToolEnd(event.sessionID, event.tool, event.result)
+      m.observeToolEnd(event.sessionID, event.tool, event.result, typeof event.id === "string" ? event.id : undefined)
     })
   )
 

@@ -15,7 +15,7 @@ import path from "node:path"
 
 const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
 const CORE_MODULE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
-const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopGuardDecision, stopGuardPrompt, currentLogBlock, identicalToolRunFinding, toolIdentity, canonicalJson, toolFrequencyFinding } = await import(pathToFileURL(CORE_MODULE))
+const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopAwaitingUser, stopReadOnlyInstruction, stopGuardDecision, stopGuardPrompt, currentLogBlock, currentEvidenceBlock, finalRunEvidence, pausedPacketValid, pausedDeclaration, classERecordValid, classEUserApproval, verifyEvidenceManifest, identicalToolRunFinding, toolIdentity, canonicalJson, toolFrequencyFinding } = await import(pathToFileURL(CORE_MODULE))
 // Dual-compat module surface: current plugin default-exports { id, server, setup };
 // fall back to the legacy named export when testing an older copy.
 const auditModule = await import(pathToFileURL(AUDIT_MODULE))
@@ -89,6 +89,7 @@ function scaffoldComplete(root) {
     "- working-note: created → distilled → deleted (fixture lifecycle)",
     "- [Convergence] fixture: 2 iters | 6/6 pass | 0 stalls | 0 cap-hits",
     "workflow trace: tests/workflows/login.trace.log — 3 steps, all asserts green",
+    "- assert-run: assert_artifacts.py: all 30 checks pass (exit 0)",
     "- final-run: --final — pass=19/fail=0",
   ].join("\n")
   write(root, "tests/verification_log.md", log)
@@ -1236,9 +1237,13 @@ async function tryWrite(plugin, root, relPath, sessionId) {
 // strict +1 on EVERY digit run; timestamp logs tick only the last field.
 // =====================================================================
 {
-  const mkT24l = async (name) => {
+  const mkT24l = async (name, cfg) => {
     const root = newFixture(name)
     write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+    if (cfg) {
+      write(root, "audit-config.json", JSON.stringify(cfg))
+      process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root, "audit-config.json")
+    }
     const calls = { abort: 0, prompts: [], logs: [] }
     const plugin = await VibeweaverAudit({
       client: {
@@ -1256,9 +1261,10 @@ async function tryWrite(plugin, root, relPath, sessionId) {
       directory: root,
     })
     const emit = (sid, part) => plugin.event({ event: { type: "message.part.updated", properties: { sessionID: sid, part } } })
+    const event = (type, properties) => plugin.event({ event: { type, properties } })
     const emitText = (sid, id, text, mid) => emit(sid, mid ? { id, type: "text", text, messageID: mid } : { id, type: "text", text })
     const emitReasoning = (sid, id, text, mid) => emit(sid, mid ? { id, type: "reasoning", text, messageID: mid } : { id, type: "reasoning", text })
-    return { calls, emit, emitText, emitReasoning }
+    return { calls, emit, event, emitText, emitReasoning }
   }
   const wall = (n) => "Stop it. ".repeat(n)
   const letters26 = (n) => {
@@ -1271,6 +1277,7 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   }
   const proseLine = (i) => "prose line " + letters26(i) + " assorted words and more filler tail"
   const prose = (n) => Array.from({ length: n }, (_, i) => proseLine(i)).join("\n")
+  const proseRange = (start, n) => Array.from({ length: n }, (_, i) => proseLine(start + i)).join("\n")
 
   {
     const { calls, emitReasoning, emitText } = await mkT24l("t24l-reason")
@@ -1304,33 +1311,76 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   }
   {
     const { calls, emitText } = await mkT24l("t24l-ceiling")
-    await emitText("s_u", "t1", prose(2000), "m1")
-    rec("T24l 80KB non-degenerate turn output -> runaway intervention (P1 ceiling)", calls.abort === 1, `abort=${calls.abort}`)
-    rec("T24l runaway corrective prompt names the ceiling (distinct from repetition notice)", /runaway|exceeded|64KB|65536/i.test(calls.prompts[0] || ""), (calls.prompts[0] || "").slice(0, 100))
+    await emitText("s_u", "t1", prose(1600), "m1")
+    rec("T24l 80KB non-degenerate visible turn output stays clean (W10 ceiling is 256KB)", calls.abort === 0, `abort=${calls.abort}`)
+    await emitText("s_u", "t2", prose(7000), "m2")
+    rec("T24l >256KB non-degenerate visible turn output -> runaway intervention", calls.abort === 1, `abort=${calls.abort}`)
+    rec("T24l runaway corrective prompt names the 256KB ceiling", /runaway|exceeded|262144|256KB/i.test(calls.prompts[0] || ""), (calls.prompts[0] || "").slice(0, 120))
+  }
+  {
+    const { calls, emitText, emitReasoning } = await mkT24l("t24l-reason-volume")
+    await emitReasoning("s_rv", "r1", prose(1600), "m1")
+    rec("T24l 80KB reasoning-only volume does NOT trip the visible-output ceiling", calls.abort === 0, `abort=${calls.abort}`)
+    await emitText("s_rv", "t1", prose(1600), "m2")
+    rec("T24l 80KB visible text stays clean (W10 ceiling raised)", calls.abort === 0, `abort=${calls.abort}`)
+    await emitReasoning("s_rv", "r2", prose(25000), "m3")
+    rec("T24l >1MB non-periodic reasoning hits the high reasoning backstop", calls.abort === 1, `abort=${calls.abort}`)
   }
   {
     const { calls, emitText } = await mkT24l("t24l-ceiling2")
     await emitText("s_u2", "t1", prose(900), "m1")
-    rec("T24l 45KB non-degenerate turn output stays clean (below 64KB ceiling)", calls.abort === 0, `abort=${calls.abort}`)
+    rec("T24l 45KB non-degenerate turn output stays clean (below 256KB ceiling)", calls.abort === 0, `abort=${calls.abort}`)
     await emitText("s_u2", "t2", prose(900), "m2")
     rec("T24l two sub-ceiling turns stay clean (review M3 — kills session-total mutant)", calls.abort === 0, `abort=${calls.abort}`)
   }
   {
-    const { calls, emitText } = await mkT24l("t24l-ceiling3")
-    await emitText("s_u3", "t1", prose(2000))
+    // W11 P1-3: a host that changes messageID per delta/part must not reset
+    // the ceiling on every chunk.
+    const { calls, emitText } = await mkT24l("t24l-churn-visible")
+    for (let i = 0; i < 220; i++) {
+      await emitText("s_churn", `t${i}`, proseRange(i * 60, 60), `m${i}`)
+      if (calls.abort) break
+    }
+    rec("T24l >600KB visible text with per-chunk messageID churn -> ceiling fires",
+      calls.abort >= 1 && calls.logs.some((m) => /runaway|ceiling/i.test(m)),
+      `abort=${calls.abort} logs=${calls.logs.length}`)
+  }
+  {
+    const { calls, emitReasoning } = await mkT24l("t24l-churn-reasoning")
+    for (let i = 0; i < 700; i++) {
+      await emitReasoning("s_churn_r", `r${i}`, proseRange(15000 + i * 60, 60), `mr${i}`)
+      if (calls.abort) break
+    }
+    rec("T24l >2MB reasoning with per-chunk messageID churn -> reasoning backstop fires",
+      calls.abort >= 1 && calls.logs.some((m) => /reasoning|ceiling|runaway/i.test(m)),
+      `abort=${calls.abort} logs=${calls.logs.length}`)
+  }
+  {
+    const { calls, emitText } = await mkT24l("t24l-ceiling-cfg", { loopGuardTurnCeilingBytes: 65536 })
+    await emitText("s_uc", "t1", prose(1600), "m1")
+    delete process.env.VIBEWEAVER_AUDIT_CONFIG
+    rec("T24l loopGuardTurnCeilingBytes=65536 lowers the visible ceiling (80KB fires)", calls.abort === 1, `abort=${calls.abort}`)
+  }
+  {
+    const { calls, event, emitText } = await mkT24l("t24l-ceiling3")
+    await emitText("s_u3", "t1", prose(1600))
+    await event("message.updated", { sessionID: "s_u3", info: { id: "u-reset", role: "user" } })
+    await emitText("s_u3", "t2", prose(1600))
+    rec("T24l id-less host resets the ceiling at a user turn", calls.abort === 0, `abort=${calls.abort}`)
+    await emitText("s_u3", "t3", prose(7000))
     rec("T24l runaway WITHOUT messageIDs -> intervention (review Critical id-less dead ceiling)", calls.abort === 1, `abort=${calls.abort}`)
   }
   {
     const { calls, emitText } = await mkT24l("t24l-ceiling4")
     await emitText("s_u4", "t1", wall(300), "m1")
     rec("T24l setup: organic wall fires once in turn m1", calls.abort === 1, `abort=${calls.abort}`)
-    await emitText("s_u4", "t2", prose(1500), "m1")
+    await emitText("s_u4", "t2", prose(7000), "m1")
     rec("T24l same turn exceeds ceiling after an organic fire -> runaway still intervenes (review I2a latch bypass)", calls.abort === 2, `abort=${calls.abort}`)
   }
   {
     const { calls, emitText } = await mkT24l("t24l-ceiling5")
     await emitText("s_u5", "t1", wall(300), "m1")
-    await emitText("s_u5", "t2", wall(8000), "m1")
+    await emitText("s_u5", "t2", wall(30000), "m1")
     rec("T24l latched wall re-run past the ceiling -> runaway rescue (re-review N1)", calls.abort === 2, `abort=${calls.abort}`)
   }
   {
@@ -1760,6 +1810,7 @@ if (existsSync(calibDir)) {
     "- class: DOC — CHANGELOG.md prose only",
     "- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)",
     "- iter 1 PASS: criterion #1 — entry added (evidence: read-back of CHANGELOG.md)",
+    "- assert-run: assert_artifacts.py: all 30 checks pass (exit 0)",
     "- final-run: --final — pass=19/fail=0",
   ].join("\n"))
   write(root25, "tests/acceptance.md", "> cap=5  stall=3×\n1. Entry added\n")
@@ -2063,6 +2114,42 @@ if (existsSync(calibDir)) {
   const b12b = a26b.checks.find((c) => c.id === "B12")
   rec("T26b final-run line in current block → B12 OK", b12b && b12b.verdict === "OK", b12b ? b12b.verdict : "missing")
 
+  // W11 P0-1: B12 must reject a typed final-run unless it is bound.
+  const b12Case = (name, log, extra) => {
+    const root = newFixture(name)
+    write(root, "tests/verification_log.md", log)
+    write(root, "tests/acceptance.md", "> cap=5  stall=3×\n1. fixture\n")
+    if (extra) extra(root)
+    const a = auditProject({ root, sessionID: "ses_" + name, sessionText: cleanSessionText(), tools: baseTools(), skillLoaded: true, phase: "final", config: { samplingRate: 0 } })
+    return a.checks.find((c) => c.id === "B12")
+  }
+  const LOG_HEAD = "## Task: fixture\n- iter 1 PASS: all\n"
+  const FR = "- final-run: --final — pass=19/fail=0\n"
+  const b12u = b12Case("t26-b12-unbound", LOG_HEAD + FR)
+  rec("T26b2 typed final-run without assert output → B12 BAD", b12u && b12u.verdict === "BAD", b12u ? b12u.verdict : "missing")
+  const b12s = b12Case("t26-b12-fake-seal", LOG_HEAD + "- seal: fabricated\n" + FR)
+  rec("T26b3 `- seal:` without a valid manifest → B12 BAD", b12s && b12s.verdict === "BAD", b12s ? b12s.verdict : "missing")
+  const b12o = b12Case("t26-b12-one-line", LOG_HEAD + "- final-run: --final — pass=19/fail=0 assert_artifacts.py: all 30 checks pass\n")
+  rec("T26b4 one-line final-run + assert text → B12 BAD (forged shape)", b12o && b12o.verdict === "BAD", b12o ? b12o.verdict : "missing")
+  const b12z = b12Case("t26-b12-zero-checks", LOG_HEAD + "- assert-run: assert_artifacts.py: all 0 checks pass\n" + FR)
+  rec("T26b5 `all 0 checks pass` is not evidence → B12 BAD", b12z && b12z.verdict === "BAD", b12z ? b12z.verdict : "missing")
+  const b12l = b12Case("t26-b12-bound-log", LOG_HEAD + "- final-run: --final — pass=19/fail=0 log=tests/run.log\n", (root) => write(root, "tests/run.log", "assert_artifacts.py: all 19 checks pass (exit 0)\n"))
+  rec("T26b6 final-run bound to a fresh assert log → B12 OK", b12l && b12l.verdict === "OK", b12l ? b12l.verdict : "missing")
+  const b12dir = b12Case("t26-b12-dir-log", LOG_HEAD + "- final-run: --final — pass=19/fail=0 log=tests\n")
+  rec("T26b7 final-run bound to a directory → B12 BAD", b12dir && b12dir.verdict === "BAD", b12dir ? b12dir.verdict : "missing")
+  const b12last = b12Case("t26-b12-last-fail", LOG_HEAD + "- assert-run: assert_artifacts.py: all 19 checks pass\n" + FR + "- final-run: --final — pass=0/fail=2\n")
+  rec("T26b8 later failing final-run wins over an earlier bound one → B12 BAD", b12last && b12last.verdict === "BAD", b12last ? b12last.verdict : "missing")
+  const b12old = b12Case("t26-b12-old-log", LOG_HEAD + "- final-run: --final — pass=19/fail=0 log=tests/run.log\n", (root) => {
+    write(root, "tests/run.log", "assert_artifacts.py: all 19 checks pass (exit 0)\n")
+    const old = new Date(500)
+    utimesSync(path.join(root, "tests", "run.log"), old, old)
+  })
+  rec("T26b9 artifact older than the session → B12 BAD", b12old && b12old.verdict === "BAD", b12old ? b12old.verdict : "missing")
+  const b12fake = b12Case("t26-b12-fake-manifest", LOG_HEAD + "- seal: fabricated\n" + FR, (root) => {
+    write(root, "tests/evidence_manifest.json", JSON.stringify({ version: 1, files: { "tests/x.log": { sha256: "a".repeat(64), size: 1 } }, code_fingerprint: "b".repeat(64) }))
+  })
+  rec("T26b10 manifest with unverifiable hashes → B12 BAD", b12fake && b12fake.verdict === "BAD", b12fake ? b12fake.verdict : "missing")
+
   // T26c: final-run only in a PRIOR task block ≠ current-block evidence (scoping)
   const root26c = newFixture("t26-b12-stale-block")
   scaffoldComplete(root26c)
@@ -2083,6 +2170,30 @@ if (existsSync(calibDir)) {
   const a26d = auditProject({ root: root26b, sessionID: "ses_t30d", sessionText: "Verifier: direct read\nworking on it, no completion claim here", tools: baseTools(), skillLoaded: true, phase: "mid", config: { samplingRate: 0 } })
   const b12d = a26d.checks.find((c) => c.id === "B12")
   rec("T26d mid-phase without gate line → B12 silent (no mid-task interference)", b12d === undefined, b12d ? b12d.verdict : "absent")
+}
+
+// ---- T44 (W12): verified evidence seal — real evidence_seal.py output only ---
+{
+  const root44 = newFixture("t44-verified-seal")
+  write(root44, "tests/verification_log.md", "## Task: fixture\n- iter 1 PASS: all\n")
+  write(root44, "tests/acceptance.md", "> cap=5  stall=3×\n1. fixture\n")
+  write(root44, "src/a.ts", "export const x = 1\n")
+  initGit(root44, false)
+  const sealSrc = path.resolve(import.meta.dirname, "evidence_seal.py")
+  try {
+    execFileSync("python3", [sealSrc], { cwd: root44, encoding: "utf8", timeout: 20000 })
+  } catch {
+    /* python unavailable — the assertions below will fail honestly */
+  }
+  const sealOk = typeof verifyEvidenceManifest === "function" ? verifyEvidenceManifest(root44) : { ok: false, reason: "helper-missing" }
+  rec("T44a real evidence_seal.py manifest verifies (files + code fingerprint)", sealOk.ok === true, JSON.stringify(sealOk))
+  const sealBlock = "- seal: fixture\n- final-run: --final — pass=3/fail=0\n"
+  const trusted = typeof finalRunEvidence === "function" ? finalRunEvidence(sealBlock, { root: root44, sinceMs: 0 }) : { trusted: false }
+  rec("T44b seal-only completion is trusted after verification", trusted.trusted === true, JSON.stringify(trusted))
+  write(root44, "src/a.ts", "export const x = 2\n") // uncommitted code change -> fingerprint mismatch
+  const tampered = typeof verifyEvidenceManifest === "function" ? verifyEvidenceManifest(root44) : { ok: false, reason: "helper-missing" }
+  const rejected = typeof finalRunEvidence === "function" ? finalRunEvidence(sealBlock, { root: root44, sinceMs: 0 }) : { trusted: false }
+  rec("T44c tampered code fingerprint invalidates the seal", tampered.ok === false && rejected.trusted === false, `${JSON.stringify(tampered)} / ${JSON.stringify(rejected)}`)
 }
 
 // =====================================================================
@@ -2155,6 +2266,162 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     : ""
   rec("T27c17 newer non-Task iter block beats an older completed Task",
     /iter 2 PASS/.test(blk3) && !/final-run/.test(blk3), blk3.slice(0, 100))
+  const eb1 = typeof currentEvidenceBlock === "function"
+    ? currentEvidenceBlock("- assert-run: assert_artifacts.py: all 3 checks pass\n- final-run: --final — pass=3/fail=0\n## Notes\ntrailing prose\n")
+    : ""
+  rec("T27c17b mid-block final-run survives a trailing Notes heading",
+    /final-run/.test(eb1) && !/Notes/.test(eb1), eb1.slice(0, 100))
+  const eb2 = typeof currentEvidenceBlock === "function"
+    ? currentEvidenceBlock("## Task: one\n- assert-run: assert_artifacts.py: all 3 checks pass\n- final-run: --final — pass=3/fail=0\n## Task: two\n- iter 1 FAIL: x | diagnosis: d\n")
+    : ""
+  rec("T27c17c a later Task block displaces the earlier completed one",
+    /Task: two/.test(eb2) && !/final-run/.test(eb2), eb2.slice(0, 100))
+  const eb3 = typeof currentEvidenceBlock === "function"
+    ? currentEvidenceBlock("## Task: t\n- class: CODE — logic\n- iter 1 PASS: x\n## Notes\n- assert-run: assert_artifacts.py: all 3 checks pass\n- final-run: --final — pass=3/fail=0\n")
+    : ""
+  rec("T27c17d a trailing Notes final-run is NOT completion evidence for a Task block",
+    /Task: t/.test(eb3) && !/final-run/.test(eb3), eb3.slice(0, 120))
+  const eb4 = typeof currentEvidenceBlock === "function"
+    ? currentEvidenceBlock("## Task: t\n- assert-run: assert_artifacts.py: all 3 checks pass\n## Notes\n- final-run: --final — pass=3/fail=0\n")
+    : ""
+  rec("T27c17e a Notes final-run cannot complete a Task block with only assert-run",
+    /Task: t/.test(eb4) && !/final-run/.test(eb4), eb4.slice(0, 120))
+  // W10: positive predicate must not fire for read-only / awaiting-user turns.
+  dExpect("T27c18 read-only task + positive → ignore",
+    { ...base, trigger: null, positiveIncomplete: true, readOnlyTask: true }, "ignore")
+  dExpect("T27c19 awaiting-user turn + positive → ignore",
+    { ...base, trigger: null, positiveIncomplete: true, awaitingUser: true }, "ignore")
+  dExpect("T27c20 CODE positive still prompts",
+    { ...base, trigger: null, positiveIncomplete: true }, "prompt")
+  const au = typeof stopAwaitingUser === "function" ? stopAwaitingUser : () => false
+  rec("T27c21 awaiting detector: trailing question", au("Should I proceed?") === true, String(au("Should I proceed?")))
+  rec("T27c22 awaiting detector: period-terminated approval request", au("Please confirm before I proceed.") === true, String(au("Please confirm before I proceed.")))
+  rec("T27c23 awaiting detector: let-me-know phrase", au("Let me know if you want me to continue.") === true, String(au("Let me know if you want me to continue.")))
+  rec("T27c24 awaiting detector: normal work narration stays false", au("Updated src/a.ts and ran the tests.") === false, String(au("Updated src/a.ts and ran the tests.")))
+  const ro = typeof stopReadOnlyInstruction === "function" ? stopReadOnlyInstruction : () => false
+  rec("T27c25 read-only detector: 仅评估，不修改", ro("仅评估，不修改。") === true, String(ro("仅评估，不修改。")))
+  rec("T27c26 read-only detector: audit only", ro("Do a read-only audit; do not change code.") === true, String(ro("Do a read-only audit; do not change code.")))
+  rec("T27c27 read-only detector: implement the fix stays false", ro("Implement the fix and run the tests.") === false, String(ro("Implement the fix and run the tests.")))
+  rec("T27c28 read-only detector: 'do not change the tests' is not read-only", ro("Fix the failing test but do not change the tests.") === false, String(ro("Fix the failing test but do not change the tests.")))
+  rec("T27c29 read-only detector: 'read-only mode' feature is not a read-only task", ro("Implement read-only mode for the config API.") === false, String(ro("Implement read-only mode for the config API.")))
+  rec("T27c30 read-only detector: 'no changes in behavior' is not read-only", ro("Refactor the parser; make sure there are no changes in behavior.") === false, String(ro("Refactor the parser; make sure there are no changes in behavior.")))
+  rec("T27c31 read-only detector: 请勿修改任何代码 is read-only", ro("请勿修改任何代码，只输出评审意见。") === true, String(ro("请勿修改任何代码，只输出评审意见。")))
+  rec("T27c32 read-only detector: review only + don't touch code is read-only", ro("This is review only; don't touch the code.") === true, String(ro("This is review only; don't touch the code.")))
+  rec("T27c39 read-only detector: bare 只读任务 is read-only", ro("这是一个只读任务。") === true, String(ro("这是一个只读任务。")))
+  rec("T27c40 read-only detector: bare 请勿修改 is read-only", ro("请勿修改，只输出评审意见。") === true, String(ro("请勿修改，只输出评审意见。")))
+  // W11 P1-1: quoted history / long brief / implementation override.
+  rec("T27c41 read-only detector: quoted historical read-only does not exempt an implement turn",
+    ro('上一版说“仅评估，不修改”，但现在实现 X。') === false, String(ro('上一版说“仅评估，不修改”，但现在实现 X。')))
+  rec("T27c42 read-only detector: long brief with read-only first sentence still exempts",
+    ro("仅评估，不修改。\n" + "背景说明。".repeat(900)) === true, "long-brief")
+  rec("T27c43 read-only detector: review-then-implement is not read-only",
+    ro("Review only the current implementation, then implement the requested fix.") === false, String(ro("Review only the current implementation, then implement the requested fix.")))
+  rec("T27c44 awaiting detector: bare 'Done. Continue?' is not awaiting",
+    au("Done. Continue?") === false, String(au("Done. Continue?")))
+  rec("T27c45 awaiting detector: 'Should I proceed?' is awaiting",
+    au("Should I proceed?") === true, String(au("Should I proceed?")))
+  rec("T27c46 awaiting detector: narrative question without a request cue is not awaiting",
+    au("The parser follows the nested import path?") === false, String(au("The parser follows the nested import path?")))
+  rec("T27c47 awaiting detector: 'Would you like me to continue?' is awaiting",
+    au("Would you like me to continue?") === true, String(au("Would you like me to continue?")))
+  rec("T27c48 awaiting detector: '需要我继续吗？' is awaiting",
+    au("需要我继续吗？") === true, String(au("需要我继续吗？")))
+  rec("T27c49 awaiting detector: quoted question is not a request",
+    au('You asked "Should I proceed?" — I proceeded with the migration.') === false, String(au('You asked "Should I proceed?" — I proceeded with the migration.')))
+  rec("T27c50 awaiting detector: 'Ready to proceed?' is awaiting", au("Ready to proceed?") === true, String(au("Ready to proceed?")))
+  rec("T27c51 awaiting detector: bare 'Proceed?' is awaiting", au("Proceed?") === true, String(au("Proceed?")))
+  rec("T27c52 awaiting detector: '可以继续吗？' is awaiting", au("可以继续吗？") === true, String(au("可以继续吗？")))
+  rec("T27c53 awaiting detector: 'Done. 继续吗？' is a nudge, not a pause", au("Done. 继续吗？") === false, String(au("Done. 继续吗？")))
+  rec("T27c54 read-only detector: 'afterwards rewrite the parser' overrides read-only",
+    ro("This is a read-only review; afterwards rewrite the parser.") === false, String(ro("This is a read-only review; afterwards rewrite the parser.")))
+  rec("T27c55 read-only detector: 'Fix nothing.' stays read-only",
+    ro("Review only. Fix nothing.") === true, String(ro("Review only. Fix nothing.")))
+  rec("T27c56 read-only detector: 修复不在范围内 stays read-only",
+    ro("仅评估。修复不在范围内。") === true, String(ro("仅评估。修复不在范围内。")))
+  rec("T27c57 read-only detector: adding findings to a report is not implementation",
+    ro("Only review the diff; add your findings to the report.") === true, String(ro("Only review the diff; add your findings to the report.")))
+  rec("T27c58 read-only detector: modal 'you should implement' overrides read-only",
+    ro("Do not modify code; you should implement the fix in src/cache.ts.") === false, String(ro("Do not modify code; you should implement the fix in src/cache.ts.")))
+  rec("T27c59 read-only detector: long brief beyond 8KB still exempts",
+    ro("仅评估，不修改。\n" + "背景说明。".repeat(2000)) === true, "long-brief-10k")
+  rec("T27c60 read-only detector: a later affirmative verb defeats a negated first match",
+    ro("Fix nothing. Implement the parser.") === false, String(ro("Fix nothing. Implement the parser.")))
+  rec("T27c61 read-only detector: negated 'do not add code' stays read-only",
+    ro("Only review; do not add code.") === true, String(ro("Only review; do not add code.")))
+  rec("T27c62 read-only detector: 'update the report' is a document action",
+    ro("Only review; update the report.") === true, String(ro("Only review; update the report.")))
+  rec("T27c63 read-only detector: 'afterwards apply the patch' overrides",
+    ro("Only review; afterwards apply the patch.") === false, String(ro("Only review; afterwards apply the patch.")))
+  rec("T27c64 read-only detector: 不要修改现有代码 is read-only",
+    ro("不要修改现有代码。") === true, String(ro("不要修改现有代码。")))
+  rec("T27c65 awaiting detector: single-quoted question is not a request",
+    au("The log says 'Should I proceed?' — I did.") === false, String(au("The log says 'Should I proceed?' — I did.")))
+  rec("T27c66 awaiting detector: 'All done. Continue?' is a nudge",
+    au("All done. Continue?") === false, String(au("All done. Continue?")))
+  rec("T27c67 awaiting detector: 'The work is complete. Proceed?' is a nudge",
+    au("The work is complete. Proceed?") === false, String(au("The work is complete. Proceed?")))
+  rec("T27c68 awaiting detector: 工作完成。继续吗？ is a nudge",
+    au("工作完成。继续吗？") === false, String(au("工作完成。继续吗？")))
+  rec("T27c69 awaiting detector: 'Proceed with the fix?' is not a bare request",
+    au("Proceed with the fix?") === false, String(au("Proceed with the fix?")))
+  rec("T27c70 awaiting detector: 'Can we proceed?' is awaiting",
+    au("Can we proceed?") === true, String(au("Can we proceed?")))
+  rec("T27c71 read-only detector: 'Do not modify the code.' is read-only",
+    ro("Do not modify the code.") === true, String(ro("Do not modify the code.")))
+  rec("T27c72 read-only detector: 'update the file' is a document action",
+    ro("Only review; update the file.") === true, String(ro("Only review; update the file.")))
+  rec("T27c73 read-only detector: 'build a report table' is a document action",
+    ro("Only review; build a report table.") === true, String(ro("Only review; build a report table.")))
+  rec("T27c74 awaiting detector: \"It's done. Continue?\" is a nudge",
+    au("It's done. Continue?") === false, String(au("It's done. Continue?")))
+  rec("T27c75 awaiting detector: '\"Done.\" Continue?' is a nudge",
+    au('"Done." Continue?') === false, String(au('"Done." Continue?')))
+  rec("T27c76 awaiting detector: 'Can we do better?' is not a proceed request",
+    au("Can we do better?") === false, String(au("Can we do better?")))
+  rec("T27c77 read-only detector: 'Do not touch the code.' is read-only",
+    ro("Do not touch the code.") === true, String(ro("Do not touch the code.")))
+  rec("T27c78 read-only detector: 'Do not modify files.' is read-only",
+    ro("Do not modify files.") === true, String(ro("Do not modify files.")))
+  rec("T27c79 read-only detector: 'build the project' is a verification action",
+    ro("Only review; build the project.") === true, String(ro("Only review; build the project.")))
+  rec("T27c80 awaiting detector: 'It is done. Continue?' is a nudge",
+    au("It is done. Continue?") === false, String(au("It is done. Continue?")))
+  rec("T27c81 awaiting detector: mid-sentence quoted Done is a nudge",
+    au('You said "Done." Continue?') === false, String(au('You said "Done." Continue?')))
+  rec("T27c82 awaiting detector: 'Could we proceed?' is awaiting",
+    au("Could we proceed?") === true, String(au("Could we proceed?")))
+  rec("T27c83 awaiting detector: 'The test will proceed?' is narrative",
+    au("The test will proceed?") === false, String(au("The test will proceed?")))
+  rec("T27c84 awaiting detector: 'I cannot proceed?' is narrative",
+    au("I cannot proceed?") === false, String(au("I cannot proceed?")))
+  rec("T27c85 awaiting detector: 'This should proceed?' is narrative",
+    au("This should proceed?") === false, String(au("This should proceed?")))
+  rec("T27c86 awaiting detector: 'The build will continue?' is narrative",
+    au("The build will continue?") === false, String(au("The build will continue?")))
+  rec("T27c87 read-only detector: 'Do not alter the code.' is read-only",
+    ro("Do not alter the code.") === true, String(ro("Do not alter the code.")))
+  rec("T27c88 awaiting detector: '这个流程可以继续吗？' is awaiting",
+    au("这个流程可以继续吗？") === true, String(au("这个流程可以继续吗？")))
+  rec("T27c89 read-only detector: 'Do not update the code.' is read-only",
+    ro("Do not update the code.") === true, String(ro("Do not update the code.")))
+  const PAUSE_OK = "# PAUSED — fixture\ngate: schema\necho: q\nquestion: choose one\noptions:\n  (a) one\n  (b) two\ndefault-if-continue: (a)\nstate: fixture\n"
+  rec("T27c90 paused packet: schema-valid packet is valid", pausedPacketValid(PAUSE_OK) === true, "fixture")
+  rec("T27c91 paused packet: missing state is invalid", pausedPacketValid(PAUSE_OK.replace("state: fixture", "note: fixture")) === false, "missing-state")
+  rec("T27c92 paused packet: one option is invalid", pausedPacketValid(PAUSE_OK.replace("  (b) two\n", "")) === false, "one-option")
+  rec("T27c93 paused declaration: [PAUSED] is visible", pausedDeclaration("[PAUSED] gate=schema | question=q") === true, "visible")
+  rec("T27c94 paused declaration: bare file text is not a declaration", pausedDeclaration("gate: schema") === false, "hidden")
+  rec("T27c95 Class-E record: approved line is valid", classERecordValid("D-1 | Class-E | approved by user | deploy") === true, "approved")
+  rec("T27c96 Class-E record: unapproved line is invalid", classERecordValid("D-1 | Class-E | deploy") === false, "unapproved")
+  rec("T27c97 Class-E user approval: 批准 is accepted", classEUserApproval("批准 Class-E 部署") === true, "approved-text")
+  rec("T27c33 awaiting detector: 'let me know' sign-off is not awaiting", au("Implementation complete. Let me know if you need anything else.") === false, String(au("Implementation complete. Let me know if you need anything else.")))
+  rec("T27c34 awaiting detector: 'which path' narrative is not awaiting", au("The parser decides which path to follow for nested imports.") === false, String(au("The parser decides which path to follow for nested imports.")))
+  rec("T27c35 awaiting detector: waiting on your decision is awaiting", au("Waiting on your decision about the schema.") === true, String(au("Waiting on your decision about the schema."))
+  )
+  rec("T27c36 awaiting detector: 麻烦确认 is awaiting", au("麻烦确认一下是否可以覆盖现有配置。") === true, String(au("麻烦确认一下是否可以覆盖现有配置。")))
+  dExpect("T27c37 DOC euphemism is still a false stop → prompt",
+    { ...base, trigger: trig, readOnlyTask: true }, "prompt")
+  dExpect("T27c38 awaiting euphemism is still a false stop → prompt",
+    { ...base, trigger: trig, awaitingUser: true }, "prompt")
 
   // ---- corrective prompt contract ----
   const pt = hasStopGuard ? stopGuardPrompt({ kind: "euphemism", fill: 0.15, fillKnown: true }) : ""
@@ -2171,6 +2438,8 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   const pt5 = hasStopGuard ? stopGuardPrompt({ kind: "incomplete", fill: 0.2, fillKnown: true }) : ""
   rec("T27d7 incomplete prompt never carries an exhaustion fill accusation",
     hasStopGuard ? !/20%|no basis/.test(pt5) : false, pt5.slice(0, 140))
+  rec("T27d8 incomplete prompt offers an already-complete exit (gate line, no fabrication)",
+    hasStopGuard ? /(already complete|if the task is complete|emit the \[Verification Gate\]|gate line)/i.test(pt5) : false, pt5.slice(0, 220))
 
   // ---- v1 adapter integration: idle-triggered prompt, budget, arming, debt ----
   {
@@ -2257,8 +2526,11 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     const sid = "ses_t27p"
     const ev = (type, properties) => plugin27p.event({ event: { type, properties } })
     await ev("message.part.updated", { sessionID: sid, part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
-    await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "write", state: { status: "running", input: { filePath: path.join(root27p, "src", "a.ts") } } } })
-    await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "write", state: { status: "completed", input: { filePath: path.join(root27p, "src", "a.ts") } } } })
+    await ev("message.updated", { sessionID: sid, info: { id: "u1", role: "user" } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "pu1", messageID: "u1", type: "text", text: "Implement the fix." } })
+    await ev("message.updated", { sessionID: sid, info: { id: "m0", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "t1", messageID: "m0", type: "tool", tool: "write", state: { status: "running", input: { filePath: path.join(root27p, "src", "a.ts") } } } })
+    await ev("message.part.updated", { sessionID: sid, part: { id: "t1", messageID: "m0", type: "tool", tool: "write", state: { status: "completed", input: { filePath: path.join(root27p, "src", "a.ts") } } } })
     await ev("message.updated", { sessionID: sid, info: { id: "m1", role: "assistant", modelID: "m", finish: "stop", tokens: { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } } })
     await ev("message.part.updated", { sessionID: sid, part: { id: "p1", messageID: "m1", type: "text", text: "Done." } })
     await ev("session.idle", { sessionID: sid })
@@ -2282,6 +2554,458 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     await ev("session.idle", { sessionID: sid })
     rec("T27e11 host error fences BOTH euphemism and positive triggers (no auto-resume)",
       calls.prompts.length === 1, `prompts=${calls.prompts.length}`)
+  }
+
+  // ---- W10: positive predicate is scoped to CODE task-file writes and
+  // honest exits (read-only / DOC / awaiting-user / split gate / pass=0). ----
+  {
+    const LOG_CODE = "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n"
+    const LOG_DOC = "## Task: fixture\n- class: DOC — prose\n- iter 1 PASS: report read-back (fixture)\n"
+    const ASSERT_OK = "- assert-run: assert_artifacts.py: all 3 checks pass (exit 0)\n"
+    const runStopCase = async (name, log, userText, asstText, opts = {}) => {
+      const root = newFixture(name)
+      write(root, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+      // `preUserLog` / `staleLog` model evidence written by an EARLIER turn or
+      // session; the normal path writes the task log AFTER the user message,
+      // as a real turn does (the guard reads only the post-user log slice).
+      if (opts.preUserLog || opts.staleLog) {
+        write(root, "tests/verification_log.md", log)
+        if (opts.staleLog) {
+          const old = new Date(Date.now() - 60_000)
+          utimesSync(path.join(root, "tests", "verification_log.md"), old, old)
+        }
+      }
+      const calls = { prompts: [] }
+      const plugin = await VibeweaverAudit({
+        client: {
+          app: { log: async () => {} },
+          session: { abort: async () => {}, prompt: async (a) => calls.prompts.push((a && a.body && a.body.parts && a.body.parts[0] && a.body.parts[0].text) || "") },
+        },
+        directory: root,
+      })
+      const sid = `ses_${name}`
+      const ev = (type, properties) => plugin.event({ event: { type, properties } })
+      await ev("message.part.updated", { sessionID: sid, part: { id: "sk", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } })
+      if (userText != null) {
+        await ev("message.updated", { sessionID: sid, info: { id: "u1", role: "user" } })
+        await ev("message.part.updated", { sessionID: sid, part: { id: "pu1", messageID: "u1", type: "text", text: userText } })
+      }
+      if (!opts.preUserLog && !opts.staleLog) write(root, "tests/verification_log.md", log)
+      if (opts.rewriteLog !== undefined) write(root, "tests/verification_log.md", opts.rewriteLog)
+      if (opts.pausedFile) write(root, "tests/paused_state.md", opts.pausedFile)
+      if (opts.classEFile) write(root, "tests/decisions.md", opts.classEFile)
+      const asst = (id) => ({ id, role: "assistant", modelID: "m", finish: "stop", tokens: { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } })
+      if (opts.gateFirst) {
+        await ev("message.updated", { sessionID: sid, info: asst("m0") })
+        await ev("message.part.updated", { sessionID: sid, part: { id: "p0", messageID: "m0", type: "text", text: "[Verification Gate] Verifier: direct-read | Class: CODE | assert_artifacts.py: pass=3/fail=0" } })
+      } else {
+        await ev("message.updated", { sessionID: sid, info: asst("m0") })
+      }
+      const writePath = path.join(root, opts.file || "src/a.ts")
+      if (opts.statusOnlyWrite) {
+        await ev("message.part.updated", { sessionID: sid, part: { id: "t1", type: "tool", tool: "write", state: { status: "completed" } } })
+      } else if (opts.bashWrite) {
+        await ev("message.part.updated", { sessionID: sid, part: { id: "t1", messageID: "m0", type: "tool", tool: "bash", state: { status: "completed", input: { command: `cat > ${writePath} <<'EOF'\nexport const x = 1\nEOF` } } } })
+      } else if (opts.bashOnlyCommand) {
+        await ev("message.part.updated", { sessionID: sid, part: { id: "t1", messageID: "m0", type: "tool", tool: "bash", state: { status: "completed", input: { command: opts.bashOnlyCommand } } } })
+      } else {
+        if (opts.pendingWrite) await ev("message.part.updated", { sessionID: sid, part: { id: "t1", messageID: "m0", type: "tool", tool: "write", state: { status: "running", input: { filePath: writePath } } } })
+        await ev("message.part.updated", { sessionID: sid, part: { id: "t1", messageID: "m0", type: "tool", tool: "write", state: { status: "completed", input: { filePath: writePath } } } })
+      }
+      if (opts.fillerWrites) {
+        for (let i = 0; i < opts.fillerWrites; i++) {
+          await ev("message.part.updated", { sessionID: sid, part: { id: `f${i}`, messageID: "m0", type: "tool", tool: "write", state: { status: "completed", input: { filePath: path.join(root, "docs", `f${i}.md`) } } } })
+        }
+      }
+      if (opts.growGate) {
+        await ev("message.part.updated", { sessionID: sid, part: { id: "p0", messageID: "m0", type: "text", text: "[Verification Gate] Verifier: direct-read | Class: CODE | assert_artifacts.py: pass=3/fail=0\nDone." } })
+      }
+      if (opts.gateDeltaAfterWrite) {
+        await ev("message.part.updated", { sessionID: sid, part: { id: "p0", messageID: "m0", type: "text", text: " Done." } })
+      }
+      if (opts.gateSameMsgAfterWrite) {
+        await ev("message.part.updated", { sessionID: sid, part: { id: "pg", messageID: "m0", type: "text", text: "[Verification Gate] Verifier: direct-read | Class: CODE | assert_artifacts.py: pass=3/fail=0" } })
+      }
+      if (opts.reemitUser) await ev("message.updated", { sessionID: sid, info: { id: "u1", role: "user" } })
+      await ev("message.updated", { sessionID: sid, info: asst("m1") })
+      if (opts.gateLast) await ev("message.part.updated", { sessionID: sid, part: { id: "pg", messageID: "m1", type: "text", text: "[Verification Gate] Verifier: direct-read | Class: CODE | assert_artifacts.py: pass=3/fail=0" } })
+      await ev("message.part.updated", { sessionID: sid, part: { id: "p1", messageID: "m1", type: "text", text: asstText } })
+      await ev("session.idle", { sessionID: sid })
+      return calls
+    }
+    const doc = await runStopCase("t27-w11-doc", LOG_DOC, "Only evaluate; do not modify code.", "Evaluation complete.", { file: "docs/report.md" })
+    rec("T27e12 Class DOC + report write + stop → no prompt", doc.prompts.length === 0, `prompts=${doc.prompts.length}`)
+    const docHtml = await runStopCase("t27-w11-doc-html", LOG_DOC, "Only evaluate; do not modify code.", "Evaluation complete.", { file: "README.html" })
+    rec("T27e12b Class DOC + README.html write → no prompt", docHtml.prompts.length === 0, `prompts=${docHtml.prompts.length}`)
+    const ro = await runStopCase("t27-w11-readonly", LOG_CODE, "仅评估，不修改。", "The audit report is ready.", { file: "docs/report.md" })
+    rec("T27e13 read-only user instruction + report write → no prompt", ro.prompts.length === 0, `prompts=${ro.prompts.length}`)
+    const roCode = await runStopCase("t27-w11-readonly-code", LOG_CODE, "仅评估，不修改。", "Done.", { file: "src/a.ts" })
+    rec("T27e13b read-only instruction invalidated by a code write → prompt", roCode.prompts.length === 1, `prompts=${roCode.prompts.length}`)
+    const wait = await runStopCase("t27-w11-wait", LOG_CODE, "Implement the fix.", "Please confirm before I proceed.")
+    rec("T27e14 period-terminated approval request → no prompt", wait.prompts.length === 0, `prompts=${wait.prompts.length}`)
+    const split = await runStopCase("t27-w11-early-gate", LOG_CODE, "Implement the fix.", "Done.", { gateFirst: true })
+    rec("T27e15 gate marker BEFORE a later task-file write does NOT whitelist the turn", split.prompts.length === 1, `prompts=${split.prompts.length}`)
+    const zero = await runStopCase("t27-w11-zero", LOG_CODE + "- final-run: --final — pass=0/fail=0\n", "Implement the fix.", "Done.")
+    rec("T27e16 pass=0/fail=0 final-run is NOT completion → positive prompt", zero.prompts.length === 1, `prompts=${zero.prompts.length}`)
+    const code = await runStopCase("t27-w11-code", LOG_CODE, "Implement the fix.", "Done.")
+    rec("T27e17 CODE task-file write + silent Stop → positive prompt", code.prompts.length === 1 && /final-run/.test(code.prompts[0] || ""), `prompts=${code.prompts.length}`)
+    const pending = await runStopCase("t27-w11-pending", LOG_CODE, "Implement the fix.", "Done.", { pendingWrite: true })
+    rec("T27e18 pending→completed write is still task-write evidence", pending.prompts.length === 1, `prompts=${pending.prompts.length}`)
+    const reemit = await runStopCase("t27-w11-reemit", LOG_CODE, "Implement the fix.", "Done.", { reemitUser: true })
+    rec("T27e19 re-emitted user message does not move the turn boundary", reemit.prompts.length === 1, `prompts=${reemit.prompts.length}`)
+    const stale = await runStopCase("t27-w11-stale-doc", LOG_DOC, "Implement the deferred feature.", "Done.", { staleLog: true })
+    rec("T27e20 previous session's Class DOC cannot exempt a new CODE task", stale.prompts.length === 1, `prompts=${stale.prompts.length}`)
+    // W11 P0-1: final-run must be bound to real assert output.
+    const forged = await runStopCase("t27-w11-forged-final", LOG_CODE + "- final-run: --final — pass=3/fail=0\n", "Implement the fix.", "Done.")
+    rec("T27e22 forged final-run without assert output → positive prompt", forged.prompts.length === 1, `prompts=${forged.prompts.length}`)
+    const trusted = await runStopCase("t27-w11-trusted-final", LOG_CODE + "- final-run: --final — pass=3/fail=0\n" + ASSERT_OK, "Implement the fix.", "Done.")
+    rec("T27e23 final-run + adjacent assert output → no prompt", trusted.prompts.length === 0, `prompts=${trusted.prompts.length}`)
+    // W11 P0-2: an old final-run in the same session does not exempt a new turn.
+    const staleFinal = await runStopCase("t27-w11-stale-final", LOG_CODE + "- final-run: --final — pass=3/fail=0\n" + ASSERT_OK, "Implement B.", "Done.", { preUserLog: true, file: "src/b.ts" })
+    rec("T27e24 stale final-run + new user + code write → positive prompt", staleFinal.prompts.length === 1, `prompts=${staleFinal.prompts.length}`)
+    // W11 P0-3/P0-5: a DOC claim is cross-checked against current-turn writes.
+    const forgedDoc = await runStopCase("t27-w11-forged-doc", LOG_DOC, "Implement the deferred feature.", "Done.", { file: "src/a.ts" })
+    rec("T27e25 forged Class DOC + current-turn code write → positive prompt", forgedDoc.prompts.length === 1, `prompts=${forgedDoc.prompts.length}`)
+    const docStatusOnly = await runStopCase("t27-w11-doc-status-only", LOG_DOC, "Only evaluate; do not modify code.", "Evaluation complete.", { statusOnlyWrite: true })
+    rec("T27e28 Class DOC + status-only write is not treated as code → no prompt", docStatusOnly.prompts.length === 0, `prompts=${docStatusOnly.prompts.length}`)
+    // W11 P0-4 control: gate AFTER the last task write (final message) still whitelists.
+    const gateAfter = await runStopCase("t27-w11-gate-last", LOG_CODE, "Implement the fix.", "Done.", { gateLast: true })
+    rec("T27e26 gate marker AFTER the last task write → no prompt", gateAfter.prompts.length === 0, `prompts=${gateAfter.prompts.length}`)
+    // W11 P0-4: a cumulative text update must not re-stamp an earlier gate.
+    const gateGrow = await runStopCase("t27-w11-gate-grow", LOG_CODE, "Implement the fix.", "Done.", { gateFirst: true, growGate: true })
+    rec("T27e27 cumulative update after write does not resurrect an early gate → prompt", gateGrow.prompts.length === 1, `prompts=${gateGrow.prompts.length}`)
+    // W11 P1-4: status-only completed write is still task evidence.
+    const statusOnly = await runStopCase("t27-w11-status-only", LOG_CODE, "Implement the fix.", "Done.", { statusOnlyWrite: true })
+    rec("T27e29 status-only completed write (no input) → positive prompt", statusOnly.prompts.length === 1, `prompts=${statusOnly.prompts.length}`)
+    // W11: bash redirects count as writes.
+    const bashWrite = await runStopCase("t27-w11-bash-write", LOG_CODE, "Implement the fix.", "Done.", { bashWrite: true })
+    rec("T27e34 bash redirect write + silent stop → positive prompt", bashWrite.prompts.length === 1, `prompts=${bashWrite.prompts.length}`)
+    // W11: sticky code-write flag survives >50 prose writes.
+    const filler = await runStopCase("t27-w11-filler", LOG_DOC, "Implement the deferred feature.", "Done.", { file: "src/a.ts", fillerWrites: 55 })
+    rec("T27e35 code write + 55 prose writes still trips the DOC cross-check", filler.prompts.length === 1, `prompts=${filler.prompts.length}`)
+    // W11 P0-2: a shorter log rewrite must not resurrect an old final-run.
+    const oldLog = LOG_CODE + "- assert-run: assert_artifacts.py: all 3 checks pass (exit 0)\n" + "- final-run: --final — pass=3/fail=0\n" + "- padding: " + "x".repeat(200) + "\n"
+    const rewrite = await runStopCase("t27-w11-log-rewrite", oldLog, "Implement B.", "Done.", {
+      preUserLog: true, file: "src/b.ts",
+      rewriteLog: "## Task: old\n- assert-run: assert_artifacts.py: all 3 checks pass (exit 0)\n- final-run: --final — pass=3/fail=0\n",
+    })
+    rec("T27e36 shorter log rewrite does not resurrect the old final-run → prompt", rewrite.prompts.length === 1, `prompts=${rewrite.prompts.length}`)
+    // W11 re-review: a same-turn prior Task block must not authenticate a later one.
+    const twoTasks = await runStopCase("t27-w11-two-tasks", LOG_CODE + ASSERT_OK + "- final-run: --final — pass=3/fail=0\n## Task: second\n", "Implement B.", "Done.", { file: "src/b.ts" })
+    rec("T27e38 prior same-turn Task final-run does not exempt a later Task → prompt", twoTasks.prompts.length === 1, `prompts=${twoTasks.prompts.length}`)
+    const classOrder = await runStopCase("t27-w11-class-order", "## Task: docs\n- class: DOC — prose\n## Task: code\n- class: CODE — logic\n", "Implement the fix.", "Done.", { statusOnlyWrite: true })
+    rec("T27e39 class comes from the LAST task block (DOC→CODE) → prompt", classOrder.prompts.length === 1, `prompts=${classOrder.prompts.length}`)
+    // W11 re-review: shell comparisons/quoted '>' and /tmp targets are not writes.
+    const awk = await runStopCase("t27-w11-bash-awk", LOG_CODE, "仅评估，不修改。", "Done.", { bashOnlyCommand: "awk '$1 > 2 {print}' tests/data.txt" })
+    rec("T27e40 awk comparison is not a bash write → no prompt", awk.prompts.length === 0, `prompts=${awk.prompts.length}`)
+    const cpTmp = await runStopCase("t27-w11-bash-cp", LOG_CODE, "仅评估，不修改。", "Done.", { bashOnlyCommand: "cp -r src /tmp/backup" })
+    rec("T27e41 cp to /tmp is not a project write → no prompt", cpTmp.prompts.length === 0, `prompts=${cpTmp.prompts.length}`)
+    const htmlDoc = await runStopCase("t27-w11-doc-src-html", LOG_DOC, "Implement the UI.", "Done.", { file: "src/app.html" })
+    rec("T27e42 DOC claim + src/app.html write → prompt", htmlDoc.prompts.length === 1, `prompts=${htmlDoc.prompts.length}`)
+    const dataReport = await runStopCase("t27-w11-readonly-csv", LOG_CODE, "仅评估，不修改。", "The audit table is ready.", { file: "findings.csv" })
+    rec("T27e43 read-only audit + csv report → no prompt", dataReport.prompts.length === 0, `prompts=${dataReport.prompts.length}`)
+    const deltaGate = await runStopCase("t27-w11-delta-gate", LOG_CODE, "Implement the fix.", "Done.", { gateFirst: true, gateDeltaAfterWrite: true })
+    rec("T27e47 an unrelated delta after the write does not re-stamp the early gate", deltaGate.prompts.length === 1, `prompts=${deltaGate.prompts.length}`)
+    const sameBlockClass = await runStopCase("t27-w11-same-block-class", "## Task: fixture\n- class: CODE — logic\n- class: DOC — forged\n", "Implement the fix.", "Done.", { statusOnlyWrite: true })
+    rec("T27e48 a later class line in the SAME block cannot relicense CODE", sameBlockClass.prompts.length === 1, `prompts=${sameBlockClass.prompts.length}`)
+    const configDoc = await runStopCase("t27-w11-doc-config", LOG_DOC, "Implement the config change.", "Done.", { file: "src/config.json" })
+    rec("T27e49 DOC claim + src/config.json → prompt", configDoc.prompts.length === 1, `prompts=${configDoc.prompts.length}`)
+    const sqlDoc = await runStopCase("t27-w11-doc-sql", LOG_DOC, "Implement the migration.", "Done.", { file: "db/migrate.sql" })
+    rec("T27e50 DOC claim + db/migrate.sql → prompt", sqlDoc.prompts.length === 1, `prompts=${sqlDoc.prompts.length}`)
+    const findingsJson = await runStopCase("t27-w11-readonly-json", LOG_CODE, "仅评估，不修改。", "The findings are ready.", { file: "findings.json" })
+    rec("T27e51 read-only audit + findings.json report → no prompt", findingsJson.prompts.length === 0, `prompts=${findingsJson.prompts.length}`)
+    const heredocAfter = await runStopCase("t27-w11-heredoc-after", LOG_CODE, "Implement the fix.", "Done.", { bashOnlyCommand: "cat <<'EOF' > src/a.ts\nexport const x = 1\nEOF" })
+    rec("T27e52 redirect AFTER the heredoc marker is observed", heredocAfter.prompts.length === 1, `prompts=${heredocAfter.prompts.length}`)
+    const noSpace = await runStopCase("t27-w11-no-space", LOG_CODE, "Implement the fix.", "Done.", { bashOnlyCommand: "echo foo2> src/a.ts" })
+    rec("T27e53 no-space redirect is observed", noSpace.prompts.length === 1, `prompts=${noSpace.prompts.length}`)
+    const outputHtml = await runStopCase("t27-w11-output-html", LOG_DOC, "Only evaluate; do not modify code.", "Report ready.", { file: "output/report.html" })
+    rec("T27e54 DOC + output/report.html → no prompt", outputHtml.prompts.length === 0, `prompts=${outputHtml.prompts.length}`)
+    const cpMulti = await runStopCase("t27-w11-cp-multi", LOG_CODE, "仅评估，不修改。", "Done.", { bashOnlyCommand: "cp a.ts b.ts /tmp/backup" })
+    rec("T27e55 multi-source cp to /tmp is not a project write", cpMulti.prompts.length === 0, `prompts=${cpMulti.prompts.length}`)
+    const outputTs = await runStopCase("t27-w11-output-ts", LOG_DOC, "Implement the exporter.", "Done.", { file: "output/app.ts" })
+    rec("T27e57 DOC claim + output/app.ts → prompt (report path does not hide code)", outputTs.prompts.length === 1, `prompts=${outputTs.prompts.length}`)
+    const reportsPy = await runStopCase("t27-w11-reports-py", LOG_DOC, "Implement the parser.", "Done.", { file: "reports/parser.py" })
+    rec("T27e58 DOC claim + reports/parser.py → prompt", reportsPy.prompts.length === 1, `prompts=${reportsPy.prompts.length}`)
+    const outputReadOnly = await runStopCase("t27-w11-output-ro", LOG_CODE, "仅评估，不修改。", "Done.", { file: "output/app.ts" })
+    rec("T27e59 read-only instruction + output/app.ts → prompt", outputReadOnly.prompts.length === 1, `prompts=${outputReadOnly.prompts.length}`)
+    const dataJson = await runStopCase("t27-w11-data-json", LOG_CODE, "仅评估，不修改。", "Metrics ready.", { file: "data.json" })
+    rec("T27e60 read-only audit + data.json report → no prompt", dataJson.prompts.length === 0, `prompts=${dataJson.prompts.length}`)
+    const cpTarget = await runStopCase("t27-w11-cp-target", LOG_CODE, "仅评估，不修改。", "Done.", { bashOnlyCommand: "cp -t /tmp/backup a.ts b.ts" })
+    rec("T27e61 cp -t directory target is outside the project → no prompt", cpTarget.prompts.length === 0, `prompts=${cpTarget.prompts.length}`)
+    // W11 P1-1/P1-2 integration controls.
+    const quotedRo = await runStopCase("t27-w11-quoted-ro", LOG_CODE, '上一版说“仅评估，不修改”，但现在实现 X。', "Done.")
+    rec("T27e30 quoted historical read-only does not exempt a current implement turn", quotedRo.prompts.length === 1, `prompts=${quotedRo.prompts.length}`)
+    const continueQ = await runStopCase("t27-w11-continue-q", LOG_CODE, "Implement the fix.", "Done. Continue?")
+    rec("T27e31 'Done. Continue?' does not whitelist an incomplete CODE turn", continueQ.prompts.length === 1, `prompts=${continueQ.prompts.length}`)
+    const shouldQ = await runStopCase("t27-w11-should-q", LOG_CODE, "Implement the fix.", "Should I proceed?")
+    rec("T27e32 'Should I proceed?' whitelists an awaiting-user turn", shouldQ.prompts.length === 0, `prompts=${shouldQ.prompts.length}`)
+    const noUserEarly = await runStopCase("t27-w11-no-user-early", LOG_CODE, null, "Done.", { gateFirst: true })
+    rec("T27e62 no-user host: early gate + write → prompt", noUserEarly.prompts.length === 1, `prompts=${noUserEarly.prompts.length}`)
+    const noUserLate = await runStopCase("t27-w11-no-user-late", LOG_CODE, null, "Done.", { gateLast: true })
+    rec("T27e63 no-user host: gate after the write (last message) → no prompt", noUserLate.prompts.length === 0, `prompts=${noUserLate.prompts.length}`)
+    const noUserSameMsg = await runStopCase("t27-w11-no-user-same-msg", LOG_CODE, null, "Done.", { gateSameMsgAfterWrite: true })
+    rec("T27e64 no-user host: gate after the write, then a final Done message → no prompt", noUserSameMsg.prompts.length === 0, `prompts=${noUserSameMsg.prompts.length}`)
+    const outHtml = await runStopCase("t27-w11-output-html-app", LOG_DOC, "Implement the UI.", "Done.", { file: "output/app.html" })
+    rec("T27e65 DOC claim + output/app.html → prompt", outHtml.prompts.length === 1, `prompts=${outHtml.prompts.length}`)
+    const outConfig = await runStopCase("t27-w11-output-config", LOG_DOC, "Implement the config.", "Done.", { file: "output/config.json" })
+    rec("T27e66 DOC claim + output/config.json → prompt", outConfig.prompts.length === 1, `prompts=${outConfig.prompts.length}`)
+    const reportsSchema = await runStopCase("t27-w11-reports-schema", LOG_DOC, "Implement the schema.", "Done.", { file: "reports/schema.json" })
+    rec("T27e67 DOC claim + reports/schema.json → prompt", reportsSchema.prompts.length === 1, `prompts=${reportsSchema.prompts.length}`)
+    const srcData = await runStopCase("t27-w11-src-data", LOG_DOC, "Implement the data layer.", "Done.", { file: "src/data.json" })
+    rec("T27e68 DOC claim + src/data.json → prompt", srcData.prompts.length === 1, `prompts=${srcData.prompts.length}`)
+    const cpTdSpace = await runStopCase("t27-w11-cp-td-space", LOG_CODE, "仅评估，不修改。", "Done.", { bashOnlyCommand: "cp --target-directory /tmp/backup a.ts b.ts" })
+    rec("T27e69 cp --target-directory space form is outside the project → no prompt", cpTdSpace.prompts.length === 0, `prompts=${cpTdSpace.prompts.length}`)
+    const cpRt = await runStopCase("t27-w11-cp-rt", LOG_CODE, "仅评估，不修改。", "Done.", { bashOnlyCommand: "cp -rt /tmp/backup a.ts b.ts" })
+    rec("T27e70 cp -rt directory target is outside the project → no prompt", cpRt.prompts.length === 0, `prompts=${cpRt.prompts.length}`)
+    const srcReport = await runStopCase("t27-w11-src-report", LOG_DOC, "Implement the report config.", "Done.", { file: "src/report.json" })
+    rec("T27e71 DOC claim + src/report.json → prompt (report name inside code dir)", srcReport.prompts.length === 1, `prompts=${srcReport.prompts.length}`)
+    const makefile = await runStopCase("t27-w11-makefile", LOG_DOC, "Implement the build.", "Done.", { file: "Makefile" })
+    rec("T27e72 DOC claim + Makefile → prompt", makefile.prompts.length === 1, `prompts=${makefile.prompts.length}`)
+    const dockerfile = await runStopCase("t27-w11-dockerfile", LOG_DOC, "Implement the image.", "Done.", { file: "Dockerfile" })
+    rec("T27e73 DOC claim + Dockerfile → prompt", dockerfile.prompts.length === 1, `prompts=${dockerfile.prompts.length}`)
+    const tableJson = await runStopCase("t27-w11-table-json", LOG_CODE, "仅评估，不修改。", "Table ready.", { file: "table.json" })
+    rec("T27e74 read-only audit + table.json report → no prompt", tableJson.prompts.length === 0, `prompts=${tableJson.prompts.length}`)
+    const cpAttached = await runStopCase("t27-w11-cp-attached", LOG_CODE, "仅评估，不修改。", "Done.", { bashOnlyCommand: "cp -t/tmp/backup a.ts b.ts" })
+    rec("T27e75 cp attached -t target is outside the project → no prompt", cpAttached.prompts.length === 0, `prompts=${cpAttached.prompts.length}`)
+    const pauseHidden = await runStopCase("t27-w12-pause-hidden", LOG_CODE, "Implement the fix.", "Evaluation complete.", { pausedFile: PAUSE_OK })
+    rec("T27e76 hidden paused file (no [PAUSED] declaration) → prompt", pauseHidden.prompts.length === 1, `prompts=${pauseHidden.prompts.length}`)
+    const pauseVisible = await runStopCase("t27-w12-pause-visible", LOG_CODE, "Implement the fix.", "[PAUSED] gate=schema | question=choose one | default-if-continue=(a)", { pausedFile: PAUSE_OK })
+    rec("T27e77 valid paused packet + visible [PAUSED] → no prompt", pauseVisible.prompts.length === 0, `prompts=${pauseVisible.prompts.length}`)
+    const pauseBad = await runStopCase("t27-w12-pause-bad", LOG_CODE, "Implement the fix.", "[PAUSED] gate=schema", { pausedFile: PAUSE_OK.replace("state: fixture", "note: fixture") })
+    rec("T27e78 malformed paused packet → prompt", pauseBad.prompts.length === 1, `prompts=${pauseBad.prompts.length}`)
+    const classEForge = await runStopCase("t27-w12-classe-forge", LOG_CODE, "Implement the fix.", "Class-E approved. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e79 Class-E file without user approval text → prompt", classEForge.prompts.length === 1, `prompts=${classEForge.prompts.length}`)
+    const classEOk = await runStopCase("t27-w12-classe-ok", LOG_CODE, "批准 Class-E 部署。", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e80 Class-E file + user approval + assistant declaration → no prompt", classEOk.prompts.length === 0, `prompts=${classEOk.prompts.length}`)
+  }
+
+  // ---- W10: v2 has no message roles; the positive leg must still journal
+  // stop-debt (debt-only mode, never a prompt). ----
+  {
+    const rootV2 = newFixture("t27-w10-v2")
+    write(rootV2, "tests/verification_log.md", "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n")
+    write(rootV2, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+    const q = []
+    let waiting = null
+    const bus = {
+      subscribe() {
+        return {
+          [Symbol.asyncIterator]() { return this },
+          next() {
+            if (q.length) return Promise.resolve({ done: false, value: q.shift() })
+            return new Promise((res) => { waiting = () => res(q.length ? { done: false, value: q.shift() } : { done: true }) })
+          },
+          return() { return Promise.resolve({ done: true }) },
+        }
+      },
+      emit(e) { q.push(e); if (waiting) { const w = waiting; waiting = null; w() } },
+    }
+    const hooks = {}
+    const prompts = []
+    const ctx = {
+      location: { directory: rootV2 },
+      tool: { hook: async (name, fn) => { hooks[name] = fn; return { dispose: async () => {} } } },
+      event: { subscribe: () => bus.subscribe() },
+      session: { interrupt: async () => {}, prompt: async () => { prompts.push("prompt") } },
+    }
+    await auditModule.default.setup(ctx)
+    bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2stop", name: "vibeweaver" } })
+    await hooks["execute.before"]({ tool: "write", sessionID: "ses_v2stop", messageID: "m1", id: "t1", input: { filePath: path.join(rootV2, "src", "a.ts") } })
+    await hooks["execute.after"]({ tool: "write", sessionID: "ses_v2stop", status: "completed", id: "t1", result: { output: "ok" } })
+    bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2stop", messageID: "m1", content: [{ type: "text", text: "Done." }] } })
+    bus.emit({ type: "session.status", data: { sessionID: "ses_v2stop", status: { type: "idle" } } })
+    await new Promise((r) => setTimeout(r, 80))
+    let debt = []
+    try {
+      const st = JSON.parse(readFileSync(path.join(rootV2, ".vibeweaver", "audit-state.json"), "utf8"))
+      debt = (st.roots && st.roots[rootV2] && st.roots[rootV2].stopDebt) || []
+    } catch {
+      /* no state */
+    }
+    rec("T27e21 v2 positive leg journals incomplete stop-debt (no prompt)", debt.some((d) => d.kind === "incomplete") && prompts.length === 0, `debt=${JSON.stringify(debt).slice(0, 120)} prompts=${prompts.length}`)
+  }
+
+  // ---- W11 P1-4: a v2 write that never reaches execute.after (blocked or
+  // failed) must NOT count as task-write evidence, even though execute.before
+  // observed its input.
+  {
+    const rootV2b = newFixture("t27-w11-v2-blocked")
+    write(rootV2b, "tests/verification_log.md", "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n")
+    write(rootV2b, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+    const q = []
+    let waiting = null
+    const bus = {
+      subscribe() {
+        return {
+          [Symbol.asyncIterator]() { return this },
+          next() {
+            if (q.length) return Promise.resolve({ done: false, value: q.shift() })
+            return new Promise((res) => { waiting = () => res(q.length ? { done: false, value: q.shift() } : { done: true }) })
+          },
+          return() { return Promise.resolve({ done: true }) },
+        }
+      },
+      emit(e) { q.push(e); if (waiting) { const w = waiting; waiting = null; w() } },
+    }
+    const hooks = {}
+    const prompts = []
+    const ctx = {
+      location: { directory: rootV2b },
+      tool: { hook: async (name, fn) => { hooks[name] = fn; return { dispose: async () => {} } } },
+      event: { subscribe: () => bus.subscribe() },
+      session: { interrupt: async () => {}, prompt: async () => { prompts.push("prompt") } },
+    }
+    await auditModule.default.setup(ctx)
+    bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2block", name: "vibeweaver" } })
+    await hooks["execute.before"]({ tool: "write", sessionID: "ses_v2block", messageID: "m1", id: "t1", input: { filePath: path.join(rootV2b, "src", "a.ts") } })
+    // The hook fires on every execute.after; a failed status must be ignored.
+    await hooks["execute.after"]({ tool: "write", sessionID: "ses_v2block", status: "error", id: "t1", result: { output: "permission denied" } })
+    // No completed execute.after either.
+    bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2block", messageID: "m1", content: [{ type: "text", text: "Done." }] } })
+    bus.emit({ type: "session.status", data: { sessionID: "ses_v2block", status: { type: "idle" } } })
+    await new Promise((r) => setTimeout(r, 80))
+    let debt = []
+    try {
+      const st = JSON.parse(readFileSync(path.join(rootV2b, ".vibeweaver", "audit-state.json"), "utf8"))
+      debt = (st.roots && st.roots[rootV2b] && st.roots[rootV2b].stopDebt) || []
+    } catch {
+      /* no state */
+    }
+    rec("T27e33 v2 blocked/failed write does NOT journal task-write debt", debt.length === 0, `debt=${JSON.stringify(debt).slice(0, 120)}`)
+  }
+
+  // ---- W11: v2 has no roles; a gate in the last content update must still
+  // whitelist a completed turn instead of journaling debt.
+  {
+    const rootV2g = newFixture("t27-w11-v2-gate")
+    write(rootV2g, "tests/verification_log.md", "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n")
+    write(rootV2g, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+    const q = []
+    let waiting = null
+    const bus = {
+      subscribe() {
+        return {
+          [Symbol.asyncIterator]() { return this },
+          next() {
+            if (q.length) return Promise.resolve({ done: false, value: q.shift() })
+            return new Promise((res) => { waiting = () => res(q.length ? { done: false, value: q.shift() } : { done: true }) })
+          },
+          return() { return Promise.resolve({ done: true }) },
+        }
+      },
+      emit(e) { q.push(e); if (waiting) { const w = waiting; waiting = null; w() } },
+    }
+    const hooks = {}
+    const ctx = {
+      location: { directory: rootV2g },
+      tool: { hook: async (name, fn) => { hooks[name] = fn; return { dispose: async () => {} } } },
+      event: { subscribe: () => bus.subscribe() },
+      session: { interrupt: async () => {}, prompt: async () => {} },
+    }
+    await auditModule.default.setup(ctx)
+    bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2gate", name: "vibeweaver" } })
+    await hooks["execute.before"]({ tool: "write", sessionID: "ses_v2gate", messageID: "m1", id: "t1", input: { filePath: path.join(rootV2g, "src", "a.ts") } })
+    await hooks["execute.after"]({ tool: "write", sessionID: "ses_v2gate", status: "completed", id: "t1", result: { output: "ok" } })
+    bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2gate", messageID: "m1", content: [{ type: "text", text: "[Verification Gate] Verifier: direct-read | Class: CODE | assert_artifacts.py: pass=3/fail=0" }] } })
+    bus.emit({ type: "session.status", data: { sessionID: "ses_v2gate", status: { type: "idle" } } })
+    await new Promise((r) => setTimeout(r, 80))
+    let debt = []
+    try {
+      const st = JSON.parse(readFileSync(path.join(rootV2g, ".vibeweaver", "audit-state.json"), "utf8"))
+      debt = (st.roots && st.roots[rootV2g] && st.roots[rootV2g].stopDebt) || []
+    } catch {
+      /* no state */
+    }
+    rec("T27e37 v2 last-message gate whitelists the turn (no debt)", debt.length === 0, `debt=${JSON.stringify(debt).slice(0, 120)}`)
+  }
+
+  // ---- W11 re-review: v2 boundaries — an old completed block, an old gate,
+  // and a bash redirect must not suppress the current turn's debt. ----
+  {
+    const mkV2 = async (name, log) => {
+      const root = newFixture(name)
+      write(root, "tests/verification_log.md", log)
+      write(root, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+      const q = []
+      let waiting = null
+      const bus = {
+        subscribe() {
+          return {
+            [Symbol.asyncIterator]() { return this },
+            next() {
+              if (q.length) return Promise.resolve({ done: false, value: q.shift() })
+              return new Promise((res) => { waiting = () => res(q.length ? { done: false, value: q.shift() } : { done: true }) })
+            },
+            return() { return Promise.resolve({ done: true }) },
+          }
+        },
+        emit(e) { q.push(e); if (waiting) { const w = waiting; waiting = null; w() } },
+      }
+      const hooks = {}
+      const ctx = {
+        location: { directory: root },
+        tool: { hook: async (name, fn) => { hooks[name] = fn; return { dispose: async () => {} } } },
+        event: { subscribe: () => bus.subscribe() },
+        session: { interrupt: async () => {}, prompt: async () => {} },
+      }
+      await auditModule.default.setup(ctx)
+      const debt = async () => {
+        try {
+          const st = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8"))
+          return (st.roots && st.roots[root] && st.roots[root].stopDebt) || []
+        } catch { return [] }
+      }
+      return { root, bus, hooks, debt }
+    }
+    const oldBlock = "## Task: old\n- class: CODE — logic\n- assert-run: assert_artifacts.py: all 3 checks pass (exit 0)\n- final-run: --final — pass=3/fail=0\n"
+    {
+      const h = await mkV2("t27-w11-v2-stale-block", oldBlock)
+      h.bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2old", name: "vibeweaver" } })
+      await h.hooks["execute.before"]({ tool: "write", sessionID: "ses_v2old", messageID: "m1", id: "t1", input: { filePath: path.join(h.root, "src", "a.ts") } })
+      await h.hooks["execute.after"]({ tool: "write", sessionID: "ses_v2old", status: "completed", id: "t1", result: { output: "ok" } })
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2old", messageID: "m1", content: [{ type: "text", text: "Done." }] } })
+      h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2old", status: { type: "idle" } } })
+      await new Promise((r) => setTimeout(r, 80))
+      const d = await h.debt()
+      rec("T27e44 v2 old completed block does not exempt a new task → debt", d.some((x) => x.kind === "incomplete"), `debt=${JSON.stringify(d).slice(0, 120)}`)
+    }
+    {
+      const h = await mkV2("t27-w11-v2-bash", "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n")
+      h.bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2bash", name: "vibeweaver" } })
+      await h.hooks["execute.before"]({ tool: "bash", sessionID: "ses_v2bash", messageID: "m1", id: "t1", input: { command: `cat > ${path.join(h.root, "src", "a.ts")} <<'EOF'\nexport const x = 1\nEOF` } })
+      await h.hooks["execute.after"]({ tool: "bash", sessionID: "ses_v2bash", status: "completed", id: "t1", result: { output: "" } })
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2bash", messageID: "m1", content: [{ type: "text", text: "Done." }] } })
+      h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2bash", status: { type: "idle" } } })
+      await new Promise((r) => setTimeout(r, 80))
+      const d = await h.debt()
+      rec("T27e45 v2 bash redirect write → debt", d.some((x) => x.kind === "incomplete"), `debt=${JSON.stringify(d).slice(0, 120)}`)
+    }
+    {
+      const h = await mkV2("t27-w11-v2-old-gate", "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n")
+      h.bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2gateold", name: "vibeweaver" } })
+      await h.hooks["execute.before"]({ tool: "bash", sessionID: "ses_v2gateold", messageID: "m0", id: "t0", input: { command: "ls" } })
+      await h.hooks["execute.after"]({ tool: "bash", sessionID: "ses_v2gateold", status: "completed", id: "t0", result: { output: "" } })
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2gateold", messageID: "m1", content: [{ type: "text", text: "[Verification Gate] Verifier: direct-read | Class: CODE | assert_artifacts.py: pass=3/fail=0" }] } })
+      h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2gateold", status: { type: "idle" } } })
+      await new Promise((r) => setTimeout(r, 80))
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2gateold", messageID: "m2", content: [{ type: "text", text: "上下文快耗尽了，先到这里。" }] } })
+      h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2gateold", status: { type: "idle" } } })
+      await new Promise((r) => setTimeout(r, 80))
+      const d = await h.debt()
+      rec("T27e46 old v2 gate does not suppress a later euphemism debt", d.some((x) => x.kind === "euphemism"), `debt=${JSON.stringify(d).slice(0, 120)}`)
+    }
+    {
+      const h = await mkV2("t27-w11-v2-gate-done", "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n")
+      h.bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2gatedone", name: "vibeweaver" } })
+      await h.hooks["execute.before"]({ tool: "write", sessionID: "ses_v2gatedone", messageID: "m1", id: "t1", input: { filePath: path.join(h.root, "src", "a.ts") } })
+      await h.hooks["execute.after"]({ tool: "write", sessionID: "ses_v2gatedone", status: "completed", id: "t1", result: { output: "ok" } })
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2gatedone", messageID: "m1", content: [{ type: "text", text: "[Verification Gate] Verifier: direct-read | Class: CODE | assert_artifacts.py: pass=3/fail=0" }] } })
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2gatedone", messageID: "m2", content: [{ type: "text", text: "Done." }] } })
+      h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2gatedone", status: { type: "idle" } } })
+      await new Promise((r) => setTimeout(r, 80))
+      const d = await h.debt()
+      rec("T27e56 v2 gate followed by a final Done message stays complete (no debt)", d.length === 0, `debt=${JSON.stringify(d).slice(0, 120)}`)
+    }
   }
 
   // ---- user stop directive → whitelisted, no prompt ----
@@ -2400,7 +3124,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     await drive(n3.plugin, "ses_n3", "stop here please, we continue tomorrow.", "上下文快耗尽了，先到这里。")
     rec("T27i3 explicit 'stop here please' → whitelisted, no prompt", n3.calls.prompts.length === 0, `prompts=${n3.calls.prompts.length}`)
 
-    const c1 = await mk("t27-wave-complete", "## Task: fixture\n- iter 1 PASS: all\n- final-run: --final — pass=19/fail=0\n")
+    const c1 = await mk("t27-wave-complete", "## Task: fixture\n- iter 1 PASS: all\n- assert-run: assert_artifacts.py: all 30 checks pass (exit 0)\n- final-run: --final — pass=19/fail=0\n")
     await drive(c1.plugin, "ses_c1", "继续", "上次误判过上下文快耗尽的问题，复盘一下。")
     rec("T27i4 wave completed on disk (final-run) → taskActive false, no prompt (R1#3)", c1.calls.prompts.length === 0, `prompts=${c1.calls.prompts.length}`)
 
@@ -2742,18 +3466,66 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   rec("T35b same-pid re-observations never inflate the storm", hasTf ? toolFrequencyFinding(reobs) === null : false, hasTf ? "null expected" : "detector missing (RED)")
   rec("T35c minRun parameter respected (4 varied reads)", hasTf ? !!toolFrequencyFinding(storm.slice(0, 4), 4) : false, hasTf ? "finding expected" : "detector missing (RED)")
 
-  // ---- T35d — adapter: single-tool storm -> one intervention with stall line ----
+  // ---- T35d — adapter: tool-frequency is OPT-IN (W10); default off ----
   {
-    const root35 = newFixture("t35-freq")
+    const root35 = newFixture("t35-freq-off")
     write(root35, "tests/verification_log.md", "placeholder — no iter entries\n")
+    delete process.env.VIBEWEAVER_AUDIT_CONFIG
+    const calls = { abort: 0, prompts: 0, logs: [] }
+    const plugin35 = await VibeweaverAudit({
+      client: {
+        app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+        session: { abort: async () => { calls.abort++ }, prompt: async () => { calls.prompts++ } },
+      },
+      directory: root35,
+    })
+    for (let i = 0; i < 25; i++) {
+      await plugin35.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: "ses_t35", part: { id: `r${i}`, type: "tool", tool: "read", state: { status: "completed", input: { filePath: `/tmp/f${i}.txt` } } } },
+        },
+      })
+    }
+    rec("T35d 25 varied reads with no config -> NO intervention (opt-in default off)", calls.abort === 0 && calls.prompts === 0, `abort=${calls.abort} prompts=${calls.prompts}`)
+  }
+  // ---- T35d3 — W12: default high-threshold WARN-ONLY layer ----
+  {
+    const root35w = newFixture("t35-freq-warn")
+    write(root35w, "tests/verification_log.md", "placeholder — no iter entries\n")
+    delete process.env.VIBEWEAVER_AUDIT_CONFIG
+    const calls = { abort: 0, prompts: 0, logs: [] }
+    const plugin35w = await VibeweaverAudit({
+      client: {
+        app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
+        session: { abort: async () => { calls.abort++ }, prompt: async () => { calls.prompts++ } },
+      },
+      directory: root35w,
+    })
+    for (let i = 0; i < 130; i++) {
+      await plugin35w.event({
+        event: {
+          type: "message.part.updated",
+          properties: { sessionID: "ses_t35w", part: { id: `w${i}`, type: "tool", tool: "read", state: { status: "completed", input: { filePath: `/tmp/w${i}.txt` } } } },
+        },
+      })
+    }
+    rec("T35d3 130 varied reads default -> warn-only (no abort, no prompt)",
+      calls.abort === 0 && calls.prompts === 0 && calls.logs.some((m) => /tool-frequency warning \(warn-only/i.test(m)),
+      `abort=${calls.abort} prompts=${calls.prompts} warned=${calls.logs.some((m) => /tool-frequency warning/i.test(m))}`)
+  }
+  // ---- T35d2 — adapter: explicit opt-in restores the storm intervention ----
+  {
+    const root35 = newFixture("t35-freq-on")
+    write(root35, "tests/verification_log.md", "placeholder — no iter entries\n")
+    write(root35, "audit-config.json", JSON.stringify({ loopGuardToolFrequencyMin: 20 }))
+    process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root35, "audit-config.json")
     const calls = { abort: 0, prompts: [], logs: [] }
     const plugin35 = await VibeweaverAudit({
       client: {
         app: { log: async (e) => calls.logs.push((e && e.body && e.body.message) || "") },
         session: {
-          abort: async () => {
-            calls.abort++
-          },
+          abort: async () => { calls.abort++ },
           prompt: async (args) => {
             const parts = args && args.body && args.body.parts
             calls.prompts.push((parts && parts[0] && parts[0].text) || "")
@@ -2763,7 +3535,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       directory: root35,
     })
     const sid = "ses_t35"
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 45; i++) {
       await plugin35.event({
         event: {
           type: "message.part.updated",
@@ -2771,9 +3543,10 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
         },
       })
     }
-    rec("T35d 20 varied reads through adapter -> exactly one intervention", calls.abort === 1 && calls.prompts.length === 1, `abort=${calls.abort} prompts=${calls.prompts.length}`)
+    delete process.env.VIBEWEAVER_AUDIT_CONFIG
+    rec("T35d2 opt-in loopGuardToolFrequencyMin=20 -> 45-call incident shape gets one intervention", calls.abort === 1 && calls.prompts.length === 1, `abort=${calls.abort} prompts=${calls.prompts.length}`)
     const ptext = calls.prompts[0] || ""
-    rec("T35d corrective text: stall declaration + consolidate/switch/next/completion exits", /tool-frequency/.test(ptext) && /- stall: tool-frequency/.test(ptext) && /(consolidat|batch|summar)/i.test(ptext) && /(switch|different tool|different approach)/i.test(ptext) && /completion output/i.test(ptext), ptext.slice(0, 200))
+    rec("T35d2 corrective text: stall declaration + consolidate/switch/next/completion exits", /tool-frequency/.test(ptext) && /- stall: tool-frequency/.test(ptext) && /(consolidat|batch|summar)/i.test(ptext) && /(switch|different tool|different approach)/i.test(ptext) && /completion output/i.test(ptext), ptext.slice(0, 200))
     for (let i = 20; i < 26; i++) {
       await plugin35.event({
         event: {
@@ -2782,13 +3555,15 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
         },
       })
     }
-    rec("T35d continued storm -> no thrash (still 1 intervention)", calls.abort === 1, `abort=${calls.abort}`)
+    rec("T35d2 continued storm -> no thrash (still 1 intervention)", calls.abort === 1, `abort=${calls.abort}`)
   }
 
   // ---- T35e — precedence: noop-bash and identical-tool-run win over frequency ----
   {
     const root35b = newFixture("t35-prec")
     write(root35b, "tests/verification_log.md", "placeholder — no iter entries\n")
+    write(root35b, "audit-config.json", JSON.stringify({ loopGuardToolFrequencyMin: 20 }))
+    process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root35b, "audit-config.json")
     const calls = { prompts: [] }
     const plugin35b = await VibeweaverAudit({
       client: {
@@ -2823,6 +3598,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       })
     }
     rec("T35e varied echo no-op storm -> noop-bash wins (not tool-frequency)", calls.prompts.length === 2 && /noop-bash/.test(calls.prompts[1] || "") && !/tool-frequency/.test(calls.prompts[1] || ""), (calls.prompts[1] || "").slice(0, 80))
+    delete process.env.VIBEWEAVER_AUDIT_CONFIG
   }
 
   // ---- T35f — config override loopGuardToolFrequencyMin (integer >= 4) ----
@@ -2866,6 +3642,8 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   const markerFree = (s) => !/\[Verification Gate\]/.test(s) && !/\|\s*#\s*\|\s*Problem\s*\|/.test(s) && !/HARD-GATE-[12]/.test(s)
   const root36 = newFixture("t36-selflock")
   write(root36, "tests/verification_log.md", "placeholder — no iter entries\n")
+  write(root36, "audit-config.json", JSON.stringify({ loopGuardToolFrequencyMin: 20 }))
+  process.env.VIBEWEAVER_AUDIT_CONFIG = path.join(root36, "audit-config.json")
   const calls = { abort: 0, prompts: [] }
   const plugin36 = await VibeweaverAudit({
     client: {
@@ -2897,10 +3675,10 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     rec(`T36b ${kinds[i]} prompt carries NO completion-marker literal`, markerFree(p), p.slice(0, 120))
     rec(`T36b ${kinds[i]} prompt still demands the completion output`, /completion output|final completion/i.test(p), p.slice(0, 120))
   })
-  // branch 5: runaway (turn ceiling) — ~80KB of non-periodic assistant text
+  // branch 5: runaway (turn ceiling) — >256KB of non-periodic assistant text
   {
     const WORDS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"]
-    const blob = Array.from({ length: 4200 }, (_, i) => `${WORDS[i % 8]}-${i} payload`).join("\n")
+    const blob = Array.from({ length: 22000 }, (_, i) => `${WORDS[i % 8]}-${i} payload`).join("\n")
     await emitPart("ses_t36e", { id: "run", type: "text", text: blob })
     const p = calls.prompts[calls.prompts.length - 1] || ""
     rec("T36c runaway prompt captured and marker-free", calls.prompts.length === 5 && markerFree(p), `prompts=${calls.prompts.length} head=${p.slice(0, 80)}`)
@@ -2946,6 +3724,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     const st = JSON.parse(readFileSync(path.join(root36h, ".vibeweaver", "audit-state.json"), "utf8")).roots[root36h] || {}
     rec("T36f genuine assistant gate-line STILL triggers the completion audit (control)", !!st.red, `red=${JSON.stringify(st.red)}`)
   }
+  delete process.env.VIBEWEAVER_AUDIT_CONFIG
 }
 
 // =====================================================================
@@ -3224,9 +4003,9 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
 
 {
   // T42: delta chunks must never be eaten by the duplicate heuristic — a
-  // stream of small chunks containing common substrings accumulates fully,
-  // and the runaway ceiling fires at the 64KB turn bound (2026-10-17: the
-  // old `buf.includes(chunk)` dropped ordinary deltas, starved turnChars and
+  // stream of small UNIQUE chunks accumulates fully, and the runaway ceiling
+  // fires at the 256KB visible-text bound (2026-10-17: the old
+  // `buf.includes(chunk)` dropped ordinary deltas, starved turnChars and
   // left the ceiling dark while runaway turns kept streaming).
   const root42 = newFixture("t42-deltas")
   write(root42, "tests/verification_log.md", "placeholder — no iter entries\n")
@@ -3238,8 +4017,8 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     },
     directory: root42,
   })
-  const chunk = "the test error " // 16 chars — repeated words, would match inside buf
-  for (let i = 0; i < 5000; i++) {
+  for (let i = 0; i < 15000; i++) {
+    const chunk = "delta-" + String(i).padStart(8, "0") + " payload "
     await plugin42.event({
       event: {
         type: "message.part.updated",
@@ -3247,7 +4026,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       },
     })
   }
-  rec("T42 delta stream accumulates (no substring-eating) and runaway ceiling fires", calls.abort >= 1, `abort=${calls.abort} (expect >=1 at 64KB of 16-char chunks)`)
+  rec("T42 delta stream accumulates (no substring-eating) and runaway ceiling fires", calls.abort >= 1, `abort=${calls.abort} (expect >=1 above 256KB of unique chunks)`)
 }
 
 {

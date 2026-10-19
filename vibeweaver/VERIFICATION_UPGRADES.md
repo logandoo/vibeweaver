@@ -664,31 +664,28 @@ or write the PAUSED packet — never abandon silently.
 ALL of these hold, the plugin posts ONE corrective prompt (idle-only — a
 session is never aborted after a completed turn):
 - vibeweaver-active root + skill loaded + task incomplete on disk
-  (`tests/acceptance.md` exists, the session produced tool calls, and the
-  current log block has no `- final-run:` line — a completed wave stays
-  silent);
+  (`tests/acceptance.md` exists, tool calls occurred, current block has no
+  TRUSTED `- final-run` — bound to `assert_artifacts.py: all N
+  checks pass`, a turn-fresh artifact, or a verified seal — not `Class: DOC`/read-only);
 - the LAST assistant message matches a stop-euphemism (zh/en, syntax level
   only — no semantic intent detection; conservative bias: misses acceptable,
   false positives not; quoted spans are stripped, ≥2 pattern hits = meta-
   discussion not a declaration, a single hit must carry cessation intent or
   end the message), OR that message ended with `finish: "length"`
   (output-limit truncation ≠ completion — host bug class opencode#40146),
-  OR the **positive on-disk predicate** holds: `tests/acceptance.md` exists,
-  the current task block has no `- final-run: … pass=N/fail=0`, the last
-  assistant message has no `[Verification Gate]`, a successful write/edit
-  occurred after the last user message, and no whitelist entry below holds.
-  No euphemism is required — this is the silent-stop leg weak models take
-  (they simply end after a partial edit). A host error/abort fences every
-  trigger until a later successful write; a user Q&A turn after the write
-  does not fire (turn-scoped);
-- NO terminal-state whitelist entry, each scoped so history cannot immunize
-  the present: `tests/paused_state.md` written DURING this session · a
-  Class-E stop in `tests/decisions.md` written during this session · a
-  `[Verification Gate]` marker in the SAME assistant message as the claim ·
-  the tail is a question to the user · the LAST user message carries an
-  explicit stop directive (directive-shaped match, negation-excluded,
-  plugin-authored prompts stripped first — the guard never whitelists
-  itself);
+  OR the **positive on-disk predicate**: `acceptance.md` exists, the current
+  block has no trusted `final-run`, the turn-scoped assistant text has no
+  `[Verification Gate]` emitted after the last task write, a write/edit to a NON-evidence task file occurred
+  after the last user message, and no whitelist holds. No euphemism needed —
+  this is the silent-stop leg. Absence of final-run alone is NOT proof of
+  abandonment (COV-11): DOC/read-only/awaiting-user are exempt. Error/abort
+  fences until a later write; a Q&A turn after the write does not fire;
+- NO terminal-state whitelist entry, history cannot immunize the
+  present: paused_state written this session · Class-E in decisions.md this
+  session · `[Verification Gate]` after the last user message and last task write · explicit user stop (directive-shaped, negation-excluded,
+  plugin prompts stripped first). The read-only/DOC and awaiting-user
+  exemptions apply ONLY to the positive (no-euphemism) leg: an explicit
+  "context exhausted" claim or a truncated turn still prompts.
 - telemetry (v1 `message.updated` info — spike W0): with audit.json
   `contextLimitTokens` set, the corrective quotes the measured fill
   (`fill ≈ (input + cache.read) / limit`, one-turn-stale, stated as such;
@@ -714,10 +711,11 @@ abandonment with an active `acceptance.md` + ≥1 write/edit is covered by the
 positive predicate; a session with no acceptance/tool call remains
 indistinguishable from a user walking away and stays a known gap (Tier-2).
 
-**Corrective prompt contract:** names the contradiction (claim vs measured
-fill / vs on-disk incompleteness), lists the four legal stops, points at
-`tests/working_note.md` for resume — never fabricates a fill number, never
-auto-continues a whitelisted stop.
+**Corrective prompt contract:** names the contradiction, lists the four legal
+stops, and gives an explicit already-complete exit ("run assert, append
+`- assert-run:` + `- final-run:`, then emit the `[Verification Gate]` line;
+do NOT fabricate") plus the awaiting-user exit (request-cued question or PAUSED). It points at `working_note.md`, never fabricates
+a fill number, never auto-continues a whitelisted stop.
 
 ---
 End of VERIFICATION_UPGRADES.md. Adding rules here: keep SKILL.md lines

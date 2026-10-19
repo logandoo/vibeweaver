@@ -165,6 +165,7 @@ run("C18-doc-class-code-write", () => ({
     "- class: DOC — CHANGELOG.md prose only",
     "- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)",
     "- iter 1 PASS: criterion #1 — entry added (evidence: read-back of CHANGELOG.md)",
+    "- assert-run: assert_artifacts.py: all 30 checks pass (exit 0)",
     "- final-run: --final — pass=19/fail=0",
   ].join("\n"))
   writeFileSync(path.join(root, "tests/acceptance.md"), "> cap=5  stall=3×\n1. Entry added in the release-notes format\n")
@@ -209,6 +210,47 @@ run("C18-doc-class-code-write", () => ({
   } else {
     fail++
     console.log(`FAIL  lite-doc-clean -> BAD=[${bad.join(",")}] assert=${assertOk}${assertErr ? ` :: ${assertErr}` : ""}`)
+  }
+}
+
+// W11/W12 classifier pins: a DOC claim must not hide code/config/build files.
+{
+  const cases = [
+    ["W11-doc-output-html", "output/app.html"],
+    ["W11-doc-src-report-json", "src/report.json"],
+    ["W11-doc-makefile", "Makefile"],
+  ]
+  for (const [name, file] of cases) {
+    const root = path.join(TMP, name)
+    rmSync(root, { recursive: true, force: true })
+    mkdirSync(path.join(root, "tests"), { recursive: true })
+    writeFileSync(path.join(root, ".gitignore"), ".DS_Store\n__pycache__/\n.venv/\nnode_modules/\n.pnpm-store/\n.env\n")
+    writeFileSync(path.join(root, "tests/verification_log.md"), [
+      "## Task: changelog entry | 2026-09-28",
+      "- class: DOC — CHANGELOG.md prose only",
+      "- iter 1 PASS: criterion #1 — entry added (evidence: read-back of CHANGELOG.md)",
+      "- assert-run: assert_artifacts.py: all 30 checks pass (exit 0)",
+      "- final-run: --final — pass=19/fail=0",
+    ].join("\n"))
+    writeFileSync(path.join(root, "tests/acceptance.md"), "> cap=5  stall=3×\n1. Entry added\n")
+    execFileSync("git", ["init", "-q"], { cwd: root })
+    execFileSync("git", ["config", "user.email", "m@t"], { cwd: root })
+    execFileSync("git", ["config", "user.name", "m"], { cwd: root })
+    execFileSync("git", ["add", "-A"], { cwd: root })
+    execFileSync("git", ["commit", "-qm", "docs: changelog entry"], { cwd: root })
+    const audit = auditProject({
+      root,
+      sessionID: `ses_${name}`,
+      sessionText: LITE_DOC_TEXT,
+      tools: [{ tool: "write", filePath: path.join(root, file), t: Date.now() }],
+      skillLoaded: true,
+      phase: "final",
+      config: { samplingRate: 0 },
+    })
+    const c18 = audit.checks.find((c) => c.id === "C18")
+    const ok = c18 && c18.verdict === "BAD"
+    if (ok) { pass++; console.log(`PASS  ${name} -> C18 BAD`) }
+    else { fail++; console.log(`FAIL  ${name} -> C18 ${c18 ? c18.verdict : "missing"}`) }
   }
 }
 

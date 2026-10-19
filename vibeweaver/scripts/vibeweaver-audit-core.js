@@ -6,7 +6,7 @@
 // must live outside the scanned directory.
 
 import { execFileSync } from "node:child_process"
-import { closeSync, existsSync, fstatSync, openSync, readFileSync, readdirSync, statSync } from "node:fs"
+import { closeSync, existsSync, fstatSync, openSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs"
 import path from "node:path"
 import crypto from "node:crypto"
 
@@ -636,6 +636,79 @@ function stripQuotedSpans(s) {
     .replace(/"[^"\n]*"/g, " ")
     .replace(/“[^”\n]*”/g, " ")
     .replace(/「[^」\n]*」/g, " ")
+    // W11 re-review: quoted questions/single-quoted spans are data too. Only
+    // strip a real quoted phrase (>=8 chars), never a contraction (don't).
+    .replace(/(^|[^A-Za-z])'([^'\n]{8,})'(?!\w)/g, "$1 ")
+    .replace(/‘[^’\n]*’/g, " ")
+}
+
+// W10: a legitimate "I need the user" turn is not a false stop. Trailing
+// punctuation is only one shape; agents routinely end approval requests with
+// a period ("Please confirm before I proceed."). Keep the scan bounded to the
+// tail so a question earlier in a long report cannot immunize the present.
+// W11 P1-2: a trailing question is not automatically "awaiting the user".
+// "Done. Continue?" is a nudge after a claimed completion and must not
+// immunise an incomplete CODE turn; only a question addressed to the user /
+// asking for a decision counts.
+export function stopAwaitingUser(text) {
+  if (!text || typeof text !== "string") return false
+  const raw = text.slice(-600).trim()
+  if (!raw) return false
+  const tail = stripQuotedSpans(raw).trim() // a quoted question is not a request
+  if (!tail) return false
+  // Imperative/direct-request shapes only. Sign-offs ("let me know if you
+  // need anything else") and narrative ("which path the parser follows")
+  // must NOT immunize an incomplete CODE turn.
+  if (/((please|pls)\s+(confirm|approve|authorize|choose|decide)\b|(请|麻烦|需要你|需要您)(确认|批准|指示|选择|回复)|(waiting|blocked)\s+(on|for)\s+(your|user)\s+(decision|approval|confirmation|input|response)|(need|require)\s+your\s+(approval|confirmation|input|decision)|let me know if you (want|would like) me to (continue|proceed)|should (i|we)\s+|would you like me to\s+|which (option|approach|path) (should|do you|would you))/i.test(tail)) return true
+  if (!/[?？]\s*$/.test(tail)) return false
+  // Last interrogative sentence: require a second-person addressee, a
+  // decision cue, or a direct proceed/continue question. A bare question
+  // after a completion claim ("Done. Continue?") is a nudge, not a pause.
+  const q = tail.split(/[。.!！?？\n]/).map((s) => s.trim()).filter(Boolean).pop() || ""
+  if (!q) return false
+  const head = raw.replace(/[?？]\s*$/, "").replace(/^["'“”‘’\s]+/, "")
+  const completionClaim =
+    /(?:^|[.!?。！？]\s*)(?:all\s+)?(?:done|complete|completed|finished)\b/i.test(head) ||
+    /\b(?:it[’']?s|it is|that'?s|this is)\s+(?:all\s+)?(?:done|complete|completed|finished)\b/i.test(head) ||
+    /\b(?:work|task|everything)\s+is\s+(?:all\s+)?(?:done|complete|completed|finished)\b/i.test(head) ||
+    /["“]Done\.?["”]/i.test(raw) ||
+    /(?:完成|已完成|做完了|全部完成|工作完成)/.test(head)
+  const bareProceed = /^(?:continue|proceed|go ahead)(?:\s+now)?$/i.test(q)
+  const bareProceedCn = /^(?:继续|是否继续|要不要继续|可以继续)(?:吗|么)?$/.test(q)
+  const endQ = tail.replace(/[?？]\s*$/, "").trim()
+  const endCue = /(\byou\b|\byour\b|请|您|你|should (i|we)|shall (i|we)|may (i|we)|can (i|we)|could (i|we)|would you|ready to proceed|any objections)/i.test(endQ)
+  const endsProceed = endCue && /(?:^|[\s.!?])(?:continue|proceed|go ahead)(?:\s+now)?$/i.test(endQ)
+  const endsProceedCn = /(是否|需要|要不要|请|你|可以)/.test(endQ) && /(?:继续|继续实现)(?:吗|么)?$/.test(endQ)
+  if ((bareProceed || bareProceedCn || endsProceed || endsProceedCn) && completionClaim) return false
+  return /(\byou\b|\byour\b|\byours\b|\byourself\b|请|您|你|需要|要不要|是否|should (i|we)|shall (i|we)|may (i|we)|can (i|we) (?:proceed|continue|go ahead)|could (i|we) (?:proceed|continue|go ahead)|would (i|we)|would you|please continue|do you want|want me to|which (option|approach|path).*(should|would|do you)|ready to proceed|any objections|go ahead|soll ich|continúo|続けますか)/i.test(q)
+    || bareProceed || bareProceedCn || endsProceed || endsProceedCn
+}
+
+// W11 P1-1: read-only scope is a user instruction, not any occurrence of the
+// word. Strip quoted spans first (a quoted historical "仅评估" is data), scan
+// a bounded head+tail of long briefs, and let an affirmative implementation
+// verb elsewhere in the brief override a read-only phrase.
+const READONLY_RES = /((仅|只)(做|是|需|要)?(评估|审计|评审|分析|检查)|(不要|请勿|别)(修改|改|动)(任何|现有|已有|当前)?[^，,。.\n]{0,6}(代码|实现|源码|文件)|(请勿|不要|别)修改[，,。.!！]|不改代码|(只读|read[- ]?only)\s*(任务|task|scope|审计|评审|评估|检查|audit|review|evaluation|analysis|inspection)|\b(only|just)\s+(evaluate|review|audit|analy[sz]e|inspect)\b|\b(review|audit|evaluation|analysis)\s+only\b|(?:do not|don'?t) (?:modify|change|edit|rewrite|touch|alter|update|delete|remove) (?:any |the )?(?:code|implementation|source|files?)|(?:do not|don'?t) (?:modify|change|edit)[.!]?\s*$|no code changes)/i
+// Affirmative implementation intent. Generic code verbs match at a clause
+// start / after a modal or sequencing word; document actions (update the
+// report, add findings, create a test plan, build the project) do not match.
+const IMPL_GENERIC_RE = /(?:^|[，,。.;；!?！？\n]\s*|\b(?:please|now|then|and|but|also|should|must|need to|will|can|could|would|afterwards|later)\s+|(?:请|现在|然后|并且|还要|再|需要|应当|应该|随后|之后|接下来)\s*)(?:implement|fix|refactor|develop|port|migrate)\b|(?:^|[，,。.;；!?！？\n]\s*|(?:请|现在|然后|并且|还要|再|需要|应当|应该|随后|之后|接下来)\s*)(?:实现|修复|重构|重写|改写|开发|移植|改造|补丁)/gi
+const IMPL_OBJECT_RE = /(?:^|[，,。.;；!?！？\n]\s*|\b(?:please|now|then|and|but|also|should|must|need to|will|can|could|would|afterwards|later)\s+|(?:请|现在|然后|并且|还要|再|需要|应当|应该|随后|之后|接下来)\s*)(?:modify|change|update|remove|delete|replace|convert|add|create|apply|write|rewrite|patch|harden|build)\s+(?:a\s+|the\s+|your\s+)?(?:code|implementation|source|parser|module|class|function|method|endpoint|api|route|component|service|logic|schema|database|migration|bug|fix|patch|diff|script|app|application|library|binary|package)\b|(?:^|[，,。.;；!?！？\n]\s*|(?:请|现在|然后|并且|还要|再|需要|应当|应该|随后|之后|接下来)\s*)(?:修改|删除|替换|添加|更新|新增|编写|落地|升级|扩展)\s*(?:代码|实现|源码|文件|函数|模块|类|接口|路由|组件|数据库|逻辑|配置|功能)/gi
+
+export function stopReadOnlyInstruction(text) {
+  if (!text || typeof text !== "string") return false
+  const bounded = text.length > 8192 ? text.slice(0, 4096) + "\n" + text.slice(-4096) : text
+  const t = stripQuotedSpans(bounded)
+  if (!READONLY_RES.test(t)) return false
+  const matches = [...t.matchAll(IMPL_GENERIC_RE), ...t.matchAll(IMPL_OBJECT_RE)]
+  if (!matches.length) return true
+  const negated = (m) => {
+    const before = t.slice(Math.max(0, m.index - 24), m.index)
+    if (/(?:not|n't|never|no need to|don't|do not|不要|请勿|别|无需|不需要|不是)\s*$/i.test(before)) return true
+    const after = t.slice(m.index + m[0].length, m.index + m[0].length + 48)
+    return /^\s*(?:nothing|none|no\b|not\b|n't\b|不在(?:本次)?范围|无需|不需要|不是|不做)/i.test(after)
+  }
+  return matches.every(negated)
 }
 
 // Returns { kind: "euphemism", match } | null. Scans the tail only.
@@ -686,6 +759,148 @@ export function currentLogBlock(logText) {
   return selected || (blocks.length ? blocks[blocks.length - 1] : logText)
 }
 
+// W11 re-review: the turn slice may start mid-block (no `## Task` heading) and
+// may end with a non-iterating `## Notes`. This selector keeps the current
+// task block (last Task / iter-bearing block) but falls back to a block that
+// carries completion/class evidence instead of a trailing Notes block.
+export function currentEvidenceBlock(slice) {
+  if (!slice || typeof slice !== "string") return ""
+  const blocks = slice.split(/^(?=## )/m).filter(Boolean)
+  let selected = ""
+  for (const b of blocks) {
+    if (/^## Task\b/m.test(b) || /^- iter \d+ (?:PASS|FAIL)\b/m.test(b)) selected = b
+  }
+  if (selected) return selected
+  let fallback = ""
+  for (const b of blocks) {
+    if (/^- (?:final-run:|assert-run:|class:)/m.test(b)) fallback = b
+  }
+  return fallback
+}
+
+const FINAL_RUN_RE = /-[ \t]*final-run:[^\n]*--final[^\n]*pass=[1-9]\d*[ \t]*\/[ \t]*fail=0(?![\d.])/i
+const ANY_FINAL_RUN_RE = /-[ \t]*final-run:/i
+const ASSERT_OUTPUT_RE = /assert_artifacts\.py:\s*(?:all\s+[1-9]\d*\s+checks\s+pass|pass=[1-9]\d*\/fail=0)/i
+
+// W12 P2-6: a PAUSED whitelist is a user-facing state, not a hidden file.
+// The packet must carry the §3.4 fields AND the last assistant message must
+// declare `[PAUSED]` so a model cannot silently self-whitelist.
+export function pausedPacketValid(text) {
+  if (!text || typeof text !== "string") return false
+  const field = (name) => new RegExp(`^${name}:\\s*\\S`, "mi").test(text)
+  if (!field("gate") || !field("question") || !field("default-if-continue") || !field("state")) return false
+  if (!/^options:\s*$/mi.test(text)) return false
+  const opts = (text.match(/^\s*(?:\([a-z0-9]+\)|[-*]|\d+[.)])\s+\S/gim) || []).length
+  return opts >= 2
+}
+export function pausedDeclaration(text) {
+  return typeof text === "string" && /\[PAUSED\]/i.test(text)
+}
+export function classERecordValid(text) {
+  if (!text || typeof text !== "string") return false
+  const lines = text.split("\n").filter((l) => /Class-E/i.test(l))
+  return lines.some((l) => /(?:approved|approval|user-approved|用户批准|已批准)/i.test(l))
+}
+export function classEUserApproval(text) {
+  return typeof text === "string" && /(批准|同意|允许|approved?|authorize|go ahead)/i.test(text)
+}
+
+// W12 verified evidence seal: the manifest is only trusted when its file
+// hashes and code fingerprint reproduce the tree. This restores seal-only
+// completion without accepting a model-typed `- seal:` line.
+const FINGERPRINT_EXT = new Set([".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".go", ".rs", ".java", ".sql", ".c", ".cc", ".cpp", ".h", ".hpp", ".kt", ".swift", ".php", ".rb", ".cs", ".sh", ".bash", ".bat", ".ps1", ".toml", ".yaml", ".yml", ".json", ".ini", ".cfg", ".conf", ".tf", ".tfvars", ".xml", ".css", ".scss", ".sass", ".less"])
+function sha256File(p) {
+  try { return crypto.createHash("sha256").update(readFileSync(p)).digest("hex") } catch { return "" }
+}
+function waveCodeFingerprint(root) {
+  const git = (args) => {
+    try { return execFileSync("git", ["-C", root, ...args], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"] }) } catch { return "" }
+  }
+  const backup = git(["log", "--format=%H", "-1", "--fixed-strings", "--grep=backup: before changes"]).trim()
+  const paths = new Set()
+  if (backup) for (const l of git(["diff", "--name-only", `${backup}..HEAD`]).split("\n")) if (l.trim()) paths.add(l.trim())
+  for (const l of git(["diff", "--name-only", "HEAD"]).split("\n")) if (l.trim()) paths.add(l.trim())
+  for (const l of git(["ls-files", "--others", "--exclude-standard"]).split("\n")) if (l.trim()) paths.add(l.trim())
+  const files = [...paths]
+    .filter((p) => FINGERPRINT_EXT.has(path.extname(p).toLowerCase()))
+    .filter((p) => !p.includes("assert_artifacts.py") && !p.includes("evidence_seal.py") && !p.startsWith("tests/"))
+    .sort()
+  const parts = files.map((rel) => `${rel}:${sha256File(path.join(root, rel)) || "gone"}`)
+  return crypto.createHash("sha256").update(parts.join("\n")).digest("hex")
+}
+export function verifyEvidenceManifest(root) {
+  if (!root || typeof root !== "string") return { ok: false, reason: "no-root" }
+  try {
+    const realRoot = realpathSync(root)
+    const mp = path.join(realRoot, "tests", "evidence_manifest.json")
+    const st = statSync(mp)
+    if (!st.isFile() || st.size <= 0 || st.size > 2_000_000) return { ok: false, reason: "manifest-invalid" }
+    const man = JSON.parse(readFileSync(mp, "utf8"))
+    if (!man || man.version !== 1 || typeof man.code_fingerprint !== "string" || !/^[a-f0-9]{64}$/i.test(man.code_fingerprint)) return { ok: false, reason: "manifest-schema" }
+    const entries = man.files && typeof man.files === "object" ? Object.entries(man.files) : []
+    for (const [rel, meta] of entries) {
+      if (typeof rel !== "string" || !rel.startsWith("tests/") || !meta || typeof meta.sha256 !== "string") return { ok: false, reason: "entry-schema" }
+      const abs = realpathSync(path.join(realRoot, rel))
+      const r = path.relative(realRoot, abs).split(path.sep).join("/")
+      if (!r.startsWith("tests/") || r.startsWith("..")) return { ok: false, reason: "entry-path" }
+      const fsStat = statSync(abs)
+      if (!fsStat.isFile() || fsStat.size > 2_000_000) return { ok: false, reason: "entry-file" }
+      if (sha256File(abs) !== meta.sha256) return { ok: false, reason: "entry-hash" }
+    }
+    if (waveCodeFingerprint(realRoot) !== man.code_fingerprint) return { ok: false, reason: "code-fingerprint" }
+    return { ok: true, reason: "verified", manifestMtime: Math.floor(st.mtimeMs) }
+  } catch {
+    return { ok: false, reason: "manifest-missing" }
+  }
+}
+
+// W11 P0-1: a typed final-run line is not execution evidence. The LAST
+// final-run in the block must be corroborated by the command's own output on
+// a DIFFERENT line (nearby) or a turn-fresh `log=<tests/...>` artifact whose
+// content contains that output. Shared by the stop-guard and B12 so the two
+// cannot disagree. (A bare `- seal:` line is NOT accepted: the manifest is
+// model-writable and does not prove the assert command actually ran.)
+export function finalRunEvidence(block, opts = {}) {
+  if (!block || typeof block !== "string") return { trusted: false, reason: "no-block" }
+  const root = typeof opts.root === "string" && opts.root ? path.resolve(opts.root) : ""
+  const since = Number.isFinite(opts.sinceMs) ? opts.sinceMs : 0
+  const lines = block.split("\n")
+  let idx = -1
+  for (let i = 0; i < lines.length; i++) if (ANY_FINAL_RUN_RE.test(lines[i])) idx = i // LAST wins
+  if (idx < 0) return { trusted: false, reason: "no-final-run" }
+  if (!FINAL_RUN_RE.test(lines[idx])) return { trusted: false, reason: "last-final-run-not-passing" }
+  for (let i = Math.max(0, idx - 8); i <= Math.min(lines.length - 1, idx + 8); i++) {
+    if (i === idx) continue // a one-line final-run + assert text is a forgery
+    if (ASSERT_OUTPUT_RE.test(lines[i])) return { trusted: true, reason: "assert-output" }
+  }
+  const bound = lines[idx].match(/\b(?:log|artifact)\s*[=:]\s*`?([^\s`]+)`?/i)
+  if (bound && root) {
+    const raw = bound[1].replace(/[),;，。；）\]}]+$/, "").replace(/^["'`]+|["'`]+$/g, "")
+    try {
+      const realRoot = realpathSync(root)
+      const realP = realpathSync(path.resolve(realRoot, raw))
+      if (realP !== realRoot && realP.startsWith(realRoot + path.sep)) {
+        const rel = path.relative(realRoot, realP).split(path.sep).join("/")
+        const st = statSync(realP)
+        if (rel.startsWith("tests/") && rel !== "tests/verification_log.md" && rel !== "tests/acceptance.md"
+          && st.isFile() && st.size > 0 && st.size <= 2_000_000 && Math.floor(st.mtimeMs) >= since) {
+          const content = readFileSync(realP, "utf8")
+          if (ASSERT_OUTPUT_RE.test(content)) return { trusted: true, reason: "bound-artifact" }
+        }
+      }
+    } catch {
+      /* unreadable/outside-root artifacts are untrusted */
+    }
+  }
+  if (root && /^\s*-\s*seal:/mi.test(block)) {
+    const seal = verifyEvidenceManifest(root)
+    if (seal.ok && Number.isFinite(seal.manifestMtime) && seal.manifestMtime >= since) {
+      return { trusted: true, reason: "verified-seal" }
+    }
+  }
+  return { trusted: false, reason: "unbound-final-run" }
+}
+
 // Pure verdict over a trigger + the terminal-state whitelist. Never throws.
 //   trigger    {kind:"euphemism"|"truncation", match} | null
 //   positiveIncomplete  no trigger, but on-disk task is incomplete (no
@@ -693,6 +908,8 @@ export function currentLogBlock(logText) {
 //              session wrote after the last user message
 //   taskActive acceptance.md exists AND the session produced tool calls AND
 //              the current log block has no final-run (wave not completed)
+//   readOnlyTask  Class DOC / user-scoped read-only instruction — ignore
+//   awaitingUser  question or approval request in the tail — ignore
 //   pausedState / classE / gateMarker / userStop / tailQuestion — whitelist
 //   telemetry  host carries message-level usage (v1 yes, v2 no)
 // → { action: "prompt"|"debt"|"ignore", why, kind? } — kind may be
@@ -705,6 +922,12 @@ export function stopGuardDecision(o) {
   const positive = !!(o && o.positiveIncomplete)
   if (!t && !positive) return { action: "ignore", why: "no-trigger" }
   if (!o.taskActive) return { action: "ignore", why: "no-active-task" }
+  // W10: read-only / Class DOC work and "waiting for the user" turns are
+  // legitimate terminal states for the POSITIVE (absence-of-final-run) leg.
+  // An explicit euphemism or truncation is still evidence of a false stop and
+  // must not be whitelisted by task shape.
+  if (positive && o.readOnlyTask) return { action: "ignore", why: "whitelisted:read-only-task" }
+  if (positive && o.awaitingUser) return { action: "ignore", why: "whitelisted:awaiting-user" }
   if (o.pausedState) return { action: "ignore", why: "whitelisted:paused-state" }
   if (o.classE) return { action: "ignore", why: "whitelisted:class-e" }
   if (o.errorFence) return { action: "ignore", why: "whitelisted:error-abort" }
@@ -723,7 +946,7 @@ export function stopGuardPrompt({ kind, fill, fillKnown }) {
     kind === "truncation"
       ? 'Your last turn ended with finish:"length" (output-limit truncation) — a truncated turn is NOT a completed task (host bug class opencode#40146).'
       : kind === "incomplete"
-        ? "On-disk state says this task is NOT complete: tests/acceptance.md exists, but the current task block has no `- final-run: --final … pass=N/fail=0` and your last message has no `[Verification Gate]`."
+        ? "This is a STATE CHECK, not an accusation: tests/acceptance.md exists and the current task block has no TRUSTED `- final-run: --final … pass≥1/fail=0` yet (a typed final-run without `assert_artifacts.py: all N checks pass` or a bound artifact does not count), while your last turn ended without the skill's completion gate line."
         : "Your last message declared context exhaustion and stopped mid-task."
   const known = kind === "euphemism" && fillKnown && Number.isFinite(fill)
   const fillLine = known
@@ -735,7 +958,9 @@ export function stopGuardPrompt({ kind, fill, fillKnown }) {
     `[stop-guard] ${what}${fillLine} That is NOT a legal stop. Legal stops are exactly four: ` +
     `(1) ALL-PASS on every acceptance criterion in tests/acceptance.md; (2) cap/stall with a ❌ record in memory/ (COV-7); ` +
     `(3) a PAUSED packet in tests/paused_state.md (§3.4); (4) a [Coverage]-honest partial completion naming every unchecked item (§V9). ` +
-    `Resume now: read tests/working_note.md (if present) + tests/acceptance.md + the last entries of tests/verification_log.md, then continue the loop. ` +
+    `If the task is already complete, do NOT fabricate: run \`python3 tests/assert_artifacts.py --final\` (add \`--existing\` for Modify-Existing), append \`- assert-run: assert_artifacts.py: all N checks pass (exit 0)\` and \`- final-run: --final — pass=N/fail=0\` to the current task block, then emit ONE short message with the skill's completion gate line. ` +
+    `If you are waiting for the user, end with a request-cued direct question (e.g. "Should I proceed?") or write the PAUSED packet — both are whitelisted; do not continue without their input. ` +
+    `Otherwise resume: read tests/working_note.md (if present) + tests/acceptance.md + the last entries of tests/verification_log.md, then continue the loop. ` +
     `If the budget is genuinely nearly exhausted, consolidate per §V9 ship-order ①–③ or write the PAUSED packet — never abandon silently.`
   )
 }
@@ -865,7 +1090,7 @@ export function auditProject(opts) {
   // block's `- class:` is history and must not license the current task.
   const curLogBlock = currentLogBlock(log)
   const logClassM = [...curLogBlock.matchAll(/^-[ \t]*class:[ \t]*(DOC|CONFIG|CODE)[ \t]*[—-][ \t]*(\S[^\n]*)/gim)]
-  const logClass = logClassM.length ? logClassM[logClassM.length - 1][1].toUpperCase() : ""
+  const logClass = logClassM.length ? logClassM[0][1].toUpperCase() : ""
   const SKIP_REASONS = /documentation-only|doc-only|config-only|no runtime|no build|no UI|no service|na reason|no lesson|nothing persistable|informational only|纯文档|纯配置/i
   // A reason must be STATED on a real line — checklist echoes (`- [ ] …`) and
   // table rows (`| … |`) are template text, never a claim's own reason.
@@ -896,7 +1121,7 @@ export function auditProject(opts) {
   } else if (m(/\| # \| Problem \| Research Sources/)) check(checks, "B7", "8-column completion table header", "OK", "found")
   else if (liteHdr.test(text)) check(checks, "B7", "8-column completion table header", "BAD", "lite table used without a filled `Class: DOC|CONFIG` field (§V11.6)")
   else check(checks, "B7", "8-column completion table header", "BAD", "missing from assistant text")
-  if (m(/assert_artifacts\.py:\s*pass=\d+\/fail=0/)) check(checks, "B8", "`assert_artifacts.py: pass=N/fail=0` field", "OK", "found")
+  if (m(/assert_artifacts\.py:\s*pass=\d+\/fail=0(?![\d.])/)) check(checks, "B8", "`assert_artifacts.py: pass=N/fail=0` field", "OK", "found")
   else check(checks, "B8", "`assert_artifacts.py: pass=N/fail=0` field", "BAD", "missing")
   if (m(/covenant_recall:\s*pass/)) check(checks, "B9", "`covenant_recall: pass` field", "OK", "found")
   else check(checks, "B9", "`covenant_recall: pass` field", "BAD", "missing")
@@ -912,8 +1137,16 @@ export function auditProject(opts) {
   // the completion-time run (group 19 et al.) actually executed is this log
   // line; without it group 19 silently never fires.
   if (gateLine) {
-    if (/-[ \t]*final-run:[^\n]*--final[^\n]*pass=[1-9]\d*[ \t]*\/[ \t]*fail=0/i.test(curLogBlock)) check(checks, "B12", "final-run evidence (`- final-run: --final … pass=N/fail=0` in current task block)", "OK", "found")
-    else check(checks, "B12", "final-run evidence (`- final-run: --final … pass=N/fail=0` in current task block)", "BAD", "completion claimed without a `- final-run: … --final … pass=N/fail=0` log line — the completion-time assert run (group 19) never machine-executed (§A4.4.1)")
+    // W11 P0-1: one shared contract with the stop-guard (`finalRunEvidence`)
+    // so B12 and the guard cannot disagree about a completion claim. The
+    // session's first tool observation approximates its start, so a bound
+    // artifact older than this session is not accepted.
+    const b12Block = typeof currentEvidenceBlock === "function" ? currentEvidenceBlock(log) : curLogBlock
+    const toolTimes = tools.map((t) => t && t.t).filter((t) => Number.isFinite(t))
+    const ev = finalRunEvidence(b12Block, { root, sinceMs: toolTimes.length ? Math.min(...toolTimes) : 0 })
+    if (ev.trusted) check(checks, "B12", "final-run evidence (`- final-run: --final … pass=N/fail=0` + assert output/bound artifact in current task block)", "OK", ev.reason)
+    else if (ev.reason === "no-final-run") check(checks, "B12", "final-run evidence (`- final-run: --final … pass=N/fail=0` + assert output/bound artifact in current task block)", "BAD", "completion claimed without a `- final-run: … --final … pass=N/fail=0` log line — the completion-time assert run (group 19) never machine-executed (§A4.4.1)")
+    else check(checks, "B12", "final-run evidence (`- final-run: --final … pass=N/fail=0` + assert output/bound artifact in current task block)", "BAD", `final-run line is unbound (${ev.reason}) — a typed line is not execution evidence; add the command output line \`- assert-run: assert_artifacts.py: all N checks pass\` beside it, or a turn-fresh \`log=tests/...\``)
   }
 
   // Group C — claim ↔ artifact cross-checks (triage)

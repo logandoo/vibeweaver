@@ -488,12 +488,10 @@ FORBIDDEN (8-column table): splitting the table · replacing columns · omitting
 `Research Sources` or `Commit` · prose/bullet substitutes.
 
 #### A4.4.1 Executable artifact assertions ★
-Run `python3 tests/assert_artifacts.py --final` from the project root before
-the gate line + log it: `- final-run: --final — pass=N/fail=0` (audit B12
-machine-checks it). Exit 0 → append field `assert_artifacts.py: pass=N/fail=0`. Exit 1 → fix the
+Run `python3 tests/assert_artifacts.py --final` before the gate line; log both:
+`- assert-run: assert_artifacts.py: all N checks pass` + `- final-run: --final — pass=N/fail=0` (B12 requires both/seal). Exit 0 → append field `assert_artifacts.py: pass=N/fail=0`. Exit 1 → fix the
 ACTUAL artifacts on disk (never edit the script, never fabricate output),
-re-run until exit 0. Missing `tests/assert_artifacts.py` → copy the skill's
-`scripts/` canonical. Groups + flags (`--existing` / `--backend-only` /
+re-run until exit 0. Missing the script → copy `scripts/` canonical. Groups + flags (`--existing` / `--backend-only` /
 `--final` / profiles): COMPLETION_GATE.md §A4.4.1.
 
 #### A4.4.2 Physical gate (plugin) ★
@@ -733,7 +731,7 @@ summarizes) is checked and `assert_artifacts.py` exits 0, no further
 evidence-producing tool calls are expected — proceed through the remaining
 documented completion steps (sync/push/memory) and emit the completion
 output; never pad the transition with `echo`/narration tool calls
-(loop-guard `noop-bash`/`identical-tool-run`/`tool-frequency`, TESTING_PROTOCOLS §A4.10).
+(loop-guard `noop-bash`/`identical-tool-run`/opt-in `tool-frequency`, TP §A4.10).
 
 ## Reference Files (companion files)
 
