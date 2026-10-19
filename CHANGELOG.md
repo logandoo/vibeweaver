@@ -2,6 +2,14 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-19: W13 — v2 explicit prompts + seal verifier cleanup
+
+**The gap.** W12 left v2 permanently debt-only: even an explicit `context exhausted` stop produced no corrective prompt. It also shipped a JS seal verifier that was only a partial parity port of `evidence_seal.py --check`, inviting false confidence.
+
+**The mechanism.** When the v2 host exposes `session.prompt`, an explicit euphemism/truncation trigger posts one corrective prompt. The v2 **positive** (silent-stop) leg always journals debt — DOC/read-only/gate/paused/awaiting shapes are model-authored on v2 and cannot whitelist it — and a model-authored gate/paused no longer suppresses an explicit trigger. A rejected prompt rolls back the intervention counter and journals `prompt-failed` debt instead of silently burning budget. The JS seal verifier and its T44 tests are removed; seal integrity is checked externally with `evidence_seal.py --check`, and `- seal:` alone is never completion evidence (D-W12-2).
+
+**Verification.** audit_selftest 568/0 (1 skipped) · mutation_sweep 44/0 · plugin compat 69/71 (E3/G9 pre-existing) · `assert_artifacts.py --existing --final` 29/29 · secret scan clean · evidence seal verified · four copies byte-identical.
+
 ## 2026-10-19: W9–W12 — signal hygiene and stop-guard blind-spot closure
 
 **The gap.** Four hardening waves closed the remaining false-positive/false-negative classes in the shared scripts and the audit plugin. W9 removed `scan_secrets` false positives (approval metadata, path variables, alphabet tables) while preserving true positives and canonical-copy pins. W10 scoped the stop-guard positive predicate to CODE task-file writes (read-only/DOC/awaiting-user exits), raised the visible-output ceiling to 256 KB with an independent 1 MB reasoning backstop, and made tool-frequency opt-in. W11 closed the blind spots that survived W10: a typed `final-run` line, a previous task's log block, an early `[Verification Gate]` marker, a forged `Class: DOC`, quoted read-only text, a bare `?`, messageID churn, status-only writes and v2 `execute.before` writes. W12 closed the leftovers: hidden `paused_state.md` / `Class-E` self-whitelists, the varied-args tool-storm coverage loss, classifier/shell edges, and explicit seal-only boundaries.
