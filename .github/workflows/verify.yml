@@ -42,6 +42,5 @@ jobs:
           node vibeweaver/scripts/audit_selftest.mjs
           node vibeweaver/scripts/mutation_sweep.mjs
 
-      - name: Plugin compat harness (node, non-blocking — 9 known gate-v1 fails)
-        run: node tests/plugin_compat_test.mjs
-        continue-on-error: true
+      - name: Plugin compat harness (node, known E3/G9 allowed)
+        run: node tests/plugin_compat_test.mjs --allow-known

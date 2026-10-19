@@ -39,9 +39,10 @@ const TMP = path.join(os.tmpdir(), "vw-compat-test")
 
 let failures = 0
 let count = 0
+const failedNames = []
 function rec(name, ok, detail) {
   count++
-  if (!ok) failures++
+  if (!ok) { failures++; failedNames.push(name) }
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? " — " + detail : ""}`)
 }
 
@@ -984,4 +985,7 @@ const BLOCK = "function foo() {\n  return computeValue(x)\n}\n"
 }
 
 console.log(`\n=== COMPAT HARNESS: ${count - failures}/${count} passed, ${failures} failed ===`)
-process.exit(failures ? 1 : 0)
+const allowKnown = process.argv.includes("--allow-known")
+const known = ["E3-audit-v1:", "G9-loopguard-v1:"]
+const onlyKnown = failedNames.every((n) => known.some((k) => n.startsWith(k)))
+process.exit(failures ? (allowKnown && onlyKnown ? 0 : 1) : 0)
