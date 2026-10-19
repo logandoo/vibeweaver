@@ -8,7 +8,7 @@
 // informational (printed, not failed) — it exists to tune regexes.
 
 import { execFileSync } from "node:child_process"
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import { pathToFileURL } from "node:url"
 import path from "node:path"
@@ -3857,10 +3857,18 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     rmSync(path.join(root37, "src", "linktarget"), { force: true })
     mkdirSync(path.join(root37, "src", "linktarget"), { recursive: true })
     rmSync(path.join(root37, "tests", "lnk"), { force: true })
-    execFileSync("ln", ["-s", path.join(root37, "src", "linktarget"), path.join(root37, "tests", "lnk")])
-    const sym = await tryWrite(plugin37, root37, "tests/lnk/evil.js", "ses_t37")
-    const symBlocked = typeof sym === "string" && /GATE-BLOCKED/.test(sym)
-    rec("T37c symlinked tests/ dir pointing at src/ is NOT an evidence path", symBlocked, symBlocked ? "symlink escape blocked" : "ESCAPED via symlink: " + sym)
+    let dirLinked = true
+    try {
+      symlinkSync(path.join(root37, "src", "linktarget"), path.join(root37, "tests", "lnk"), process.platform === "win32" ? "junction" : "dir")
+    } catch (e) {
+      if (process.platform === "win32") { skip("T37c symlinked tests/ dir", "Windows symlink privilege unavailable: " + e.message); dirLinked = false }
+      else throw e
+    }
+    if (dirLinked) {
+      const sym = await tryWrite(plugin37, root37, "tests/lnk/evil.js", "ses_t37")
+      const symBlocked = typeof sym === "string" && /GATE-BLOCKED/.test(sym)
+      rec("T37c symlinked tests/ dir pointing at src/ is NOT an evidence path", symBlocked, symBlocked ? "symlink escape blocked" : "ESCAPED via symlink: " + sym)
+    }
   } catch (e) {
     rec("T37c symlinked tests/ dir pointing at src/ is NOT an evidence path", false, "fixture error: " + e.message)
   }
@@ -3869,10 +3877,18 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   try {
     writeFileSync(path.join(root37, "src", "app.js"), "export const x = 1\n")
     rmSync(path.join(root37, "tests", "app.js"), { force: true })
-    execFileSync("ln", ["-s", path.join(root37, "src", "app.js"), path.join(root37, "tests", "app.js")])
-    const fsym = await tryWrite(plugin37, root37, "tests/app.js", "ses_t37")
-    const fsymBlocked = typeof fsym === "string" && /GATE-BLOCKED/.test(fsym)
-    rec("T37d symlinked FILE tests/app.js -> src/app.js is NOT an evidence path", fsymBlocked, fsymBlocked ? "file-symlink escape blocked" : "ESCAPED via file symlink: " + fsym)
+    let fileLinked = true
+    try {
+      symlinkSync(path.join(root37, "src", "app.js"), path.join(root37, "tests", "app.js"), "file")
+    } catch (e) {
+      if (process.platform === "win32") { skip("T37d symlinked FILE", "Windows symlink privilege unavailable: " + e.message); fileLinked = false }
+      else throw e
+    }
+    if (fileLinked) {
+      const fsym = await tryWrite(plugin37, root37, "tests/app.js", "ses_t37")
+      const fsymBlocked = typeof fsym === "string" && /GATE-BLOCKED/.test(fsym)
+      rec("T37d symlinked FILE tests/app.js -> src/app.js is NOT an evidence path", fsymBlocked, fsymBlocked ? "file-symlink escape blocked" : "ESCAPED via file symlink: " + fsym)
+    }
   } catch (e) {
     rec("T37d symlinked FILE tests/app.js -> src/app.js is NOT an evidence path", false, "fixture error: " + e.message)
   }
@@ -3880,10 +3896,18 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   // also resolve outside the evidence exemption — the OS write follows it.
   try {
     rmSync(path.join(root37, "tests", "dangle.js"), { force: true })
-    execFileSync("ln", ["-s", path.join(root37, "src", "notyet.js"), path.join(root37, "tests", "dangle.js")])
-    const dsym = await tryWrite(plugin37, root37, "tests/dangle.js", "ses_t37")
-    const dsymBlocked = typeof dsym === "string" && /GATE-BLOCKED/.test(dsym)
-    rec("T37e dangling symlink tests/dangle.js -> src/notyet.js is NOT an evidence path", dsymBlocked, dsymBlocked ? "dangling-symlink escape blocked" : "ESCAPED via dangling symlink: " + dsym)
+    let danglingLinked = true
+    try {
+      symlinkSync(path.join(root37, "src", "notyet.js"), path.join(root37, "tests", "dangle.js"), "file")
+    } catch (e) {
+      if (process.platform === "win32") { skip("T37e dangling symlink", "Windows symlink privilege unavailable: " + e.message); danglingLinked = false }
+      else throw e
+    }
+    if (danglingLinked) {
+      const dsym = await tryWrite(plugin37, root37, "tests/dangle.js", "ses_t37")
+      const dsymBlocked = typeof dsym === "string" && /GATE-BLOCKED/.test(dsym)
+      rec("T37e dangling symlink tests/dangle.js -> src/notyet.js is NOT an evidence path", dsymBlocked, dsymBlocked ? "dangling-symlink escape blocked" : "ESCAPED via dangling symlink: " + dsym)
+    }
   } catch (e) {
     rec("T37e dangling symlink tests/dangle.js -> src/notyet.js is NOT an evidence path", false, "fixture error: " + e.message)
   }

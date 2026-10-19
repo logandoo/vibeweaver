@@ -534,6 +534,7 @@ const EXTENSIONLESS_CODE_RE = /(^|\/)(Makefile|Dockerfile|Containerfile|go\.mod|
 const inCodeDir = (fp) => /(^|\/)(src|lib|app|apps|packages?|server|internal|core|services?|backend|frontend|cmd|pkg|modules?|daemon|scripts|config|deploy|infra|k8s|helm|charts)\//i.test(fp)
 const isCodeWritePath = (fp) => {
   if (typeof fp !== "string" || !fp) return false
+  fp = fp.replace(/\\/g, "/")
   if (EXTENSIONLESS_CODE_RE.test(fp)) return true
   if (/(^|\/)README\.html?$/i.test(fp)) return false
   if (/\.(html?|htm)$/i.test(fp)) {
@@ -1659,7 +1660,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   }
 
   const markTurnWrite = (sess, filePath, unknown) => {
-    const fp = typeof filePath === "string" ? filePath : ""
+    const fp = typeof filePath === "string" ? filePath.replace(/\\/g, "/") : ""
     // Sticky boolean survives the bounded path-list eviction (a DOC claim must
     // not be washable by 50 later prose writes).
     if (!unknown && isCodeWritePath(fp)) sess.turnCodeWrite = true
@@ -1671,7 +1672,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   // completed write. A missing filePath is unknown (not evidence) — the
   // positive path decides by class instead of silently losing the write.
   const recordWriteEvidence = (sess, filePath, messageID) => {
-    const fp = typeof filePath === "string" ? filePath : ""
+    const fp = typeof filePath === "string" ? filePath.replace(/\\/g, "/") : ""
     const unknown = !fp
     markTurnWrite(sess, fp, unknown)
     sess.lastWriteAt = Date.now()
