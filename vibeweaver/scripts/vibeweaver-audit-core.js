@@ -787,7 +787,7 @@ const ASSERT_OUTPUT_RE = /assert_artifacts\.py:\s*(?:all\s+[1-9]\d*\s+checks\s+p
 // declare `[PAUSED]` so a model cannot silently self-whitelist.
 export function pausedPacketValid(text) {
   if (!text || typeof text !== "string") return false
-  if (/^\[PAUSED\]\s+gate=\S+.*\|\s*question=.+\|\s*options=.+\|\s*default-if-continue=.+\|\s*state=.+/mi.test(text)) return true
+  if (/^\[PAUSED\]\s+gate=\S+.*\|\s*question=.+\|\s*options=.+[,，;；].+\|\s*default-if-continue=.+\|\s*state=.+/mi.test(text)) return true
   const field = (name) => new RegExp(`^${name}:\\s*\\S`, "mi").test(text)
   if (!field("gate") || !field("question") || !field("default-if-continue") || !field("state")) return false
   if (!/^options:\s*$/mi.test(text)) return false
@@ -796,25 +796,29 @@ export function pausedPacketValid(text) {
 }
 export function pausedDeclaration(text) {
   if (typeof text !== "string" || !/\[PAUSED\]/i.test(text)) return false
-  return !/(?:no|not|without|don'?t)\s+\[PAUSED\]/i.test(text)
+  return !/(?:no|not|without|don'?t|won'?t|need not|no need).{0,60}\[PAUSED\]/i.test(text)
 }
 export function classERecordValid(text) {
   if (!text || typeof text !== "string") return false
   const lines = text.split("\n").filter((l) => /Class-E/i.test(l))
-  return lines.some((l) => /(?:approved by user|user-approved|用户批准|已批准)/i.test(l)
-    && !/(?:unapproved|not approved|未批准|未经批准|未获批准|不同意|拒绝)/i.test(l))
+  return lines.some((l) => /(?:approved|批准|同意|允许)/i.test(l)
+    && !/(?:unapproved|not approved|not yet approved|未批准|未经批准|未获|未得到|不同意|拒绝|rejected|denied)/i.test(l))
 }
-export function classEUserApproval(text) {
+export function classEUserApproval(text, context = "") {
   if (typeof text !== "string") return false
-  if (/(?:unapproved|not approved|未批准|未经批准|未获批准|不同意|拒绝|do not approve|don'?t approve)/i.test(text)) return false
-  return /(?:^|[.!?。！？\s])(?:i\s+)?(?:approve|authorize)\b/i.test(text)
-    || /^\s*approved?[.!]?\s*$/i.test(text.trim())
-    || /(?:^|[，,。.;；\s])(?:批准|同意|允许)(?:[，,。.;；\s]|$)/.test(text)
-    || /\bgo ahead\b/i.test(text)
+  const t = text.trim()
+  const mentions = /(?:class[- ]?e|例外|exception)/i.test(t)
+  const ctx = /(?:class[- ]?e|例外|exception)/i.test(context)
+  if (/(?:unapproved|not approved|未批准|未经批准|未获|未得到|不同意|拒绝|do not approve|don'?t approve|did not approve|didn'?t approve|cannot approve|can'?t approve|will not approve|won'?t approve|never approve|refuse to approve|do not go ahead|don'?t go ahead)/i.test(t)) return false
+  if (mentions && /(?:approve|approved|authorize|批准|同意|允许|go ahead)/i.test(t)) return true
+  if (ctx && /^(?:i\s+)?(?:approve|approved|authorize)\b[.!]?$/i.test(t)) return true
+  if (ctx && /^(?:批准|同意|允许)[。.!]?$/.test(t)) return true
+  if (ctx && /^approved by user\b/i.test(t)) return true
+  return false
 }
 export function classEDeclaration(text) {
-  return typeof text === "string" && /Class-E/i.test(text)
-    && !/(?:unapproved|not approved|未批准|未经批准|未获批准|不同意|拒绝)/i.test(text)
+  if (typeof text !== "string" || !/Class-E/i.test(text)) return false
+  return !/(?:no|not|un|未|拒绝|不同意).{0,24}class[- ]?e|class[- ]?e.{0,24}(?:not|un|未|拒绝|不同意)/i.test(text)
 }
 
 // W12 verified evidence seal: the manifest is only trusted when its file

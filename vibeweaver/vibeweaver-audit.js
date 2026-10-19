@@ -527,9 +527,9 @@ const PROSE_WRITE_RE = /(?:\.(md|txt|rst|log|png|webm|wav|mp4|mp3|docx|doc|xlsx|
 const CODE_WRITE_RE = /\.(py|js|mjs|ts|tsx|jsx|go|rs|java|c|cc|cpp|h|hpp|rb|php|cs|kt|swift|m|scala|pl|sh|bash|css|scss|sass|less|vue|svelte|astro|sql|json|jsonc|yaml|yml|toml|xml|ini|cfg|conf|properties|gradle|lock|mk|env|proto|graphql)$/i
 const REPORT_PATH_RE = /(^|\/)(reports?|output|outputs|artifacts?|findings?|results?|summaries|summary)\//i
 const REPORT_NAME_RE = /(^|\/)(report|reports|finding|findings|result|results|summary|analysis)[^/]*\.(html?|json|ya?ml|xml|csv|tsv|txt|md)$/i
-const DATA_REPORT_NAME_RE = /(^|\/)(data|metrics|audit|stats|coverage|table|tables|numbers)[^/]*\.(json|ya?ml|csv|tsv|txt)$/i
-const CONFIG_NAME_RE = /(^|\/)(config|schema|package|settings|manifest|tsconfig|webpack|vite|rollup|babel|requirements|pnpm-lock|package-lock|yarn\.lock|Cargo\.lock|poetry\.lock|composer\.lock|app|appsettings|angular|docker-compose|compose|helm|values|chart)[^/]*\.(json|jsonc|ya?ml|toml|xml|ini|cfg|conf|js|ts|txt|lock)$/i
-const REPORT_INDEX_RE = /(^|\/)(reports?|coverage|outputs?|artifacts?|findings?|results?|summaries|summary)\/index\.html?$/i
+const DATA_REPORT_NAME_RE = /(^|\/)(data|metrics|audit|stats|coverage|table|tables|numbers|appendix)[^/]*\.(json|ya?ml|csv|tsv|txt)$/i
+const CONFIG_NAME_RE = /(^|\/)(config|schema|package|settings|manifest|tsconfig|webpack|vite|rollup|babel|requirements|pnpm-lock|package-lock|yarn\.lock|Cargo\.lock|poetry\.lock|composer\.lock|appsettings|application|angular|docker-compose|compose)[^/]*\.(json|jsonc|ya?ml|toml|xml|ini|cfg|conf|js|ts|txt|lock)$|(^|\/)app\.(json|ya?ml|toml|ini|cfg|conf)$|(^|\/)(chart|values|helm)\.ya?ml$|(^|\/)helmfile[^/]*\.ya?ml$/i
+const REPORT_INDEX_RE = /(^|\/)(reports?|coverage|artifacts?|findings?|results?|summaries|summary)\/index\.html?$/i
 const EXTENSIONLESS_CODE_RE = /(^|\/)(Makefile|Dockerfile|Containerfile|go\.mod|go\.sum|Gemfile|Gemfile\.lock|Procfile|CMakeLists\.txt|Rakefile|Justfile|Brewfile)$/i
 const inCodeDir = (fp) => /(^|\/)(src|lib|app|apps|packages?|server|internal|core|services?|backend|frontend|cmd|pkg|modules?|daemon|scripts|config|deploy|infra|k8s|helm|charts)\//i.test(fp)
 const isCodeWritePath = (fp) => {
@@ -548,8 +548,10 @@ const isCodeWritePath = (fp) => {
     // Report/data artifacts are not code — but ONLY report-shaped extensions,
     // never a code/config file that happens to live under output/reports/.
     if (/(^|\/)(reports?|output|outputs|artifacts?|findings?|results?|summaries|summary)\//i.test(fp)
+      && /\.(json|jsonc|ya?ml|xml|csv|tsv|txt|md|html?)$/i.test(fp)
       && !CONFIG_NAME_RE.test(fp)
-      && /\.(json|jsonc|ya?ml|xml|csv|tsv|txt|md|html?)$/i.test(fp)) return false
+      && (REPORT_NAME_RE.test(fp) || DATA_REPORT_NAME_RE.test(fp))
+      && !inCodeDir(fp)) return false
     if (REPORT_NAME_RE.test(fp) && !inCodeDir(fp)) return false
     if (DATA_REPORT_NAME_RE.test(fp) && !inCodeDir(fp)) return false
     return true
@@ -1361,7 +1363,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const decTurn = decText.length >= decLen ? decText.slice(decLen) : decText
         classE = dm >= sessionStart && sessionStart > 0
           && typeof core.classERecordValid === "function" && core.classERecordValid(decTurn)
-          && typeof core.classEUserApproval === "function" && core.classEUserApproval(uText)
+          && typeof core.classEUserApproval === "function" && core.classEUserApproval(uText, aTail)
           && typeof core.classEDeclaration === "function" && core.classEDeclaration(aTail)
       } catch {
         /* absent */
@@ -1682,9 +1684,17 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       const ch = command[i]
       if (q) { out += ch; if (ch === q) q = null; i++; continue }
       if (ch === "'" || ch === '"') { q = ch; out += ch; i++; continue }
+      if (ch === "#" && (i === 0 || /[\s;&|]/.test(command[i - 1]))) {
+        const nl = command.indexOf("\n", i)
+        if (nl < 0) break
+        out += "\n"
+        i = nl + 1
+        continue
+      }
       if (ch === "<" && command[i + 1] === "<") {
         let j = i + 2
-        if (command[j] === "-") j++
+        let dash = false
+        if (command[j] === "-") { dash = true; j++ }
         while (j < command.length && /\s/.test(command[j])) j++
         const dq = command[j] === "'" || command[j] === '"' ? command[j] : ""
         let delim = ""
@@ -1702,8 +1712,17 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const nl = command.indexOf("\n", j)
         if (nl < 0) { out += command.slice(i); break }
         out += command.slice(i, nl + 1)
-        const end = command.indexOf("\n" + delim, nl)
-        if (end < 0) { i = command.length; break }
+        let end = -1
+        if (dash) {
+          const esc = delim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+          const re = new RegExp("\\n[\\t ]*" + esc + "(?=\\n|$)", "g")
+          re.lastIndex = nl
+          const m = re.exec(command)
+          if (m) end = m.index
+        } else {
+          end = command.indexOf("\n" + delim, nl)
+        }
+        if (end < 0) { out += command.slice(i); break }
         const endLine = command.indexOf("\n", end + 1)
         i = endLine < 0 ? command.length : endLine + 1
         continue

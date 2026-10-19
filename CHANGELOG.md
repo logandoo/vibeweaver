@@ -8,7 +8,7 @@ Waves of design history, newest first. Entries are moved verbatim from the READM
 
 **The mechanism.** Completion evidence is read only from the append-only log suffix written after the last user message, selected from the current task block, and the last `final-run` must be corroborated by the command's own assert output, a turn-fresh bound log, or a verified evidence manifest (file hashes + code fingerprint recomputed from the tree). Gate markers are ordered by first-seen part sequence against the last task-file write. `Class: DOC` is cross-checked against current-turn code/config writes (including bash redirects, heredocs, `tee`, `cp/mv` destinations and extensionless build files). Read-only/awaiting detectors strip quoted spans, scan bounded long briefs, and require request cues. Paused packets must be schema-valid **and** visible as `[PAUSED]` in the last assistant message; Class-E requires an approved record plus a user approval cue. A default warn-only tool-frequency layer journals one advisory at 120 varied calls without aborting; the opt-in abort threshold is unchanged.
 
-**Verification.** audit_selftest 535/0 (1 skipped) · mutation_sweep 44/0 · plugin compat 69/71 (E3/G9 pre-existing) · `assert_artifacts.py --existing --final` 30/30 · secret scan clean · evidence seal verified · four copies byte-identical (dev → system/plugins, open-source, repo).
+**Verification.** audit_selftest 552/0 (1 skipped) · mutation_sweep 44/0 · plugin compat 69/71 (E3/G9 pre-existing) · `assert_artifacts.py --existing --final` 30/30 · secret scan clean · evidence seal verified · four copies byte-identical (dev → system/plugins, open-source, repo).
 
 ## 2026-10-17: SIGTRAP crash fix — the observation hot path stops allocating the session twice per token
 

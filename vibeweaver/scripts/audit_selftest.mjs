@@ -2421,6 +2421,22 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     pausedPacketValid("[PAUSED] gate=x | question=q | options=(a),(b) | default-if-continue=(a) | state=s") === true, "one-liner")
   rec("T27c103 paused declaration: negated [PAUSED] is not a declaration",
     pausedDeclaration("No [PAUSED] packet is needed") === false, "negated")
+  rec("T27c104 Class-E user approval: 'I will not approve Class-E' is rejected",
+    classEUserApproval("I will not approve Class-E deployment", "Class-E") === false, "denied")
+  rec("T27c105 Class-E user approval: generic 'I approve the plan' is rejected",
+    classEUserApproval("I approve the plan", "Class-E") === false, "generic")
+  rec("T27c106 Class-E user approval: 'go ahead and implement' is rejected",
+    classEUserApproval("go ahead and implement the fix", "Class-E") === false, "generic")
+  rec("T27c107 Class-E user approval: '我批准 Class-E 部署' is accepted",
+    classEUserApproval("我批准 Class-E 部署", "Class-E") === true, "cn-approve")
+  rec("T27c108 Class-E user approval: 'I approved the Class-E deployment' is accepted",
+    classEUserApproval("I approved the Class-E deployment", "Class-E") === true, "en-past")
+  rec("T27c109 Class-E user approval: bare '批准' with Class-E context is accepted",
+    classEUserApproval("批准。", "Class-E") === true, "bare-cn")
+  rec("T27c110 Class-E declaration: 'No Class-E action taken' is rejected",
+    classEDeclaration("No Class-E action taken.") === false, "negated")
+  rec("T27c111 paused one-liner: a single option is invalid",
+    pausedPacketValid("[PAUSED] gate=x | question=q | options=(a) | default-if-continue=(a) | state=s") === false, "one-option")
   rec("T27c33 awaiting detector: 'let me know' sign-off is not awaiting", au("Implementation complete. Let me know if you need anything else.") === false, String(au("Implementation complete. Let me know if you need anything else.")))
   rec("T27c34 awaiting detector: 'which path' narrative is not awaiting", au("The parser decides which path to follow for nested imports.") === false, String(au("The parser decides which path to follow for nested imports.")))
   rec("T27c35 awaiting detector: waiting on your decision is awaiting", au("Waiting on your decision about the schema.") === true, String(au("Waiting on your decision about the schema."))
@@ -2803,6 +2819,24 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     rec("T27e87 DOC + output/docker-compose.yml → prompt", compose.prompts.length === 1, `prompts=${compose.prompts.length}`)
     const scriptsReport = await runStopCase("t27-w12-scripts-report", LOG_DOC, "Implement the report generator.", "Done.", { file: "scripts/report.json" })
     rec("T27e88 DOC + scripts/report.json → prompt", scriptsReport.prompts.length === 1, `prompts=${scriptsReport.prompts.length}`)
+    const commentHeredoc = await runStopCase("t27-w12-comment-heredoc", LOG_CODE, "Implement the fix.", "Done.", { bashOnlyCommand: 'echo start\n# note << not a heredoc\ncat > src/a.ts <<\'EOF\'\nexport const x = 1\nEOF' })
+    rec("T27e89 comment << does not blind a later write → prompt", commentHeredoc.prompts.length === 1, `prompts=${commentHeredoc.prompts.length}`)
+    const dashHeredoc = await runStopCase("t27-w12-dash-heredoc", LOG_CODE, "Implement the fix.", "Done.", { bashOnlyCommand: "cat <<-EOF\n\texport const x = 1\n\tEOF\ncat > src/a.ts <<'EOF'\nexport const x = 2\nEOF" })
+    rec("T27e90 <<- tab terminator does not blind a later write → prompt", dashHeredoc.prompts.length === 1, `prompts=${dashHeredoc.prompts.length}`)
+    const outputIndex = await runStopCase("t27-w12-output-index", LOG_DOC, "Implement the UI.", "Done.", { file: "output/index.html" })
+    rec("T27e91 DOC + output/index.html → prompt", outputIndex.prompts.length === 1, `prompts=${outputIndex.prompts.length}`)
+    const deployYaml = await runStopCase("t27-w12-deploy-yaml", LOG_DOC, "Implement the deployment.", "Done.", { file: "output/deployment.yaml" })
+    rec("T27e92 DOC + output/deployment.yaml → prompt", deployYaml.prompts.length === 1, `prompts=${deployYaml.prompts.length}`)
+    const appendixJson = await runStopCase("t27-w12-appendix-json", LOG_CODE, "仅评估，不修改。", "Appendix ready.", { file: "output/appendix.json" })
+    rec("T27e93 read-only audit + output/appendix.json report → no prompt", appendixJson.prompts.length === 0, `prompts=${appendixJson.prompts.length}`)
+    const classECn = await runStopCase("t27-w12-classe-cn", LOG_CODE, "我批准 Class-E 部署。", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e94 natural Chinese Class-E approval → no prompt", classECn.prompts.length === 0, `prompts=${classECn.prompts.length}`)
+    const classEDeny = await runStopCase("t27-w12-classe-deny", LOG_CODE, "I will not approve Class-E deployment.", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e95 English Class-E denial → prompt", classEDeny.prompts.length === 1, `prompts=${classEDeny.prompts.length}`)
+    const classEGeneric = await runStopCase("t27-w12-classe-generic", LOG_CODE, "I approve the plan.", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e96 generic 'I approve the plan' is not a Class-E grant → prompt", classEGeneric.prompts.length === 1, `prompts=${classEGeneric.prompts.length}`)
+    const classEGo = await runStopCase("t27-w12-classe-go", LOG_CODE, "go ahead and implement the fix", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e97 generic 'go ahead' is not a Class-E grant → prompt", classEGo.prompts.length === 1, `prompts=${classEGo.prompts.length}`)
   }
 
   // ---- W10: v2 has no message roles; the positive leg must still journal
