@@ -993,7 +993,7 @@ the agent's context explode and give up; untested, feedback welcome.
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 552 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm, T36–T39 self-lock/lock-escape/scope/source-hygiene suites) / 44 mutation checks, including the latch-release regressions                                                      |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 563 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm, T36–T39 self-lock/lock-escape/scope/source-hygiene suites) / 44 mutation checks, including the latch-release regressions                                                      |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing
@@ -1001,7 +1001,7 @@ the agent's context explode and give up; untested, feedback welcome.
 ```bash
 python3 verify_skill.py                     # package integrity: payload, links, markers, syntax
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
-node vibeweaver/scripts/audit_selftest.mjs  # 552 fixture checks (T6 skips without calibration data)
+node vibeweaver/scripts/audit_selftest.mjs  # 563 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 mutations, each must be caught
 ```
 

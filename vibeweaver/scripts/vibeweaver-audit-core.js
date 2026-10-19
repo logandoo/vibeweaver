@@ -802,28 +802,26 @@ export function classERecordValid(text) {
   if (!text || typeof text !== "string") return false
   const lines = text.split("\n").filter((l) => /Class-E/i.test(l))
   return lines.some((l) => /(?:approved|批准|同意|允许)/i.test(l)
-    && !/(?:unapproved|not approved|not yet approved|未批准|未经批准|未获|未得到|不同意|拒绝|rejected|denied)/i.test(l))
+    && !/(?:unapproved|not approved|not yet approved|will not be approved|has not been approved|disapprov|未批准|未经|未获|未同意|不同意|不允许|不批准|不予批准|不要批准|拒绝|rejected|denied)/i.test(l))
 }
-export function classEUserApproval(text, context = "") {
+export function classEUserApproval(text) {
   if (typeof text !== "string") return false
   const t = text.trim()
-  const mentions = /(?:class[- ]?e|例外|exception)/i.test(t)
-  const ctx = /(?:class[- ]?e|例外|exception)/i.test(context)
-  if (/(?:unapproved|not approved|未批准|未经批准|未获|未得到|不同意|拒绝|do not approve|don'?t approve|did not approve|didn'?t approve|cannot approve|can'?t approve|will not approve|won'?t approve|never approve|refuse to approve|do not go ahead|don'?t go ahead)/i.test(t)) return false
-  if (mentions && /(?:approve|approved|authorize|批准|同意|允许|go ahead)/i.test(t)) return true
-  if (ctx && /^(?:i\s+)?(?:approve|approved|authorize)\b[.!]?$/i.test(t)) return true
-  if (ctx && /^(?:批准|同意|允许)[。.!]?$/.test(t)) return true
-  if (ctx && /^approved by user\b/i.test(t)) return true
+  if (/(?:unapproved|not approved|not yet approved|未批准|未经|未获|未同意|不同意|不允许|不批准|不予批准|不要批准|拒绝|disapprov|do not approve|don'?t approve|did not approve|didn'?t approve|cannot approve|can'?t approve|will not approve|won'?t approve|would not approve|wouldn'?t approve|haven'?t approved|have not approved|never approve|refuse to approve|do not go ahead|don'?t go ahead)/i.test(t)) return false
+  if (/(?:class[- ]?e|例外|exception)[^.;,，。；]{0,30}(?:approve|approved|authorize|批准|同意|允许|go ahead)/i.test(t)) return true
+  if (/(?:approve|approved|authorize|批准|同意|允许)[^.;,，。；]{0,30}(?:class[- ]?e|例外|exception)/i.test(t)) return true
+  if (/(?:authorization|approval)\s+granted\b[^.;,，。；]{0,30}(?:class[- ]?e|例外|exception)/i.test(t)) return true
   return false
 }
 export function classEDeclaration(text) {
   if (typeof text !== "string" || !/Class-E/i.test(text)) return false
-  return !/(?:no|not|un|未|拒绝|不同意).{0,24}class[- ]?e|class[- ]?e.{0,24}(?:not|un|未|拒绝|不同意)/i.test(text)
+  return !/(?:\b(?:not|no|never|denied|rejected|unapproved)\b|未|拒绝|不同意).{0,30}class[- ]?e|class[- ]?e.{0,30}(?:\b(?:not|no|never|denied|rejected|unapproved)\b|未|拒绝|不同意)/i.test(text)
 }
 
-// W12 verified evidence seal: the manifest is only trusted when its file
-// hashes and code fingerprint reproduce the tree. This restores seal-only
-// completion without accepting a model-typed `- seal:` line.
+// W12 evidence-seal verifier (DIAGNOSTIC): the manifest is only reported
+// valid when its file hashes and code fingerprint reproduce the tree. It is
+// NOT completion evidence (a manifest proves tree content, not that the
+// assert command ran; see D-W12-2).
 const FINGERPRINT_EXT = new Set([".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".go", ".rs", ".java", ".sql", ".c", ".cc", ".cpp", ".h", ".hpp", ".kt", ".swift", ".php", ".rb", ".cs", ".sh", ".bash", ".bat", ".ps1", ".toml", ".yaml", ".yml", ".json", ".ini", ".cfg", ".conf", ".tf", ".tfvars", ".xml", ".css", ".scss", ".sass", ".less"])
 function sha256File(p) {
   try { return crypto.createHash("sha256").update(readFileSync(p)).digest("hex") } catch { return "" }

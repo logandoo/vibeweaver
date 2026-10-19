@@ -320,7 +320,7 @@ flowchart TD
 
 同一观察通道还跑着 **loop-guard**：对助手文本流做有界尾窗扫描，识别跑飞的生成——尾部同一行组复读（块周期按数据推导，≤640 行；多行块 ≥3×，单行 ≥4×，纯标点分隔线豁免）、末尾连续 ≥12 个裸 token 步长 +1（整数或双十进制字母）、无换行流的字符级周期（≥32 字符单元复读 ≥4×）、counter 墙（≥16 行同形（非数字部分相同）尾行、每数字段严格 +1——「严格」正是时间戳日志与 `page N of M` 保持干净的边界）、纯标点墙自 ≥2KB 起命中。同一套机械还盯着 reasoning 通道（独立缓冲与发作预算：只在 reasoning 里发作的墙不再隐形），扫描入口对尾空白归一（以换行或多余空格收尾的复读不再藏住自己的种子）。命中后打断会话（v1 `session.abort` / v2 `session.interrupt({continue:false})`）并投递指出具体模式的纠正提示；一段发作干预一次（干净文本或新 turn 重新武装），每会话至多两次，之后的发作只记日志；单 turn 绝对上限 256KB 触发带独立纠正文案的 runaway 干预；编号列表（`1. 步骤`）这类「看着像序列」的正常文本不会触发，分隔线与 ASCII art 保持干净。
 
-守卫还看着**工具通道**——更阴的失效就住在那里：意图-动作脱节。模型宣告要调工具（"use Read now"、"final"、"grading"），实际发的却是裸 `echo "…"` bash 调用：每次 exit 0、字面各异、文本检测器一个都看不见，因为循环根本没碰文本流。这里的检测是内容级而非字节级：字面量参数、无副作用的 `echo`/`printf`/`true`/`:` 算 no-op，连续 ≥4 个相异 no-op bash 调用触发同一打断。同一工具 part 的流式重观测按 part id 去重、仅状态观测遮不住 run、被截断的命令会断开 run（截断能伪造字面量）。两通道各自的发作 arming 与预算独立——文本退化发作永远吞不掉工具通道的那次打断。另有两枚检测器覆盖 echo 分类器看不见的风暴形态：`identical-tool-run`（同 tool 同 canonical 参数（深度键排序 JSON 身份）、仅数不同 part id——永不使用观测折叠——重发 ≥4 次）与 `tool-frequency`（同一工具连砸 ≥20 次不同参数）。每次中断本身就是 stall 声明（任何完工声明前写入 `- stall: noop-bash …` / `- stall: identical-tool-run …` / `- stall: tool-frequency …`；tool-frequency 的 stall 行仅在真 stall 时强制，合法批量写一行说明即可），且 pattern 全值自由（净化后 tool 名 + key 计数 + argsLen）——工具参数永远无法左右纠正提示。纠正提示要求真正推进（或在判据确已全过时输出完成产物）。如实划界：裸字面量 run、同参重发、单工具风暴都有机械捕捉；语义级 no-op（`sleep`、`ls`）与 echo/read 交错振荡是记录在案的缺口，不是声明覆盖。
+守卫还看着**工具通道**——更阴的失效就住在那里：意图-动作脱节。模型宣告要调工具（"use Read now"、"final"、"grading"），实际发的却是裸 `echo "…"` bash 调用：每次 exit 0、字面各异、文本检测器一个都看不见，因为循环根本没碰文本流。这里的检测是内容级而非字节级：字面量参数、无副作用的 `echo`/`printf`/`true`/`:` 算 no-op，连续 ≥4 个相异 no-op bash 调用触发同一打断。同一工具 part 的流式重观测按 part id 去重、仅状态观测遮不住 run、被截断的命令会断开 run（截断能伪造字面量）。两通道各自的发作 arming 与预算独立——文本退化发作永远吞不掉工具通道的那次打断。另有两枚检测器覆盖 echo 分类器看不见的风暴形态：`identical-tool-run`（同 tool 同 canonical 参数（深度键排序 JSON 身份）、仅数不同 part id——永不使用观测折叠——重发 ≥4 次）与 `tool-frequency`（同一工具连砸 ≥120 次不同参数，默认仅 warn；配置 `loopGuardToolFrequencyMin` 后才 abort，阈值 ≥20）。每次中断本身就是 stall 声明（任何完工声明前写入 `- stall: noop-bash …` / `- stall: identical-tool-run …` / `- stall: tool-frequency …`；tool-frequency 的 stall 行仅在真 stall 时强制，合法批量写一行说明即可），且 pattern 全值自由（净化后 tool 名 + key 计数 + argsLen）——工具参数永远无法左右纠正提示。纠正提示要求真正推进（或在判据确已全过时输出完成产物）。如实划界：裸字面量 run、同参重发、单工具风暴都有机械捕捉；语义级 no-op（`sleep`、`ls`）与 echo/read 交错振荡是记录在案的缺口，不是声明覆盖。
 
 门禁也不挑 skill：只要项目里有 `tests/verification_log.md` 它就生效，所以 **vibeweaver-mini** 同样被覆盖，mini 的落盘格式刻意与它的证据底线保持一致。只用 mini 又想要这条硬底线的用户，装这一个插件就够了。
 
@@ -438,7 +438,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |
 | `vibeweaver-audit.js`                               | 三层机械审计器（Tier 0/1/2），会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈                                                                   |
 | `scripts/vibeweaver-audit-core.js`                  | 纯裁决核心（可无头测试）                                                                                                     |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 552 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放、T34–T35 工具风暴套件）/ 44 项变异检查，含锁存释放回归                                                    |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 563 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放、T34–T35 工具风暴套件）/ 44 项变异检查，含锁存释放回归                                                    |
 | `install.sh` / `install.bat`                        | 安装脚本（skill 文件 + 两个插件）                                                                                            |
 
 ## 测试
@@ -448,7 +448,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 ```bash
 python3 verify_skill.py                     # 包完整性：payload、链接、标记、语法
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
-node vibeweaver/scripts/audit_selftest.mjs  # 552 项 fixture 检查（无校准数据时 T6 SKIP）
+node vibeweaver/scripts/audit_selftest.mjs  # 563 项 fixture 检查（无校准数据时 T6 SKIP）
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 项变异，每项都必须被抓到
 ```
 

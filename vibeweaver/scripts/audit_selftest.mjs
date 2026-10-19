@@ -2431,12 +2431,21 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     classEUserApproval("我批准 Class-E 部署", "Class-E") === true, "cn-approve")
   rec("T27c108 Class-E user approval: 'I approved the Class-E deployment' is accepted",
     classEUserApproval("I approved the Class-E deployment", "Class-E") === true, "en-past")
-  rec("T27c109 Class-E user approval: bare '批准' with Class-E context is accepted",
-    classEUserApproval("批准。", "Class-E") === true, "bare-cn")
+  rec("T27c109 Class-E user approval: bare '批准' without Class-E mention is NOT accepted",
+    classEUserApproval("批准。") === false, "bare-no-context")
   rec("T27c110 Class-E declaration: 'No Class-E action taken' is rejected",
     classEDeclaration("No Class-E action taken.") === false, "negated")
   rec("T27c111 paused one-liner: a single option is invalid",
     pausedPacketValid("[PAUSED] gate=x | question=q | options=(a) | default-if-continue=(a) | state=s") === false, "one-option")
+  rec("T27c112 Class-E user approval: \"I haven't approved Class-E\" is rejected",
+    classEUserApproval("I haven't approved Class-E") === false, "denied")
+  rec("T27c113 Class-E user approval: 'I would not approve Class-E' is rejected",
+    classEUserApproval("I would not approve Class-E") === false, "denied")
+  rec("T27c114 Class-E record: 不允许 is invalid", classERecordValid("D-1 | Class-E | 不允许 | deploy") === false, "denied-record")
+  rec("T27c115 Class-E declaration: 'Class-E approved; nothing pending' is valid",
+    classEDeclaration("Class-E approved; nothing pending.") === true, "positive-nothing")
+  rec("T27c116 Class-E declaration: 'Class-E approved; unblocked' is valid",
+    classEDeclaration("Class-E approved; unblocked.") === true, "positive-unblocked")
   rec("T27c33 awaiting detector: 'let me know' sign-off is not awaiting", au("Implementation complete. Let me know if you need anything else.") === false, String(au("Implementation complete. Let me know if you need anything else.")))
   rec("T27c34 awaiting detector: 'which path' narrative is not awaiting", au("The parser decides which path to follow for nested imports.") === false, String(au("The parser decides which path to follow for nested imports.")))
   rec("T27c35 awaiting detector: waiting on your decision is awaiting", au("Waiting on your decision about the schema.") === true, String(au("Waiting on your decision about the schema."))
@@ -2829,6 +2838,12 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     rec("T27e92 DOC + output/deployment.yaml → prompt", deployYaml.prompts.length === 1, `prompts=${deployYaml.prompts.length}`)
     const appendixJson = await runStopCase("t27-w12-appendix-json", LOG_CODE, "仅评估，不修改。", "Appendix ready.", { file: "output/appendix.json" })
     rec("T27e93 read-only audit + output/appendix.json report → no prompt", appendixJson.prompts.length === 0, `prompts=${appendixJson.prompts.length}`)
+    const notesJson = await runStopCase("t27-w12-notes-json", LOG_CODE, "仅评估，不修改。", "Notes ready.", { file: "output/notes.json" })
+    rec("T27e101 read-only audit + output/notes.json report → no prompt", notesJson.prompts.length === 0, `prompts=${notesJson.prompts.length}`)
+    const outputsIndex = await runStopCase("t27-w12-outputs-index", LOG_DOC, "Only evaluate; do not modify code.", "Report ready.", { file: "outputs/index.html" })
+    rec("T27e102 DOC + outputs/index.html report → no prompt", outputsIndex.prompts.length === 0, `prompts=${outputsIndex.prompts.length}`)
+    const appendixHtml = await runStopCase("t27-w12-appendix-html", LOG_DOC, "Only evaluate; do not modify code.", "Appendix ready.", { file: "output/appendix.html" })
+    rec("T27e103 DOC + output/appendix.html report → no prompt", appendixHtml.prompts.length === 0, `prompts=${appendixHtml.prompts.length}`)
     const classECn = await runStopCase("t27-w12-classe-cn", LOG_CODE, "我批准 Class-E 部署。", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
     rec("T27e94 natural Chinese Class-E approval → no prompt", classECn.prompts.length === 0, `prompts=${classECn.prompts.length}`)
     const classEDeny = await runStopCase("t27-w12-classe-deny", LOG_CODE, "I will not approve Class-E deployment.", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
@@ -2837,6 +2852,12 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     rec("T27e96 generic 'I approve the plan' is not a Class-E grant → prompt", classEGeneric.prompts.length === 1, `prompts=${classEGeneric.prompts.length}`)
     const classEGo = await runStopCase("t27-w12-classe-go", LOG_CODE, "go ahead and implement the fix", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
     rec("T27e97 generic 'go ahead' is not a Class-E grant → prompt", classEGo.prompts.length === 1, `prompts=${classEGo.prompts.length}`)
+    const classEHavent = await runStopCase("t27-w12-classe-havent", LOG_CODE, "I haven't approved Class-E deployment.", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e98 \"haven't approved\" is a denial → prompt", classEHavent.prompts.length === 1, `prompts=${classEHavent.prompts.length}`)
+    const classEClause = await runStopCase("t27-w12-classe-clause", LOG_CODE, "Class-E is pending; I approve the plan.", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e99 approval in a different clause is not a Class-E grant → prompt", classEClause.prompts.length === 1, `prompts=${classEClause.prompts.length}`)
+    const classENothing = await runStopCase("t27-w12-classe-nothing", LOG_CODE, "我批准 Class-E 部署。", "Class-E approved; nothing pending.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e100 'nothing pending' does not negate a Class-E declaration → no prompt", classENothing.prompts.length === 0, `prompts=${classENothing.prompts.length}`)
   }
 
   // ---- W10: v2 has no message roles; the positive leg must still journal

@@ -526,10 +526,10 @@ const PROSE_WRITE_RE = /(?:\.(md|txt|rst|log|png|webm|wav|mp4|mp3|docx|doc|xlsx|
 // prose" — a read-only audit writing findings.csv/report.json is not code.
 const CODE_WRITE_RE = /\.(py|js|mjs|ts|tsx|jsx|go|rs|java|c|cc|cpp|h|hpp|rb|php|cs|kt|swift|m|scala|pl|sh|bash|css|scss|sass|less|vue|svelte|astro|sql|json|jsonc|yaml|yml|toml|xml|ini|cfg|conf|properties|gradle|lock|mk|env|proto|graphql)$/i
 const REPORT_PATH_RE = /(^|\/)(reports?|output|outputs|artifacts?|findings?|results?|summaries|summary)\//i
-const REPORT_NAME_RE = /(^|\/)(report|reports|finding|findings|result|results|summary|analysis)[^/]*\.(html?|json|ya?ml|xml|csv|tsv|txt|md)$/i
+const REPORT_NAME_RE = /(^|\/)(report|reports|finding|findings|result|results|summary|analysis|appendix|coverage|notes)[^/]*\.(html?|json|ya?ml|xml|csv|tsv|txt|md)$/i
 const DATA_REPORT_NAME_RE = /(^|\/)(data|metrics|audit|stats|coverage|table|tables|numbers|appendix)[^/]*\.(json|ya?ml|csv|tsv|txt)$/i
 const CONFIG_NAME_RE = /(^|\/)(config|schema|package|settings|manifest|tsconfig|webpack|vite|rollup|babel|requirements|pnpm-lock|package-lock|yarn\.lock|Cargo\.lock|poetry\.lock|composer\.lock|appsettings|application|angular|docker-compose|compose)[^/]*\.(json|jsonc|ya?ml|toml|xml|ini|cfg|conf|js|ts|txt|lock)$|(^|\/)app\.(json|ya?ml|toml|ini|cfg|conf)$|(^|\/)(chart|values|helm)\.ya?ml$|(^|\/)helmfile[^/]*\.ya?ml$/i
-const REPORT_INDEX_RE = /(^|\/)(reports?|coverage|artifacts?|findings?|results?|summaries|summary)\/index\.html?$/i
+const REPORT_INDEX_RE = /(^|\/)(reports?|outputs|coverage|artifacts?|findings?|results?|summaries|summary)\/index\.html?$/i
 const EXTENSIONLESS_CODE_RE = /(^|\/)(Makefile|Dockerfile|Containerfile|go\.mod|go\.sum|Gemfile|Gemfile\.lock|Procfile|CMakeLists\.txt|Rakefile|Justfile|Brewfile)$/i
 const inCodeDir = (fp) => /(^|\/)(src|lib|app|apps|packages?|server|internal|core|services?|backend|frontend|cmd|pkg|modules?|daemon|scripts|config|deploy|infra|k8s|helm|charts)\//i.test(fp)
 const isCodeWritePath = (fp) => {
@@ -550,8 +550,8 @@ const isCodeWritePath = (fp) => {
     if (/(^|\/)(reports?|output|outputs|artifacts?|findings?|results?|summaries|summary)\//i.test(fp)
       && /\.(json|jsonc|ya?ml|xml|csv|tsv|txt|md|html?)$/i.test(fp)
       && !CONFIG_NAME_RE.test(fp)
-      && (REPORT_NAME_RE.test(fp) || DATA_REPORT_NAME_RE.test(fp))
-      && !inCodeDir(fp)) return false
+      && !inCodeDir(fp)
+      && (/\.json$/i.test(fp) || REPORT_NAME_RE.test(fp) || DATA_REPORT_NAME_RE.test(fp))) return false
     if (REPORT_NAME_RE.test(fp) && !inCodeDir(fp)) return false
     if (DATA_REPORT_NAME_RE.test(fp) && !inCodeDir(fp)) return false
     return true
