@@ -699,8 +699,7 @@ session is never aborted after a completed turn):
   escapes; counters Number.isFinite-guarded and flushed before the prompt
   lands; a host without a prompt channel journals debt instead of burning
   budget (no phantom interventions);
-- v2 hosts (no message-level telemetry, spike W0): debt + notes mode only —
-  the whitelist is unverifiable there, so v2 never auto-prompts.
+- v2 hosts (no message telemetry): explicit euphemism/truncation prompts when session.prompt exists; positive silent-stop stays debt-only.
 
 **Abandonment debt (advisory, never blocking):** a trigger not followed by a
 corrective (v2 mode · budget exhausted · no prompt channel) is journaled to

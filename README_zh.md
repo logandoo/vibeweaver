@@ -438,7 +438,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |
 | `vibeweaver-audit.js`                               | 三层机械审计器（Tier 0/1/2），会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈                                                                   |
 | `scripts/vibeweaver-audit-core.js`                  | 纯裁决核心（可无头测试）                                                                                                     |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 563 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放、T34–T35 工具风暴套件）/ 44 项变异检查，含锁存释放回归                                                    |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 560 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放、T34–T35 工具风暴套件）/ 44 项变异检查，含锁存释放回归                                                    |
 | `install.sh` / `install.bat`                        | 安装脚本（skill 文件 + 两个插件）                                                                                            |
 
 ## 测试
@@ -448,7 +448,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 ```bash
 python3 verify_skill.py                     # 包完整性：payload、链接、标记、语法
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
-node vibeweaver/scripts/audit_selftest.mjs  # 563 项 fixture 检查（无校准数据时 T6 SKIP）
+node vibeweaver/scripts/audit_selftest.mjs  # 560 项 fixture 检查（无校准数据时 T6 SKIP）
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 项变异，每项都必须被抓到
 ```
 

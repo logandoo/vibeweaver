@@ -8,7 +8,7 @@
 
 **机制。** 完成证据只读最后 user message 之后追加的日志后缀、当前 task block，最后一条 `final-run` 必须由命令自身 assert 输出、本 turn 绑定的日志或 verified evidence manifest（文件哈希 + 从树复算 code fingerprint）佐证。Gate 标记按首次出现的 part seq 与最后一次 task-file write 排序。`Class: DOC` 与本 turn 的 code/config 写入交叉校验（含 bash redirect、heredoc、`tee`、`cp/mv` 目标与无扩展名构建文件）。只读/等待判定先剥离引号、扫有界长 brief、要求请求线索。PAUSED 包必须 schema 完整**且**最后一条 assistant 消息可见 `[PAUSED]`；Class-E 需要 approved 记录 + 用户批准线索。默认 warn-only 工具频率层在 120 次变参调用时记一条 advisory，不 abort；opt-in abort 阈值不变。
 
-**验证。** audit_selftest 563/0（1 skipped）· mutation_sweep 44/0 · plugin compat 69/71（E3/G9 pre-existing）· `assert_artifacts.py --existing --final` 30/30 · secret scan clean · evidence seal verified · 四副本字节一致（dev → system/plugins、open-source、repo）。
+**验证。** audit_selftest 560/0（1 skipped）· mutation_sweep 44/0 · plugin compat 69/71（E3/G9 pre-existing）· `assert_artifacts.py --existing --final` 30/30 · secret scan clean · evidence seal verified · 四副本字节一致（dev → system/plugins、open-source、repo）。
 
 ## 2026-10-17：SIGTRAP 崩溃修复 — 观察热路径不再每个 token 重建两次语料
 

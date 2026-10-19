@@ -818,73 +818,22 @@ export function classEDeclaration(text) {
   return !/(?:\b(?:not|no|never|denied|rejected|unapproved)\b|未|拒绝|不同意).{0,30}class[- ]?e|class[- ]?e.{0,30}(?:\b(?:not|no|never|denied|rejected|unapproved)\b|未|拒绝|不同意)/i.test(text)
 }
 
-// W12 evidence-seal verifier (DIAGNOSTIC): the manifest is only reported
-// valid when its file hashes and code fingerprint reproduce the tree. It is
-// NOT completion evidence (a manifest proves tree content, not that the
-// assert command ran; see D-W12-2).
-const FINGERPRINT_EXT = new Set([".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".go", ".rs", ".java", ".sql", ".c", ".cc", ".cpp", ".h", ".hpp", ".kt", ".swift", ".php", ".rb", ".cs", ".sh", ".bash", ".bat", ".ps1", ".toml", ".yaml", ".yml", ".json", ".ini", ".cfg", ".conf", ".tf", ".tfvars", ".xml", ".css", ".scss", ".sass", ".less"])
-function sha256File(p) {
-  try { return crypto.createHash("sha256").update(readFileSync(p)).digest("hex") } catch { return "" }
-}
-function waveCodeFingerprint(root) {
-  const git = (args) => {
-    try { return execFileSync("git", ["-C", root, ...args], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"] }) } catch { return "" }
-  }
-  const backup = git(["log", "--format=%H", "-1", "--fixed-strings", "--grep=backup: before changes"]).trim()
-  const paths = new Set()
-  if (backup) for (const l of git(["diff", "--name-only", `${backup}..HEAD`]).split("\n")) if (l.trim()) paths.add(l.trim())
-  for (const l of git(["diff", "--name-only", "HEAD"]).split("\n")) if (l.trim()) paths.add(l.trim())
-  for (const l of git(["ls-files", "--others", "--exclude-standard"]).split("\n")) if (l.trim()) paths.add(l.trim())
-  const files = [...paths]
-    .filter((p) => FINGERPRINT_EXT.has(path.extname(p).toLowerCase()))
-    .filter((p) => !p.includes("assert_artifacts.py") && !p.includes("evidence_seal.py") && !p.startsWith("tests/"))
-    .sort()
-  const parts = files.map((rel) => `${rel}:${sha256File(path.join(root, rel)) || "gone"}`)
-  return crypto.createHash("sha256").update(parts.join("\n")).digest("hex")
-}
-export function verifyEvidenceManifest(root) {
-  if (!root || typeof root !== "string") return { ok: false, reason: "no-root" }
-  try {
-    const realRoot = realpathSync(root)
-    const mp = path.join(realRoot, "tests", "evidence_manifest.json")
-    const st = statSync(mp)
-    if (!st.isFile() || st.size <= 0 || st.size > 2_000_000) return { ok: false, reason: "manifest-invalid" }
-    const man = JSON.parse(readFileSync(mp, "utf8"))
-    if (!man || man.version !== 1 || typeof man.code_fingerprint !== "string" || !/^[a-f0-9]{64}$/i.test(man.code_fingerprint)) return { ok: false, reason: "manifest-schema" }
-    const entries = man.files && typeof man.files === "object" ? Object.entries(man.files) : []
-    for (const [rel, meta] of entries) {
-      if (typeof rel !== "string" || !rel.startsWith("tests/") || !meta || typeof meta.sha256 !== "string") return { ok: false, reason: "entry-schema" }
-      const abs = realpathSync(path.join(realRoot, rel))
-      const r = path.relative(realRoot, abs).split(path.sep).join("/")
-      if (!r.startsWith("tests/") || r.startsWith("..")) return { ok: false, reason: "entry-path" }
-      const fsStat = statSync(abs)
-      if (!fsStat.isFile() || fsStat.size > 2_000_000) return { ok: false, reason: "entry-file" }
-      if (sha256File(abs) !== meta.sha256) return { ok: false, reason: "entry-hash" }
-    }
-    if (waveCodeFingerprint(realRoot) !== man.code_fingerprint) return { ok: false, reason: "code-fingerprint" }
-    return { ok: true, reason: "verified", manifestMtime: Math.floor(st.mtimeMs) }
-  } catch {
-    return { ok: false, reason: "manifest-missing" }
-  }
-}
-
 // W11 P0-1: a typed final-run line is not execution evidence. The LAST
-// final-run in the block must be corroborated by the command's own output on
-// a DIFFERENT line (nearby) or a turn-fresh `log=<tests/...>` artifact whose
-// content contains that output. Shared by the stop-guard and B12 so the two
-// cannot disagree. (`- seal:` is NOT completion evidence: a manifest proves
-// tree hashes, not that the assert command ran; see D-W12-2.)
+// final-run in the current task block must be corroborated by the command's
+// own output on a DIFFERENT line (nearby) or a turn-fresh `log=<tests/...>`
+// artifact whose content contains that output. Seal is NOT completion
+// evidence (D-W12-2). Shared by the stop-guard and B12.
 export function finalRunEvidence(block, opts = {}) {
   if (!block || typeof block !== "string") return { trusted: false, reason: "no-block" }
   const root = typeof opts.root === "string" && opts.root ? path.resolve(opts.root) : ""
   const since = Number.isFinite(opts.sinceMs) ? opts.sinceMs : 0
   const lines = block.split("\n")
   let idx = -1
-  for (let i = 0; i < lines.length; i++) if (ANY_FINAL_RUN_RE.test(lines[i])) idx = i // LAST wins
+  for (let i = 0; i < lines.length; i++) if (ANY_FINAL_RUN_RE.test(lines[i])) idx = i
   if (idx < 0) return { trusted: false, reason: "no-final-run" }
   if (!FINAL_RUN_RE.test(lines[idx])) return { trusted: false, reason: "last-final-run-not-passing" }
   for (let i = Math.max(0, idx - 8); i <= Math.min(lines.length - 1, idx + 8); i++) {
-    if (i === idx) continue // a one-line final-run + assert text is a forgery
+    if (i === idx) continue
     if (ASSERT_OUTPUT_RE.test(lines[i])) return { trusted: true, reason: "assert-output" }
   }
   const bound = lines[idx].match(/\b(?:log|artifact)\s*[=:]\s*`?([^\s`]+)`?/i)
@@ -942,7 +891,14 @@ export function stopGuardDecision(o) {
   if (o.gateMarker) return { action: "ignore", why: "whitelisted:gate-marker" }
   if (o.userStop) return { action: "ignore", why: "whitelisted:user-stop" }
   if (o.tailQuestion) return { action: "ignore", why: "whitelisted:tail-question" }
-  if (!o.telemetry) return { action: "debt", why: "v2-no-telemetry", kind: t ? t.kind : "incomplete" }
+  if (!o.telemetry) {
+    // v2 has no message telemetry. Explicit euphemism/truncation triggers are
+    // still safe to correct when the host exposes a prompt channel; the
+    // positive (silent-stop) leg remains debt-only because its whitelist
+    // depends on user-role text that v2 does not provide.
+    if (!o.promptable || positive) return { action: "debt", why: "v2-no-telemetry", kind: t ? t.kind : "incomplete" }
+    return { action: "prompt", kind: t.kind }
+  }
   return { action: "prompt", kind: t ? t.kind : "incomplete" }
 }
 

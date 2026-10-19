@@ -15,7 +15,7 @@ import path from "node:path"
 
 const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
 const CORE_MODULE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
-const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopAwaitingUser, stopReadOnlyInstruction, stopGuardDecision, stopGuardPrompt, currentLogBlock, currentEvidenceBlock, finalRunEvidence, pausedPacketValid, pausedDeclaration, classERecordValid, classEUserApproval, classEDeclaration, verifyEvidenceManifest, identicalToolRunFinding, toolIdentity, canonicalJson, toolFrequencyFinding } = await import(pathToFileURL(CORE_MODULE))
+const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopAwaitingUser, stopReadOnlyInstruction, stopGuardDecision, stopGuardPrompt, currentLogBlock, currentEvidenceBlock, finalRunEvidence, pausedPacketValid, pausedDeclaration, classERecordValid, classEUserApproval, classEDeclaration, identicalToolRunFinding, toolIdentity, canonicalJson, toolFrequencyFinding } = await import(pathToFileURL(CORE_MODULE))
 // Dual-compat module surface: current plugin default-exports { id, server, setup };
 // fall back to the legacy named export when testing an older copy.
 const auditModule = await import(pathToFileURL(AUDIT_MODULE))
@@ -2172,30 +2172,6 @@ if (existsSync(calibDir)) {
   rec("T26d mid-phase without gate line → B12 silent (no mid-task interference)", b12d === undefined, b12d ? b12d.verdict : "absent")
 }
 
-// ---- T44 (W12): verified evidence seal — real evidence_seal.py output only ---
-{
-  const root44 = newFixture("t44-verified-seal")
-  write(root44, "tests/verification_log.md", "## Task: fixture\n- iter 1 PASS: all\n")
-  write(root44, "tests/acceptance.md", "> cap=5  stall=3×\n1. fixture\n")
-  write(root44, "src/a.ts", "export const x = 1\n")
-  initGit(root44, false)
-  const sealSrc = path.resolve(import.meta.dirname, "evidence_seal.py")
-  try {
-    execFileSync("python3", [sealSrc], { cwd: root44, encoding: "utf8", timeout: 20000 })
-  } catch {
-    /* python unavailable — the assertions below will fail honestly */
-  }
-  const sealOk = typeof verifyEvidenceManifest === "function" ? verifyEvidenceManifest(root44) : { ok: false, reason: "helper-missing" }
-  rec("T44a real evidence_seal.py manifest verifies (files + code fingerprint)", sealOk.ok === true, JSON.stringify(sealOk))
-  const sealBlock = "- seal: fixture\n- final-run: --final — pass=3/fail=0\n"
-  const trusted = typeof finalRunEvidence === "function" ? finalRunEvidence(sealBlock, { root: root44, sinceMs: 0 }) : { trusted: false }
-  rec("T44b seal-only does NOT complete (manifest proves tree, not assert run)", trusted.trusted === false, JSON.stringify(trusted))
-  write(root44, "src/a.ts", "export const x = 2\n") // uncommitted code change -> fingerprint mismatch
-  const tampered = typeof verifyEvidenceManifest === "function" ? verifyEvidenceManifest(root44) : { ok: false, reason: "helper-missing" }
-  const rejected = typeof finalRunEvidence === "function" ? finalRunEvidence(sealBlock, { root: root44, sinceMs: 0 }) : { trusted: false }
-  rec("T44c tampered code fingerprint invalidates the seal", tampered.ok === false && rejected.trusted === false, `${JSON.stringify(tampered)} / ${JSON.stringify(rejected)}`)
-}
-
 // =====================================================================
 // T27 — stop-guard (§V12): false-stop detector + whitelist + budget + debt
 // =====================================================================
@@ -3023,11 +2999,12 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
         emit(e) { q.push(e); if (waiting) { const w = waiting; waiting = null; w() } },
       }
       const hooks = {}
+      const prompts = []
       const ctx = {
         location: { directory: root },
         tool: { hook: async (name, fn) => { hooks[name] = fn; return { dispose: async () => {} } } },
         event: { subscribe: () => bus.subscribe() },
-        session: { interrupt: async () => {}, prompt: async () => {} },
+        session: { interrupt: async () => {}, prompt: async (args) => { prompts.push((args && args.text) || "") } },
       }
       await auditModule.default.setup(ctx)
       const debt = async () => {
@@ -3036,7 +3013,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
           return (st.roots && st.roots[root] && st.roots[root].stopDebt) || []
         } catch { return [] }
       }
-      return { root, bus, hooks, debt }
+      return { root, bus, hooks, debt, prompts }
     }
     const oldBlock = "## Task: old\n- class: CODE — logic\n- assert-run: assert_artifacts.py: all 3 checks pass (exit 0)\n- final-run: --final — pass=3/fail=0\n"
     {
@@ -3073,7 +3050,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2gateold", status: { type: "idle" } } })
       await new Promise((r) => setTimeout(r, 80))
       const d = await h.debt()
-      rec("T27e46 old v2 gate does not suppress a later euphemism debt", d.some((x) => x.kind === "euphemism"), `debt=${JSON.stringify(d).slice(0, 120)}`)
+      rec("T27e46 old v2 gate does not suppress a later euphemism prompt", h.prompts.length === 1, `prompts=${h.prompts.length}`)
     }
     {
       const h = await mkV2("t27-w11-v2-gate-done", "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n")

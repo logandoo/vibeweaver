@@ -632,6 +632,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const { auditProject, buildReport, mergeReleaseLines } = core
   const caps = capabilities && typeof capabilities === "object" ? capabilities : {}
   const hasTelemetry = caps.telemetry === true
+  const promptable = caps.promptable === true
 
   let state = { sessions: {}, roots: {} }
   const statePath = path.join(directory, STATE_DIR, STATE_FILE)
@@ -1448,7 +1449,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         && !gateMarker && !userStop && !pausedState && !classE && wroteTaskAfterUser && !errorFence
       if (!trigger && !positiveIncomplete) return
       const effectiveTrigger = trigger || { kind: "incomplete", match: finalEv.reason === "unbound-final-run" ? "untrusted-final-run" : "no-final-run" }
-      const decision = core.stopGuardDecision({ trigger, positiveIncomplete, taskActive, readOnlyTask, awaitingUser, pausedState, classE, errorFence, gateMarker, tailQuestion, userStop, telemetry: hasTelemetry })
+      const decision = core.stopGuardDecision({ trigger, positiveIncomplete, taskActive, readOnlyTask, awaitingUser, pausedState, classE, errorFence, gateMarker, tailQuestion, userStop, telemetry: hasTelemetry, promptable })
       if (decision.action === "ignore") return
       if (!sg.armed) return
       sg.armed = false
@@ -2386,10 +2387,20 @@ async function setup(ctx) {
             }
           }
         : undefined,
-    // stop-guard (v2): no message-level telemetry (spike W0) — the whitelist
-    // is unverifiable, so v2 never auto-prompts (debt + notes mode only).
-    onStopPrompt: undefined,
-    capabilities: { telemetry: false },
+    // stop-guard (v2): explicit euphemism/truncation triggers may post a
+    // corrective prompt when the host exposes session.prompt; the positive
+    // silent-stop leg stays debt-only because v2 has no user-role whitelist.
+    onStopPrompt:
+      ctx.session && typeof ctx.session.prompt === "function"
+        ? async (sessionID, text) => {
+            try {
+              await ctx.session.prompt({ sessionID, text })
+            } catch {
+              /* best-effort */
+            }
+          }
+        : undefined,
+    capabilities: { telemetry: false, promptable: !!(ctx.session && typeof ctx.session.prompt === "function") },
   })
   const registrations = []
 
