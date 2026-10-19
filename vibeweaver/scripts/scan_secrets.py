@@ -39,12 +39,74 @@ RULES = [
     ("private-key-block", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY")),
     ("jwt", re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")),
     ("generic-credential", re.compile(
-        r"(?i)(?<![A-Za-z0-9])(?:[A-Za-z0-9]{1,32}[_-]){0,4}"
-        r"(?:api[_-]?key|apikey|secret|password|passwd|pwd|token|credential)"
-        r"(?:[_-][A-Za-z0-9]{1,32}){0,4}\s*[=:]\s*[\"']?[A-Za-z0-9+/_.-]{12,}[\"']?")),
+        r"(?i)(?<![A-Za-z0-9])(?P<key>(?:[A-Za-z0-9]{1,32}[_-]){0,4}"
+        r"(?:api[_-]?key|apikey|secret|password|passwd|pwd|token|credential|"
+        r"private[_-]?key|access[_-]?key)"
+        r"(?:[_-][A-Za-z0-9]{1,32}){0,4})"
+        r"\s*[=:]\s*(?P<q>[\"']?)(?P<val>[A-Za-z0-9+/_.-]{12,})[\"']?")),
 ]
 
 ALLOW = re.compile(r"(?i)(example|placeholder|dummy|sample|redacted|\*\*\*|<[a-z_]+>|your[_-]|xxxx|changeme|test[_-]?key|fake)")
+
+# W9 P0-1: the generic rule's false-positive boundaries. These are DATA
+# shapes, not credentials:
+#   - `- secret-approved: <path> — <reason>` is approval metadata (the generic
+#     rule skips it; named key-shape rules still scan the line);
+#   - `*_ALPHABET` / `*_CHARSET` / `*_CHARACTERS` are character-set constants;
+#     `*_LENGTH` / `*_LEN` / `*_DIGITS` are benign only for numeric values;
+#   - `/…` values are environment paths only for path-typed keys
+#     (`PWD=/var/…`, `*_PATH`, `*_FILE`) — `api_key = /x/y` is NOT exempt;
+#     other path prefixes (`~`, `$`, drive letters) cannot reach the value
+#     class (no `~ $ : \`);
+#   - an UNQUOTED value is a reference expression only when it is a call/index
+#     (`getenv(`, `environ[...]`) or a dotted chain of identifiers rooted at a
+#     known receiver (`os.`, `process.`, `config.`, `self.`) — NOT any dotted
+#     value, so a prefixed key like `SG.abcdef…` is still detected.
+APPROVAL_METADATA = re.compile(r"-\s*secret-approved:")
+BENIGN_KEY = re.compile(
+    r"(?i)(?:^|[_-])(?P<kind>alphabet|charset|characters|digits|length|len)$")
+PATH_KEY = re.compile(r"(?i)(?:^|[_-])(?:pwd|path|dir|home|cwd|root|file)$")
+PATH_VALUE = re.compile(r"^/")
+REFERENCE_VALUE = re.compile(
+    r"^(?:os|process|config|self|settings|env|this|window|globalThis|sys|import)"
+    r"(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
+
+
+def _generic_is_benign(m, body: str = "") -> bool:
+    """W9 P0-1: shared verdict for a generic-credential regex match."""
+    key = m.group("key") or ""
+    val = m.group("val") or ""
+    benign_key = BENIGN_KEY.search(key)
+    if benign_key:
+        kind = benign_key.group("kind").lower()
+        if kind not in ("digits", "length", "len") or val.isdigit():
+            return True
+    if PATH_KEY.search(key) and PATH_VALUE.match(val):
+        return True
+    if not m.group("q"):
+        tail = body[m.end():m.end() + 1] if body else ""
+        if tail in ("(", "["):
+            return True
+        if REFERENCE_VALUE.match(val):
+            return True
+    return False
+
+
+def match_line(body: str):
+    """Return [(rule, start, end)] for one line; one shared path for text,
+    diff, and group-14 parity (W9)."""
+    approval = bool(APPROVAL_METADATA.search(body))
+    hits = []
+    for name, rx in RULES:
+        m = rx.search(body)
+        if not m:
+            continue
+        if name == "generic-credential" and (approval or _generic_is_benign(m, body)):
+            continue
+        if ALLOW.search(body[max(0, m.start() - 30):m.end() + 30]):
+            continue
+        hits.append((name, m.start(), m.end()))
+    return hits
 
 TEXT_SUFFIXES = {".py", ".js", ".mjs", ".ts", ".json", ".toml", ".yaml", ".yml",
                  ".sh", ".md", ".txt", ".cfg", ".ini", ".tf"}
@@ -84,10 +146,8 @@ def scan_text(path: str, text: str, added_only: bool = False, prefix_len: int = 
         body = line[prefix_len:] if prefix_len and line[:1] in "+-" else line
         if added_only and not line.startswith("+"):
             continue
-        for name, rx in RULES:
-            m = rx.search(body)
-            if m and not ALLOW.search(body[max(0, m.start() - 30):m.end() + 30]):
-                findings.append((path, i, name))
+        for name, _start, _end in match_line(body):
+            findings.append((path, i, name))
     return findings
 
 
@@ -140,10 +200,8 @@ def scan_diff(range_spec: str):
         if line.startswith("+++ b/"):
             path = line[6:]
         elif line.startswith("+") and not line.startswith("+++"):
-            for name, rx in RULES:
-                m = rx.search(line[1:])
-                if m and not ALLOW.search(line[max(0, m.start() - 30):m.end() + 30]):
-                    findings.append((path, 0, name))
+            for name, _start, _end in match_line(line[1:]):
+                findings.append((path, 0, name))
     return findings
 
 

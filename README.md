@@ -188,15 +188,15 @@ checkable.
   wall past 2 KB — the auditor plugin detects it from the text stream (reasoning
   parts included, on their own budget), interrupts the session, and posts a
   corrective prompt (once per episode, budgeted per session;
-  `VIBEWEAVER_LOOPGUARD=off` turns it off). A per-turn ceiling (64 KB) backstops
+  `VIBEWEAVER_LOOPGUARD=off` turns it off). A per-turn ceiling (256 KB) backstops
   shapes no periodic detector can see. It watches a second channel too: tool
   calls. A model that
   announces a tool ("use Read now") and then issues bare `echo "…"` narration
   markers instead of calling it is interrupted the same way (≥4 consecutive
   no-op bash calls); two more tool-channel detectors cover call storms — the
   identical call re-issued ≥4 times (`identical-tool-run`, canonicalized-args
-  identity over distinct part ids) and one tool hammered ≥20 consecutive calls
-  with varying arguments (`tool-frequency`). All channels keep independent
+  identity over distinct part ids) and one tool hammered ≥120 consecutive calls
+  with varying arguments (`tool-frequency`, warn-only; abort only when `loopGuardToolFrequencyMin` is configured). All channels keep independent
   episode budgets so one can never starve the other.
 - **Honest coverage, and a second pair of eyes.** The completion output carries a
   `[Coverage] criteria: N/M | unchecked: …` line: what was checked is named with
@@ -705,7 +705,7 @@ newline or stray spaces no longer hides its own seed. On a hit it interrupts the
 session (v1 `session.abort` / v2 `session.interrupt({continue:false})`) and posts
 a corrective prompt naming the pattern; one intervention per episode (re-armed
 after clean text or a new turn), two per session at most, further episodes are
-log-only. A per-turn absolute ceiling — one turn's streamed output beyond 64 KB —
+log-only. A per-turn absolute ceiling — one turn's streamed output beyond 256 KB —
 raises the same interrupt with its own corrective prompt. Near-misses are
 designed out: numbered lists with content are not bare tokens, a 2× repeat is
 below the bar, and separator rules / ASCII art stay clean.
@@ -723,7 +723,7 @@ break it (truncation can forge a literal). Two more detectors cover the storm
 shapes the echo classifier cannot see: `identical-tool-run` (the same tool with
 identical canonicalized arguments — deep key-sort JSON identity, DISTINCT part
 ids only, so observation-collapsing is never used — re-issued ≥4 times) and
-`tool-frequency` (one tool hammered ≥20 consecutive calls with varying
+`tool-frequency` (one tool hammered ≥120 consecutive calls with varying
 arguments). Every interrupt is itself the stall declaration (`- stall: noop-bash
 …` / `- stall: identical-tool-run …` / `- stall: tool-frequency …` before any
 completion claim — the tool-frequency line only for genuine stalls;
@@ -993,7 +993,7 @@ the agent's context explode and give up; untested, feedback welcome.
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 520 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm, T36–T39 self-lock/lock-escape/scope/source-hygiene suites) / 44 mutation checks, including the latch-release regressions                                                      |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 535 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm, T36–T39 self-lock/lock-escape/scope/source-hygiene suites) / 44 mutation checks, including the latch-release regressions                                                      |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing
@@ -1001,7 +1001,7 @@ the agent's context explode and give up; untested, feedback welcome.
 ```bash
 python3 verify_skill.py                     # package integrity: payload, links, markers, syntax
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
-node vibeweaver/scripts/audit_selftest.mjs  # 520 fixture checks (T6 skips without calibration data)
+node vibeweaver/scripts/audit_selftest.mjs  # 535 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 mutations, each must be caught
 ```
 

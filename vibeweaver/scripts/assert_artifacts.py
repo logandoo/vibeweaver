@@ -103,16 +103,28 @@ SECRET_RES = [
                # `sk-usage-…`; hyphenated key segments stay covered.
                r"(?<![A-Za-z0-9])sk-(?:proj-|svcacct-|admin-|ant-api\d{2}-|ant-admin\d{2}-|ant-oat\d{2}-|ant-)?[A-Za-z0-9_\-]{16,}"),
 ]
-# generic k = v: quoted literal values are candidates; UNQUOTED values
-# containing `.`/`(`/`)` are references or calls (os.environ.get(…),
-# process.env.X, config.password, self.x) — the SAFE handling pattern,
-# never flagged. Values outside the base charset (spaces, !#%…) may
-# escape — documented tradeoff, biased against false-blocking.
+# generic k = v: quoted literal values are candidates. An UNQUOTED value is a
+# reference only when it is a call/index (`getenv(`, `environ[...]`) or a dotted
+# chain of identifiers rooted at a known receiver (os./process./config./self.);
+# a plain dotted literal is NOT exempt (W9 D-W9-4: SG.… must still be caught).
+# Values outside the base charset (spaces, !#%…) may escape — documented
+# tradeoff, biased against false-blocking.
 GENERIC_KV = re.compile(
-    r"(?i)(?<![A-Za-z0-9])(?:[A-Za-z0-9]{1,32}[_-]){0,4}"
-    r"(?:api[_-]?key|apikey|secret|password|passwd|pwd|token|"
-    r"private[_-]?key|access[_-]?key)(?:[_-][A-Za-z0-9]{1,32}){0,4}"
+    r"(?i)(?<![A-Za-z0-9])(?P<key>(?:[A-Za-z0-9]{1,32}[_-]){0,4}"
+    r"(?:api[_-]?key|apikey|secret|password|passwd|pwd|token|credential|"
+    r"private[_-]?key|access[_-]?key)(?:[_-][A-Za-z0-9]{1,32}){0,4})"
     r"[\"']?\s*[:=]\s*(?P<q>[\"']?)(?P<v>[A-Za-z0-9_/+.\-]{12,})")
+# W9 P0-2: shared false-positive boundaries with scripts/scan_secrets.py —
+# approval metadata (generic rule only; named rules still scan), character-set
+# constants, `/`-prefixed path values (`PWD:`), and reference expressions.
+APPROVAL_METADATA = re.compile(r"-\s*secret-approved:")
+BENIGN_KEY = re.compile(
+    r"(?i)(?:^|[_-])(?P<kind>alphabet|charset|characters|digits|length|len)$")
+PATH_KEY = re.compile(r"(?i)(?:^|[_-])(?:pwd|path|dir|home|cwd|root|file)$")
+PATH_VALUE = re.compile(r"^/")
+REFERENCE_VALUE = re.compile(
+    r"^(?:os|process|config|self|settings|env|this|window|globalThis|sys|import)"
+    r"(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
 PLACEHOLDER = re.compile(r"(?i)example|sample|dummy|placeholder|changeme|"
                          r"redacted|fake|<[^>]+>")
 ASSERT_LINE = re.compile(r"^\s*(?:assert\b|self\.assert|expect\s*\(|"
@@ -351,11 +363,24 @@ def secret_scan(root, vl=""):  # vl = CURRENT task block (approval scoping)
     def hit(path, lineno, text):
         if "assert_artifacts.py" in path or PLACEHOLDER.search(text):
             return
+        approval = bool(APPROVAL_METADATA.search(text))
         found = any(rx.search(text) for rx in SECRET_RES)
-        if not found:
+        if not found and not approval:
             m = GENERIC_KV.search(text)
-            found = bool(m) and (bool(m.group("q")) or
-                                 bool(not any(c in m.group("v") for c in ".()")))
+            if m:
+                key = m.group("key") or ""
+                val = m.group("v") or ""
+                benign = False
+                benign_key = BENIGN_KEY.search(key)
+                if benign_key:
+                    kind = benign_key.group("kind").lower()
+                    benign = kind not in ("digits", "length", "len") or val.isdigit()
+                if not benign and PATH_KEY.search(key) and PATH_VALUE.match(val):
+                    benign = True
+                if not m.group("q") and not benign:
+                    tail = text[m.end():m.end() + 1]
+                    benign = tail in ("(", "[") or bool(REFERENCE_VALUE.match(val))
+                found = not benign
         if not found:
             return
         if re.search(r"vw-approved", text, re.I):

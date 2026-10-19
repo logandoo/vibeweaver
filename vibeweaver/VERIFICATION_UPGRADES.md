@@ -666,7 +666,7 @@ session is never aborted after a completed turn):
 - vibeweaver-active root + skill loaded + task incomplete on disk
   (`tests/acceptance.md` exists, tool calls occurred, current block has no
   TRUSTED `- final-run` — bound to `assert_artifacts.py: all N
-  checks pass`, a turn-fresh artifact, or a verified seal — not `Class: DOC`/read-only);
+  checks pass` or a turn-fresh artifact — not `Class: DOC`/read-only);
 - the LAST assistant message matches a stop-euphemism (zh/en, syntax level
   only — no semantic intent detection; conservative bias: misses acceptable,
   false positives not; quoted spans are stripped, ≥2 pattern hits = meta-

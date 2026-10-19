@@ -787,6 +787,7 @@ const ASSERT_OUTPUT_RE = /assert_artifacts\.py:\s*(?:all\s+[1-9]\d*\s+checks\s+p
 // declare `[PAUSED]` so a model cannot silently self-whitelist.
 export function pausedPacketValid(text) {
   if (!text || typeof text !== "string") return false
+  if (/^\[PAUSED\]\s+gate=\S+.*\|\s*question=.+\|\s*options=.+\|\s*default-if-continue=.+\|\s*state=.+/mi.test(text)) return true
   const field = (name) => new RegExp(`^${name}:\\s*\\S`, "mi").test(text)
   if (!field("gate") || !field("question") || !field("default-if-continue") || !field("state")) return false
   if (!/^options:\s*$/mi.test(text)) return false
@@ -794,15 +795,26 @@ export function pausedPacketValid(text) {
   return opts >= 2
 }
 export function pausedDeclaration(text) {
-  return typeof text === "string" && /\[PAUSED\]/i.test(text)
+  if (typeof text !== "string" || !/\[PAUSED\]/i.test(text)) return false
+  return !/(?:no|not|without|don'?t)\s+\[PAUSED\]/i.test(text)
 }
 export function classERecordValid(text) {
   if (!text || typeof text !== "string") return false
   const lines = text.split("\n").filter((l) => /Class-E/i.test(l))
-  return lines.some((l) => /(?:approved|approval|user-approved|用户批准|已批准)/i.test(l))
+  return lines.some((l) => /(?:approved by user|user-approved|用户批准|已批准)/i.test(l)
+    && !/(?:unapproved|not approved|未批准|未经批准|未获批准|不同意|拒绝)/i.test(l))
 }
 export function classEUserApproval(text) {
-  return typeof text === "string" && /(批准|同意|允许|approved?|authorize|go ahead)/i.test(text)
+  if (typeof text !== "string") return false
+  if (/(?:unapproved|not approved|未批准|未经批准|未获批准|不同意|拒绝|do not approve|don'?t approve)/i.test(text)) return false
+  return /(?:^|[.!?。！？\s])(?:i\s+)?(?:approve|authorize)\b/i.test(text)
+    || /^\s*approved?[.!]?\s*$/i.test(text.trim())
+    || /(?:^|[，,。.;；\s])(?:批准|同意|允许)(?:[，,。.;；\s]|$)/.test(text)
+    || /\bgo ahead\b/i.test(text)
+}
+export function classEDeclaration(text) {
+  return typeof text === "string" && /Class-E/i.test(text)
+    && !/(?:unapproved|not approved|未批准|未经批准|未获批准|不同意|拒绝)/i.test(text)
 }
 
 // W12 verified evidence seal: the manifest is only trusted when its file
@@ -858,8 +870,8 @@ export function verifyEvidenceManifest(root) {
 // final-run in the block must be corroborated by the command's own output on
 // a DIFFERENT line (nearby) or a turn-fresh `log=<tests/...>` artifact whose
 // content contains that output. Shared by the stop-guard and B12 so the two
-// cannot disagree. (A bare `- seal:` line is NOT accepted: the manifest is
-// model-writable and does not prove the assert command actually ran.)
+// cannot disagree. (`- seal:` is NOT completion evidence: a manifest proves
+// tree hashes, not that the assert command ran; see D-W12-2.)
 export function finalRunEvidence(block, opts = {}) {
   if (!block || typeof block !== "string") return { trusted: false, reason: "no-block" }
   const root = typeof opts.root === "string" && opts.root ? path.resolve(opts.root) : ""
@@ -890,12 +902,6 @@ export function finalRunEvidence(block, opts = {}) {
       }
     } catch {
       /* unreadable/outside-root artifacts are untrusted */
-    }
-  }
-  if (root && /^\s*-\s*seal:/mi.test(block)) {
-    const seal = verifyEvidenceManifest(root)
-    if (seal.ok && Number.isFinite(seal.manifestMtime) && seal.manifestMtime >= since) {
-      return { trusted: true, reason: "verified-seal" }
     }
   }
   return { trusted: false, reason: "unbound-final-run" }

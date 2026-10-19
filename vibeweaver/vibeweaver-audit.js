@@ -528,9 +528,10 @@ const CODE_WRITE_RE = /\.(py|js|mjs|ts|tsx|jsx|go|rs|java|c|cc|cpp|h|hpp|rb|php|
 const REPORT_PATH_RE = /(^|\/)(reports?|output|outputs|artifacts?|findings?|results?|summaries|summary)\//i
 const REPORT_NAME_RE = /(^|\/)(report|reports|finding|findings|result|results|summary|analysis)[^/]*\.(html?|json|ya?ml|xml|csv|tsv|txt|md)$/i
 const DATA_REPORT_NAME_RE = /(^|\/)(data|metrics|audit|stats|coverage|table|tables|numbers)[^/]*\.(json|ya?ml|csv|tsv|txt)$/i
-const CONFIG_NAME_RE = /(^|\/)(config|schema|package|settings|manifest|tsconfig|webpack|vite|rollup|babel|requirements|pnpm-lock|package-lock|yarn\.lock|Cargo\.lock|poetry\.lock|composer\.lock)[^/]*\.(json|jsonc|ya?ml|toml|xml|ini|cfg|conf|js|ts|txt|lock)$/i
+const CONFIG_NAME_RE = /(^|\/)(config|schema|package|settings|manifest|tsconfig|webpack|vite|rollup|babel|requirements|pnpm-lock|package-lock|yarn\.lock|Cargo\.lock|poetry\.lock|composer\.lock|app|appsettings|angular|docker-compose|compose|helm|values|chart)[^/]*\.(json|jsonc|ya?ml|toml|xml|ini|cfg|conf|js|ts|txt|lock)$/i
+const REPORT_INDEX_RE = /(^|\/)(reports?|coverage|outputs?|artifacts?|findings?|results?|summaries|summary)\/index\.html?$/i
 const EXTENSIONLESS_CODE_RE = /(^|\/)(Makefile|Dockerfile|Containerfile|go\.mod|go\.sum|Gemfile|Gemfile\.lock|Procfile|CMakeLists\.txt|Rakefile|Justfile|Brewfile)$/i
-const inCodeDir = (fp) => /(^|\/)(src|lib|app|apps|packages?|server|internal|core|services?|backend|frontend|cmd|pkg|modules?|daemon)\//i.test(fp)
+const inCodeDir = (fp) => /(^|\/)(src|lib|app|apps|packages?|server|internal|core|services?|backend|frontend|cmd|pkg|modules?|daemon|scripts|config|deploy|infra|k8s|helm|charts)\//i.test(fp)
 const isCodeWritePath = (fp) => {
   if (typeof fp !== "string" || !fp) return false
   if (EXTENSIONLESS_CODE_RE.test(fp)) return true
@@ -538,8 +539,9 @@ const isCodeWritePath = (fp) => {
   if (/\.(html?|htm)$/i.test(fp)) {
     if (/(^|\/)(docs|tests|memory)\//i.test(fp)) return false
     // Only a report-NAMED html outside a code dir is exempt; a UI app under
-    // output/ or src/report.html is code.
-    if (REPORT_NAME_RE.test(fp) && !inCodeDir(fp)) return false
+    // output/ or src/report.html is code. Generated report sites index.html
+    // under a report dir are reports.
+    if ((REPORT_NAME_RE.test(fp) || REPORT_INDEX_RE.test(fp)) && !inCodeDir(fp)) return false
     return true
   }
   if (CODE_WRITE_RE.test(fp)) {
@@ -681,6 +683,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     if (!s.msgChurnAt) s.msgChurnAt = [] // messageID change times (W11 churn guard)
     if (!Number.isFinite(s.userLogLen)) s.userLogLen = null // verification_log length at the user turn
     if (typeof s.userLogHash !== "string") s.userLogHash = "" // sha1 of that prefix (rewrite detection)
+    if (!Number.isFinite(s.userDecisionsLen)) s.userDecisionsLen = 0 // decisions.md length at the user turn
     if (!Array.isArray(s.turnWritePaths)) s.turnWritePaths = [] // current-turn writes (bounded, audit aid)
     if (!Array.isArray(s.turnMsgIDs)) s.turnMsgIDs = [] // role-less turn text messageIDs (v2 gate scope)
     if (s.turnCodeWrite === undefined) s.turnCodeWrite = false // sticky: a known code write this turn
@@ -1353,10 +1356,13 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       try {
         const dp = path.join(root, "tests", "decisions.md")
         const dm = Math.floor(statSync(dp, { throwIfNoEntry: false })?.mtimeMs ?? 0)
+        const decText = safeRead(dp)
+        const decLen = Number.isFinite(sess.userDecisionsLen) ? sess.userDecisionsLen : 0
+        const decTurn = decText.length >= decLen ? decText.slice(decLen) : decText
         classE = dm >= sessionStart && sessionStart > 0
-          && typeof core.classERecordValid === "function" && core.classERecordValid(safeRead(dp))
+          && typeof core.classERecordValid === "function" && core.classERecordValid(decTurn)
           && typeof core.classEUserApproval === "function" && core.classEUserApproval(uText)
-          && /Class-E/i.test(aTail)
+          && typeof core.classEDeclaration === "function" && core.classEDeclaration(aTail)
       } catch {
         /* absent */
       }
@@ -1518,7 +1524,6 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
           sess.reasoningCeilingAt = 0
           sess.msgChurnAt = []
           sess.turnMsgIDs = []
-          sess.toolFreqWarned = false
           // W11: evidence written BEFORE this user message belongs to an
           // earlier task. Completion/class checks read only the log slice
           // appended after this point.
@@ -1527,13 +1532,15 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
           sess.lastTaskWriteUnknown = false
           sess.lastTaskWritePartSeq = NaN
           try {
-            const uRoot = findProjectRoot([directory])
+            const uRoot = findProjectRoot([directory]) || directory
             const uLog = uRoot ? safeRead(path.join(uRoot, "tests", "verification_log.md")) : ""
             sess.userLogLen = uLog.length
             sess.userLogHash = hashText(uLog)
+            sess.userDecisionsLen = uRoot ? safeRead(path.join(uRoot, "tests", "decisions.md")).length : 0
           } catch {
             sess.userLogLen = 0
             sess.userLogHash = hashText("")
+            sess.userDecisionsLen = 0
           }
         }
       }
@@ -1666,14 +1673,50 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   // stop after only such a write must still be caught. Conservative parse:
   // only explicit redirects / tee / cp / mv targets; evidence paths are
   // filtered by recordWriteEvidence.
+  const stripHeredocBodies = (command) => {
+    if (typeof command !== "string" || !command.includes("<<")) return command
+    let out = ""
+    let i = 0
+    let q = null
+    while (i < command.length) {
+      const ch = command[i]
+      if (q) { out += ch; if (ch === q) q = null; i++; continue }
+      if (ch === "'" || ch === '"') { q = ch; out += ch; i++; continue }
+      if (ch === "<" && command[i + 1] === "<") {
+        let j = i + 2
+        if (command[j] === "-") j++
+        while (j < command.length && /\s/.test(command[j])) j++
+        const dq = command[j] === "'" || command[j] === '"' ? command[j] : ""
+        let delim = ""
+        if (dq) {
+          j++
+          const start = j
+          while (j < command.length && command[j] !== dq) j++
+          delim = command.slice(start, j); j++
+        } else {
+          const start = j
+          while (j < command.length && !/[\s;&|]/.test(command[j])) j++
+          delim = command.slice(start, j)
+        }
+        if (!delim) { out += command.slice(i, j); i = j; continue }
+        const nl = command.indexOf("\n", j)
+        if (nl < 0) { out += command.slice(i); break }
+        out += command.slice(i, nl + 1)
+        const end = command.indexOf("\n" + delim, nl)
+        if (end < 0) { i = command.length; break }
+        const endLine = command.indexOf("\n", end + 1)
+        i = endLine < 0 ? command.length : endLine + 1
+        continue
+      }
+      out += ch; i++
+    }
+    return out
+  }
   const bashWriteTargets = (command) => {
     if (typeof command !== "string" || !command) return []
-    // A heredoc body is data, not a command line; the redirect lives on the
-    // first line, possibly AFTER `<<'EOF'` (`cat <<EOF > src/a.ts`). Scan the
-    // first line when a heredoc is declared, otherwise the whole command.
-    const heredocAt = command.indexOf("<<")
-    const nl = command.indexOf("\n")
-    const first = heredocAt >= 0 && nl > heredocAt ? command.slice(0, nl) : command
+    // Quote-aware heredoc removal: a quoted `<<` in an echo is not a heredoc,
+    // and a redirect after the delimiter is still visible on the header line.
+    const first = stripHeredocBodies(command)
     const out = []
     let q = null
     let esc = false
@@ -2162,7 +2205,6 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     if (s2 && (!hasTelemetry || roleLess)) {
       s2.turnWritePaths = []
       s2.turnMsgIDs = []
-      s2.toolFreqWarned = false
       s2.turnCodeWrite = false
       s2.lastTaskWriteAt = 0
       s2.lastTaskWritePath = ""

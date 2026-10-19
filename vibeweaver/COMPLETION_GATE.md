@@ -167,7 +167,7 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
   runs and the physical gate omit it so an in-use working_note never blocks iteration. **Record the run:** append
   `- assert-run: assert_artifacts.py: all N checks pass` and
   `- final-run: --final — pass=N/fail=0` to the current
-  task block of `tests/verification_log.md` — B12 requires both/seal at completion
+  task block of `tests/verification_log.md` — B12 requires both at completion
   (group 19 is otherwise unprovable). **Profiles:**
   `--profile service|backend-api|web-static|cli|library` (or
   `tests/project_profile.json`) declaratively skips structurally-N/A groups

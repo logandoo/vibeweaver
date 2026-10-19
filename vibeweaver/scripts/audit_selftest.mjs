@@ -15,7 +15,7 @@ import path from "node:path"
 
 const AUDIT_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-audit.js")
 const CORE_MODULE = path.resolve(import.meta.dirname, "vibeweaver-audit-core.js")
-const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopAwaitingUser, stopReadOnlyInstruction, stopGuardDecision, stopGuardPrompt, currentLogBlock, currentEvidenceBlock, finalRunEvidence, pausedPacketValid, pausedDeclaration, classERecordValid, classEUserApproval, verifyEvidenceManifest, identicalToolRunFinding, toolIdentity, canonicalJson, toolFrequencyFinding } = await import(pathToFileURL(CORE_MODULE))
+const { auditProject, buildReport, mergeReleaseLines, hashSession, isForbiddenCommand, isNoopBashCommand, noopBashFinding, stopEuphemism, stopAwaitingUser, stopReadOnlyInstruction, stopGuardDecision, stopGuardPrompt, currentLogBlock, currentEvidenceBlock, finalRunEvidence, pausedPacketValid, pausedDeclaration, classERecordValid, classEUserApproval, classEDeclaration, verifyEvidenceManifest, identicalToolRunFinding, toolIdentity, canonicalJson, toolFrequencyFinding } = await import(pathToFileURL(CORE_MODULE))
 // Dual-compat module surface: current plugin default-exports { id, server, setup };
 // fall back to the legacy named export when testing an older copy.
 const auditModule = await import(pathToFileURL(AUDIT_MODULE))
@@ -2189,7 +2189,7 @@ if (existsSync(calibDir)) {
   rec("T44a real evidence_seal.py manifest verifies (files + code fingerprint)", sealOk.ok === true, JSON.stringify(sealOk))
   const sealBlock = "- seal: fixture\n- final-run: --final — pass=3/fail=0\n"
   const trusted = typeof finalRunEvidence === "function" ? finalRunEvidence(sealBlock, { root: root44, sinceMs: 0 }) : { trusted: false }
-  rec("T44b seal-only completion is trusted after verification", trusted.trusted === true, JSON.stringify(trusted))
+  rec("T44b seal-only does NOT complete (manifest proves tree, not assert run)", trusted.trusted === false, JSON.stringify(trusted))
   write(root44, "src/a.ts", "export const x = 2\n") // uncommitted code change -> fingerprint mismatch
   const tampered = typeof verifyEvidenceManifest === "function" ? verifyEvidenceManifest(root44) : { ok: false, reason: "helper-missing" }
   const rejected = typeof finalRunEvidence === "function" ? finalRunEvidence(sealBlock, { root: root44, sinceMs: 0 }) : { trusted: false }
@@ -2411,8 +2411,16 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   rec("T27c93 paused declaration: [PAUSED] is visible", pausedDeclaration("[PAUSED] gate=schema | question=q") === true, "visible")
   rec("T27c94 paused declaration: bare file text is not a declaration", pausedDeclaration("gate: schema") === false, "hidden")
   rec("T27c95 Class-E record: approved line is valid", classERecordValid("D-1 | Class-E | approved by user | deploy") === true, "approved")
-  rec("T27c96 Class-E record: unapproved line is invalid", classERecordValid("D-1 | Class-E | deploy") === false, "unapproved")
-  rec("T27c97 Class-E user approval: 批准 is accepted", classEUserApproval("批准 Class-E 部署") === true, "approved-text")
+  rec("T27c96 Class-E record: 'unapproved' line is invalid", classERecordValid("D-1 | Class-E | unapproved | deploy") === false, "unapproved")
+  rec("T27c97 Class-E user approval: 批准 Class-E is accepted", classEUserApproval("批准 Class-E 部署") === true, "approved-text")
+  rec("T27c98 Class-E user approval: 不同意 is rejected", classEUserApproval("不同意 Class-E 部署。") === false, "denied")
+  rec("T27c99 Class-E user approval: 'approved plan' mention is not a grant", classEUserApproval("Please implement the approved plan.") === false, "mention")
+  rec("T27c100 Class-E user approval: 'I approve' is a grant", classEUserApproval("I approve the Class-E deployment.") === true, "grant")
+  rec("T27c101 Class-E declaration: 'not approved' is rejected", classEDeclaration("Class-E is not approved.") === false, "negated")
+  rec("T27c102 paused packet: documented one-liner is valid",
+    pausedPacketValid("[PAUSED] gate=x | question=q | options=(a),(b) | default-if-continue=(a) | state=s") === true, "one-liner")
+  rec("T27c103 paused declaration: negated [PAUSED] is not a declaration",
+    pausedDeclaration("No [PAUSED] packet is needed") === false, "negated")
   rec("T27c33 awaiting detector: 'let me know' sign-off is not awaiting", au("Implementation complete. Let me know if you need anything else.") === false, String(au("Implementation complete. Let me know if you need anything else.")))
   rec("T27c34 awaiting detector: 'which path' narrative is not awaiting", au("The parser decides which path to follow for nested imports.") === false, String(au("The parser decides which path to follow for nested imports.")))
   rec("T27c35 awaiting detector: waiting on your decision is awaiting", au("Waiting on your decision about the schema.") === true, String(au("Waiting on your decision about the schema."))
@@ -2565,6 +2573,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     const runStopCase = async (name, log, userText, asstText, opts = {}) => {
       const root = newFixture(name)
       write(root, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
+      if (opts.classEPreUser) write(root, "tests/decisions.md", opts.classEPreUser)
       // `preUserLog` / `staleLog` model evidence written by an EARLIER turn or
       // session; the normal path writes the task log AFTER the user message,
       // as a real turn does (the guard reads only the post-user log slice).
@@ -2594,6 +2603,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       if (opts.rewriteLog !== undefined) write(root, "tests/verification_log.md", opts.rewriteLog)
       if (opts.pausedFile) write(root, "tests/paused_state.md", opts.pausedFile)
       if (opts.classEFile) write(root, "tests/decisions.md", opts.classEFile)
+      if (opts.classEAppend) write(root, "tests/decisions.md", (opts.classEPreUser || "") + opts.classEAppend)
       const asst = (id) => ({ id, role: "assistant", modelID: "m", finish: "stop", tokens: { input: 100, output: 10, reasoning: 0, cache: { read: 0, write: 0 } } })
       if (opts.gateFirst) {
         await ev("message.updated", { sessionID: sid, info: asst("m0") })
@@ -2777,6 +2787,22 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     rec("T27e79 Class-E file without user approval text → prompt", classEForge.prompts.length === 1, `prompts=${classEForge.prompts.length}`)
     const classEOk = await runStopCase("t27-w12-classe-ok", LOG_CODE, "批准 Class-E 部署。", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
     rec("T27e80 Class-E file + user approval + assistant declaration → no prompt", classEOk.prompts.length === 0, `prompts=${classEOk.prompts.length}`)
+    const classEDenied = await runStopCase("t27-w12-classe-denied", LOG_CODE, "不同意 Class-E 部署。", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e81 Class-E record + user denial → prompt", classEDenied.prompts.length === 1, `prompts=${classEDenied.prompts.length}`)
+    const classEMention = await runStopCase("t27-w12-classe-mention", LOG_CODE, "Please implement the approved plan.", "Class-E approved by user. Awaiting deploy.", { classEFile: "D-1 | Class-E | approved by user | deploy\n" })
+    rec("T27e82 'approved plan' mention is not a Class-E grant → prompt", classEMention.prompts.length === 1, `prompts=${classEMention.prompts.length}`)
+    const classEHistoric = await runStopCase("t27-w12-classe-historic", LOG_CODE, "批准 Class-E 部署。", "Class-E approved by user. Awaiting deploy.", { classEPreUser: "D-1 | Class-E | approved by user | old task\n", classEAppend: "\n- note: unrelated follow-up\n" })
+    rec("T27e83 historical Class-E line + unrelated append is not current approval → prompt", classEHistoric.prompts.length === 1, `prompts=${classEHistoric.prompts.length}`)
+    const quotedHeredoc = await runStopCase("t27-w12-quoted-heredoc", LOG_CODE, "Implement the fix.", "Done.", { bashOnlyCommand: 'echo "a << b"\ncat > src/a.ts <<\'EOF\'\nexport const x = 1\nEOF' })
+    rec("T27e84 quoted << does not blind the later real write → prompt", quotedHeredoc.prompts.length === 1, `prompts=${quotedHeredoc.prompts.length}`)
+    const reportIndex = await runStopCase("t27-w12-report-index", LOG_DOC, "Only evaluate; do not modify code.", "Report ready.", { file: "reports/index.html" })
+    rec("T27e85 DOC + reports/index.html → no prompt", reportIndex.prompts.length === 0, `prompts=${reportIndex.prompts.length}`)
+    const appYaml = await runStopCase("t27-w12-app-yaml", LOG_DOC, "Implement the deploy config.", "Done.", { file: "output/app.yaml" })
+    rec("T27e86 DOC + output/app.yaml → prompt", appYaml.prompts.length === 1, `prompts=${appYaml.prompts.length}`)
+    const compose = await runStopCase("t27-w12-compose", LOG_DOC, "Implement the deploy config.", "Done.", { file: "output/docker-compose.yml" })
+    rec("T27e87 DOC + output/docker-compose.yml → prompt", compose.prompts.length === 1, `prompts=${compose.prompts.length}`)
+    const scriptsReport = await runStopCase("t27-w12-scripts-report", LOG_DOC, "Implement the report generator.", "Done.", { file: "scripts/report.json" })
+    rec("T27e88 DOC + scripts/report.json → prompt", scriptsReport.prompts.length === 1, `prompts=${scriptsReport.prompts.length}`)
   }
 
   // ---- W10: v2 has no message roles; the positive leg must still journal
@@ -3511,8 +3537,18 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       })
     }
     rec("T35d3 130 varied reads default -> warn-only (no abort, no prompt)",
-      calls.abort === 0 && calls.prompts === 0 && calls.logs.some((m) => /tool-frequency warning \(warn-only/i.test(m)),
-      `abort=${calls.abort} prompts=${calls.prompts} warned=${calls.logs.some((m) => /tool-frequency warning/i.test(m))}`)
+      calls.abort === 0 && calls.prompts === 0 && calls.logs.filter((m) => /tool-frequency warning \(warn-only/i.test(m)).length === 1,
+      `abort=${calls.abort} prompts=${calls.prompts} warnings=${calls.logs.filter((m) => /tool-frequency warning/i.test(m)).length}`)
+    await plugin35w.event({ event: { type: "message.updated", properties: { sessionID: "ses_t35w", info: { id: "u35w", role: "user" } } } })
+    await plugin35w.event({
+      event: {
+        type: "message.part.updated",
+        properties: { sessionID: "ses_t35w", part: { id: "w130", type: "tool", tool: "read", state: { status: "completed", input: { filePath: "/tmp/w130.txt" } } } },
+      },
+    })
+    rec("T35d4 warning is once per SESSION, not once per user turn",
+      calls.logs.filter((m) => /tool-frequency warning \(warn-only/i.test(m)).length === 1,
+      `warnings=${calls.logs.filter((m) => /tool-frequency warning/i.test(m)).length}`)
   }
   // ---- T35d2 — adapter: explicit opt-in restores the storm intervention ----
   {

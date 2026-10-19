@@ -489,7 +489,7 @@ FORBIDDEN (8-column table): splitting the table · replacing columns · omitting
 
 #### A4.4.1 Executable artifact assertions ★
 Run `python3 tests/assert_artifacts.py --final` before the gate line; log both:
-`- assert-run: assert_artifacts.py: all N checks pass` + `- final-run: --final — pass=N/fail=0` (B12 requires both/seal). Exit 0 → append field `assert_artifacts.py: pass=N/fail=0`. Exit 1 → fix the
+`- assert-run: assert_artifacts.py: all N checks pass` + `- final-run: --final — pass=N/fail=0` (B12 requires both). Exit 0 → append field `assert_artifacts.py: pass=N/fail=0`. Exit 1 → fix the
 ACTUAL artifacts on disk (never edit the script, never fabricate output),
 re-run until exit 0. Missing the script → copy `scripts/` canonical. Groups + flags (`--existing` / `--backend-only` /
 `--final` / profiles): COMPLETION_GATE.md §A4.4.1.
