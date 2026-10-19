@@ -879,27 +879,32 @@ export function stopGuardDecision(o) {
   const positive = !!(o && o.positiveIncomplete)
   if (!t && !positive) return { action: "ignore", why: "no-trigger" }
   if (!o.taskActive) return { action: "ignore", why: "no-active-task" }
+  if (o.errorFence) return { action: "ignore", why: "whitelisted:error-abort" }
+  const v2 = !o.telemetry
+  // v2 has no user-role boundary: DOC/read-only/gate/paused whitelists are
+  // model-authored and unverifiable, so a positive silent stop always
+  // journals debt (never silently ignores, never prompts).
+  if (positive && v2) return { action: "debt", why: "v2-positive-unverified", kind: "incomplete" }
   // W10: read-only / Class DOC work and "waiting for the user" turns are
   // legitimate terminal states for the POSITIVE (absence-of-final-run) leg.
   // An explicit euphemism or truncation is still evidence of a false stop and
   // must not be whitelisted by task shape.
   if (positive && o.readOnlyTask) return { action: "ignore", why: "whitelisted:read-only-task" }
   if (positive && o.awaitingUser) return { action: "ignore", why: "whitelisted:awaiting-user" }
-  if (o.pausedState) return { action: "ignore", why: "whitelisted:paused-state" }
-  if (o.classE) return { action: "ignore", why: "whitelisted:class-e" }
-  if (o.errorFence) return { action: "ignore", why: "whitelisted:error-abort" }
-  if (o.gateMarker) return { action: "ignore", why: "whitelisted:gate-marker" }
-  if (o.userStop) return { action: "ignore", why: "whitelisted:user-stop" }
-  if (o.tailQuestion) return { action: "ignore", why: "whitelisted:tail-question" }
-  if (!o.telemetry) {
-    // v2 has no message telemetry. Explicit euphemism/truncation triggers are
-    // still safe to correct when the host exposes a prompt channel; the
-    // positive (silent-stop) leg remains debt-only because its whitelist
-    // depends on user-role text that v2 does not provide.
-    if (!o.promptable || positive) return { action: "debt", why: "v2-no-telemetry", kind: t ? t.kind : "incomplete" }
-    return { action: "prompt", kind: t.kind }
+  if (!v2) {
+    if (o.pausedState) return { action: "ignore", why: "whitelisted:paused-state" }
+    if (o.classE) return { action: "ignore", why: "whitelisted:class-e" }
+    if (o.gateMarker) return { action: "ignore", why: "whitelisted:gate-marker" }
+    if (o.userStop) return { action: "ignore", why: "whitelisted:user-stop" }
+    if (o.tailQuestion) return { action: "ignore", why: "whitelisted:tail-question" }
+    return { action: "prompt", kind: t ? t.kind : "incomplete" }
   }
-  return { action: "prompt", kind: t ? t.kind : "incomplete" }
+  // v2 explicit trigger: paused/gate/classE are model-authored, so they do
+  // not whitelist; prompt when the host exposes a channel, else journal debt.
+  if (o.userStop) return { action: "ignore", why: "whitelisted:user-stop" }
+  return o.promptable
+    ? { action: "prompt", kind: t.kind }
+    : { action: "debt", why: "v2-no-telemetry", kind: t.kind }
 }
 
 // Corrective prompt (§V12 contract): names the contradiction, lists the four

@@ -1445,8 +1445,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         : gateInfo.inLast)
       const errorFence = Number.isFinite(sess.lastErrorAt)
         && !(Number.isFinite(sess.lastWriteAt) && sess.lastWriteAt > sess.lastErrorAt)
-      const positiveIncomplete = !trigger && taskActive && !readOnlyTask && !awaitingUser
-        && !gateMarker && !userStop && !pausedState && !classE && wroteTaskAfterUser && !errorFence
+      // The whitelist is applied in stopGuardDecision: v1 read-only/awaiting/
+      // gate/paused shapes ignore, while v2 (no user-role boundary) always
+      // journals debt for the positive leg — never silently ignores.
+      const positiveIncomplete = !trigger && taskActive && wroteTaskAfterUser && !errorFence
       if (!trigger && !positiveIncomplete) return
       const effectiveTrigger = trigger || { kind: "incomplete", match: finalEv.reason === "unbound-final-run" ? "untrusted-final-run" : "no-final-run" }
       const decision = core.stopGuardDecision({ trigger, positiveIncomplete, taskActive, readOnlyTask, awaitingUser, pausedState, classE, errorFence, gateMarker, tailQuestion, userStop, telemetry: hasTelemetry, promptable })
@@ -1488,7 +1490,17 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (!Array.isArray(sess.injectedPrompts)) sess.injectedPrompts = []
       sess.injectedPrompts.push(text)
       if (sess.injectedPrompts.length > 5) sess.injectedPrompts = sess.injectedPrompts.slice(-5)
-      void Promise.resolve(onStopPrompt(sessionID, text)).catch(() => {})
+      void Promise.resolve(onStopPrompt(sessionID, text)).then((ok) => {
+        if (ok === false) {
+          sg.interventions = Math.max(0, sg.interventions - 1)
+          journalStopDebt(root, sessionID, effectiveTrigger, "prompt-failed")
+          void log({ service: "vibeweaver-stopguard", level: "warn", message: "stop-guard prompt failed — intervention not counted, debt journaled", extra: { sessionID } })
+        }
+      }).catch(() => {
+        sg.interventions = Math.max(0, sg.interventions - 1)
+        journalStopDebt(root, sessionID, effectiveTrigger, "prompt-failed")
+        void log({ service: "vibeweaver-stopguard", level: "warn", message: "stop-guard prompt threw — intervention not counted, debt journaled", extra: { sessionID } })
+      })
     } catch {
       /* stop-guard must never break observation */
     }
@@ -2306,8 +2318,9 @@ async function server({ client, directory }) {
         ? async (sessionID, text) => {
             try {
               await client.session.prompt({ path: { id: sessionID }, body: { parts: [{ type: "text", text }] } })
+              return true
             } catch {
-              /* best-effort */
+              return false
             }
           }
         : undefined,
@@ -2395,8 +2408,9 @@ async function setup(ctx) {
         ? async (sessionID, text) => {
             try {
               await ctx.session.prompt({ sessionID, text })
+              return true
             } catch {
-              /* best-effort */
+              return false
             }
           }
         : undefined,

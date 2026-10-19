@@ -2431,6 +2431,16 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     { ...base, trigger: trig, readOnlyTask: true }, "prompt")
   dExpect("T27c38 awaiting euphemism is still a false stop → prompt",
     { ...base, trigger: trig, awaitingUser: true }, "prompt")
+  dExpect("T27c117 v2 explicit trigger + promptable → prompt",
+    { ...base, telemetry: false, promptable: true, trigger: trig, taskActive: true }, "prompt")
+  dExpect("T27c118 v2 explicit trigger + model-authored gate still prompts",
+    { ...base, telemetry: false, promptable: true, trigger: trig, gateMarker: true, taskActive: true }, "prompt")
+  dExpect("T27c119 v2 positive silent stop → debt (not ignore)",
+    { ...base, telemetry: false, promptable: true, trigger: null, positiveIncomplete: true, taskActive: true }, "debt")
+  dExpect("T27c120 v2 positive + readOnly still journals debt",
+    { ...base, telemetry: false, promptable: true, trigger: null, positiveIncomplete: true, readOnlyTask: true, taskActive: true }, "debt")
+  dExpect("T27c121 v2 positive + gate marker still journals debt",
+    { ...base, telemetry: false, promptable: true, trigger: null, positiveIncomplete: true, gateMarker: true, taskActive: true }, "debt")
 
   // ---- corrective prompt contract ----
   const pt = hasStopGuard ? stopGuardPrompt({ kind: "euphemism", fill: 0.15, fillKnown: true }) : ""
@@ -2973,13 +2983,13 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     } catch {
       /* no state */
     }
-    rec("T27e37 v2 last-message gate whitelists the turn (no debt)", debt.length === 0, `debt=${JSON.stringify(debt).slice(0, 120)}`)
+    rec("T27e37 v2 gate-only completion journals debt (positive is always debt-only)", debt.some((x) => x.kind === "incomplete"), `debt=${JSON.stringify(debt).slice(0, 120)}`)
   }
 
   // ---- W11 re-review: v2 boundaries — an old completed block, an old gate,
   // and a bash redirect must not suppress the current turn's debt. ----
   {
-    const mkV2 = async (name, log) => {
+    const mkV2 = async (name, log, opts = {}) => {
       const root = newFixture(name)
       write(root, "tests/verification_log.md", log)
       write(root, "tests/acceptance.md", "> cap=5  stall=3×\n1. done\n")
@@ -3004,7 +3014,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
         location: { directory: root },
         tool: { hook: async (name, fn) => { hooks[name] = fn; return { dispose: async () => {} } } },
         event: { subscribe: () => bus.subscribe() },
-        session: { interrupt: async () => {}, prompt: async (args) => { prompts.push((args && args.text) || "") } },
+        session: { interrupt: async () => {}, prompt: async (args) => { if (opts.promptThrows) throw new Error("prompt unavailable"); prompts.push((args && args.text) || "") } },
       }
       await auditModule.default.setup(ctx)
       const debt = async () => {
@@ -3062,7 +3072,40 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2gatedone", status: { type: "idle" } } })
       await new Promise((r) => setTimeout(r, 80))
       const d = await h.debt()
-      rec("T27e56 v2 gate followed by a final Done message stays complete (no debt)", d.length === 0, `debt=${JSON.stringify(d).slice(0, 120)}`)
+      rec("T27e56 v2 gate + Done journals debt (positive is always debt-only)", d.some((x) => x.kind === "incomplete"), `debt=${JSON.stringify(d).slice(0, 120)}`)
+    }
+    {
+      const h = await mkV2("t27-w13-v2-positive-doc", "## Task: fixture\n- class: DOC — prose\n- iter 1 PASS: report\n")
+      h.bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2doc", name: "vibeweaver" } })
+      await h.hooks["execute.before"]({ tool: "write", sessionID: "ses_v2doc", messageID: "m1", id: "t1", input: { filePath: path.join(h.root, "src", "a.ts") } })
+      await h.hooks["execute.after"]({ tool: "write", sessionID: "ses_v2doc", status: "completed", id: "t1", result: { output: "ok" } })
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2doc", messageID: "m1", content: [{ type: "text", text: "Done." }] } })
+      h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2doc", status: { type: "idle" } } })
+      await new Promise((r) => setTimeout(r, 80))
+      const d = await h.debt()
+      rec("T27e104 v2 positive + DOC claim journals debt (never silently ignores)", d.some((x) => x.kind === "incomplete"), `debt=${JSON.stringify(d).slice(0, 120)}`)
+    }
+    {
+      const h = await mkV2("t27-w13-v2-gate-euphemism", "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n")
+      h.bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2gateex", name: "vibeweaver" } })
+      await h.hooks["execute.before"]({ tool: "write", sessionID: "ses_v2gateex", messageID: "m1", id: "t1", input: { filePath: path.join(h.root, "src", "a.ts") } })
+      await h.hooks["execute.after"]({ tool: "write", sessionID: "ses_v2gateex", status: "completed", id: "t1", result: { output: "ok" } })
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2gateex", messageID: "m1", content: [{ type: "text", text: "[Verification Gate] Verifier: direct-read | Class: CODE | assert_artifacts.py: pass=3/fail=0" }] } })
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2gateex", messageID: "m2", content: [{ type: "text", text: "上下文快耗尽了，先到这里。" }] } })
+      h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2gateex", status: { type: "idle" } } })
+      await new Promise((r) => setTimeout(r, 80))
+      rec("T27e105 v2 explicit euphemism + model-authored gate still prompts", h.prompts.length === 1, `prompts=${h.prompts.length}`)
+    }
+    {
+      const h = await mkV2("t27-w13-v2-prompt-fail", "## Task: fixture\n- class: CODE — logic\n- iter 1 FAIL: x | diagnosis: d | changed: src/a.ts\n", { promptThrows: true })
+      h.bus.emit({ type: "session.skill.activated", data: { sessionID: "ses_v2pfail", name: "vibeweaver" } })
+      await h.hooks["execute.before"]({ tool: "bash", sessionID: "ses_v2pfail", messageID: "m1", id: "t0", input: { command: "ls" } })
+      await h.hooks["execute.after"]({ tool: "bash", sessionID: "ses_v2pfail", status: "completed", id: "t0", result: { output: "" } })
+      h.bus.emit({ type: "session.message.content.updated", data: { sessionID: "ses_v2pfail", messageID: "m1", content: [{ type: "text", text: "上下文快耗尽了，先到这里。" }] } })
+      h.bus.emit({ type: "session.status", data: { sessionID: "ses_v2pfail", status: { type: "idle" } } })
+      await new Promise((r) => setTimeout(r, 120))
+      const d = await h.debt()
+      rec("T27e106 v2 prompt rejection journals debt instead of burning budget", d.some((x) => x.why === "prompt-failed"), `debt=${JSON.stringify(d).slice(0, 160)}`)
     }
   }
 

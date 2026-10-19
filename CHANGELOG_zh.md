@@ -8,7 +8,7 @@
 
 **机制。** 完成证据只读最后 user message 之后追加的日志后缀、当前 task block，最后一条 `final-run` 必须由命令自身 assert 输出、本 turn 绑定的日志或 verified evidence manifest（文件哈希 + 从树复算 code fingerprint）佐证。Gate 标记按首次出现的 part seq 与最后一次 task-file write 排序。`Class: DOC` 与本 turn 的 code/config 写入交叉校验（含 bash redirect、heredoc、`tee`、`cp/mv` 目标与无扩展名构建文件）。只读/等待判定先剥离引号、扫有界长 brief、要求请求线索。PAUSED 包必须 schema 完整**且**最后一条 assistant 消息可见 `[PAUSED]`；Class-E 需要 approved 记录 + 用户批准线索。默认 warn-only 工具频率层在 120 次变参调用时记一条 advisory，不 abort；opt-in abort 阈值不变。
 
-**验证。** audit_selftest 560/0（1 skipped）· mutation_sweep 44/0 · plugin compat 69/71（E3/G9 pre-existing）· `assert_artifacts.py --existing --final` 30/30 · secret scan clean · evidence seal verified · 四副本字节一致（dev → system/plugins、open-source、repo）。
+**验证。** audit_selftest 568/0（1 skipped）· mutation_sweep 44/0 · plugin compat 69/71（E3/G9 pre-existing）· `assert_artifacts.py --existing --final` 29/29 · secret scan clean · evidence seal verified · 四副本字节一致（dev → system/plugins、open-source、repo）。
 
 ## 2026-10-17：SIGTRAP 崩溃修复 — 观察热路径不再每个 token 重建两次语料
 
@@ -128,7 +128,7 @@ PASS 计数）签名只报一次，新 PASS 重新武装——会刷屏的警告
 cue 投递按设计是劝告性的、win32 有单测钉住但未真机执行。
 
 三波合并验证：selftest 126 项、mutation sweep 41/41、插件 compat 57/57、本仓
-`--final` 30/30、两轮对抗评审（14/14 解决，零回归）加一轮 scoped 复审（8/8
+`--final` 29/29、两轮对抗评审（14/14 解决，零回归）加一轮 scoped 复审（8/8
 SOUND）、fresh-context 复核 5/5 PASS、SKILL.md 以净零字节纪律压住 49KB 帽
 （48,932B）、TESTING_PROTOCOLS.md 瘦回 45KB 预算内（44,993B）且抽查零语义丢失。
 
@@ -256,7 +256,7 @@ opencode v2.0 把插件系统作为有意破坏性变更发布：v2 loader 只�
 - **审计 v2。** 共享审计机，锁存 / 陈旧释放 / 报告跨版本一致；观察取自 `ctx.tool.hook` + v2 会话事件（`session.text.delta`、`session.message.content.updated`、`session.skill.activated`、`session.status`）。
 - **双 loader 测试设施。** 新增 `tests/plugin_compat_test.mjs`：模拟两套 loader 契约（v1 `readV1Plugin` + 旧式迭代、v2 `PluginModule` schema），对两套 API 下的门禁/审计行为断言一致。
 
-验证：本波后 harness 30/30；真机 opencode 1.18.32 模型写入 RED 项目仍 GATE-BLOCKED；真机 v2 二进制（隔离 HOME）加载两插件零错误；4 副本 payload 逐字节一致（`diff -q`）。
+验证：本波后 harness 29/29；真机 opencode 1.18.32 模型写入 RED 项目仍 GATE-BLOCKED；真机 v2 二进制（隔离 HOME）加载两插件零错误；4 副本 payload 逐字节一致（`diff -q`）。
 
 ## 2026-09-14：wave6 —— 一致性修复 + A/B 门控的根文件瘦身（−15.1%）
 

@@ -8,7 +8,7 @@ Waves of design history, newest first. Entries are moved verbatim from the READM
 
 **The mechanism.** Completion evidence is read only from the append-only log suffix written after the last user message, selected from the current task block, and the last `final-run` must be corroborated by the command's own assert output or a turn-fresh bound log. Gate markers are ordered by first-seen part sequence against the last task-file write. `Class: DOC` is cross-checked against current-turn code/config writes (including bash redirects, heredocs, `tee`, `cp/mv` destinations and extensionless build files). Read-only/awaiting detectors strip quoted spans, scan bounded long briefs, and require request cues. Paused packets must be schema-valid **and** visible as `[PAUSED]` in the last assistant message; Class-E requires an approved record plus a user approval cue. A default warn-only tool-frequency layer journals one advisory at 120 varied calls without aborting; the opt-in abort threshold is unchanged.
 
-**Verification.** audit_selftest 560/0 (1 skipped) · mutation_sweep 44/0 · plugin compat 69/71 (E3/G9 pre-existing) · `assert_artifacts.py --existing --final` 30/30 · secret scan clean · evidence seal verified · four copies byte-identical (dev → system/plugins, open-source, repo).
+**Verification.** audit_selftest 568/0 (1 skipped) · mutation_sweep 44/0 · plugin compat 69/71 (E3/G9 pre-existing) · `assert_artifacts.py --existing --final` 29/29 · secret scan clean · evidence seal verified · four copies byte-identical (dev → system/plugins, open-source, repo).
 
 ## 2026-10-17: SIGTRAP crash fix — the observation hot path stops allocating the session twice per token
 
@@ -199,7 +199,7 @@ final-run + B12 examining the resulting tree), cue delivery is advisory by
 design, win32 is unit-pinned but not machine-executed.
 
 Verification across the three waves: selftest 126 checks, mutation sweep
-41/41, plugin compat 57/57, repo-self `--final` 30/30, two adversarial review
+41/41, plugin compat 57/57, repo-self `--final` 29/29, two adversarial review
 rounds (14/14 resolved, zero regressions) plus one scoped re-review (8/8
 SOUND), fresh-context verification 5/5 PASS, SKILL.md held under its 49KB cap
 (48,932B) by net-zero byte discipline, TESTING_PROTOCOLS.md slimmed back
@@ -545,7 +545,7 @@ opencode v2.0 shipped its plugin system as a deliberate breaking change: the v2 
 - **Audit v2.** A shared audit machine keeps the latch / stale-release / report identical across versions; observation comes from `ctx.tool.hook` plus the v2 session events (`session.text.delta`, `session.message.content.updated`, `session.skill.activated`, `session.status`).
 - **Dual-loader harness.** New `tests/plugin_compat_test.mjs` simulates both loader contracts (v1 `readV1Plugin` + legacy iteration, v2 `PluginModule` schema) and asserts gate/audit behavioral parity under each.
 
-Verified: harness 30/30 after this wave; a real opencode 1.18.32 model write into a RED project is still GATE-BLOCKED; a real v2 binary (isolated home) loads both plugins with zero errors; payload byte-identical across the four copies (`diff -q`).
+Verified: harness 29/29 after this wave; a real opencode 1.18.32 model write into a RED project is still GATE-BLOCKED; a real v2 binary (isolated home) loads both plugins with zero errors; payload byte-identical across the four copies (`diff -q`).
 
 ## 2026-09-14: wave6 — consistency fixes plus an A/B-gated root slim (−15.1%)
 
