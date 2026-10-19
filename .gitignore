@@ -9,3 +9,6 @@ venv/
 .run_data/
 repos/
 venvs/
+
+# eval run workspaces are nested repos/artifacts (not submodules)
+vibeweaver-eval/workspace/iteration-1/runs/*/
