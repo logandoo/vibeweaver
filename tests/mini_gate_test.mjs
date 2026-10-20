@@ -211,6 +211,10 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   rec("v1 before blocks case-variant bash redirection", !!upperBash && /read-only/.test(upperBash), upperBash || "no block")
   const globBash = await v1Before(hooks, "bash", { command: "rm -f .vw_*" })
   rec("v1 before blocks .vw_* glob deletion", !!globBash && /read-only/.test(globBash), globBash || "no block")
+  const globWide = await v1Before(hooks, "bash", { command: "rm -f .vw*" })
+  rec("v1 before blocks .vw* glob deletion", !!globWide && /read-only/.test(globWide), globWide || "no block")
+  const runRedirect = await v1Before(hooks, "bash", { command: "python3 vw_check.py 2>&1" })
+  rec("v1 before allows a checker run with 2>&1", runRedirect === null, runRedirect || "")
   if (process.platform === "darwin" || process.platform === "win32") {
     const upperChecker = await v1Before(hooks, "write", { filePath: path.join(dir, "VW_CHECK.PY") })
     rec("v1 case-insensitive checker path is protected", !!upperChecker && /read-only/.test(upperChecker), upperChecker || "no block")
@@ -435,6 +439,7 @@ if (process.platform !== "win32") {
   const stPath = path.join(dir, ".vw_loop_state.json")
   const st = existsSync(stPath) ? JSON.parse(readFileSync(stPath, "utf8")) : {}
   rec("gate run marks seen without cap/stall", st.seen === true && !st.runs && !st.same_fail, JSON.stringify(st))
+  writeFileSync(stPath, JSON.stringify({ runs: 2, same_fail: 2, sig: "seed" }))
   writeFileSync(path.join(dir, "calc.py"), "def add(a, b):\n    return 4  # fixed\n")
   const good = await v1Write(hooks, dir)
   rec("real vw_check.py: fixed code reaches ALL CHECKS PASS", !good.threw && /ALL CHECKS PASS/.test(good.output), good.output || good.message)

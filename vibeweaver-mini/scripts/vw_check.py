@@ -65,14 +65,22 @@ def discover():
             "**/*.test.tsx", "**/*.test.jsx",
             "**/*.spec.js", "**/*.spec.mjs", "**/*.spec.cjs", "**/*.spec.ts",
             "**/*.spec.tsx", "**/*.spec.jsx",
+            "**/test.js", "**/test.mjs", "**/test.cjs", "**/test.ts",
+            "**/test.mts", "**/test.cts", "**/test.jsx", "**/test.tsx",
+            "**/*_test.js", "**/*_test.mjs", "**/*_test.cjs", "**/*_test.ts",
+            "**/*_test.mts", "**/*_test.cts", "**/*_test.jsx", "**/*_test.tsx",
+            "**/*.test.mts", "**/*.test.cts", "**/*.spec.mts", "**/*.spec.cts",
             "test/**/*.js", "test/**/*.mjs", "test/**/*.cjs", "test/**/*.ts",
-            "test/**/*.tsx", "test/**/*.jsx",
+            "test/**/*.tsx", "test/**/*.jsx", "test/**/*.mts", "test/**/*.cts",
             "tests/**/*.js", "tests/**/*.mjs", "tests/**/*.cjs", "tests/**/*.ts",
-            "tests/**/*.tsx", "tests/**/*.jsx",
+            "tests/**/*.tsx", "tests/**/*.jsx", "tests/**/*.mts", "tests/**/*.cts",
             "__tests__/**/*.js", "__tests__/**/*.mjs", "__tests__/**/*.cjs",
             "__tests__/**/*.ts", "__tests__/**/*.tsx", "__tests__/**/*.jsx",
+            "__tests__/**/*.mts", "__tests__/**/*.cts",
             "**/test-*.js", "**/test-*.mjs", "**/test-*.cjs", "**/test-*.ts",
+            "**/test-*.mts", "**/test-*.cts",
             "**/*-test.js", "**/*-test.mjs", "**/*-test.cjs", "**/*-test.ts",
+            "**/*-test.mts", "**/*-test.cts",
         )
         js = sorted(set(t for pat in js_pats
                         for t in glob.glob(pat, recursive=True) if clean(t)))
@@ -104,9 +112,9 @@ def test_config_files():
                 out.add("package.json")
         except Exception:
             pass
-    for pat in ("jest.config.*", "vitest.config.*", ".mocharc.*",
-                "karma.conf.*", "playwright.config.*"):
-        out.update(t for t in glob.glob(pat) if clean(t))
+    for pat in ("**/jest.config.*", "**/vitest.config.*", "**/.mocharc.*",
+                "**/karma.conf.*", "**/playwright.config.*"):
+        out.update(t for t in glob.glob(pat, recursive=True) if clean(t))
     return sorted(out)
 
 
@@ -207,8 +215,8 @@ def main():
                 print("TEST SET CHANGED since first run — refusing to run: " + ", ".join(changed))
                 print("A test change needs its justification (record it in your report):")
                 print("  - test-change: <path> — <reason>")
-                print("Then re-run with:")
-                print("  python3 vw_check.py --test-change \"<the same reason>\"")
+                print("Then re-run the checker with:")
+                print("  --test-change \"<the same reason>\"")
                 print("Never edit tests to pass.")
                 return 1
             print(f"TEST SET CHANGED — re-baselined under justification: {reason}")
@@ -222,8 +230,8 @@ def main():
         # the same `--test-change` justification a change needs.
         if os.path.exists(STATE_FILE) and not reason:
             print("HASH RECORD MISSING but the checker has run before — refusing to run.")
-            print("Deleting the record is not a re-baseline; justify the test change:")
-            print("  python3 vw_check.py --test-change \"<reason>\"")
+            print("Deleting the record is not a re-baseline; justify the test change with:")
+            print("  --test-change \"<reason>\"")
             return 1
         if reason:
             print(f"HASH RECORD created under justification: {reason}")
