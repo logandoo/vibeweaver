@@ -215,6 +215,15 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   rec("v1 before blocks .vw* glob deletion", !!globWide && /read-only/.test(globWide), globWide || "no block")
   const runRedirect = await v1Before(hooks, "bash", { command: "python3 vw_check.py 2>&1" })
   rec("v1 before allows a checker run with 2>&1", runRedirect === null, runRedirect || "")
+  for (const [label, cmd] of [
+    ["tee", "printf x | tee vw_check.py"],
+    ["1>", "printf x 1> vw_check.py"],
+    ["2>", "printf x 2> vw_check.py"],
+    [">&file", "printf x >& vw_check.py"],
+  ]) {
+    const blocked = await v1Before(hooks, "bash", { command: cmd })
+    rec(`v1 before blocks ${label} into the checker`, !!blocked && /read-only/.test(blocked), blocked || "no block")
+  }
   if (process.platform === "darwin" || process.platform === "win32") {
     const upperChecker = await v1Before(hooks, "write", { filePath: path.join(dir, "VW_CHECK.PY") })
     rec("v1 case-insensitive checker path is protected", !!upperChecker && /read-only/.test(upperChecker), upperChecker || "no block")

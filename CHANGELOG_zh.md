@@ -8,7 +8,7 @@
 
 **机制。** `vibeweaver-mini-gate.js`（单文件，v1+v2）识别会话根目录的 `vw_check.py` / mini `script/check.sh`，每次 write/edit 后跑 checker：失败就把修复包作为阻断消息返回，成功追加 checker 自己的 `ALL CHECKS PASS` 输出；session idle 时挑战完成声明，直到 checker 变绿（预算 2 次/会话，不重置）。gate 激活期间 checker、状态文件与 `tests/verification_log.md` 只读；完整版项目不归它管。checker 现在会把 pytest 配置（`conftest.py`、`pytest.ini`、`tox.ini`、`setup.cfg`、含 pytest 的 `pyproject.toml`）纳入 hash，关闭字节码缓存，gate 的观察运行不消耗模型的 cap/stall 预算。`install.sh` / `install.bat` 安装 skill、脚本与插件；`setup_project.sh` / `.bat` 把 checker 标记放进项目。
 
-**验证。** `tests/mini_gate_test.mjs` 57/57（v1+v2 write 通过/失败、oracle 守卫、缺失/静默 checker、超时、idle 声明与预算、陈旧文本、非 mini/完整版/嵌套 no-op、关闭开关、真实 `vw_check.py` fail→pass、conftest hash 守卫、安装器）· `verify_skill.py` 10/10 · unittest 56/56 · plugin compat 69/71（E3/G9 已知）。
+**验证。** `tests/mini_gate_test.mjs` 61/61（v1+v2 write 通过/失败、oracle 守卫、缺失/静默 checker、超时、idle 声明与预算、陈旧文本、非 mini/完整版/嵌套 no-op、关闭开关、真实 `vw_check.py` fail→pass、conftest hash 守卫、安装器）· `verify_skill.py` 10/10 · unittest 56/56 · plugin compat 69/71（E3/G9 已知）。
 
 ## 2026-10-19：W13 — v2 显式提示 + seal verifier 清理
 

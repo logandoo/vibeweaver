@@ -41,7 +41,7 @@ const PROTECTED = new Set([
   ".vw_loop_state.json",
 ].map(key))
 const FULL_MARKER = path.join("tests", "verification_log.md")
-const MUTATOR = /(?:^|[^<0-9])>{1,2}(?![>&])|\bsed\s+-i|\bcp\b|\bmv\b|\brm\b|\btouch\b|\btruncate\b/
+const MUTATOR = /(?:^|[^<])>{1,2}\s*(?!&[0-9-])|\btee\b|\bsed\s+-i|\bcp\b|\bmv\b|\brm\b|\btouch\b|\btruncate\b|-\s*delete\b/
 const PROTECTED_RE = /(^|[\s\/\\"'])(tests[\/\\]verification_log\.md|(?:script|scripts)[\/\\]vw_check\.py|vw_check\.py|check\.sh|\.vw_test_hashes\.json|\.vw_loop_state\.json)(?=$|[\s;|&"'])/i
 const VW_GLOB_RE = /(^|[\s\/\\"'])\.vw/
 
