@@ -90,3 +90,4 @@ process, EN de-translationese, readme-weaver pass). Documentation-only change.
 - working-note: distilled — into this log + memory/project_mini_gate.md; deleted before --final
 - assert-run: assert_artifacts.py --profile library --existing --final: all 18 checks pass (exit 0)
 - final-run: --final — pass=18/fail=0
+- fcv: 5 fresh-context review rounds; all Critical/Important fixed with covering tests; Minors deferred to memory/project_mini_gate.md — report at tests/fcv_report.md
