@@ -540,8 +540,9 @@ which is evidence about the mechanism, not about model behavior.
   session-scoped terminal-state whitelist (PAUSED packet · Class-E stop · gate
   marker · explicit user directive), then posts ONE corrective prompt — budget
   2/session, never thrash, four legal stops named. v1 hosts quote the measured
-  context fill; v2 degrades to a journaled stop-debt replayed into every audit
-  report. Output-limit truncations (`finish:"length"`) count as continuations,
+  context fill; v2 posts explicit euphemism/truncation prompts and journals
+  positive silent-stop debt (W13 refined this; a model-authored gate/paused
+  cannot suppress an explicit trigger). Output-limit truncations (`finish:"length"`) count as continuations,
   not completions.
 - **Evidence.** Fixture suite 166 assertions / mutation sweep 41, TDD RED
   against the pre-change cores, two dual-adversarial review rounds (26 findings

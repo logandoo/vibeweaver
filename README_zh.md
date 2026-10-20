@@ -238,7 +238,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 - **COV-13 / §V11 任务分类**：`Class: CODE > CONFIG > DOC` 由文件种类判定；每类一张 path card（gate↔具名风险）；散文与配置走 lite 完工表；doc-drift 触发器；Class 与 Lane 是两个轴。动因很直白：改一段 CHANGELOG 在走完整验证路径，而路径本身还在自作主张推着 README 更新。
 - **§V11.9 DOC-asset render 门**：office 交付物仍归 Class DOC，但证据改为 render-and-verify（`NO RENDER, NO DONE`）；doc-skill 委托表；交付时点的具名可执行行为检查（vbaProject / PDF JS / 宏表）；工具链缺失带旗标降级并标 `UNVERIFIED-layout`。
 - **盲区加固**：两轮猎杀（自研探针 + 全新上下文语义评审）关掉九个真窟窿——门改按文件种类在任何类触发（混合 CODE 波交付样例 docx 同样欠渲染）、证据绑定到当前任务块并按资产逐件（COV-5 探针图、旧块引用、占位符 `render: N/A`、引用回声一律不许可）、资产集合取整个波次而非工作区（commit 过的资产仍是交付物）、exec-check 移到交付时点并强制日志令牌。
-- **§V12 stop-guard**：一句连贯的"上下文耗尽，先到这里"能绕过全部字节级循环检测，所以有独立的语法级守卫——audit 插件在最后一条 assistant 消息里识别停机遁词（剥离引用、元讨论感知、要求终止意图），查会话级终态白名单（PAUSED 包 · Class-E · gate 标记 · 用户明确停令），然后只发一次纠正 prompt（预算 2/会话、绝不空转、点名四个合法停点）。v1 宿主引用实测上下文填充率；v2 降级为债务日志并重放进每次审计报告。输出截断（`finish:"length"`）算续跑，不算完成。
+- **§V12 stop-guard**：一句连贯的"上下文耗尽，先到这里"能绕过全部字节级循环检测，所以有独立的语法级守卫——audit 插件在最后一条 assistant 消息里识别停机遁词（剥离引用、元讨论感知、要求终止意图），查会话级终态白名单（PAUSED 包 · Class-E · gate 标记 · 用户明确停令），然后只发一次纠正 prompt（预算 2/会话、绝不空转、点名四个合法停点）。v1 宿主引用实测上下文填充率；v2 对显式 euphemism/truncation 发 corrective prompt，positive 静默停止一律记债务（W13 细化；模型自写 gate/paused 不能压制显式触发）。输出截断（`finish:"length"`）算续跑，不算完成。
 - **证据**：fixture 166 条断言 / 变异扫描 41，TDD RED 对变更前 core，两轮双对抗评审（26 项发现全部裁决）与三轮 FCV——第一轮 FCV 判了两条验收标准不通过并点名剩余绕过，那些绕过就是下一波的输入。
 
 ### 说句实话
