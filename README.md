@@ -459,11 +459,22 @@ in `vibeweaver-eval/`.
 ## The workflow is a graph, not a checklist
 
 See the whole graph first, then read the breakdown (every node is a stage with
-mandatory artifacts, every edge is an explicit condition):
+mandatory artifacts, every edge is an explicit condition). The graph is split into
+four panels so each stays readable; together they are the full contract graph.
 
-![The vibeweaver workflow: ZERO, routing, implementation, verification, review, completion gate, memory, delivery](docs/assets/workflow-en.svg)
+#### 1. Entry and routing
+![Entry and routing: ZERO, project mode C1-C3](docs/assets/workflow-1-en.svg)
 
-Source: [`docs/assets/workflow-en.mmd`](docs/assets/workflow-en.mmd), rendered with mermaid-cli.
+#### 2. Task-type routes
+![Task routes C4-C8 and S1](docs/assets/workflow-2-en.svg)
+
+#### 3. Implementation and verification
+![Implementation, change-type branches, bounded verification loop](docs/assets/workflow-3-en.svg)
+
+#### 4. Completion and enforcement
+![Review, completion gate, memory, plugin audit, delivery](docs/assets/workflow-4-en.svg)
+
+Sources: [`1`](docs/assets/workflow-1-en.mmd) · [`2`](docs/assets/workflow-2-en.mmd) · [`3`](docs/assets/workflow-3-en.mmd) · [`4`](docs/assets/workflow-4-en.mmd), rendered with mermaid-cli.
 
 - **Nodes are stages with mandatory artifacts.** ZERO (decompose + research) →
   project-mode detection → design gates → implementation → verification loop →
@@ -576,10 +587,12 @@ are all passing. Honest scope: bare literal runs, identical-call repeats, and
 single-tool storms are caught; semantic no-ops (`sleep`, `ls`) and echo/read
 oscillation are documented gaps, not claimed coverage.
 
-The gate is also skill-agnostic: it fires on any project that has
-`tests/verification_log.md`, so it covers **vibeweaver-mini** too; mini's artifact
-formats are deliberately aligned with its evidence floor. If you only run mini and
-want the hard floor, installing this one plugin is the whole job.
+The gate is skill-agnostic in one direction: it fires on any project that has
+`tests/verification_log.md`. The mini kit does not create that file by default —
+its contract is the checker's `ALL CHECKS PASS` line — so the full gate is **not**
+a drop-in for mini today. Mini users get the checker's hard floor; wiring the gate
+to mini needs either the evidence floor or a dedicated mini guard (open design,
+not shipped).
 
 One honest caveat: the plugins speak opencode's plugin API — both generations of
 it (v1's `server()` hook map and v2's `setup(ctx)` domain API, from one file each;

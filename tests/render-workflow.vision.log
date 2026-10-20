@@ -1,176 +1,754 @@
 /Users/logan/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
   warnings.warn(
 <div class="vision-description" 
-     data-media-type="image" data-detail="high" data-source="tests/render-workflow-en.png" data-timestamp="2026-10-20T02:06:01.710642Z" data-model="mimo-v2.5">
+     data-media-type="image" data-detail="high" data-source="tests/render-workflow-1-en.png" data-timestamp="2026-10-20T02:48:40.158737Z" data-model="mimo-v2.5">
   
   
   <main class="content-structure">
-    ### Structured Diagram Description
+    Based on the provided image, here is a precise and structured description.
 
----
+### 1. Image Overview
+*   **Image Type:** A digital flowchart or process diagram presented in a vertical (portrait) orientation.
+*   **Resolution:** The image appears to be a standard web-resolution graphic (approximate aspect ratio 3:4).
+*   **Color Scheme:** Minimalist and clean. The background is pure white. The flowchart nodes are filled with a uniform pale lavender/periwinkle color (approximately #E0E6FA). All text and directional arrows are solid black.
 
-#### 1. Image Type & Specifications
-This is a **digital, vertical-orientation process flowchart** with a vector-style, flat design.
--   **Resolution (equivalent)**: ~1000px width x 1800px height (aspect ratio 1:1.8)
--   **Color Scheme**: Minimal monochromatic palette: white background, light lavender nodes, dark grey-blue text/borders/connectors
----
+### 2. Element Hierarchy
+The diagram follows a top-down flow logic:
+1.  **Root Node:** A small box labeled "Task".
+2.  **Process Node:** A large rectangular box detailing mandatory pre-coding rules.
+3.  **Decision Node:** A diamond shape labeled "$3 project mode".
+4.  **Branching Paths:** The decision node splits into three parallel paths labeled C1, C2, and C3.
+    *   **Left Path (C1):** Leads to a box for "New" projects.
+    *   **Center Path (C2):** Leads to a box for "Existing" projects.
+    *   **Right Path (C3):** Leads to a box for "Large" projects.
+5.  **Convergence:** All three paths converge into a final bottom node labeled "Implementation".
 
-#### 2. Element Hierarchy (Top-to-Bottom Flow)
-The flowchart follows a linear, branching process:
-1.  **Root Task Node** (top)
-2.  **Route Decision Node** (branching point)
-    -   *Left Implementation Path (C1-C3)*:
-        `Implement` → `Verify` → `All criteria green?` → `Major change?` → (conditional) `Independent Review` → `Completion Gate + Memory`
-    -   *Right Direct Path (C4-C8)*: `Route-specific deliverable`
-3.  **Final Delivery Node** (bottom, converging both paths)
----
+### 3. Visual Style Information
+*   **Typography:** The font is a clean, sans-serif typeface (likely Arial, Roboto, or Helvetica).
+    *   **Weights:** Most text appears to be Regular weight. No text appears explicitly Bolded, though the layout emphasizes certain terms.
+    *   **Size:** The text is uniform in size across all boxes (approx. 12-14pt equivalent relative to the image scale).
+*   **Shapes:**
+    *   **Boxes:** Rectangles with sharp, 90-degree corners (no rounded edges).
+    *   **Diamond:** A standard geometric diamond shape for decision making.
+    *   **Arrows:** Thin, solid black lines with standard arrowheads indicating flow.
+*   **Spacing:**
+    *   Text inside the boxes is center-aligned.
+    *   Line height is relatively tight (approx. 1.2x).
+    *   Margins within the boxes are uniform, leaving adequate whitespace around the text.
 
-#### 3. Style & Visual Details
--   **Node Design**:
-    -   Process/action nodes: Rounded rectangles (~4px border radius), 1px dark blue-grey border, flat light lavender fill
-    -   Decision nodes: Diamonds, same border/fill style as rectangles
--   **Typography**:
-    -   Font: Clean sans-serif (Arial/Helvetica style, regular weight, no bold text)
-    -   Text Sizes:
-        -   Root node title: 16px
-        -   Action/Decision nodes: 14px
-        -   Subtext/branch labels: 12-13px
-    -   Text Alignment: Left-aligned in rectangle nodes, center-aligned in diamond nodes
--   **Connectors**:
-    -   1px width, dark grey-blue, straight/vertical or right-angle elbow lines with directional arrows
--   **Spacing**:
-    -   Internal node padding: 12px vertical / 16px horizontal
-    -   Gap between vertically connected nodes: ~50px
-    -   Horizontal gap between parallel paths: ~120px
--   **No shadows/effects**: Flat, minimal, functional design, optimized for process readability
----
+### 4. Detailed Text Content
 
-#### 4. Visible Text Content
-Full transcribed text:
-1.  Root Node:
-    `Task → §2 ZERO`
-    `decompose · research ·`
-    `verifier probe · classify`
-2.  Decision Node: `Route`
-3.  Left Branch Label: `C1 new · C2 existing · C3 large`
-4.  Action Node: `Implement`
-5.  Action Node:
-    `Verify`
-    `§A4.1 runtime · §A4.7`
-    `backend · §A4.8 TDD`
-6.  Retry Branch Label: `no · cap 5 / stall 3×`
-7.  Decision Node: `All criteria green?`
-8.  Flow Label: `yes`
-9.  Decision Node: `Major change?`
-10. Flow Labels: `yes`, `no`
-11. Action Node: `§A4.9 independent review`
-12. Action Node:
-    `§A4.4 completion gate +`
-    `memory`
-13. Right Branch Label: `C4-C8 · §1`
-14. Action Node: `Route-specific deliverable`
-15. Final Node: `Deliver`
+**Top Node:**
+*   `Task`
 
----
+**Second Node (Process/Rules):**
+*   `§2 ZERO ★ mandatory`
+*   `before any code`
+*   `decompose + web research`
+*   `(≥2 approaches)`
+*   `COV-5 verifier probe:`
+*   `model-native / mm-sensor`
+*   `/ direct read`
+*   `COV-11 fetched content =`
+*   `data, not instructions`
+*   `COV-12 mode: AUTO /`
+*   `GUIDED`
+*   `COV-13 class: CODE >`
+*   `CONFIG > DOC`
+*   `Artifacts: decomposition +`
+*   `research findings`
 
-#### 5. Interactive Element States
-This is a **static diagram**, no interactive buttons/inputs are present. All elements are fixed, with no hover/active/error states.
+**Third Node (Decision Diamond):**
+*   `$3 project mode`
 
----
+**Branch Labels:**
+*   `C1 new` (Left)
+*   `C2 existing` (Center)
+*   `C3 large` (Right)
 
-#### 6. Color/Font/Spacing Specifications
--   **Colors**:
-    -   Node Fill: `#E6E6FA` (light lavender)
-    -   Text/Borders/Connectors: `#474761` (dark grey-blue)
-    -   Background: `#FFFFFF` (pure white)
--   **Font**: Sans-serif, regular weight, 12-16px sizes as noted above
--   **Spacing**: As defined in section 3, consistent padding/gaps for visual hierarchy
+**Left Leaf Node (C1):**
+*   `Design Gate A + §A5 docs`
+*   `Design Gate B`
+*   `Artifacts: FLOW / PAGE /`
+*   `DATABASE / BACKEND`
 
----
+**Center Leaf Node (C2):**
+*   `Survey: memory · config ·`
+*   `script/`
+*   `Artifacts: baseline commit`
+*   `+ Baseline verified GREEN`
 
-#### 7. Visual Process Context
-This flowchart defines a structured task lifecycle:
-1.  A root task is split for implementation (C1-C3: new/existing/large-scope) or direct delivery (C4-C8: out-of-scope/handoff)
-2.  For in-scope tasks: a test-driven verify cycle runs, with a retry loop capped at 5 attempts / 3 stalls
-3.  Major changes require independent review before a completion gate/memory check
-4.  All paths converge to a final delivery step
-All hierarchical numbering (`§2`, `§A4.X`, `§1`) indicates tied to formal documentation or system sections.
+**Right Leaf Node (C3):**
+*   `docs/PLAN.md +`
+*   `Consistency Hub`
+*   `Artifacts: per-task`
+*   `implementation plan`
+
+**Bottom Node:**
+*   `Implementation → panel 3`
+
+### 5. Interactive Elements
+*   **State:** This is a static image. There are no interactive buttons, inputs, or hover states visible. The diagram serves as a visual documentation or instruction set rather than a functional UI element in this format.
+
+### 6. Detailed Specifications
+
+*   **Node Colors:**
+    *   Fill: Pale Lavender (Hex approx. #E4E9FB).
+    *   Stroke: None visible (the fill defines the shape) or very thin same-color stroke.
+*   **Text Color:** Black (#000000).
+*   **Symbols Used:**
+    *   `§` (Section sign)
+    *   `★` (Filled Star)
+    *   `≥` (Greater than or equal to)
+    *   `·` (Middle dot / bullet point)
+    *   `→` (Right arrow)
+    *   `>` (Greater than)
+    *   `/` (Forward slash)
+    *   `+` (Plus sign)
+    *   `-` (Hyphen)
+*   **Alignment:** All text is center-aligned within its respective shape. The overall diagram is symmetrically balanced around the central vertical axis, except for the content length within the boxes.
   </main>
 </div>
 
 <div class="vision-description" 
-     data-media-type="image" data-detail="high" data-source="tests/render-workflow-zh.png" data-timestamp="2026-10-20T02:07:14.274304Z" data-model="mimo-v2.5">
+     data-media-type="image" data-detail="high" data-source="tests/render-workflow-2-en.png" data-timestamp="2026-10-20T02:49:41.834294Z" data-model="mimo-v2.5">
   
   
   <main class="content-structure">
-    ### 1. Image Type, Resolution, and Color Scheme
-*   **Image Type:** A digital flowchart or process diagram, likely generated by a diagramming tool (e.g., Mermaid, Lucidchart, or Excalidraw).
-*   **Resolution:** High clarity vector-style graphic (displayed at a portrait aspect ratio).
-*   **Color Scheme:** Monochromatic Lavender/Purple theme on a white background.
-    *   **Background:** Solid White.
-    *   **Shape Fill:** Light Lavender (approximately `#EBEBFB`).
-    *   **Shape Borders:** Medium Lavender/Purple.
-    *   **Text:** Dark Charcoal/Black.
-    *   **Arrows:** Dark Charcoal/Black.
+    Here is the precise description of the provided image:
+
+**1. Image Type, Resolution, and Color Scheme**
+*   **Image Type:** A digital flowchart or process diagram.
+*   **Resolution:** The image is a clear, high-contrast digital graphic with an aspect ratio of approximately 4:3. It appears to be a screenshot or a direct export from a diagramming tool (like Mermaid, Graphviz, or draw.io).
+*   **Color Scheme:**
+    *   **Background:** White.
+    *   **Primary Fill:** Light lavender/lilac (#E6E6FA).
+    *   **Accent/Text:** Black or very dark grey text.
+    *   **Lines:** Light grey connecting strokes.
+    *   **Root Shape:** Slightly darker lavender fill with a thin dark purple border.
+
+**2. Complete Element Hierarchy**
+The diagram flows from left to right, structured in four distinct levels:
+*   **Level 1 (Root):** A single diamond-shaped decision node on the far left.
+*   **Level 2 (Branches):** Five curved connector lines extending from the root, each carrying a text label.
+*   **Level 3 (Process Nodes):** Five rectangular boxes (rounded corners) containing detailed instructions, aligned vertically in the center.
+*   **Level 4 (Outcome Nodes):** Three rectangular boxes (sharp corners) on the far right, representing final destinations or panels. Note that two of the center process nodes merge into a single outcome node.
+
+**3. Precise Style Information**
+*   **Shapes:**
+    *   Root: Diamond (Rhombus).
+    *   Process Boxes: Rectangles with a border-radius of approximately 8–10px.
+    *   Outcome Boxes: Rectangles with a border-radius of 0px or negligible (<2px).
+*   **Borders:** The root diamond has a visible 1px dark purple stroke. The process boxes have a very faint, almost invisible stroke. The outcome boxes have no visible stroke.
+*   **Lines:** Bezier curves, approx. 1px width, light grey color.
+*   **Typography:** Sans-serif font (likely Helvetica, Arial, or Roboto).
+    *   **Size:** Uniform font size across all nodes, appearing to be standard body text size (12pt–14pt).
+    *   **Alignment:** Left-aligned text inside the central process boxes; Centered text inside the root and outcome boxes.
+    *   **Weight:** Regular weight for all text.
+
+**4. All Visible Text Content**
+*(Reading from Left to Right, Top to Bottom)*
+
+*   **Root Node:** "§3.1 task type"
+*   **Branch Labels:**
+    *   "C4 audit (read-only)"
+    *   "C5 deploy"
+    *   "C6 ops/incident"
+    *   "C7 CLI/library"
+    *   "S1 spike"
+
+*   **Process Nodes (Center Column):**
+    *   *Box 1 (Top):*
+        "docs/AUDIT_*.md
+        findings need file:line + PoC
+        independent subagent re-verification"
+    *   *Box 2:*
+        "pre-deploy checklist → rollback first
+        deploy action = Class-E
+        human confirm"
+    *   *Box 3:*
+        "evidence before fixes
+        postmortem → permanent
+        regression case"
+    *   *Box 4:*
+        "project profile declares
+        N/A
+        CLI transcript + exit code +
+        golden diff"
+    *   *Box 5 (Bottom):*
+        "answer, not code
+        probe plan 2-3 sentences +
+        cheapest correct probe
+        throwaway code; keeping
+        it = new request + baseline"
+
+*   **Outcome Nodes (Right Column):**
+    *   *Top Box:* "Deliver → panel 4"
+    *   *Middle Box (receives input from Box 2 & Box 3):* "Implementation → panel 3"
+    *   *Bottom Box:* "Acceptance → panel 3"
+
+**5. State of Interactive Elements**
+*   As this is a static image, there are no true interactive elements. However, functionally, the diagram represents a state machine or routing logic where a "task type" input determines the workflow.
+
+**6. Detailed Color, Font, and Spacing**
+*   **Text Color:** Black (#000000).
+*   **Node Fill Color:** Very light purple (approx. #EBF0FE or similar light periwinkle).
+*   **Spacing:** The vertical spacing between the central process boxes is uniform (approx. 30-40px). The horizontal spacing is divided roughly into thirds: Branch labels | Process Boxes | Outcome Boxes.
+*   **Font:** Monospaced-like spacing in certain numbers, but strictly sans-serif. Line height is standard (approx 1.2x).
+
+**7. Additional Visual Details**
+*   **Connectivity:**
+    *   The top branch (C4) goes straight to its specific outcome box.
+    *   The second (C5) and third (C6) branches converge on a single outcome box ("Implementation → panel 3").
+    *   The fourth branch (C7) goes to a specific outcome box.
+    *   The fifth branch (S1) leads to a process box but **has no outgoing arrow** to an outcome box, implying the process ends or is undefined at this stage.
+*   **Arrows:** The connections between the center process boxes and the right outcome boxes have arrowheads indicating direction. The lines from the root diamond to the center boxes do not have distinct arrowheads, appearing merely as routing lines.
+  </main>
+</div>
+
+<div class="vision-description" 
+     data-media-type="image" data-detail="high" data-source="tests/render-workflow-3-en.png" data-timestamp="2026-10-20T02:50:48.433946Z" data-model="mimo-v2.5">
+  
+  
+  <main class="content-structure">
+    Based on the provided image, here is the detailed structured description:
+
+### 1. Image Type, Resolution, and Color Scheme
+*   **Image Type:** This is a digital flowchart or process diagram, likely created using a diagramming tool like Mermaid.js or Graphviz. It outlines a software development or testing workflow.
+*   **Resolution:** The image is a digital graphic with clear, legible text. The aspect ratio is roughly landscape.
+*   **Color Scheme:** The image uses a monochromatic, pastel color palette.
+    *   **Background:** Transparent or White.
+    *   **Node Fill:** Light Lavender (approximately `#E6E6FA`).
+    *   **Node Borders:** Medium Purple (approximately `#9370DB`).
+    *   **Text:** Black or very dark gray.
+    *   **Lines/Arrows:** Dark Gray or Black.
+
+### 2. Element Hierarchy
+The diagram follows a top-down flow with branching logic:
+
+1.  **Start Node:** Top rectangular node ("Implementation").
+2.  **First Decision Point:** A diamond node ("Change type").
+3.  **Three Parallel Branches:** The flow splits into three distinct paths based on the "Change type":
+    *   **Left Path:** "logic-bearing" leading to a specific action box.
+    *   **Center Path:** "backend-only" leading to a specific action box.
+    *   **Right Path:** "runtime-visible" leading to a specific action box.
+4.  **Convergence:** All three parallel paths converge into a second central decision diamond ("Acceptance all green?").
+5.  **Outcomes:**
+    *   **Success:** An arrow labeled "yes" leads to a bottom-right rectangular node ("Completion").
+    *   **Failure/Loop:** An arrow labeled "stall<3x / cap=5" leads to a bottom-left rectangular node ("parameterized escape").
+6.  **Feedback Loop:** Two curved arrows on the far left side loop from the bottom-left "parameterized escape" node back up to the top "Implementation" node, indicating a retry process.
+
+### 3. Style Information
+*   **Font:** A standard sans-serif font (likely Arial, Helvetica, or similar system font).
+*   **Font Weight:** Regular weight is used for general text. Bold weight appears to be used for section headers within boxes (e.g., "§A4.8").
+*   **Shapes:**
+    *   **Rectangles:** Used for process steps. They have slightly rounded corners (radius approximately 2-3 pixels).
+    *   **Diamonds:** Used for decision points.
+*   **Lines:** Solid, dark gray lines with arrowheads indicating direction.
+*   **Margins/Spacing:** The text inside the boxes has consistent padding, centering the text horizontally and vertically. The nodes are spaced to prevent line crossings where possible, except for the long feedback loop on the left.
+
+### 4. Visible Text Content
+*   **Top Node:** "Implementation (panel 1/2)"
+*   **Top Diamond:** "Change type"
+*   **Branch Labels:** "logic-bearing", "backend-only", "runtime-visible"
+*   **Left Action Box:** "§A4.8 TDD + trusted oracle RED evidence first, then GREEN project tests certify · checker drives"
+*   **Center Action Box:** "§A4.7 doc-driven API tests + §A4.7b cross-endpoint workflow trace"
+*   **Right Action Box:** "§A4.1 capture-verify loop Act → Capture → Verify → Fix → Log Artifacts: verification_log.md + media evidence"
+*   **Center Diamond:** "Acceptance all green?"
+*   **Edge Labels (Bottom):**
+    *   "yes" (right branch)
+    *   "stall<3x / cap=5" (left branch)
+*   **Left Feedback Label:** "no - within cap=5"
+*   **Bottom Right Node:** "Completion → panel 4"
+*   **Bottom Left Node:** "§A4.10 parameterized escape change direction · fresh-brain retry"
+
+### 5. State of Interactive Elements
+*   **Status:** The image is a static flowchart. There are no interactive elements like buttons, inputs, or hover states visible. All elements are in a fixed state for presentation purposes.
+
+### 6. Detailed Color, Font, and Spacing Information
+*   **Typography:**
+    *   **Font Size:** Uniform size across most nodes (approx. 10-12pt equivalent). The text is dense in the action boxes.
+    *   **Line Spacing:** Tight line spacing within the action boxes (approx. 1.1x to 1.2x line height) to fit the detailed instructions.
+*   **Color Specifics:**
+    *   **Fill Color:** The boxes are a very pale, desaturated purple/lilac.
+    *   **Border Color:** A medium, distinct purple that provides contrast against the light fill.
+    *   **Text Color:** Pure black for maximum readability.
+*   **Spacing:**
+    *   The three middle boxes are aligned horizontally.
+    *   The vertical distance between the top "Change type" and the action boxes is roughly equal to the distance between the action boxes and the "Acceptance" diamond.
+
+### 7. Visual Details
+*   **Arrows:** The arrows are thin (1px width). The arrows returning to the start are long, smooth bezier curves that run up the far left side of the diagram, bypassing the central content.
+*   **Text Alignment:** All text is center-aligned within its container.
+*   **Symbols:** The diagram uses special characters including the section sign (`§`), middle dot (`·`), right-pointing arrow (`→`), and plus sign (`+`).
+*   **Layout:** The layout is symmetrical around the central vertical axis (Top Node -> Change Type -> Backend Box -> Acceptance Diamond -> Completion/Escape split).
+  </main>
+</div>
+
+<div class="vision-description" 
+     data-media-type="image" data-detail="high" data-source="tests/render-workflow-4-en.png" data-timestamp="2026-10-20T02:52:24.385142Z" data-model="mimo-v2.5">
+  
+  
+  <main class="content-structure">
+    ### Image Description  
+
+#### 1. Image Type, Resolution, and Color Scheme  
+- **Type**: Vertical flowchart (process diagram) with rectangular (process) nodes, diamond (decision) nodes, and arrowed edges (connections).  
+- **Resolution**: Approximate dimensions ~400×1000 pixels (vertical orientation, typical flowchart scaling).  
+- **Color Scheme**:  
+  - Node fill (process/decision): Light purple (RGB: 217, 217, 240).  
+  - Node border (process/decision): Dark purple (RGB: 153, 153, 204).  
+  - Gray label node: Light gray (RGB: 230, 230, 230).  
+  - Text: Black (RGB: 0, 0, 0).  
+  - Background: White.  
+
+
+#### 2. Complete Element Hierarchy (Nodes + Connections)  
+The flowchart contains 10 nodes (6 process, 2 decision, 1 label, 1 deliver) with arrowed connections. Nodes are listed top-to-bottom, left-to-right:  
+
+| Node Type       | Text Content                                                                 | Connections (Incoming → Outgoing)                          |  
+|-----------------|-----------------------------------------------------------------------------|------------------------------------------------------------|  
+| Process (1)     | `Acceptance green (panel 3)`                                                | None (topmost) → Diamond (COV-8)                          |  
+| Decision (2)    | `COV-8 major change?`                                                       | Process (1) → Process (3, *yes*) / Process (4, *no*)       |  
+| Process (3)     | `§A4.9 independent review dispatch<br>Artifacts: review record + ruling`    | Decision (2, *yes*) → Process (4)                          |  
+| Process (4)     | `§A4.4 completion gate<br>convergence line + 8-<br>column table<br>assert_artifacts.py exit 0` | Decision (2, *no*) + Process (3) → Process (5) |  
+| Process (5)     | `Memory Gate<br>A7.9 memory write + A7.10<br>passed`                        | Process (4) → Decision (6)                                |  
+| Decision (6)    | `Plugin audit Tier 0/1/2`                                                   | Process (5) → Label (7, *BAD*) / Process (10, *OK*)        |  
+| Label (7)       | `BAD → GATE-BLOCKED /<br>RED latch` (gray fill)                             | Decision (6, *BAD*) → Process (8)                         |  
+| Process (8)     | `Back to implementation (panel 3)`                                          | Label (7) → None (bottom)                                 |  
+| Process (9)     | `C4 audit report (panel 2)`                                                | None (top-right) → Process (10)                           |  
+| Process (10)    | `Deliver<br>(C4 audit reports converge here)`                               | Decision (6, *OK*) + Process (9) → None (bottom-right)    |  
+
+
+#### 3. Style Information  
+- **Node Borders**: 1px solid dark purple (process/decision); no border (label).  
+- **Node Fill**: Light purple (process/decision); light gray (label).  
+- **Arrows**: 1px solid black, with triangular arrowheads (length ~5px).  
+- **Text**: Sans-serif font (e.g., Arial), ~10–12px (pixel size ~13–15px), black.  
+- **Line Spacing**: ~1.2 (normal for multi-line text).  
+- **Node Padding**: ~5px (text inside nodes has padding on all sides).  
+- **Border Radius**: 0 (sharp corners for all nodes).  
+- **Shadows**: None (flat design).  
+
+
+#### 4. Visible Text Content (All Nodes, Line-Breaks Included)  
+- Node 1: `Acceptance green (panel 3)`  
+- Node 2: `COV-8 major change?`  
+- Node 3: `§A4.9 independent review dispatch`<br>`Artifacts: review record + ruling`  
+- Node 4: `§A4.4 completion gate`<br>`convergence line + 8-`<br>`column table`<br>`assert_artifacts.py exit 0`  
+- Node 5: `Memory Gate`<br>`A7.9 memory write + A7.10`<br>`passed`  
+- Node 6: `Plugin audit Tier 0/1/2`  
+- Node 7: `BAD → GATE-BLOCKED /`<br>`RED latch`  
+- Node 8: `Back to implementation (panel 3)`  
+- Node 9: `C4 audit report (panel 2)`  
+- Node 10: `Deliver`<br>`(C4 audit reports converge here)`  
+- Arrow Labels: `yes`, `no`, `OK`, `BAD`  
+
+
+#### 5. Interactive Elements  
+No interactive elements (buttons, inputs) exist—this is a static diagram.  
+
+
+#### 6. Detailed Color, Font, and Spacing  
+- **Node Fill (Process/Decision)**: Light purple (RGB: 217, 217, 240).  
+- **Node Border (Process/Decision)**: Dark purple (RGB: 153, 153, 204).  
+- **Label Node Fill**: Light gray (RGB: 230, 230, 230).  
+- **Text Color**: Black (RGB: 0, 0, 0).  
+- **Font**: Sans-serif (e.g., Arial), ~10–12px (pixel size ~13–15px).  
+- **Line Spacing**: ~1.2 (normal for multi-line text).  
+- **Node Padding**: ~5px (text inside nodes has padding on all sides).  
+- **Arrow Spacing**: Vertical spacing between nodes ~30–50px; horizontal spacing ~50–100px (e.g., `C4 audit report` is 50–100px right of `Plugin audit`).  
+
+
+#### 7. Visual Details  
+- **Flow Direction**: Top-to-bottom, with horizontal connections (`C4 audit report` → `Deliver`).  
+- **Node Shapes**: Rectangular (process) with multi-line text; diamond (decision) with centered text; gray rectangle (label) with multi-line text.  
+- **Connections**: Arrows connect nodes:  
+  - `COV-8` → `§A4.9` (*yes*), `COV-8` → `§A4.4` (*no*),  
+  - `§A4.9` → `§A4.4`, `§A4.4` → `Memory Gate`,  
+  - `Memory Gate` → `Plugin audit`, `Plugin audit` → `BAD` label (*BAD*),  
+  - `BAD` label → `Back to implementation`, `Plugin audit` → `Deliver` (*OK*),  
+  - `C4 audit report` → `Deliver`.  
+- **Text Alignment**: Centered in diamond nodes; left-aligned (multi-line) in process nodes.  
+- **Spacing**: Consistent vertical spacing (~30–50px) between nodes; horizontal spacing (~50–100px) for side nodes (e.g., `C4 audit report`).  
+
+
+This description captures all elements, styling, and flow of the flowchart precisely.
+  </main>
+</div>
+/Users/logan/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+<div class="vision-description" 
+     data-media-type="image" data-detail="high" data-source="tests/render-workflow-1-zh.png" data-timestamp="2026-10-20T02:53:43.079193Z" data-model="mimo-v2.5">
+  
+  
+  <main class="content-structure">
+    Let's break down this image in a structured, precise way, following all requirements:
+
+---
+
+### 1. Image Type, Resolution, Color Scheme
+- **Image Type**: Static Process Workflow Diagram (Hierarchical Decision Tree, for project/task workflow management, vector-style scalable diagram)
+- **Resolution**: Visually appears to be **~780 x 875 pixels** (vector-based, so fully scalable with no pixelation)
+- **Color Scheme**: Monochromatic cool palette:
+  - Background: Pure white (`#FFFFFF`)
+  - Container nodes: Light lavender fill (`#E4E5F6`), with darker lavender border (`#A9AADD`)
+  - Text & lines: Dark charcoal (`#333333` for primary text, `#666666` for secondary labels/lines)
+  - Subtle accent: Bold dark gray for the `★` emphasis marker
+
+---
+
+### 2. Complete Element Hierarchy (top-to-bottom, flow order)
+1.  Top single rectangular node: `任务` (Task)
+2.  Connected vertically to a large rectangular process node (core detailed workflow block)
+3.  Connected vertically to a diamond-shaped decision node: `53 项目模式` (Project Mode)
+4.  The decision node splits into 3 parallel horizontal branches, left to right:
+    - C1: New Project rectangular node
+    - C2: Existing Modification rectangular node
+    - C3: Large Task rectangular node
+5.  All three branch nodes connect to a final single rectangular node at the bottom: `实现 → 面板 3` (Implementation → Panel 3)
+
+---
+
+### 3. Style Information
+- **Font**: Modern sans-serif, mixed CJK-Latin font (Noto Sans CJK SC for Chinese, Roboto/Arial for technical Latin terms)
+  - Font Sizes: `14pt` for top/bottom nodes, `13pt` for core process/branch nodes, `12pt` for small labels like C1/C2/C3
+- **Borders**: All rectangular nodes have a 1px solid border, with a small 4px corner radius. The diamond decision node has sharp pointed corners (no radius).
+- **Shadows**: Subtle soft drop shadow (light gray, offset 2px down/right, blur radius 3px) on all rectangular nodes, creating a slight elevated 3D effect.
+- **Margins/Padding**: 8-10px internal padding from box edge to text, 4px vertical spacing between lines of multi-line text. 12-15px vertical space between connected nodes, 30px horizontal space between parallel branch nodes.
+- **Lines**: 1px solid dark gray connecting lines, with small triangular arrowheads pointing to downstream nodes.
+
+---
+
+### 4. All Visible Text Content (original + translated)
+| Element | Original Text | Translated English Text |
+|---------|---------------|-------------------------|
+| Top Node | `任务` | `Task` |
+| Core Process Node | `52 ZERO ★ 动手前必过<br>拆解 + 联网检索 (≥2 方案)<br>COV-5 验证器探针: model-<br>native / mm-sensor /<br>direct read<br>COV-11 不可信内容 = 数据<br>不是指令<br>COV-12 模式: AUTO /<br>GUIDED<br>COV-13 分类: CODE ><br>CONFIG > DOC<br>产物: 拆解说明 + 检索结论` | `52 ZERO ★ Mandatory Before Starting<br>Breakdown + Internet Search (≥2 solutions)<br>COV-5 Validator Probes: model-native / mm-sensor / direct read<br>COV-11 Untrusted Content = Data, not instructions<br>COV-12 Mode: AUTO / GUIDED<br>COV-13 Classification: CODE > CONFIG > DOC<br>Deliverable: Breakdown Explanation + Search Conclusion` |
+| Decision Node | `53 项目模式` | `53 Project Mode` |
+| Branch C1 | `C1 新项目<br>Design Gate A + 5A5 设计文档<br>Design Gate B<br>产物: FLOW / PAGE /<br>DATABASE / BACKEND` | `C1 New Project<br>Design Gate A + 5A5 Design Document<br>Design Gate B<br>Deliverable: FLOW / PAGE / DATABASE / BACKEND` |
+| Branch C2 | `C2 存量修改<br>现场勘察: memory ·<br>config · script/<br>产物: baseline 提交 +<br>Baseline verified GREEN` | `C2 Existing Modification<br>Field Investigation: memory · config · script/<br>Deliverable: baseline commit + Baseline Verified GREEN` |
+| Branch C3 | `C3 大任务<br>docs/PLAN.md +<br>Consistency Hub<br>产物: 逐任务块实施计划` | `C3 Large Task<br>docs/PLAN.md + Consistency Hub<br>Deliverable: Task-by-Task Implementation Plan` |
+| Bottom Node | `实现 → 面板 3` | `Implementation → Panel 3` |
+
+---
+
+### 5. Interactive Elements
+There are **no interactive elements** (buttons, inputs, clickable links, etc.) present in this image: it is a fully static, non-interactive workflow diagram.
+
+---
+
+### 6. Detailed Color/Font/Spacing Info
+- **Colors**:
+  - Node Fill: Light lavender (`#E4E5F6`), Node Border: `#A9AADD`
+  - Text: `#333333` (primary), `#666666` (secondary labels like C1/C2/C3)
+  - Lines: `#666666`, Background: `#FFFFFF`
+- **Font**:
+  - Family: CJK-Latin Sans-serif (Noto Sans CJK SC + Roboto)
+  - Weight: Regular for all text, bold only for the `★` marker
+  - Alignment: Left-aligned within all rectangular nodes
+- **Spacing**:
+  - Vertical: 12px between top node and core box, 12px core box to decision diamond, 15px decision diamond to branches, 15px branches to bottom node
+  - Horizontal: 30px gap between parallel branch nodes
+
+---
+
+### 7. Additional Visual Details
+- Nodes are perfectly aligned: vertical alignment is consistent through the flow, parallel branch nodes are horizontally centered relative to each other.
+- Arrowheads are small, solid triangular shapes, pointing directly to the center edge of downstream nodes.
+- The decision diamond is centered vertically/horizontally between the upper core box and the three parallel branches.
+- Multi-line text wraps automatically to fit within node width, with consistent line spacing.
+- The `★` symbol in the core process box is a filled star, matching text color, acting as an emphasis marker.
+- All connecting lines are straight (no bends), connecting the center point of node edges for vertical/horizontal connections.
+  </main>
+</div>
+
+<div class="vision-description" 
+     data-media-type="image" data-detail="high" data-source="tests/render-workflow-2-zh.png" data-timestamp="2026-10-20T02:55:03.834322Z" data-model="mimo-v2.5">
+  
+  
+  <main class="content-structure">
+    ### 1. Image Overview
+- **Image Type**: Static decision tree/process flow diagram, used to map task category workflows
+- **Resolution**: ~980x987 pixels, square format
+- **Color Scheme**: Minimal, professional palette: white background, soft lavender (#E6E6FA) node fill, dark purple node borders, dark gray connection lines, dark blue/black sans-serif text.
+
+---
+
+### 2. Element Hierarchy
+1.  **Root Node (Starting Point)**: Diamond-shaped node, left-center, labeled `§3.1 任务类型 (Task Type)`
+2.  **Branch Nodes**: 5 nodes extending from the root, labeled as task categories: `C4`, `C5`, `C6`, `C7`, `S1`
+3.  **Process Nodes**: Rectangular nodes connected to each branch, defining workflow steps for each task type
+4.  **Terminal/End Nodes**: Right-aligned nodes connected to process nodes, defining the final state of each workflow
+
+---
+
+### 3. Style Information
+| Element | Details |
+|---------|---------|
+| Node Shapes | Root: Diamond, square-cornered, with 1px dark purple border, light lavender fill <br> Process/Terminal: Rounded rectangles, ~4px corner radius, 1px dark purple border, light lavender fill, no shadow, flat design |
+| Connection Lines | 1px solid dark gray, some curved to connect to terminal nodes, some straight, flowing to avoid overlap |
+| Text | Sans-serif font, dark blue/black, uniform ~12-14px size, 1.2x line spacing for multi-line text. <br> Root/Terminal nodes: Center-aligned text <br> Process nodes: Left-aligned text, with 8-12px internal padding from border to text |
+| Margins/Spacing | 20px vertical spacing between branch nodes, ~30px horizontal spacing between root and first branch nodes, nodes are sized to fit content without overflow |
+
+---
+
+### 4. All Visible Text Content (Original + English Translation)
+1.  **Root Node**:
+    `§3.1 任务类型` → *Task Type §3.1*
+2.  **Branch 1 (C4)**:
+    Branch Label: `C4 审计（只读）` → *C4 Audit (Read-only)*
+    Process Box:
+    ```
+    docs/AUDIT_*.md
+    finding 必带 file:line + PoC → *Finding must include file:line + Proof of Concept*
+    独立 subagent 复验 → *Independent subagent re-verification*
+    ```
+    Terminal Node: `交付 → 面板 4` → *Delivery → Panel 4*
+3.  **Branch 2 (C5)**:
+    Branch Label: `C5 部署` → *C5 Deployment*
+    Process Box:
+    ```
+    预部署清单 → 回滚脚本先 → *Pre-deployment checklist → Rollback script first*
+    部署动作 = Class-E 人工确认 → *Deployment action = Class-E Human Confirmation*
+    ```
+    Terminal Node: `实现 → 面板 3` → *Implementation → Panel 3*
+4.  **Branch 3 (C6)**:
+    Branch Label: `C6 运维/事故` → *C6 Operations/Incident*
+    Process Box:
+    ```
+    先取证后动手 → *Collect evidence first, then act*
+    postmortem → 永久回归用例 → *Postmortem → Permanent Regression Test Case*
+    ```
+    Terminal Node: `实现 → 面板 3` → *Implementation → Panel 3*
+5.  **Branch 4 (C7)**:
+    Branch Label: `C7 CLI/库` → *C7 CLI/Library*
+    Process Box:
+    ```
+    project profile 声明 N/A → *Project profile declares N/A*
+    CLI transcript + 退出码 + golden diff → *CLI transcript + Exit code + Golden diff*
+    ```
+    Terminal Node: `验收 → 面板 3` → *Acceptance → Panel 3*
+6.  **Branch 5 (S1)**:
+    Branch Label: `S1 spike` → *S1 Spike*
+    Process Box:
+    ```
+    交付物是答案不是代码 → *Deliverable is answer, not code*
+    探针计划 2-3 句，最便宜求证 → *Probe plan 2-3 sentences, cheapest verification*
+    代码 throwaway；要留 = 新请求 + 自带基线 → *Code is throwaway; to retain = new request + self-contained baseline*
+    ```
+
+---
+
+### 5. Interactive Elements
+There are **no interactive elements** (buttons, inputs, clickable components) in this diagram. This is a fully static visual reference chart.
+
+---
+
+### 6. Color, Font, Spacing Details
+- **Color**:
+  - Node Fill: Light lavender `#E6E6FA`
+  - Node Border: Dark purple `#9370DB`
+  - Connection Lines: Dark gray `#333333`
+  - Text: Dark blue/black `#1a1a1a`
+  - Background: White `#ffffff`
+- **Font**: Sans-serif, e.g., Arial, Helvetica, sans-serif, uniform size ~12-14px, weight: regular for all text.
+- **Spacing**: Consistent padding (8-12px) inside nodes, consistent vertical/horizontal spacing between elements to avoid crowding.
+
+---
+
+### 7. Full Visual Details
+This is a clean, flat, monochromatic purple-toned workflow diagram, designed for technical project task categorization. Nodes are uniformly styled, with a diamond for the root task type selector, and rounded rectangles for all other nodes. Connection lines flow logically: root node branches into 5 task types, each with a defined workflow process, leading to one of three final end states (Panel 4, Panel 3 x2, Panel 3). The layout is logical, with no overlapping elements, and the visual hierarchy clearly separates task types, their workflows, and final outcomes.
+  </main>
+</div>
+
+<div class="vision-description" 
+     data-media-type="image" data-detail="high" data-source="tests/render-workflow-3-zh.png" data-timestamp="2026-10-20T02:56:17.192832Z" data-model="mimo-v2.5">
+  
+  
+  <main class="content-structure">
+    Here is a precise, structured description of the provided image.
+
+### 1. Image Type, Resolution, and Color Scheme
+*   **Image Type:** Digital flowchart / process diagram.
+*   **Resolution:** 768 x 643 pixels (standard web image format).
+*   **Color Scheme:** Minimalist and monochromatic cool palette. The background is pure white. The shapes utilize a very light lavender fill (approx. `#F1EEFA`), with dark slate/grey borders and text (approx. `#4A4A5C`). The lines connecting the shapes are a similar dark grey/slate color.
 
 ### 2. Complete Element Hierarchy
-The flowchart flows primarily top-to-bottom with a specific branching structure.
+The diagram flows from top to bottom, featuring a main process start, a branching decision point with three parallel paths, a convergence point, and two final outcome paths (one terminating, one looping back).
 
-1.  **Start Node:** Top-most rectangle initiating the process.
-2.  **Primary Decision:** Diamond shape determining the path.
-3.  **Branching:**
-    *   **Left/Center Path (Standard Processing):**
-        *   Implementation Node.
-        *   Validation Node.
-        *   Acceptance Decision (Diamond).
-        *   Feedback Loop (Rejects go back to Implementation).
-        *   Major Change Decision (Diamond).
-        *   Independent Review Node.
-        *   Completion Gate Node.
-    *   **Right Path (Alternative/Direct):**
-        *   Deliverable Node for specific routing.
-4.  **Convergence:** Both paths merge at the final "Delivery" node at the bottom.
+*   **Start Node:** Top Rectangle ("实现 (Panel 1/2)")
+*   **Decision Node 1:** Diamond ("改动类型" / Modification Type)
+*   **Process Branches (Parallel):**
+    *   *Left:* Rectangle ("§A4.8 TDD...")
+    *   *Center:* Rectangle ("§A4.7 文档...")
+    *   *Right:* Rectangle ("§A4.1 采集...")
+*   **Decision Node 2:** Diamond ("验收全绿?" / All acceptance tests green?)
+*   **End/Terminal Nodes:**
+    *   *Bottom:* Rectangle ("完工 → 面板 4")
+    *   *Left Loop:* Rectangle ("§A4.10 参数化逆生")
 
 ### 3. Precise Style Information
 *   **Shapes:**
-    *   **Rectangles:** Rounded corners with a radius of approximately 4-6px. Used for process steps.
-    *   **Diamonds:** Standard rhombus. Used for decision points.
-*   **Lines/Arrows:** Thin, solid black lines (approx. 1.5px stroke width) with standard arrowheads indicating direction.
-*   **Typography:** Sans-serif font (likely default system font like Helvetica, Arial, or Roboto). All text is center-aligned within the shapes.
-*   **Layout:** The nodes are evenly spaced vertically. The feedback loop on the left curves outwards to avoid overlapping text.
+    *   **Rectangles:** Used for process steps. They have slightly rounded corners (approx. 3-5px radius).
+    *   **Diamonds:** Used for decision points. They have sharp corners.
+*   **Borders:** All shapes have a 1px solid dark grey outline. There are no drop shadows or gradients.
+*   **Connectors:** Lines are thin (1px), dark grey, and solid. Arrows are solid triangular heads. The return loop from the bottom left uses curved lines (Bezier curves).
+*   **Text Alignment:** All text inside the shapes is center-aligned both horizontally and vertically.
 
-### 4. All Visible Text Content
-*   **Top Node:** `任务 → §2 ZERO` (Line 1) `拆解 · 检索 · 验证器探针 ·` (Line 2) `分类` (Line 3)
-*   **Decision 1:** `路由`
-*   **Left Branch Label:** `C1 新项目 · C2 存量 · C3` (Line 1) `大任务` (Line 2)
-*   **Node 2:** `实现`
-*   **Node 3:** `验证` (Line 1) `§A4.1 运行时 · §A4.7 后端 ·` (Line 2) `§A4.8 TDD` (Line 3)
-*   **Loop Label:** `否 · cap 5 / stall 3×`
-*   **Decision 2:** `验收全绿?`
-*   **Connection Label (Yes):** `是`
-*   **Decision 3:** `大改动?`
-*   **Connection Label (Yes/Right):** `是`
-*   **Connection Label (No/Left):** `否`
-*   **Node 4 (Right side of split):** `§A4.9 独立评审`
-*   **Node 5 (Convergence):** `§A4.4 完工门 + Memory` (Line 1) `Gate` (Line 2)
-*   **Right Branch Label:** `C4-C8 · S1`
-*   **Right Branch Node:** `该路由的交付物`
-*   **Bottom Node:** `交付`
+### 4. Visible Text Content
+**Top Box:**
+*   实现（面板 1/2）
+*(Implementation (Panel 1/2))*
 
-### 5. State of Interactive Elements
-*   **Status:** The image is a static diagram. There are no interactive elements (buttons, inputs, hover states) active or visible in this snapshot. It represents a logical flow rather than a user interface.
+**Top Diamond:**
+*   改动类型
+*(Modification Type)*
 
-### 6. Detailed Color, Font, and Spacing Information
-*   **Font Color:** Dark Grey/Black (approx. `#1A1A1A`).
-*   **Shape Fill Color:** Light Lavender (approx. `#E6E6FA`).
-*   **Shape Border Color:** Slightly darker lavender (approx. `#B0B0E0`).
-*   **Font Size:** Uniform size across all nodes (likely 12pt-14pt equivalent). Path labels outside boxes (like "是", "否", "C1...") appear the same size or slightly smaller.
-*   **Margins:** Inside the shapes, padding is roughly 10-15px on all sides.
-*   **Line Spacing:** Inside multi-line text nodes, line spacing is tight (approx. 1.2x).
+**Branching Labels (above the three middle boxes):**
+*   Left: 逻辑代码
+*   Center: 纯后端
+*   Right: 运行时可见
+
+**Left Middle Box:**
+*   §A4.8 TDD + 受信 oracle
+*   先 RED 证据，再 GREEN 实现
+*   项目测试认证 · checker 驱动
+*(§A4.8 TDD + Trusted oracle; First RED evidence, then GREEN implementation; Project test certification · checker driven)*
+
+**Center Middle Box:**
+*   §A4.7 文档驱动 API 测试
+*   + §A4.7b 跨接口 workflow
+*   trace
+*(§A4.7 Document-driven API testing + §A4.7b Cross-interface workflow trace)*
+
+**Right Middle Box:**
+*   §A4.1 采集验证循环
+*   Act → Capture → Verify →
+*   Fix → Log
+*   产物 : verification_log.md
+*   + 媒体证据
+*(§A4.1 Collection verification loop; Act → Capture → Verify → Fix → Log; Product: verification_log.md + Media evidence)*
+
+**Bottom Diamond:**
+*   验收全绿?
+*(All acceptance tests green?)*
+
+**Bottom Right Path:**
+*   Label: 是 (Yes)
+*   Box: 完工 → 面板 4 (Done → Panel 4)
+
+**Bottom Left Path:**
+*   Label: stall=3× / cap=5
+*   Box: §A4.10 参数化逆生
+    *   换方向 · fresh-brain 重试
+    *(§A4.10 Parameterized reverse generation; Change direction · fresh-brain retry)*
+
+**Return Loop Label:**
+*   否 · cap≤5 内
+*(No · within cap≤5)*
+
+### 5. Interactive Elements
+*   There are no interactive elements; this is a static image.
+
+### 6. Detailed Color, Font, and Spacing
+*   **Font:** The font appears to be a standard sans-serif system font suitable for Chinese characters (e.g., PingFang SC, Microsoft YaHei, or similar). It is rendered clearly at a small-to-medium size.
+*   **Fill Color:** Very light purple/lavender (approx. `#F0EEFA`).
+*   **Text Color:** Dark grey/black.
+*   **Spacing:**
+    *   The vertical spacing between the top box and the first diamond is moderate.
+    *   The three middle branches are spaced evenly apart horizontally.
+    *   The convergence arrows from the three middle boxes meet cleanly at the top point of the second diamond.
 
 ### 7. Visual Details
-*   **Arrows:** The arrow from "验收全绿? (No)" curves to the left and goes up, re-entering the "实现" node from the top, creating a distinct visual loop.
-*   **Merge Point:** The arrow from "§A4.9 独立评审" goes down to "§A4.4 完工门 + Memory Gate". The arrow from "大改动? (No)" also goes down to the same "§A4.4" node.
-*   **Final Convergence:** Two long arrows from the "Completion Gate" (left side) and "Deliverable" (right side) converge at the single "交付" (Delivery) node at the bottom.
+*   **Arrows:**
+    *   The arrow from the top box to the first diamond is vertical.
+    *   The arrows from the first diamond fan out to the three boxes.
+    *   The arrows from the three boxes converge into the second diamond.
+    *   The "Yes" path goes straight down.
+    *   The "stall" path goes left and down.
+    *   **The Return Loop:** A distinct curved line originates from the left side of the bottom-left box, curves upward along the far left edge of the image, and splits into two arrowheads pointing to the left and right sides of the Top Box ("实现（面板 1/2）"), indicating a restart of the process.
+  </main>
+</div>
+
+<div class="vision-description" 
+     data-media-type="image" data-detail="high" data-source="tests/render-workflow-4-zh.png" data-timestamp="2026-10-20T02:57:33.778531Z" data-model="mimo-v2.5">
+  
+  
+  <main class="content-structure">
+    This image is a vertical process flowchart, likely generated by a diagramming tool like Mermaid or Lucidchart, outlining a software deployment or quality assurance workflow. The diagram uses Chinese text.
+
+### 1. Image Type, Resolution, and Color Scheme
+*   **Image Type:** Process Flowchart / Logic Diagram.
+*   **Resolution:** High-clarity digital graphic; sharp text and lines indicating a vector-based origin.
+*   **Color Scheme:** Monochromatic/Analogous palette.
+    *   **Primary Fill:** Light lavender/periwinkle (#EBEBFA) for standard process and decision nodes.
+    *   **Secondary Fill:** Light grey (#E0E0E0) for the failure/error state node.
+    *   **Text:** Dark charcoal grey/black (#333333).
+    *   **Lines/Arrows:** Dark grey (#555555).
+    *   **Background:** White.
+
+### 2. Complete Element Hierarchy
+The flow moves from top to bottom, featuring sequential steps, a parallel side-branch, and decision-based branching.
+
+1.  **Entry Point:** A single rectangular box at the top center.
+2.  **First Decision Point:** A diamond shape below the entry point.
+3.  **Branching Logic (Level 1):** Two paths emerge (Left: "No" path; Right: "Yes" path leading to an intermediate process box).
+4.  **Convergence Point:** A rectangular box where the two paths merge.
+5.  **Sequential Gate:** A rectangular box following the convergence.
+6.  **Second Decision Point:** A diamond shape following the sequential gate.
+7.  **Branching Logic (Level 2):** Two paths emerge (Left: Failure path; Right: Success path).
+8.  **External Input:** A separate rectangular box on the far right that feeds into the final step.
+9.  **Terminal Points:** Two final boxes at the bottom representing the outcome (Return to implementation or Delivery).
+
+### 3. Precise Style Information
+*   **Shapes:** All process steps are rectangles with slightly rounded corners (border-radius approx. 3px). Decision points are rhombuses (diamonds).
+*   **Borders:** All shapes have a thin, solid, dark grey/purple outline (approx. 1px width).
+*   **Arrows:** Solid dark grey lines, approximately 1.5px thick, ending in standard triangular arrowheads. Most arrows are straight; one curved arrow connects the left side of the first decision to the convergence point.
+*   **Typography:** Sans-serif font (likely Arial or Helvetica). Text is center-aligned within all shapes.
+*   **Margins:** Text is centered with approximately 10-15px of padding from the shape borders.
+*   **Shadows:** No drop shadows are applied; the design is flat.
+
+### 4. Visible Text Content
+(Note: Text is transcribed exactly as it appears, including punctuation and symbols.)
+
+*   **Top Box:** 验收全绿 (面板 3)
+*   **First Diamond:** COV-8 大改动?
+*   **Left Branch Label:** 否
+*   **Right Branch Label:** 是
+*   **Right Intermediate Box:** §A4.9 独立评审派发 产物：评审记录 + 裁定
+*   **Middle Convergence Box:** §A4.4 完工门 收敛行 + 8 列表格 assert_artifacts.py exit 0
+*   **Sequential Gate Box:** Memory Gate A7.9 记忆写入 + A7.10 通过
+*   **Second Diamond:** 插件审计 Tier 0/1/2
+*   **Left Failure Box (Grey):** BAD → GATE-BLOCKED / RED 锁存
+*   **Right Branch Label:** OK
+*   **Side Box (Far Right):** C4 审计报告 (面板 2)
+*   **Bottom Left Box:** 回到实现 (面板 3)
+*   **Bottom Right Box:** 交付 (C4 审计报告在此汇合)
+
+### 5. State of Interactive Elements
+As this is a static image of a diagram, there are no interactive elements (like buttons or inputs). However, the "states" described by the logic are:
+*   **Normal Operation:** Indicated by the lavender boxes.
+*   **Failure State:** Indicated by the grey box labeled "BAD → GATE-BLOCKED / RED 锁存" (Bad → Gate Blocked / Red Latch).
+*   **Success State:** Indicated by the path labeled "OK" leading to "Delivery."
+
+### 6. Detailed Color, Font, and Spacing
+*   **Font Size:**
+    *   Primary Headers (e.g., "Memory Gate"): Slightly larger/bolder appearance (approx. 12pt).
+    *   Sub-text/descriptions: Slightly smaller (approx. 10pt).
+*   **Colors:**
+    *   Node Fill: ~#EBEBFA (Lavender).
+    *   Error Node Fill: ~#E0E0E0 (Grey).
+    *   Text: ~#333333 (Dark Grey).
+    *   Outline: ~#999999 (Medium Grey).
+*   **Spacing:**
+    *   Vertical spacing between nodes is consistent (approx. 20-30px gaps).
+    *   The horizontal gap between the main vertical flow and the "C4 审计报告" side box is approximately 150px.
+
+### 7. All Visual Details
+*   **Symbols:** The diagram uses technical symbols including the section sign (§), the "→" arrow symbol for transitions, and the "+" symbol for additive conditions.
+*   **Scripting Reference:** One box explicitly references a Python script and exit code: `assert_artifacts.py exit 0`.
+*   **Panel References:** Several boxes contain references to "Panels" in parentheses (e.g., 面板 2, 面板 3), suggesting this flowchart is part of a larger dashboard or multi-panel documentation system.
+*   **Connectivity:** The final "Delivery" box has two incoming arrows: one from the "OK" decision path and one from the independent "C4 Audit Report" box, showing that both must converge for final delivery.
   </main>
 </div>

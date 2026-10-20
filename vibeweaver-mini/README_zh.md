@@ -6,10 +6,10 @@
 
 一套两件套：
 
-- `SKILL.md`（约 1.7KB）——只讲一个循环：运行 checker → 修第一个失败 → 重复，直到打印 `ALL CHECKS PASS`。不要求模型记住任何工程原则。
+- `SKILL.md`（约 2KB）——只讲一个循环：运行 checker → 修第一个失败 → 重复，直到打印 `ALL CHECKS PASS`。不要求模型记住任何工程原则。
 - `scripts/vw_check.py`——确定性 checker：跑 pytest、打印失败清单与"观察值 ≠ 期望值"修复包、**测试集变化即拒绝运行**（哈希守卫，纪律工具而非安全边界）。
 
-## 为什么有效（wave6 实测，qwen3.6-35B-A3B 强制注入）
+## 为什么有效（G1 探针，2026-09，qwen3.6-35B-A3B 强制注入）
 
 四道所有 prompt 路线都修不好的题（grade_school / list_ops / phone_number / transpose）：
 
@@ -38,3 +38,5 @@
 ## 与完整版的关系
 
 完整版 vibeweaver 是给能力足够模型的完整工程契约（证据门禁、记忆、设计门、审计）。mini 不是它的压缩版，而是**另一条路线**：把"验证"从提示词里搬到确定性程序里。两者可以共存——完整版管流程可信度，mini 管弱模型的执行闭环。
+
+完整版的两个插件**没有**随 mini 提供：它们以 `tests/verification_log.md` 为激活条件，而 mini 默认不创建这个文件。mini 的硬底线是 checker；专门的 mini 守卫仍是未落地的设计。

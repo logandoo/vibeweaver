@@ -1,0 +1,10 @@
+flowchart TD
+    J["验收全绿（面板 3）"] --> K{"COV-8 大改动？"}
+    K -->|"是"| L["§A4.9 独立评审派发<br/>产物：评审记录 + 裁定"]
+    K -->|"否"| M["§A4.4 完工门<br/>收敛行 + 8 列表格<br/>assert_artifacts.py exit 0"]
+    L --> M
+    M --> N["Memory Gate<br/>A7.9 记忆写入 + A7.10 通过"]
+    N --> P{"插件审计 Tier 0/1/2"}
+    P -->|"BAD → GATE-BLOCKED / RED 锁存"| E["回到实现（面板 3）"]
+    P -->|"OK"| O["交付<br/>（C4 审计报告在此汇合）"]
+    T4["C4 审计报告（面板 2）"] --> O

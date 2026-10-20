@@ -1,0 +1,12 @@
+flowchart TD
+    E["Implementation (panel 1/2)"] --> F{"Change type"}
+    F -->|"runtime-visible"| G1["§A4.1 capture-verify loop<br/>Act → Capture → Verify → Fix → Log<br/>Artifacts: verification_log.md + media evidence"]
+    F -->|"backend-only"| G2["§A4.7 doc-driven API tests<br/>+ §A4.7b cross-endpoint workflow trace"]
+    F -->|"logic-bearing"| G3["§A4.8 TDD + trusted oracle<br/>RED evidence first, then GREEN<br/>project tests certify · checker drives"]
+    G1 --> H{"Acceptance all green?"}
+    G2 --> H
+    G3 --> H
+    H -->|"no · within cap=5"| E
+    H -->|"stall=3× / cap=5"| I["§A4.10 parameterized escape<br/>change direction · fresh-brain retry"]
+    I --> E
+    H -->|"yes"| J["Completion → panel 4"]

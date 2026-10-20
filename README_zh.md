@@ -185,11 +185,21 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 
 ## 工作流是一张图，不是一份清单
 
-先看全图，再逐条解读（每个节点都是带强制产物的阶段，每条边都是显式条件）：
+先看全图，再逐条解读（每个节点都是带强制产物的阶段，每条边都是显式条件）。全图拆成四张面板，保证每张都读得清；合起来是完整的契约图。
 
-![vibeweaver 工作流：ZERO、路由、实现、验证、评审、完工门、记忆、交付](docs/assets/workflow-zh.svg)
+#### 1. 入口与路由
+![入口与路由：ZERO、项目模式 C1-C3](docs/assets/workflow-1-zh.svg)
 
-源文件：[`docs/assets/workflow-zh.mmd`](docs/assets/workflow-zh.mmd)，用 mermaid-cli 渲染。
+#### 2. 任务类型路由
+![任务类型路由 C4-C8 与 S1](docs/assets/workflow-2-zh.svg)
+
+#### 3. 实现与验证
+![实现、改动类型分支、有界验证循环](docs/assets/workflow-3-zh.svg)
+
+#### 4. 完工与执行层
+![评审、完工门、记忆、插件审计、交付](docs/assets/workflow-4-zh.svg)
+
+源文件：[`1`](docs/assets/workflow-1-zh.mmd) · [`2`](docs/assets/workflow-2-zh.mmd) · [`3`](docs/assets/workflow-3-zh.mmd) · [`4`](docs/assets/workflow-4-zh.mmd)，用 mermaid-cli 渲染。
 
 - **节点 = 带强制产物的阶段。** ZERO（拆解 + 联网检索）→ 项目模式判定 → 设计门 → 实现 → 验证循环 → 独立评审派发 → 完工表格。「模型说完了」不算一个阶段完成；它要求的产物真的落在磁盘上，才算完。
 - **边 = 显式条件，不是模型心情。** 新项目走一条流程，存量修改走另一条；验证器能力探测把采集/评分集分支成三种验证器模式；纯后端改动把浏览器循环替换成文档驱动的 API 测试循环。

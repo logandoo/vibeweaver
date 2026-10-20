@@ -24,3 +24,11 @@ Source: user report 2026-10-20 (benchmark section stale? mermaid not rendering) 
 1. 双语 README 的每个 benchmark 表都带 skill 代际标签（G1/G2/G3）；显式写明当前安装包（G3）尚无 16-task 轮次；删除「当前 skill」「Best config / 最优形态」等已失效措辞。
 2. 旧表全部 n/16 数字保留且中英一致（两文件 token 集合相同）；英文 benchmark 段从 268 行压到 ≤150 行。
 3. 两个 README 不再包含 ```mermaid 代码块，改为提交到仓内的 SVG 流程图 + 可编辑 .mmd 源文件；SVG 经 mmdc 渲染 exit 0，截图在 900px 宽度下可读。
+
+# Acceptance Criteria — 恢复完整工作流图（4 面板）+ mini 文案校正（2026-10-20）
+
+Source: user review 2026-10-20 — the single SVG was a 12-node summary, not the full graph; mini/plugin coverage claim needs a reality check.
+
+1. 双语 README 的流程图恢复完整协议：§2 ZERO、C1–C8、S1、§A4.1/§A4.7/§A4.8、cap=5/stall=3×/§A4.10、COV-8/§A4.9、§A4.4、Memory Gate、plugin audit、Deliver 全部出现；分 4 面板，每张在 702px 宽下可读。
+2. 0 个 mermaid fence；4 面板 × 2 语言 = 8 个 SVG + 8 个 .mmd 源；旧 overview 资产移除；mmdc exit 0；每张截图经 mm-sensor 分级。
+3. 主 README 不再声称现有 gate「covers vibeweaver-mini」；mini README 的 1.7KB 改为 2KB，wave6 数据标为 G1 探针。

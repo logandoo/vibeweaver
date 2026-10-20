@@ -1,0 +1,10 @@
+flowchart TD
+    J["Acceptance green (panel 3)"] --> K{"COV-8 major change?"}
+    K -->|"yes"| L["§A4.9 independent review dispatch<br/>Artifacts: review record + ruling"]
+    K -->|"no"| M["§A4.4 completion gate<br/>convergence line + 8-column table<br/>assert_artifacts.py exit 0"]
+    L --> M
+    M --> N["Memory Gate<br/>A7.9 memory write + A7.10 passed"]
+    N --> P{"Plugin audit Tier 0/1/2"}
+    P -->|"BAD → GATE-BLOCKED / RED latch"| E["Back to implementation (panel 3)"]
+    P -->|"OK"| O["Deliver<br/>(C4 audit reports converge here)"]
+    T4["C4 audit report (panel 2)"] --> O

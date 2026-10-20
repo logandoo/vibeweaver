@@ -62,3 +62,15 @@ process, EN de-translationese, readme-weaver pass). Documentation-only change.
 - docs-drift: README.md / README_zh.md — benchmark evidence was G1-only (Aug 2026) while G3 ships; the mermaid block no longer rendered; the Files table's mini size was 1.7 KB vs 2 KB on disk.
 - final-rerun: --final — pass=13/fail=0 (fresh run on the delivered tree after the verifier + docs-drift log lines)
 - rerun-after-acceptance-source: --final — pass=13/fail=0
+
+## Task: 恢复完整工作流图（4 面板）+ mini 文案校正（2026-10-20）
+- class: DOC — README prose + docs/ SVG assets + mini README prose (no logic, no plugin behavior change)
+- audit-fix: 新 acceptance 块 → 释放上一波 latch；本任务独立 block
+- baseline: `python3 verify_skill.py` → 9 checks OK; `python3 -m unittest discover -s tests` → 56 tests OK (run before edits, 2026-10-20)
+- Baseline verified GREEN — proceed
+- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test); the package self-check above is the baseline of record
+- verifier: mm_probe already failed twice earlier this session; per COV-5 fallback (2) → Verifier: mm-sensor [image]; 8 panel screenshots to be graded via `vision.py --detail high`
+- iter 1 PASS: criteria #1 #2 #3 — four-panel graph in both languages restores the full contract: coverage check finds 20/20 required terms in the `.mmd` and in the rendered `.svg` for EN and ZH (`tests/workflow-coverage-20261020.log`); 0 mermaid fences; 8 SVG + 8 `.mmd` under `docs/assets/`; old single-panel assets removed; mmdc 8/8 exit 0 (`tests/render-mmdc-20261020.log`); 8/8 panel screenshots graded by mm-sensor (`tests/render-workflow.vision.log`), no clipping/missing blocks. Mini claim corrected: main README no longer says the gate covers mini; mini README 1.7→2 KB and wave6→G1 probe.
+- oracle: executable-acceptance — coverage script + mmdc exits + mm-sensor render grade + readme_lint facts 10/10 (12/12 links valid).
+- assert-run: assert_artifacts.py (temporary canonical copy under tests/, removed after the run): all 13 checks pass (exit 0)
+- final-run: --final — pass=13/fail=0

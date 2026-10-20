@@ -9,13 +9,13 @@ follow concrete mechanical actions with immediate feedback.
 
 A two-piece kit:
 
-- `SKILL.md` (~1.7 KB) — one loop: run the checker → fix the first failure →
+- `SKILL.md` (~2 KB) — one loop: run the checker → fix the first failure →
   repeat until it prints `ALL CHECKS PASS`. No engineering principles to remember.
 - `scripts/vw_check.py` — the deterministic checker: runs pytest, prints the
   failing tests plus an observed-vs-expected repair packet, and **refuses to run
   if the test set changed** (hash guard; a discipline aid, not a security boundary).
 
-## Why it works (wave6 measurements, qwen3.6-35B-A3B, forced injection)
+## Why it works (G1 probe, Sep 2026, qwen3.6-35B-A3B, forced injection)
 
 Four tasks that every prompt-only arm failed (grade_school / list_ops /
 phone_number / transpose):
@@ -53,3 +53,7 @@ The full vibeweaver is a complete engineering contract for capable models
 it is a different route: move verification out of the prompt and into a
 deterministic program. They coexist: the full skill governs process
 trustworthiness, the mini governs the weak model's execution loop.
+
+The full enforcement plugins are **not** bundled with mini: they activate on
+`tests/verification_log.md`, which this kit does not create. Mini's hard floor is
+the checker; a mini-specific guard is an open design, not shipped.

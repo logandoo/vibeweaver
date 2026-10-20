@@ -1,0 +1,10 @@
+flowchart LR
+    T{"§3.1 任务类型"} -->|"C4 审计（只读）"| T4["docs/AUDIT_*.md<br/>finding 必带 file:line + PoC<br/>独立 subagent 复验"]
+    T -->|"C5 部署"| T5["预部署清单 → 回滚脚本先行<br/>部署动作 = Class-E 人工确认"]
+    T -->|"C6 运维/事故"| T6["先取证后动手<br/>postmortem → 永久回归用例"]
+    T -->|"C7 CLI/库"| T7["project profile 声明 N/A<br/>CLI transcript + 退出码 + golden diff"]
+    T -->|"S1 spike"| T8["交付物是答案不是代码<br/>探针计划 2-3 句 · 最便宜求证<br/>代码 throwaway；要留 = 新请求 + 自带基线"]
+    T5 --> E["实现 → 面板 3"]
+    T6 --> E
+    T7 --> H["验收 → 面板 3"]
+    T4 --> O["交付 → 面板 4"]

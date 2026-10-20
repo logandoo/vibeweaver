@@ -1,0 +1,10 @@
+flowchart LR
+    T{"§3.1 task type"} -->|"C4 audit (read-only)"| T4["docs/AUDIT_*.md<br/>findings need file:line + PoC<br/>independent subagent re-verification"]
+    T -->|"C5 deploy"| T5["pre-deploy checklist → rollback first<br/>deploy action = Class-E human confirm"]
+    T -->|"C6 ops/incident"| T6["evidence before fixes<br/>postmortem → permanent regression case"]
+    T -->|"C7 CLI/library"| T7["project profile declares N/A<br/>CLI transcript + exit code + golden diff"]
+    T -->|"S1 spike"| T8["answer, not code<br/>probe plan 2–3 sentences · cheapest correct probe<br/>throwaway code; keeping it = new request + baseline"]
+    T5 --> E["Implementation → panel 3"]
+    T6 --> E
+    T7 --> H["Acceptance → panel 3"]
+    T4 --> O["Deliver → panel 4"]
