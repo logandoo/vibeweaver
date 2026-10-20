@@ -1,0 +1,46 @@
+PASS  A1-no-iters -> BAD=[A1,B12,C1,C2,C5,C13]
+PASS  A2-no-cap -> BAD=[A2,B12]
+PASS  A3-missing-png -> BAD=[A3,B12,C3]
+PASS  B1-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B2-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B3-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B4-marker-removed -> BAD=[B4,B12]
+PASS  B5-marker-removed -> BAD=[B5,B12]
+PASS  B6-marker-removed -> BAD=[B6,B12]
+PASS  B7-marker-removed -> BAD=[B7,B12]
+PASS  B8-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B9-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B10-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B11-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B7-lite-table-unlicensed -> BAD=[B7,B12]
+PASS  B10-memory-na-unlicensed -> BAD=[B7,B10,B12]
+PASS  B11-template-unfilled -> BAD=[B11,B12]
+PASS  C18-doc-class-code-write -> BAD=[B12,C6,C18]
+PASS  lite-doc-clean -> BAD=[] assert_artifacts(class DOC)=exit 0
+PASS  W11-doc-output-html -> C18 BAD
+PASS  W11-doc-src-report-json -> C18 BAD
+PASS  W11-doc-makefile -> C18 BAD
+PASS  config-memory-na-reasoned -> exit 0 with reason, exit 1 without
+PASS  exec-check-row+doc-lesson -> noExec=FAIL withExec=PASS memMissing=FAIL
+PASS  C1-loop-yes-no-iters -> BAD=[A1,B12,C1,C2,C5,C13]
+PASS  C2-iters-overclaim -> BAD=[B12,C2,C5,C13]
+PASS  C3-media-overclaim -> BAD=[B12,C3]
+PASS  C4-e2e-no-trace -> BAD=[B12,C4]
+PASS  C5-tdd-no-fail -> BAD=[B12,C5,C13]
+PASS  C7-na-no-reason -> BAD=[B12,C7]
+PASS  C8-raw-command -> BAD=[C8,B12]
+PASS  C13-no-baseline -> BAD=[B12,C2,C5,C13]
+PASS  C14-bad-hard1 -> BAD=[B12,C14]
+PASS  C14-na-no-reason-uncertain -> C14=UNCERTAIN
+PASS  C15-na-no-reason-uncertain -> C15=UNCERTAIN
+PASS  C14-na-licensed-by-class -> OK
+PASS  C18-doc-tests-hidden-write -> BAD=[B12,C18]
+PASS  C18-doc-asset-no-render -> BAD=[B12,C18]
+PASS  C18-doc-asset-rendered-or-flagged -> OK/OK, bare=BAD(render-branch)
+PASS  C18-config-logic-write -> BAD=[B12,C18]
+PASS  B11-class-mismatch -> BAD=[B11,B12,C18]
+PASS  C15-bad-hard2 -> BAD=[B12,C15]
+PASS  C16-code-after-log -> BAD=[B12,C16]
+PASS  C6-commit-after -> BAD=[B12,C6]
+
+=== MUTATION SWEEP: 44 passed, 0 failed ===

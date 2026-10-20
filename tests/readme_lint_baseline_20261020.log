@@ -1,0 +1,127 @@
+{
+  "file": "README.md",
+  "lines": 1085,
+  "bytes": 75563,
+  "lang": "en",
+  "identity": {
+    "has_h1": true,
+    "description": "Vibeweaver doesn't make a model stronger; it makes the ability already there actually count.",
+    "desc_len": 92,
+    "desc_ok": true,
+    "desc_cliche": false
+  },
+  "structure": {
+    "sections": {
+      "features": true,
+      "install": true,
+      "usage": true,
+      "config": false,
+      "structure": true,
+      "testing": true,
+      "contributing": true,
+      "license": true,
+      "changelog": true
+    },
+    "dated_h2_count": 0,
+    "changelog_first": false,
+    "install_early": true,
+    "usage_early": true,
+    "has_toc": true,
+    "code_block_count": 5
+  },
+  "language": {
+    "categories": {
+      "slop 词汇": 3
+    },
+    "counts": {
+      "破折号 —": 58,
+      "感叹号": 0,
+      "bold 开头列表项": 52,
+      "列表项总数": 101,
+      "bold 列表占比过高": true
+    },
+    "penalty": 28.4
+  },
+  "facts": {
+    "local_links": 4,
+    "broken_links": [],
+    "placeholders": 0
+  },
+  "density": {
+    "max_wall_lines": 26,
+    "long_paragraphs": 0
+  },
+  "scores": {
+    "定位": 20,
+    "结构": 30,
+    "语言": 1.6,
+    "事实": 10,
+    "密度": 5,
+    "总分": 66.6
+  }
+}
+{
+  "file": "README_zh.md",
+  "lines": 493,
+  "bytes": 67437,
+  "lang": "zh",
+  "identity": {
+    "has_h1": true,
+    "description": "Vibeweaver 不会让模型变强，但它能把模型已有的能力真正发挥出来。",
+    "desc_len": 37,
+    "desc_ok": true,
+    "desc_cliche": false
+  },
+  "structure": {
+    "sections": {
+      "features": true,
+      "install": true,
+      "usage": true,
+      "config": false,
+      "structure": true,
+      "testing": true,
+      "contributing": true,
+      "license": true,
+      "changelog": true
+    },
+    "dated_h2_count": 0,
+    "changelog_first": false,
+    "install_early": true,
+    "usage_early": true,
+    "has_toc": true,
+    "code_block_count": 5
+  },
+  "language": {
+    "categories": {
+      "总结腔/总结标签": 1,
+      "黑话": 1
+    },
+    "counts": {
+      "破折号 —": 97,
+      "感叹号": 0,
+      "bold 开头列表项": 53,
+      "第二人称 你/您": 0,
+      "中英无空格": 0,
+      "列表项总数": 100,
+      "bold 列表占比过高": true
+    },
+    "penalty": 38.1
+  },
+  "facts": {
+    "local_links": 4,
+    "broken_links": [],
+    "placeholders": 0
+  },
+  "density": {
+    "max_wall_lines": 2,
+    "long_paragraphs": 5
+  },
+  "scores": {
+    "定位": 20,
+    "结构": 30,
+    "语言": 0,
+    "事实": 10,
+    "密度": 5,
+    "总分": 65
+  }
+}

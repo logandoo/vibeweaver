@@ -1,0 +1,13 @@
+flowchart TD
+    A["Task → §2 ZERO<br/>decompose · research · verifier probe · classify"] --> R{"Route"}
+    R -->|"C1 new · C2 existing · C3 large"| I["Implement"]
+    R -->|"C4–C8 · S1"| X["Route-specific deliverable"]
+    I --> V["Verify<br/>§A4.1 runtime · §A4.7 backend · §A4.8 TDD"]
+    V --> H{"All criteria green?"}
+    H -->|"no · cap 5 / stall 3×"| I
+    H -->|"yes"| J{"Major change?"}
+    J -->|"yes"| K["§A4.9 independent review"]
+    J -->|"no"| G["§A4.4 completion gate + memory"]
+    K --> G
+    G --> D["Deliver"]
+    X --> D

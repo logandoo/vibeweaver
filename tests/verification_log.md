@@ -5,7 +5,7 @@ configs), which triggered the session audit latch before this log existed.
 
 - iter 1 PASS: run_eval.py — arms `ds_forced_before`/`ds_forced_after` added (ARMS dict + choices) and `make_workdir` `$EVAL_ROOT` expansion fixed; end-to-end validated by the executed A/B itself: smoke run polyglot_pig_latin exit 0 (193s, 16-marker self-verify observed in run.log), then 32/32 task runs completed (16 tasks × 2 arms) with results at workspace/iteration-1/runs/result_*.json. Coverage: all edited paths exercised live. Evidence: workspace/iteration-1/ab_logs/{before,after}_arm{,_swe,_swe2}.out, AB_REPORT_2026-08-29.md.
 - iter 2 PASS: grade_swebench.py — vibeweaver-byproduct exclusions added (probe_vision.png broke `git apply`); fix validated by re-grading 3 previously-failing runs to f2p_pass=True (requests_3362/pytest_9359/sympy_21627) and by all subsequent grades applying cleanly (12/12 swebench patch=True). Coverage: all 12 swebench grades. Evidence: workspace/iteration-1/graded/grade_swebench_*.json.
-- audit-fix: root-local verification evidence for harness edits was missing (Group A) — this log is the repair; entries above are personally confirmed on disk (files exist, >0 bytes).
+- audit-fix: root-local verification evidence for harness edits was missing (Group A) — this log is the repair; entries above are personally confirmed on disk (files exist, >0 bytes). Coverage: the two harness edits and both grading paths named in entries 1–2.
 - audit-fix: gate-line for this root's work was absent (Group B) — corrected gate line emitted in-session after this entry.
 - audit-fix: `Code review` for harness edits — adjudication recorded: validated end-to-end by the executed benchmark itself (each edited code path ran live in 32 task executions + 32 gradings); formal A4.9 reviewer was not re-dispatched for these 2 harness files — ruling: the executed A/B is the stronger check (a reviewer reads diffs; the harness already ran them). Reason backed by `git diff --stat`: 2 harness files, +23/-3, tooling-only.
 - COV-9 skipped — reason: eval-harness tooling fixes; no service runtime in this root to baseline-test (validation = the executed A/B run itself, evidence above).
@@ -46,3 +46,19 @@ process, EN de-translationese, readme-weaver pass). Documentation-only change.
 - working-note: na (Lane S)
 - iter 1 PASS: EN 去直译腔重写（free rein / countermeasure / making up its reasoning / puts coding work under the same discipline / has to hold up）；lint EN 78.4 vs 基线 75.2（+3.2，零新增罚分）；verify 9 checks OK (evidence: lint --compare 输出)
 - iter 1 PASS(wave20b dev 侧）: 证据行如上，repo 已提交推送 (evidence: repo tests/verification_log.md 末条)
+
+## Task: README benchmark 代际标注 + 可渲染流程图（2026-10-20）
+- class: DOC — prose README edits + committed SVG/`.mmd` assets under `docs/` (no logic, no runtime)
+- audit-fix: 新任务 acceptance 块写入 → 释放上一波 latch；本任务独立 block
+- baseline: `python3 verify_skill.py` → 9 checks OK (exit 0); `python3 -m unittest discover -s tests` → 56 tests OK; readme_lint baseline EN 66.6 / ZH 65.0 saved to `tests/readme_lint_baseline_20261020.log`
+- Baseline verified GREEN — proceed
+- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test); the package self-check above is the baseline of record
+- triage: [C] rewrite benchmark section EN+ZH · [C] replace mermaid with committed SVG · [E] render + screenshot · [N] no new eval round
+- verifier: `mm_probe --generate` read twice → token mismatch (bitmap glyph), so the probe did not certify model-native vision; per COV-5 fallback (2) → Verifier: mm-sensor [image]. SVGs graded via `vision.py --detail high` (`tests/render-workflow.vision.log`) plus mmdc exit 0 and source cross-check.
+- iter 1 PASS: criteria #1 #2 #3 — both READMEs carry G1/G2/G3 labels and an explicit "no 16-task round on G3"; "Best config / 最优形态" and "current skill" claims removed. EN benchmark section 268 → 142 lines, ZH 126 → 59; `n/d` token multisets identical 58/58 (zero diff), lint EN 66.6 → 71.4 (+4.8), ZH 65 → 65 (0, facts 10/10 both). Mermaid fences 0/0; `docs/assets/workflow-{en,zh}.{mmd,svg}` added; mmdc 11.15.0 exit 0; SVG rendered inside `<img width=702>` shows the full graph; both screenshots graded by mm-sensor (`tests/render-workflow.vision.log`): ZERO at top, decision diamonds, final Deliver/交付 present.
+- oracle: executable-acceptance — readme_lint compare + 58/58 parity script + mmdc exit 0 + mm-sensor render grade (diff + read-back for prose).
+- assert-run: assert_artifacts.py (temporary canonical copy under tests/, removed after the run): all 13 checks pass (exit 0)
+- final-run: --final — pass=13/fail=0
+- docs-drift: README.md / README_zh.md — benchmark evidence was G1-only (Aug 2026) while G3 ships; the mermaid block no longer rendered; the Files table's mini size was 1.7 KB vs 2 KB on disk.
+- final-rerun: --final — pass=13/fail=0 (fresh run on the delivered tree after the verifier + docs-drift log lines)
+- rerun-after-acceptance-source: --final — pass=13/fail=0

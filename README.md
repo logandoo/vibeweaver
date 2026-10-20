@@ -301,7 +301,7 @@ This repository contains three sub-projects:
 | Directory          | What                                                                                                                                                                                                                                                                                                                                    |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `vibeweaver/`      | The full skill; this README describes it                                                                                                                                                                                                                                                                                                |
-| `vibeweaver-mini/` | Small-model kit: a 1.7 KB deterministic loop ("run the checker, fix the first failure, repeat") plus `scripts/vw_check.py`, a checker that prints a repair packet and refuses to run if the test set changed. Benchmarked on a 3B-active model: loop + real tests 4/4, loop + self-written tests 1/4; the oracle decides, not the prose |
+| `vibeweaver-mini/` | Small-model kit: a 2 KB deterministic loop ("run the checker, fix the first failure, repeat") plus `scripts/vw_check.py`, a checker that prints a repair packet and refuses to run if the test set changed. Capability probe on a 3B-active model: loop + real tests 4/4, loop + self-written tests 1/4; the oracle decides, not the prose |
 | `vibeweaver-eval/` | Benchmark rig: 16-task + flow A/B configs, grading scripts, raw runs, round reports                                                                                                                                                                                                                                                     |
 
 Which one to pick: **strong model** → full skill (force-injected); **weak
@@ -317,8 +317,7 @@ checked.
 ## Does it actually work?
 
 Every table below is evidence for the claim at the top: the skill adds no ability;
-it changes how much of the existing ability gets delivered. All of them use the
-same three setup modes:
+it changes how much of the existing ability gets delivered. Three setup modes:
 
 - baseline: no skill at all.
 - available: the skill is installed and listed in `available_skills`; the model
@@ -338,216 +337,90 @@ designed to make rounds comparable and hard to game:
   Exercism-style for polyglot, FAIL_TO_PASS + P2P regression guards for SWE-bench.
 - Isolated arms: every arm runs in its own XDG config directory; the only
   difference between arms is the skill (or its absence). The no-skill arm is the
-  **control group**; the rest are treatment arms.
+  **control group**.
 - Gold-validated before admission: every SWE-bench instance must fail on base and
   pass on gold before it's allowed into the set.
 - Headless and scripted: `opencode run --auto`, everything published: rig, configs,
   gold checks, raw runs, grading scripts.
-- **Two skill generations.** The per-model rounds below ran in Aug 2026 against the
-  then-current 71 KB skill and 2.2–5.7 KB minis. Waves 6–7 (Sep 2026) re-ran the
-  key comparisons against the slimmed 41.8 KB skill and the 1.7 KB deterministic
-  mini kit; those numbers are closest to what you install today.
 
-### Before / after: qwen3.6-35b-a3b (the weakest model yet)
+**The package has changed since these rounds, so every table carries its
+generation.** G1 is August 2026: 71 KB full skill, 2.2–5.7 KB minis. G2 is
+September 2026: 41.8 KB full skill, 1.7 KB mini kit. G3 is what `install.sh`
+delivers today: about 49 KB full skill and 2 KB mini. The 16-task rounds below
+are G1. Waves 6–7 are G2. Waves 11–13 ran during the G2 era; the October waves
+hardened what now ships as G3. **No 16-task round has been run on G3.**
 
-34.6B MoE with ~3B active params, GGUF Q5 quantized, llama.cpp. This is where the
-size→trigger rule breaks down at the low end:
+### The finding that survived: size drives triggering (G1, 16 tasks, Aug 2026)
 
-| Arm                        | Pass rate (16 tasks) | Trigger rate |
-| -------------------------- | -------------------- | ------------ |
-| No skill (baseline)        | 6/16 (37.5%)         | —            |
-| mini, available            | 6/16 (37.5%)         | 0/10         |
-| Full skill, available      | 7/16 (43.8%)         | 0/10         |
-| **mini, force-injected**   | **7/16 (43.8%)**     | —            |
-| Full skill, force-injected | 5/16 (31.3%)         | —            |
-
-- Below a capability threshold the skill never gets loaded: the model never calls
-  the skill tool (0/10 triggers for both mini and full).
-- Force-injection is the only way in, and only the small version helps: the 5.7 KB
-  mini was the one positive path (7/16 vs the 6/16 baseline, polyglot 4/10 against
-  the 2/10 baseline), while the then-current 71 KB full skill was context poison
-  (5/16, SWE-bench 1/6, five "no diff produced", nine timeouts).
-- Wave 6 found the shape that actually works for this model: not prose, a
-  deterministic program. The 1.7 KB mini kit + the checker + the project's real
-  tests took it from 1/4 to **4/4 on the four tasks every prompt-only arm failed** (12–36 checker
-  runs per task, zero test tampering), while the same loop on self-written or
-  unqualified generated tests stayed at 1/4. On a ~3B-active model the oracle
-  decides, not the prose. Read that 4/4 as a capability probe (the checker saw the
-  canonical tests), not as benchmark-valid coding.
-- Wave 7's 8-task subset A/B on this model: 4/8 before, 3/8 after, within noise;
-  a text-only skill change is neutral here.
-
-### Before / after: qwen3.6-27B
-
-| Arm                                          | Pass rate (16 tasks) | Trigger rate |
-| -------------------------------------------- | -------------------- | ------------ |
-| No skill (baseline)                          | 7/16 (44%)           | —            |
-| Full skill (71KB), available                 | 6/16 (38%)           | 0/16         |
-| Full skill (improved description), available | 9/16 (56%)           | 2/16         |
-| Full skill, force-injected                   | 9/16 (56%)           | —            |
-| **mini, available**                          | **10/16 (62.5%)**    | **10/16**    |
-
-This is the round that made the mini variant exist:
-
-- mini beat even the force-injected full version (62.5% vs 56%) purely by getting
-  *loaded*: a short rulebook the model actually reads beats a 71 KB masterpiece it
-  never opens.
-- Size drives triggering. 71 KB → 0/16, mini → 10/16.
-
-### Before / after: deepseek-v4-flash-0731
-
-| Arm                            | Pass rate (16 tasks) | Trigger rate |
-| ------------------------------ | -------------------- | ------------ |
-| No skill (baseline)            | 11/16 (68.8%)        | —            |
-| Full skill, available          | 11/16 (68.8%)        | 0/16         |
-| mini, available                | 11/16 (68.8%)        | 12/16        |
-| **Full skill, force-injected** | **14/16 (87.5%)**    | —            |
-
-A strong model already has the discipline natively, so mini becomes useless from
-this tier up. The full version's gain starts to show, but the model will never load
-it on its own (0/16 available); the skill has to be **force-injected** into the
-context. The edge lives in polyglot: 8/10 vs 5/10.
-
-### Before / after: qwen3.8-27B
-
-| Arm                            | Pass rate (16 tasks) | Trigger rate     |
-| ------------------------------ | -------------------- | ---------------- |
-| No skill (baseline)            | 13/16 (81%)          | —                |
-| mini, available                | 13/16 (81%)          | 10/10 (polyglot) |
-| Full skill, available          | 15/16 (94%)          | 12/16            |
-| **Full skill, force-injected** | **16/16 (100%)**     | —                |
-
-Two findings: the bare model improved on its own (44% → 81% vs qwen3.6), and
-3.8-27B's willingness to load skills grew a lot. qwen3.8 loaded the full skill on
-its own 12/16 times, producing the best score ever recorded on this benchmark.
-Force-injecting the full skill then completed the sweep: **16/16, the first perfect
-round in the eval's history** (polyglot 10/10 with every task at full marks,
-SWE-bench 6/6). But the perfection is pricey: 1820s/task avg vs 518s
-self-triggered (+251%), which is exactly what "the full verification loop, every
-single time" costs. mini is worthless here too, same as on deepseek-v4-flash-0731.
-
-### The four models, one table (16-task rounds, Aug 2026)
-
-|                            | qwen3.6-35b-a3b      | qwen3.6-27B          | deepseek-v4-flash-0731 | qwen3.8-27B              |
-| -------------------------- | -------------------- | -------------------- | ---------------------- | ------------------------ |
-| Bare model                 | 6/16 (37.5%)         | 7/16 (44%)           | 11/16 (69%)            | 13/16 (81%)              |
-| Full skill, available      | 7/16 (43.8%)         | 9/16 (56%)†          | 11/16 (69%)            | 15/16 (94%)              |
-| Full skill, force-injected | 5/16 (31.3%)         | 9/16 (56%)           | 14/16 (87.5%)          | **16/16 (100%)**         |
-| mini, available            | 6/16 (37.5%)         | 8–10/16 (best 62.5%) | 13/16 (81%)*           | 13/16 (81%)              |
-| mini, force-injected       | 7/16 (43.8%)         | 8/16 (50%)           | —                      | —                        |
-| Best config                | mini, force-injected | mini, available      | full, force-injected   | **full, force-injected** |
+| Model | Bare | Full, available | Full, forced | mini, available | mini, forced |
+| --- | --- | --- | --- | --- | --- |
+| qwen3.6-35b-a3b | 6/16 (37.5%) | 7/16 (43.8%) · 0/10 | 5/16 (31.3%) | 6/16 (37.5%) · 0/10 | **7/16 (43.8%)** |
+| qwen3.6-27B | 7/16 (44%) | 9/16 (56%)† · 2/16 | 9/16 (56%) | **10/16 (62.5%) · 10/16** | 8/16 (50%) |
+| deepseek-v4-flash-0731 | 11/16 (68.8%) | 11/16 (68.8%) · 0/16 | **14/16 (87.5%)** | 13/16 (81%)* · 12/16 | — |
+| qwen3.8-27B | 13/16 (81%) | 15/16 (94%) · 12/16 | **16/16 (100%)** | 13/16 (81%) · 10/10 (polyglot) | — |
 
 \* deepseek's mini: first run 11/16, clean-environment rerun 13/16, both within
 noise of its 11/16 baseline.
 † qwen3.6's full skill: the plain version scored 6/16 (never loaded); 9/16 is the
 improved-description variant.
 
-### Waves 6–7 (Sep 2026, current skill): what actually makes it work
+Three things held across all four:
 
-The four-model table above is the 16-task benchmark. Later rounds asked a narrower
-question: when a small model does use the skill, what makes the difference? Not
-more rules.
+- **Below a capability threshold the skill never loads.** On 35b-a3b neither mini
+  nor full was ever called (0/10). Force-injection was the only way in, and the
+  71 KB full skill was context poison: 5/16, SWE-bench 1/6, five "no diff
+  produced", nine timeouts. The 5.7 KB mini was the one positive path there
+  (7/16 vs 6/16, polyglot 4/10 vs 2/10), which is why the small-model answer is a
+  deterministic kit, not a shorter essay.
+- **Size decides whether a capable model reads it.** qwen3.6-27B loaded the 71 KB
+  skill 0/16 times and the mini 10/16 times; mini beat even the force-injected
+  full version (62.5% vs 56%) purely by getting loaded.
+- **Strong models don't need mini; they need enforcement.** deepseek and qwen3.8
+  already carry the discipline, so mini added nothing. The full skill paid off
+  only force-injected: 14/16 vs 11/16 on deepseek, with the edge in polyglot
+  (8/10 vs 5/10), and 16/16 on qwen3.8, polyglot 10/10 at full marks and SWE-bench
+  6/6. qwen3.8's perfect round cost 1820s/task against 518s self-triggered
+  (+251%), the price of running the full loop every time.
 
-**Controls (deepseek-v4-flash, 16 tasks, forced injection).** No-skill 11/16. A
-generic 39 KB engineering playbook, same size and tone, 11/16: a long structured
-prompt alone changed nothing. The skill 15/16. Against the playbook the discordant
-pairs were +4/−0 (McNemar p=0.125, directionally clear, underpowered at n=16).
+### What the later waves changed (G2 → G3, Sep–Oct 2026)
 
-**The oracle experiment (qwen3.6-35B-A3B, 4 tasks every arm failed).** With a
-deterministic checker and the project's real tests (a capability probe, because the
-checker saw the canonical tests): 1/4 → 4/4, 12–36 checker runs per task, zero test
-tampering. Same loop, self-written tests: 1/4, with one task
-regressing below baseline. Generated tests, even from a strong model, even after
-qualification (fail-on-stub, pass-on-gold, fail-on-plausible-wrong): 1/4 with
-verified false greens.
+The 16-task table asks whether the skill helps. The later rounds ask a narrower
+question: when a model does use it, what makes the difference? Not more prose.
 
-The delivered solution passed the generated suite and still failed the hidden tests
-on `area_code` and exact error strings that appear nowhere in the visible spec. The
-loop was never the bottleneck; the oracle was. Wave 7 codified that into A4.8 and
-APPENDIX §A11.
+- **Waves 6–7: the oracle, not the loop.** A deterministic checker plus the
+  project's real tests took qwen3.6-35b-a3b from 1/4 to 4/4 on the four tasks
+  every prompt-only arm failed (12–36 checker runs per task, zero test
+  tampering). The same loop on self-written or unqualified generated tests stayed
+  at 1/4, with verified false greens. Read the 4/4 as a capability probe (the
+  checker saw the canonical tests), not benchmark-valid coding. The 8-task A/B on
+  the same model was neutral: 4/8 → 3/8.
+- **Wave 11: ceremony economy.** Weak models were spending the cell budget
+  loading the discipline instead of shipping code, and the 420s cap was counting
+  truncation as behavioral failure. Timeouts are now budget-invalid and excluded
+  from behavioral rates; the ship order puts working code and green tests before
+  ceremony.
+- **Wave 12: objective A/B.** The harness was put on trial after a round that
+  seemed to favor the old skill. It was measuring the wrong things: assertions
+  rewarded the skill's own fields, the agent could see the scoring criteria, and a
+  rigged conflict test rewarded silent test rewriting. The replacement grades
+  hidden fail-to-pass tests, test-file hashes and conflict discipline, and
+  effective mutation score. First objective results, N=3 and directional: outcome
+  8/8 vs 7/8 for the upgraded skill; integrity 5/5 vs 3/5, because the old skill
+  silently rewrote the contradictory test twice. Cost: about 1.35× slower.
+- **Wave 13: proportional paths.** COV-13 task classes (CODE > CONFIG > DOC),
+  lite completion tables, the DOC-asset render gate, and the stop-guard. Verified
+  by 166 fixture assertions, 41 mutations, two adversarial review rounds, and
+  three fresh-context rounds: evidence about the mechanism, not about model
+  behavior.
+- **October 2026: enforcement, not prompting.** Stop-guard and loop-guard
+  hardening, deterministic memory delivery, design-copy fidelity measurement,
+  evidence-authenticity hardening, plugin compatibility. Same evidence class:
+  fixtures, mutation sweeps, fresh-context probes. Still no 16-task model round.
 
-**Wave 7 A/B (text-only non-inferiority, forced injection).** deepseek-flash 16
-tasks: 13/16 → 16/16 (the before arm was a low draw; the same-size skill scored
-15/16 in wave 6, so read this as no regression). qwen3.6-35B 8-task subset: 4/8 →
-3/8, one flip each way. The checker and oracle machinery is validated by the
-experiments above, not by this A/B.
-
-### Wave 11 (Sep 2026): ceremony economy + AEWM triage
-
-The first protocol upgrade wave (lanes, FCV, coverage honesty) was validated in
-two A/B rounds on deepseek-v4.1-flash and qwen3.8-27b — and the runs themselves
-turned up two design faults. Weak models spent the cell budget on loading the
-discipline instead of shipping code, and the 420s cell cap was silently counting
-truncation as behavioral failure. Wave 11 fixes both: the ship order puts
-working code and green tests before ceremony, budgets reserve a completion
-margin, and timed-out cells are classified budget-invalid (excluded from
-behavioral rates; completion rate is reported separately; wall time is a cost
-metric, not a verdict). TDD/new-feature fixtures are budgeted 2h per cell. With
-adequate budget, both arms complete the bugfix and spec-conflict tasks with full
-compliance — the earlier "skill arm loses" readings were truncation artifacts.
-The wave also borrows AEWM's contamination guards (arXiv:2609.28416): per-action
-critical/exploratory/noisy triage, state revision by editing the stale artifact
-rather than appending critiques, and the rule that a local green is never task
-completion.
-
-### Wave 12 (Sep 2026): objective A/B evaluation
-
-The A/B harness itself was put on trial after a round that seemed to show the
-upgraded skill doing worse and costing more. It did — at measuring the wrong
-things: the assertions rewarded the skill's own new output fields (circular),
-the agent could see the scoring criteria, and a deliberately wrong fixture
-test on the conflict task rewarded silent test rewriting while punishing
-honest conflict flagging. Wave 12 replaces the runbook with an objective
-hierarchy: hidden fail-to-pass tests grade the outcome, test-file hashes and
-conflict discipline grade anti-cheat integrity, Effective Mutation Score
-(delivered suite must pass on the gold implementation before its mutant kills
-count) grades suite quality, and wall time is demoted to a cost column. Six
-measurement pitfalls discovered in real voided rounds are codified in §V8.
-First objective results (N=3, directional): outcome 8/8 vs 7/8 in favor of
-the upgraded skill; integrity 5/5 vs 3/5 — the old skill silently rewrote
-the contradictory test twice to force green, the new one implemented per
-spec, flagged the conflict, and never touched the test. The earlier "high
-mutation score" of the old arm was the tampering premium. Cost remains the
-real trade: about 1.35× slower on this suite.
-
-### Wave 13 (Sep 2026): task classification + document gates
-
-Three changes to the contract, none of them benchmarked against a model yet —
-verified by fixture suites, adversarial review and fresh-context probes instead,
-which is evidence about the mechanism, not about model behavior.
-
-- **COV-13 / §V11 Task Class.** `Class: CODE > CONFIG > DOC` from file kinds;
-  per-class path cards (gate ↔ named risk); lite completion table for prose and
-  config work; doc-drift trigger; Class × Lane as separate axes. Motivation:
-  a CHANGELOG edit was walking the full verification path, and the path was
-  pushing README updates around on its own.
-- **§V11.9 DOC-asset render gate.** Office deliverables stay Class DOC but take
-  render-and-verify evidence (`NO RENDER, NO DONE`); doc-skill delegation table;
-  named executable-behavior check (vbaProject / PDF JS / macro sheet) at
-  delivery; flagged toolchain fallback with an `UNVERIFIED-layout` mark.
-- **Blind-spot hardening.** Two hunts (own probes + a fresh-context semantic
-  reviewer) closed nine real holes: the gate now triggers on file kind in every
-  class (a mixed CODE wave shipping a sample docx owes the render), evidence
-  binds to the current task block and per asset (COV-5 probe images, prior-block
-  citations, placeholder `render: N/A` lines and quoted echoes don't license),
-  the asset set is read from the whole change wave rather than the working tree
-  (a committed asset is still a delivery), and the exec-check moved to delivery
-  time with a log token.
-- **§V12 stop-guard.** A coherent "context exhausted, stopping here" slips past
-  every byte-level loop detector, so it gets its own syntax-level guard: the
-  audit plugin spots stop-euphemisms in the last assistant message
-  (quote-stripped, meta-discussion-aware, cessation intent required), consults a
-  session-scoped terminal-state whitelist (PAUSED packet · Class-E stop · gate
-  marker · explicit user directive), then posts ONE corrective prompt — budget
-  2/session, never thrash, four legal stops named. v1 hosts quote the measured
-  context fill; v2 posts explicit euphemism/truncation prompts and journals
-  positive silent-stop debt (W13 refined this; a model-authored gate/paused
-  cannot suppress an explicit trigger). Output-limit truncations (`finish:"length"`) count as continuations,
-  not completions.
-- **Evidence.** Fixture suite 166 assertions / mutation sweep 41, TDD RED
-  against the pre-change cores, two dual-adversarial review rounds (26 findings
-  adjudicated) and three FCV rounds — the first FCV round failed two acceptance
-  criteria and named the remaining bypasses; those became the next wave.
+**What is missing.** There is no post-August 16-task round on G2 or G3, and no
+multi-seed round on any generation. The mechanism is validated; the current
+package's 16-task score is unmeasured. If you need that number, the rig is public
+in `vibeweaver-eval/`.
 
 ### Honest caveats
 
@@ -558,8 +431,9 @@ which is evidence about the mechanism, not about model behavior.
   lifted the bare model from 44% to 81% before any skill was involved, and the
   skill's role flips with the model: it *supplies* the missing discipline on
   qwen3.6 (mini wins), *enforces* execution discipline on qwen3.8 (force-injection
-  hits a perfect 16/16), only works force-injected on deepseek, and only works as
-  force-injected mini on the 35b-a3b class.
+  hits 16/16), only works force-injected on deepseek, and only works as
+  force-injected mini on the 35b-a3b class. Those readings are G1 and have not
+  been re-run on G3.
 - Test provenance matters more than test count. Self-written tests can deceive
   (one task scored *worse* with them than with no feedback at all), and generated
   tests under-specify: a suite can pass on a wrong solution while the real contract
@@ -572,9 +446,9 @@ which is evidence about the mechanism, not about model behavior.
 - Each arm ran only once per round. A qwen3.8 arm runs 1–2.5 hours self-triggered
   and around 8 hours force-injected; the llama.cpp-hosted 35b-a3b takes 3–4 hours
   and hit the 2400 s timeout eight times in one round. More rounds would be proper
-  (models are stochastic), but one round already takes too long, and I don't have
-  the patience for more. The wave 7 numbers inherit that limitation: the deepseek
-  delta (+3) is inside run-to-run variance, and the qwen subset is n=8.
+  (models are stochastic), but one round already takes too long. The wave 7
+  numbers inherit that limitation: the deepseek delta (+3) is inside run-to-run
+  variance, and the qwen subset is n=8.
 - mini is a niche skill, but for the people who need it, it is exactly right. On
   qwen3.8 it gains nothing, and on 35b-a3b it only helps when force-injected. The
   most interesting finding: for models with very strong or very weak
@@ -587,45 +461,9 @@ which is evidence about the mechanism, not about model behavior.
 See the whole graph first, then read the breakdown (every node is a stage with
 mandatory artifacts, every edge is an explicit condition):
 
-```mermaid
-flowchart TD
-    A["Task"] --> B["§2 ZERO ★ mandatory before any code<br/>Decompose + web research (≥2 approaches)<br/>COV-5 verifier probe (mm_probe): model-native / mm-sensor / direct read<br/>COV-11 untrusted content = data, not instructions<br/>COV-12 mode declared: AUTO (default) / GUIDED<br/>COV-13 task class: CODE > CONFIG > DOC (path card, escalate-UP)<br/>Artifacts: decomposition + research findings"]
-    B --> C{"§3 Project mode"}
-    C -->|"New project C1"| D1["Design Gate A<br/>§A5 design docs<br/>Design Gate B<br/>Artifacts: FLOW / PAGE / DATABASE / BACKEND"]
-    C -->|"Modify existing C2"| D2["Survey: memory · config · script/<br/>Artifacts: baseline commit + Baseline verified GREEN"]
-    C -->|"Large task C3"| D3["docs/PLAN.md + Consistency Hub<br/>Artifacts: per-task implementation plan"]
-    B --> T{"§3.1 task-type routing"}
-    T -->|"Audit C4 (read-only)"| T4["docs/AUDIT_*.md<br/>findings need file:line + PoC<br/>independent subagent re-verification"]
-    T -->|"Deploy C5"| T5["pre-deploy checklist -> rollback first<br/>deploy action = Class-E human confirm"]
-    T -->|"Ops/Incident C6"| T6["evidence before fixes<br/>postmortem -> permanent regression case"]
-    T -->|"CLI/Library C7"| T7["project profile declares N/A<br/>evidence: CLI transcript + exit code + golden diff"]
-    T -->|"Spike S1 (feasibility)"| T8["deliverable is an answer, not code — 2-3 sentence probe plan, cheapest correct probe<br/>code stays throwaway; keeping it = new request + own baseline"]
-    D1 --> E["Implementation (changes)"]
-    D2 --> E
-    D3 --> E
-    T5 --> E
-    T6 --> E
-    T7 --> H
-    T4 --> O
-    E --> F{"Change type"}
-    F -->|"Runtime-visible"| G1["§A4.1 capture-verify loop<br/>Act → Capture → Verify → Fix → Log<br/>Artifacts: verification_log.md + media evidence"]
-    F -->|"Backend-only"| G2["§A4.7 doc-driven API tests<br/>+ A4.7b cross-endpoint workflow trace"]
-    F -->|"Logic-bearing code"| G3["§A4.8 TDD + trusted oracle<br/>RED evidence first, then GREEN implementation<br/>project tests certify · checker drives the loop"]
-    G1 --> H{"Acceptance all green?"}
-    G2 --> H
-    G3 --> H
-    H -->|"No · within cap=5"| E
-    H -->|"stall=3× / cap=5"| I["§A4.10 parameterized escape<br/>change direction · fresh-brain retry"]
-    I --> E
-    H -->|"Yes"| J{"COV-8 major change?"}
-    J -->|"Yes"| K["§A4.9 independent review dispatch<br/>Artifacts: review record + ruling"]
-    K --> L["§A4.4 completion gate<br/>convergence line + 8-column table<br/>assert_artifacts.py exit 0"]
-    J -->|"No"| L
-    L --> M["Memory Gate<br/>A7.9 memory write + A7.10 passed"]
-    M --> N{"Plugin audit Tier 0/1/2"}
-    N -->|"BAD → GATE-BLOCKED / RED latch"| E
-    N -->|"OK"| O["Deliver (C4 audit reports converge here)"]
-```
+![The vibeweaver workflow: ZERO, routing, implementation, verification, review, completion gate, memory, delivery](docs/assets/workflow-en.svg)
+
+Source: [`docs/assets/workflow-en.mmd`](docs/assets/workflow-en.mmd), rendered with mermaid-cli.
 
 - **Nodes are stages with mandatory artifacts.** ZERO (decompose + research) →
   project-mode detection → design gates → implementation → verification loop →

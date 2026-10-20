@@ -16,3 +16,11 @@
 
 1. README.md Why 章开头两段改为地道英文（去直译腔），信息不变。
 2. lint 对比无新增罚分；verify_skill 绿。
+
+# Acceptance Criteria — README benchmark 代际标注 + 可渲染流程图（2026-10-20）
+
+Source: user report 2026-10-20 (benchmark section stale? mermaid not rendering) → option A chosen: compress + generation labels.
+
+1. 双语 README 的每个 benchmark 表都带 skill 代际标签（G1/G2/G3）；显式写明当前安装包（G3）尚无 16-task 轮次；删除「当前 skill」「Best config / 最优形态」等已失效措辞。
+2. 旧表全部 n/16 数字保留且中英一致（两文件 token 集合相同）；英文 benchmark 段从 268 行压到 ≤150 行。
+3. 两个 README 不再包含 ```mermaid 代码块，改为提交到仓内的 SVG 流程图 + 可编辑 .mmd 源文件；SVG 经 mmdc 渲染 exit 0，截图在 900px 宽度下可读。
