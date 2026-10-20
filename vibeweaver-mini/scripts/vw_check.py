@@ -24,6 +24,7 @@ HASH_FILE = ".vw_test_hashes.json"
 STATE_FILE = ".vw_loop_state.json"
 CAP = 5
 STALL = 3
+NO_STATE = os.environ.get("VW_CHECK_NO_STATE") == "1"
 SKIP = ("node_modules", ".venv", "venv", ".git", "site-packages", "__pycache__")
 
 
@@ -63,6 +64,42 @@ def discover():
                         for t in glob.glob(pat, recursive=True) if clean(t)))
         return js or ["package.json"], ["npm", "test", "--silent"]
     return [], []
+
+
+def test_config_files():
+    """Files that can change which tests run without changing a test file.
+
+    Hashing them closes the conftest/pytest-config bypass; a legitimate change
+    goes through the same --test-change justification as a test edit.
+    """
+    out = []
+    for f in ("conftest.py", "pytest.ini", "tox.ini", "setup.cfg"):
+        if os.path.isfile(f) and clean(f):
+            out.append(f)
+    if os.path.isfile("pyproject.toml") and clean("pyproject.toml"):
+        try:
+            if "pytest" in open("pyproject.toml", encoding="utf-8").read():
+                out.append("pyproject.toml")
+        except OSError:
+            pass
+    return out
+
+
+def mark_seen():
+    """Record that the checker has run, without consuming cap/stall budget.
+
+    The gate runs the checker after every write; those runs are observations,
+    not model iterations. The marker still closes the delete-the-hash-record
+    re-baseline path.
+    """
+    try:
+        st = json.load(open(STATE_FILE))
+        if not isinstance(st, dict):
+            st = {}
+    except Exception:
+        st = {}
+    st["seen"] = True
+    json.dump(st, open(STATE_FILE, "w"), indent=1)
 
 
 def bump_state(passed, first_fail):
@@ -110,7 +147,7 @@ def main():
         print("NOTE: a suite you wrote yourself is weak evidence — say so in your report.")
         return 1
 
-    hashes = {t: sha(t) for t in tests}
+    hashes = {t: sha(t) for t in tests + test_config_files()}
     if os.path.exists(HASH_FILE):
         try:
             old = json.load(open(HASH_FILE))
@@ -152,8 +189,12 @@ def main():
             print(f"HASH RECORD created under justification: {reason}")
         json.dump(hashes, open(HASH_FILE, "w"), indent=1)
 
+    if NO_STATE:
+        mark_seen()
     try:
-        r = subprocess.run(runner, capture_output=True, text=True, timeout=900)
+        env = os.environ.copy()
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        r = subprocess.run(runner, capture_output=True, text=True, timeout=900, env=env)
     except subprocess.TimeoutExpired:
         print("TIMEOUT — the test suite hung. Fix the hang, then re-run.")
         return 1
@@ -168,7 +209,8 @@ def main():
         return 1
     if r.returncode == 0:
         print("\nALL CHECKS PASS")
-        bump_state(True, None)
+        if not NO_STATE:
+            bump_state(True, None)
         return 0
     failing = re.findall(r"^(FAILED\s+\S+|--- FAIL: \S+|not ok \d+ \S+|FAIL\s+\S+)", out, re.M)
     if failing:
@@ -181,7 +223,7 @@ def main():
     first = m.group(1).strip()[:300] if m else (failing[0][:300] if failing else out[:200])
     if first:
         print("\nFIRST FAILURE (observed != expected):\n  " + first)
-    for note in bump_state(False, first):
+    for note in ([] if NO_STATE else bump_state(False, first)):
         print(note)
     print("\nNOT DONE.")
     print("NEXT ACTION: make the observed value equal the expected value for the first")

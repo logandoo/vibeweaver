@@ -25,9 +25,17 @@ if not exist "%PLUGINS_DIR%" mkdir "%PLUGINS_DIR%"
 
 for %%F in (%FILES%) do (
     copy /y "%SCRIPT_DIR%%%F" "%SKILLS_DIR%\%%F" >nul
+    if errorlevel 1 (
+        echo [ERROR] failed to copy %%F
+        exit /b 1
+    )
     echo [OK] Installed: %%F
 )
 copy /y "%SCRIPT_DIR%vibeweaver-mini-gate.js" "%PLUGINS_DIR%\vibeweaver-mini-gate.js" >nul
+if errorlevel 1 (
+    echo [ERROR] failed to copy vibeweaver-mini-gate.js
+    exit /b 1
+)
 echo [OK] Installed plugin: vibeweaver-mini-gate.js
 
 echo.

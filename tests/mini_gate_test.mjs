@@ -8,16 +8,19 @@
 // Exit 0 only when every check passes.
 
 import { execFileSync } from "node:child_process"
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import { pathToFileURL } from "node:url"
 import path from "node:path"
 
 const PLUGIN = path.resolve(import.meta.dirname, "..", "vibeweaver-mini", "vibeweaver-mini-gate.js")
-const FAKE_CHECKER = `import pathlib, sys
+const FAKE_CHECKER = `# mini checker contract: vw_test_hashes
+import pathlib, sys
 state = pathlib.Path(".state").read_text().strip()
 if state == "pass":
     print("ALL CHECKS PASS")
+    sys.exit(0)
+if state == "silent":
     sys.exit(0)
 print("FAIL: expected 4, got 3")
 sys.exit(1)
@@ -68,11 +71,11 @@ function v1Client() {
   return { client, prompts }
 }
 
-async function v1Write(hooks, dir) {
+async function v1Write(hooks, dir, rel = "solution.py") {
   const output = { output: "" }
   try {
     await hooks["tool.execute.after"](
-      { tool: "write", args: { filePath: path.join(dir, "solution.py") } },
+      { tool: "write", args: { filePath: path.join(dir, rel) } },
       output
     )
     return { threw: false, output: output.output }
@@ -81,13 +84,24 @@ async function v1Write(hooks, dir) {
   }
 }
 
-async function v1Feed(hooks, sessionID, text) {
+async function v1Feed(hooks, sessionID, text, messageID = "m1") {
+  await hooks.event({
+    event: { type: "message.updated", properties: { sessionID, info: { id: messageID, role: "assistant" } } },
+  })
   await hooks.event({
     event: {
       type: "message.part.updated",
-      properties: { sessionID, part: { type: "text", text, role: "assistant" } },
+      properties: { sessionID, part: { type: "text", messageID, text } },
     },
   })
+}
+async function v1Before(hooks, tool, args) {
+  try {
+    await hooks["tool.execute.before"]({ tool, args })
+    return null
+  } catch (e) {
+    return String((e && e.message) || e)
+  }
 }
 async function v1Idle(hooks, sessionID) {
   await hooks.event({ event: { type: "session.idle", properties: { sessionID } } })
@@ -124,7 +138,7 @@ function makeV2Bus() {
   }
 }
 
-async function v2Setup(mod, dir, prompts) {
+async function v2Setup(mod, dir, prompts, withSession = true) {
   const handlers = {}
   const bus = makeV2Bus()
   const ctx = {
@@ -136,12 +150,14 @@ async function v2Setup(mod, dir, prompts) {
       },
     },
     event: { subscribe: () => bus.subscribe() },
-    session: {
+  }
+  if (withSession) {
+    ctx.session = {
       prompt: async (args) => {
         prompts.push(args)
         return {}
       },
-    },
+    }
   }
   const dispose = await mod.default.setup(ctx)
   return { handlers, bus, dispose }
@@ -174,6 +190,78 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   rec("v1 write/pass surfaces ALL CHECKS PASS", /ALL CHECKS PASS/.test(good.output), good.output)
 }
 
+// ---- v1: oracle guard (before hook) ----
+{
+  const dir = project({ state: "fail" })
+  const { client } = v1Client()
+  const hooks = await mod.default.server({ client, directory: dir })
+  const fullMarker = await v1Before(hooks, "write", { filePath: path.join(dir, "tests", "verification_log.md") })
+  rec("v1 before blocks tests/verification_log.md", !!fullMarker && /disable the mini gate/.test(fullMarker), fullMarker || "no block")
+  const checkerWrite = await v1Before(hooks, "edit", { filePath: path.join(dir, "vw_check.py") })
+  rec("v1 before blocks checker writes", !!checkerWrite && /read-only/.test(checkerWrite), checkerWrite || "no block")
+  const bashWrite = await v1Before(hooks, "bash", { command: "echo x > vw_check.py" })
+  rec("v1 before blocks bash redirection into the checker", !!bashWrite && /read-only/.test(bashWrite), bashWrite || "no block")
+  const bashRun = await v1Before(hooks, "bash", { command: "python3 vw_check.py" })
+  rec("v1 before allows running the checker", bashRun === null, bashRun || "")
+  const outside = await v1Before(hooks, "write", { filePath: path.join(os.tmpdir(), "outside.py") })
+  rec("v1 outside-project write is a no-op", outside === null, outside || "")
+}
+
+// ---- v1: missing/silent checker, edit, and no-state ----
+{
+  const dir = mkdtempSync(path.join(os.tmpdir(), "vw-mini-miss-"))
+  cleanups.push(dir)
+  writeFileSync(path.join(dir, ".vw_test_hashes.json"), "{}")
+  const { client } = v1Client()
+  const hooks = await mod.default.server({ client, directory: dir })
+  const r = await v1Write(hooks, dir)
+  rec("missing checker fails closed", r.threw && /CHECKER MISSING/.test(r.message), r.message)
+}
+{
+  const dir = project({ state: "silent" })
+  const { client } = v1Client()
+  const hooks = await mod.default.server({ client, directory: dir })
+  const r = await v1Write(hooks, dir)
+  rec("exit 0 without ALL CHECKS PASS is blocked", r.threw && /WITHOUT ALL CHECKS PASS/.test(r.message), r.message)
+}
+{
+  const dir = project({ state: "fail" })
+  const { client } = v1Client()
+  const hooks = await mod.default.server({ client, directory: dir })
+  let threw = false
+  let msg = ""
+  try {
+    await hooks["tool.execute.after"]({ tool: "edit", args: { filePath: path.join(dir, "solution.py") } }, { output: "" })
+  } catch (e) {
+    threw = true
+    msg = String((e && e.message) || e)
+  }
+  rec("edit is gated like write", threw && /CHECKER FAILED/.test(msg), msg)
+}
+{
+  const dir = project({ state: "fail" })
+  const { client } = v1Client()
+  const hooks = await mod.default.server({ client, directory: dir })
+  for (let i = 0; i < 3; i++) await v1Write(hooks, dir)
+  const stPath = path.join(dir, ".vw_loop_state.json")
+  const st = existsSync(stPath) ? JSON.parse(readFileSync(stPath, "utf8")) : {}
+  rec("gate runs do not consume the checker's cap/stall budget", (st.runs || 0) === 0, JSON.stringify(st))
+}
+{
+  const dir = mkdtempSync(path.join(os.tmpdir(), "vw-mini-timeout-"))
+  cleanups.push(dir)
+  writeFileSync(
+    path.join(dir, "vw_check.py"),
+    "# vw_test_hashes\nimport time\ntime.sleep(5)\nprint('ALL CHECKS PASS')\n"
+  )
+  process.env.VIBEWEAVER_MINI_TIMEOUT_MS = "200"
+  const { client } = v1Client()
+  const hooks = await mod.default.server({ client, directory: dir })
+  const r = await v1Write(hooks, dir)
+  delete process.env.VIBEWEAVER_MINI_TIMEOUT_MS
+  rec("checker timeout is reported distinctly", r.threw && /TIMEOUT/.test(r.message), r.message)
+}
+
 // ---- v1: completion claims ----
 {
   const dir = project({ state: "fail" })
@@ -184,6 +272,8 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   await v1Idle(hooks, "s-fail")
   rec("v1 idle/done + red checker prompts once", prompts.length === 1, `prompts=${prompts.length}`)
   rec("v1 corrective text names the checker flag", /ALL CHECKS PASS/.test(JSON.stringify(prompts[0] || {})), JSON.stringify(prompts[0] || {}))
+  await v1Idle(hooks, "s-fail")
+  rec("repeat idle does not re-fire on consumed text", prompts.length === 1, `prompts=${prompts.length}`)
 
   setState(dir, "pass")
   await v1Feed(hooks, "s-pass", "All done.")
@@ -214,6 +304,23 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   const hooks2 = await mod.default.server({ client, directory: full })
   const r2 = await v1Write(hooks2, full)
   rec("v1 full-skill project is a no-op", !r2.threw, r2.message || "")
+
+  mkdirSync(path.join(full, "sub"), { recursive: true })
+  writeFileSync(path.join(full, "sub", "vw_check.py"), FAKE_CHECKER)
+  const r3 = await v1Write(hooks2, full, "sub/x.py")
+  rec("nested mini marker does not capture a full project", !r3.threw, r3.message || "")
+}
+
+// ---- v1: script/check.sh fallback (Unix) ----
+if (process.platform !== "win32") {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "vw-mini-sh-"))
+  cleanups.push(dir)
+  mkdirSync(path.join(dir, "script"))
+  writeFileSync(path.join(dir, "script", "check.sh"), "#!/bin/sh\n# vw_check wrapper\necho 'ALL CHECKS PASS'\n")
+  const { client } = v1Client()
+  const hooks = await mod.default.server({ client, directory: dir })
+  const r = await v1Write(hooks, dir)
+  rec("script/check.sh fallback runs when vw_check.py is absent", !r.threw && /ALL CHECKS PASS/.test(r.output), r.output || r.message)
 }
 
 // ---- v1: disable switch ----
@@ -232,7 +339,15 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   const dir = project({ state: "fail" })
   const prompts = []
   const { handlers, bus, dispose } = await v2Setup(mod, dir, prompts)
-  rec("v2 registers execute.after", typeof handlers["execute.after"] === "function", "")
+  rec("v2 registers execute.before/after", typeof handlers["execute.before"] === "function" && typeof handlers["execute.after"] === "function", "")
+
+  let beforeMsg = null
+  try {
+    await handlers["execute.before"]({ tool: "write", input: { filePath: path.join(dir, "vw_check.py") } })
+  } catch (e) {
+    beforeMsg = String((e && e.message) || e)
+  }
+  rec("v2 before blocks checker writes", !!beforeMsg && /read-only/.test(beforeMsg), beforeMsg || "no block")
 
   let threw = false
   let msg = ""
@@ -241,7 +356,7 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
       tool: "write",
       status: "completed",
       input: { filePath: path.join(dir, "solution.py") },
-      result: {},
+      result: { content: "wrote file" },
     })
   } catch (e) {
     threw = true
@@ -252,24 +367,37 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   setState(dir, "pass")
   let ok = true
   msg = ""
+  const passResult = { content: "wrote file" }
   try {
     await handlers["execute.after"]({
       tool: "write",
       status: "completed",
       input: { filePath: path.join(dir, "solution.py") },
-      result: {},
+      result: passResult,
     })
   } catch (e) {
     ok = false
     msg = String((e && e.message) || e)
   }
   rec("v2 write/pass does not throw", ok, msg)
+  rec("v2 pass appends the checker line to content", /ALL CHECKS PASS/.test(String(passResult.content)) && /wrote file/.test(String(passResult.content)), String(passResult.content))
 
   setState(dir, "fail")
   bus.push({ type: "session.text.delta", data: { sessionID: "v2s", assistantMessageID: "m1", delta: "Done." } })
   bus.push({ type: "session.status", data: { sessionID: "v2s", status: { type: "idle" } } })
   await sleep(250)
   rec("v2 idle/done + red checker prompts", prompts.length === 1, `prompts=${prompts.length}`)
+  if (typeof dispose === "function") await dispose()
+}
+
+// ---- v2: no session.prompt means the idle challenge is inert, write gate still works ----
+{
+  const dir = project({ state: "fail" })
+  const { handlers, bus, dispose } = await v2Setup(mod, dir, [], false)
+  bus.push({ type: "session.text.delta", data: { sessionID: "v2n", assistantMessageID: "m1", delta: "Done." } })
+  bus.push({ type: "session.status", data: { sessionID: "v2n", status: { type: "idle" } } })
+  await sleep(250)
+  rec("v2 without session.prompt: no crash, no prompt", typeof handlers["execute.after"] === "function", "write gate only")
   if (typeof dispose === "function") await dispose()
 }
 
@@ -280,15 +408,19 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   copyFileSync(path.resolve(import.meta.dirname, "..", "vibeweaver-mini", "scripts", "vw_check.py"), path.join(dir, "vw_check.py"))
   writeFileSync(path.join(dir, "calc.py"), "def add(a, b):\n    return 5\n")
   writeFileSync(path.join(dir, "test_calc.py"), "from calc import add\n\ndef test_add():\n    assert add(2, 2) == 4\n")
+  writeFileSync(path.join(dir, "conftest.py"), "def pytest_configure(config):\n    pass\n")
   const prevPy = process.env.VIBEWEAVER_MINI_PYTHON
   process.env.VIBEWEAVER_MINI_PYTHON = process.platform === "win32" ? "python" : "python3"
   const { client } = v1Client()
   const hooks = await mod.default.server({ client, directory: dir })
   const bad = await v1Write(hooks, dir)
   rec("real vw_check.py: failing pytest blocks with the repair packet", bad.threw && /FAILED|assert/i.test(bad.message), bad.message)
-  writeFileSync(path.join(dir, "calc.py"), "def add(a, b):\n    return 4\n")
+  writeFileSync(path.join(dir, "calc.py"), "def add(a, b):\n    return 4  # fixed\n")
   const good = await v1Write(hooks, dir)
   rec("real vw_check.py: fixed code reaches ALL CHECKS PASS", !good.threw && /ALL CHECKS PASS/.test(good.output), good.output || good.message)
+  appendFileSync(path.join(dir, "conftest.py"), "\n# changed pytest config\n")
+  const tampered = await v1Write(hooks, dir)
+  rec("real vw_check.py: conftest change hits the hash guard", tampered.threw && /TEST SET CHANGED/.test(tampered.message), tampered.message)
   if (prevPy === undefined) delete process.env.VIBEWEAVER_MINI_PYTHON
   else process.env.VIBEWEAVER_MINI_PYTHON = prevPy
 }
@@ -324,6 +456,17 @@ if (process.platform !== "win32") {
     setupOk = false
   }
   rec("setup_project.sh installs checker markers", setupOk && existsSync(path.join(proj, "vw_check.py")) && existsSync(path.join(proj, "script", "check.sh")), proj)
+
+  const badProj = mkdtempSync(path.join(os.tmpdir(), "vw-mini-bad-"))
+  cleanups.push(badProj)
+  writeFileSync(path.join(badProj, "vw_check.py"), "print('ALL CHECKS PASS')\n")
+  let refused = false
+  try {
+    execFileSync("sh", [path.join(miniDir, "scripts", "setup_project.sh"), badProj], { stdio: "pipe" })
+  } catch {
+    refused = true
+  }
+  rec("setup_project.sh refuses an unrelated vw_check.py", refused, "exit non-zero")
 }
 
 for (const dir of cleanups) {

@@ -1,35 +1,41 @@
-import { execFileSync } from "node:child_process"
-import { existsSync, readFileSync, statSync } from "node:fs"
+import { execFile } from "node:child_process"
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs"
 import path from "node:path"
 
-// vibeweaver-mini-gate — the mini kit's physical gate.
+// vibeweaver-mini-gate — the mini kit's checker gate.
 //
 // The full vibeweaver gate activates on tests/verification_log.md. The mini
 // kit does not create that file: its contract is the checker's literal
 // "ALL CHECKS PASS". This plugin enforces that contract directly.
 //
-//   - after every write/edit in a mini project: run the checker
-//     (script/check.sh first, else vw_check.py); on failure throw the repair
-//     packet into the tool result; on success surface ALL CHECKS PASS.
-//   - at session idle: if the assistant claimed completion while the checker
-//     is not green, post ONE corrective prompt (budget 2/session).
-//   - full-skill projects (tests/verification_log.md) are untouched: the
-//     full gate owns them.
+//   - write/edit in a mini project: run vw_check.py (or the mini
+//     script/check.sh when vw_check.py is absent); red throws the repair
+//     packet, green appends the checker's own output (which contains
+//     ALL CHECKS PASS).
+//   - the checker, its state files and tests/verification_log.md are
+//     protected: writing them is blocked while the mini gate is active.
+//   - session idle: if the assistant claimed completion while the checker is
+//     red, post a corrective prompt (budget 2/session). Hosts without a
+//     prompt API (the shipped v2 context) get the write gate only.
+//   - full-skill projects (tests/verification_log.md at the session root)
+//     are excluded: the full gate owns them.
 //
 // Disable with VIBEWEAVER_MINI_GATE=off. Checker timeout:
-// VIBEWEAVER_MINI_TIMEOUT_MS (default 120000).
+// VIBEWEAVER_MINI_TIMEOUT_MS (default 900000, matching vw_check.py).
 //
 // OPENCODE DUAL-COMPAT CONTRACT (v1 + v2): one default export
-// { id, server, setup }; no other exports (the v1 legacy iterator and the v2
-// PluginModule schema both depend on that shape).
+// { id, server, setup }; no other exports.
 
 const GATED_TOOLS = new Set(["write", "edit"])
 const MAX_PROMPTS = 2
 const MAX_TEXT = 4000
-const DEFAULT_TIMEOUT_MS = 120000
-const SKIP_STATE = new Set([".vw_test_hashes.json", ".vw_loop_state.json"])
+const DEFAULT_TIMEOUT_MS = 900000
+const PROTECTED = new Set(["vw_check.py", path.join("script", "check.sh"), ".vw_test_hashes.json", ".vw_loop_state.json"])
+const FULL_MARKER = path.join("tests", "verification_log.md")
+const MUTATOR = /(?:^|[^<])>{1,2}|\btee\b|\bsed\s+-i|\bcp\b|\bmv\b|\brm\b|\btouch\b|\btruncate\b/
+const PROTECTED_RE = /(^|[\s\/\\])(tests[\/\\]verification_log\.md|vw_check\.py|check\.sh|\.vw_test_hashes\.json|\.vw_loop_state\.json)(?=$|[\s;|&])/
 
-const SESSIONS = new Map() // sessionID -> { text, prompts }
+const SESSIONS = new Map() // sessionID -> { text, prompts, assistant:Set }
 
 function disabled() {
   return process.env.VIBEWEAVER_MINI_GATE === "off"
@@ -40,11 +46,75 @@ function timeoutMs() {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_MS
 }
 
+function pythonCmd() {
+  return process.env.VIBEWEAVER_MINI_PYTHON || (process.platform === "win32" ? "python" : "python3")
+}
+
+function real(p) {
+  try {
+    return realpathSync(p)
+  } catch {
+    return path.resolve(p)
+  }
+}
+
+// Realpath for a path that may not exist yet (a before-write target). Resolve
+// the nearest existing ancestor, then append the missing tail — this is what
+// makes /var vs /private/var containment checks correct on macOS.
+function realPath(p) {
+  let cur = path.resolve(p)
+  const tail = []
+  for (let i = 0; i < 32; i++) {
+    try {
+      const r = realpathSync(cur)
+      return tail.length ? path.join(r, ...tail.reverse()) : r
+    } catch {
+      const parent = path.dirname(cur)
+      if (parent === cur) return path.resolve(p)
+      tail.push(path.basename(cur))
+      cur = parent
+    }
+  }
+  return path.resolve(p)
+}
+
+function isDir(p) {
+  try {
+    return statSync(p).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+function inside(root, p) {
+  const r = real(root)
+  const x = realPath(p)
+  return x === r || x.startsWith(r + path.sep)
+}
+
+function isMiniChecker(file) {
+  try {
+    const s = readFileSync(file, "utf8")
+    return s.includes("ALL CHECKS PASS") && s.includes("vw_test_hashes")
+  } catch {
+    return false
+  }
+}
+
+function isMiniWrapper(file) {
+  try {
+    const s = readFileSync(file, "utf8")
+    return s.includes("vw_check") && s.includes("ALL CHECKS PASS")
+  } catch {
+    return false
+  }
+}
+
 function stateFor(sessionID) {
   const key = typeof sessionID === "string" && sessionID ? sessionID : "(session)"
   let st = SESSIONS.get(key)
   if (!st) {
-    st = { text: "", prompts: 0 }
+    st = { text: "", prompts: 0, assistant: new Set() }
     SESSIONS.set(key, st)
     if (SESSIONS.size > 128) SESSIONS.delete(SESSIONS.keys().next().value)
   }
@@ -60,176 +130,232 @@ function pushText(sessionID, piece) {
 function isCompletionClaim(text) {
   const t = String(text || "").slice(-1200).toLowerCase()
   if (!t) return false
-  if (/all checks pass/.test(t)) return true
-  if (/(not|isn't|is not|未|还没|尚未)\s*(done|complete|completed|finished|完成|搞定|做好)/.test(t)) return false
-  return /\b(done|complete|completed|finished)\b|完成|搞定|做好了|做完了|通过了/.test(t)
+  if (/(not|never|isn't|is not|未|还没|尚未)\s*(yet\s*)?(all checks pass)/.test(t)) return false
+  if (/(not|never|isn't|is not|未|还没|尚未)\s*(done|complete|completed|finished|完成|搞定|做好)/.test(t)) return false
+  return /all checks pass|\b(done|complete|completed|finished)\b|完成|搞定|做好了|做完了|通过了/.test(t)
 }
 
-function isDir(p) {
-  try {
-    return statSync(p).isDirectory()
-  } catch {
-    return false
-  }
-}
-
-// Mini activation: a project with the checker contract; a full-skill project
-// (tests/verification_log.md) is excluded so the full gate stays authoritative.
-function findMiniRoot(starts) {
-  const seen = new Set()
-  for (const start of Array.isArray(starts) ? starts : [starts]) {
-    if (typeof start !== "string" || !start) continue
-    let dir
-    try {
-      dir = isDir(start) ? start : path.dirname(start)
-    } catch {
-      dir = start
-    }
-    dir = path.resolve(dir)
-    for (let depth = 0; depth < 10; depth++) {
-      if (seen.has(dir)) break
-      seen.add(dir)
-      if (existsSync(path.join(dir, "tests", "verification_log.md"))) return null
-      if (existsSync(path.join(dir, "vw_check.py")) || existsSync(path.join(dir, ".vw_test_hashes.json"))) {
-        return dir
-      }
-      const sh = path.join(dir, "script", "check.sh")
-      if (existsSync(sh)) {
-        try {
-          if (readFileSync(sh, "utf8").includes("vw_check")) return dir
-        } catch {
-          /* unreadable check.sh is not a marker */
-        }
-      }
-      const parent = path.dirname(dir)
-      if (parent === dir) break
-      dir = parent
-    }
-  }
+// The session root is the only activation surface. No ancestor walk: a
+// nested vw_check.py inside a full project must never capture the project.
+function miniRoot(directory) {
+  if (typeof directory !== "string" || !directory) return null
+  const root = real(directory)
+  if (!isDir(root)) return null
+  if (existsSync(path.join(root, FULL_MARKER))) return null
+  const py = path.join(root, "vw_check.py")
+  if (existsSync(py) && isMiniChecker(py)) return root
+  const sh = path.join(root, "script", "check.sh")
+  if (existsSync(sh) && isMiniWrapper(sh)) return root
+  if (existsSync(path.join(root, ".vw_test_hashes.json"))) return root // fail closed below
   return null
 }
 
 function checkerFor(root) {
+  const py = path.join(root, "vw_check.py")
+  if (existsSync(py) && isMiniChecker(py)) return { cmd: pythonCmd(), args: ["vw_check.py"], label: "vw_check.py" }
   const sh = path.join(root, "script", "check.sh")
-  if (existsSync(sh)) return { cmd: "bash", args: ["script/check.sh"], strictLine: true, label: "script/check.sh" }
-  if (existsSync(path.join(root, "vw_check.py"))) {
-    return { cmd: process.env.VIBEWEAVER_MINI_PYTHON || "python3", args: ["vw_check.py"], strictLine: false, label: "vw_check.py" }
+  if (!existsSync(py) && existsSync(sh) && isMiniWrapper(sh)) {
+    if (process.platform === "win32") return null // no reliable bash; the caller fails closed
+    return { cmd: "bash", args: ["script/check.sh"], label: "script/check.sh" }
   }
   return null
 }
 
 function runChecker(root) {
   const c = checkerFor(root)
-  if (!c) return { ok: true, output: "", missing: true, label: "none" }
-  try {
-    const out = execFileSync(c.cmd, c.args, {
-      cwd: root,
-      timeout: timeoutMs(),
-      encoding: "utf8",
-      maxBuffer: 4 << 20,
-      stdio: ["ignore", "pipe", "pipe"],
+  if (!c) {
+    return Promise.resolve({
+      ok: false,
+      missing: true,
+      output: "CHECKER MISSING — vw_check.py (or the mini script/check.sh) was not found or is not the mini checker. Re-run setup_project.sh.",
     })
-    const ok = c.strictLine ? /ALL CHECKS PASS/.test(out) : true
-    return { ok, output: String(out || "").slice(-MAX_TEXT), label: c.label }
-  } catch (e) {
-    const out = `${(e && e.stdout) || ""}${(e && e.stderr) || ""}` || String((e && e.message) || e)
-    return { ok: false, output: String(out).slice(-MAX_TEXT), label: c.label }
   }
+  return new Promise((resolve) => {
+    execFile(
+      c.cmd,
+      c.args,
+      {
+        cwd: root,
+        timeout: timeoutMs(),
+        maxBuffer: 4 << 20,
+        encoding: "utf8",
+        env: { ...process.env, VW_CHECK_NO_STATE: "1", PYTHONDONTWRITEBYTECODE: "1" },
+      },
+      (err, stdout, stderr) => {
+        const out = `${stdout || ""}${stderr || ""}`.trim().slice(-MAX_TEXT)
+        if (err) {
+          const timedOut = !!err.killed || err.signal === "SIGTERM" || err.code === "ETIMEDOUT"
+          const missingCmd = err.code === "ENOENT"
+          resolve({
+            ok: false,
+            timedOut,
+            missingCmd,
+            output: out || (timedOut
+              ? `CHECKER TIMEOUT after ${timeoutMs()}ms — the suite hung or is too slow.`
+              : missingCmd
+                ? `CHECKER UNAVAILABLE (${c.cmd}) — install it or set VIBEWEAVER_MINI_PYTHON.`
+                : String(err.message || err)),
+          })
+          return
+        }
+        const ok = /ALL CHECKS PASS/.test(out)
+        resolve({ ok, output: out, noLine: !ok })
+      }
+    )
+  })
 }
 
 function blockText(r) {
-  return [
-    "[vibeweaver-mini-gate] CHECKER FAILED — do not claim done.",
-    r.output ? r.output.trim() : `(${r.label} failed with no output)`,
-    "Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.",
-  ].join("\n")
+  const head = r.timedOut
+    ? "[vibeweaver-mini-gate] CHECKER TIMEOUT — do not claim done."
+    : r.missing
+      ? "[vibeweaver-mini-gate] CHECKER MISSING — do not claim done."
+      : r.noLine
+        ? "[vibeweaver-mini-gate] CHECKER EXITED 0 WITHOUT ALL CHECKS PASS — do not claim done."
+        : "[vibeweaver-mini-gate] CHECKER FAILED — do not claim done."
+  const tail = r.output ? r.output.trim() : "(no output)"
+  const hint = /TEST SET CHANGED/.test(tail)
+    ? "A legitimate test change needs its justification: log `- test-change: <path> — <reason>` in tests/verification_log.md, then re-run with `--test-change \"<same reason>\"`."
+    : "Fix the first failure, then run the checker again until it prints ALL CHECKS PASS."
+  return [head, tail, hint].join("\n")
 }
 
 function doneText() {
   return [
     "[vibeweaver-mini-gate] You claimed completion, but the checker did not print ALL CHECKS PASS.",
-    "Run `bash script/check.sh` (or `python3 vw_check.py`), fix the first failure, and repeat.",
+    "Run `python3 vw_check.py` (or `bash script/check.sh`), fix the first failure, and repeat.",
     "Only the literal line ALL CHECKS PASS counts as done.",
   ].join("\n")
 }
 
-function appendPass(output) {
-  return (output ? output + "\n" : "") + "[vibeweaver-mini-gate] ALL CHECKS PASS"
+function appendText(output, text) {
+  return (output ? output + "\n" : "") + text
 }
 
-async function promptV1(client, sessionID, text) {
-  if (!client || !client.session || typeof client.session.prompt !== "function") return false
+function appendV2Result(event, text) {
+  const result = event && event.result
+  if (!result || typeof result !== "object") return
   try {
-    await client.session.prompt({ path: { id: sessionID }, body: { parts: [{ type: "text", text }] } })
-    return true
+    if (typeof result.content === "string") {
+      result.content = result.content + "\n" + text
+      return
+    }
+    if (Array.isArray(result.content)) {
+      result.content.push({ type: "text", text })
+      return
+    }
+    if (typeof result.output === "string") {
+      result.output = result.output + "\n" + text
+      return
+    }
+    result.metadata = { ...(result.metadata && typeof result.metadata === "object" ? result.metadata : {}), vibeweaverMiniGate: text }
   } catch {
-    return false
+    try {
+      event.result = { ...result, content: typeof result.content === "string" ? result.content + "\n" + text : text }
+    } catch {
+      /* frozen result — the write gate still threw/succeeded; the note is best-effort */
+    }
   }
 }
 
-async function promptV2(ctx, sessionID, text) {
-  if (!ctx || !ctx.session || typeof ctx.session.prompt !== "function") return false
-  try {
-    await ctx.session.prompt({ sessionID, text })
-    return true
-  } catch {
-    return false
+function beforeWrite(directory, tool, filePath, command) {
+  if (disabled()) return null
+  const root = miniRoot(directory)
+  if (!root) return null
+  if (tool === "bash") {
+    if (typeof command === "string" && MUTATOR.test(command) && PROTECTED_RE.test(command)) {
+      return "[vibeweaver-mini-gate] The checker, its state files and tests/verification_log.md are read-only while the mini gate is active. Fix the code, not the oracle."
+    }
+    return null
   }
+  if (!GATED_TOOLS.has(tool) || typeof filePath !== "string" || !filePath) return null
+  if (!inside(root, filePath)) return null
+  const rel = path.relative(root, realPath(filePath))
+  if (rel === FULL_MARKER) {
+    return "[vibeweaver-mini-gate] Creating tests/verification_log.md would disable the mini gate. Install the full vibeweaver skill or set VIBEWEAVER_MINI_GATE=off first."
+  }
+  if (PROTECTED.has(rel)) {
+    return "[vibeweaver-mini-gate] The checker and its state files are read-only while the gate is active. Fix the code, not the oracle."
+  }
+  return null
 }
 
-async function onIdle({ directory, sessionID, prompt }) {
-  if (disabled()) return
+async function writeCheck(directory, filePath) {
+  if (disabled()) return null
+  const root = miniRoot(directory)
+  if (!root) return null
+  if (typeof filePath !== "string" || !filePath || !inside(root, filePath)) return null
+  const rel = path.relative(root, realPath(filePath))
+  if (PROTECTED.has(rel) || rel === FULL_MARKER) {
+    return { pass: false, block: "[vibeweaver-mini-gate] The checker and its state files are read-only while the gate is active." }
+  }
+  const r = await runChecker(root)
+  return r.ok ? { pass: true, output: r.output } : { pass: false, block: blockText(r) }
+}
+
+async function onIdle({ directory, sessionID, canPrompt, prompt }) {
+  if (disabled() || !canPrompt) return
   const st = stateFor(sessionID)
-  if (!isCompletionClaim(st.text)) return
-  const root = findMiniRoot([directory])
+  const text = st.text
+  st.text = "" // consume this turn's text: a later idle must not re-fire on it
+  if (!isCompletionClaim(text)) return
+  const root = miniRoot(directory)
   if (!root) return
-  const r = runChecker(root)
-  if (r.ok) {
-    st.prompts = 0
-    return
-  }
   if (st.prompts >= MAX_PROMPTS) return
+  const r = await runChecker(root)
+  if (r.ok) return
   if (await prompt(sessionID, doneText())) st.prompts++
 }
 
 function observePart(sessionID, part) {
   if (!part || typeof part !== "object" || part.type !== "text") return
+  const st = stateFor(sessionID)
   if (typeof part.role === "string" && part.role !== "assistant") return
+  if (typeof part.messageID === "string" && st.assistant.size && !st.assistant.has(part.messageID)) return
   if (typeof part.text === "string") pushText(sessionID, part.text)
   else if (typeof part.delta === "string") pushText(sessionID, part.delta)
 }
 
-function writeCheck(directory, filePath) {
-  if (disabled()) return null
-  if (typeof filePath !== "string" || !filePath) return null
-  if (SKIP_STATE.has(path.basename(filePath))) return null
-  const root = findMiniRoot([filePath, directory])
-  if (!root) return null
-  const r = runChecker(root)
-  return r.ok ? { pass: true } : { pass: false, block: blockText(r) }
-}
-
 async function server({ client, directory }) {
   return {
+    "tool.execute.before": async (input) => {
+      const args = (input && input.args) || {}
+      const msg = beforeWrite(directory, input && input.tool, args.filePath, args.command)
+      if (msg) throw new Error(msg)
+    },
     "tool.execute.after": async (input, output) => {
       if (!input || !GATED_TOOLS.has(input.tool)) return
       const filePath = input.args && typeof input.args.filePath === "string" ? input.args.filePath : null
-      const r = writeCheck(directory, filePath)
+      const r = await writeCheck(directory, filePath)
       if (!r) return
       if (!r.pass) throw new Error(r.block)
-      if (output) output.output = appendPass(output.output)
+      if (output) output.output = appendText(output.output, r.output)
     },
     event: async ({ event }) => {
       if (!event || typeof event.type !== "string") return
       const props = event.properties || {}
       const sessionID = props.sessionID
-      if (event.type === "message.part.updated" && sessionID) {
+      if (!sessionID) return
+      if (event.type === "message.updated" && props.info) {
+        const st = stateFor(sessionID)
+        if (props.info.role === "assistant" && typeof props.info.id === "string") st.assistant.add(props.info.id)
+        else if (typeof props.info.id === "string") st.assistant.delete(props.info.id)
+      } else if (event.type === "message.part.updated") {
         observePart(sessionID, props.part)
-      } else if (event.type === "session.idle" && sessionID) {
+      } else if (event.type === "session.idle") {
+        const canPrompt = !!(client && client.session && typeof client.session.prompt === "function")
         await onIdle({
           directory,
           sessionID,
-          prompt: (sid, text) => promptV1(client, sid, text),
+          canPrompt,
+          prompt: async (sid, text) => {
+            try {
+              await client.session.prompt({ path: { id: sid }, body: { parts: [{ type: "text", text }] } })
+              return true
+            } catch {
+              return false
+            }
+          },
         })
       }
     },
@@ -247,35 +373,50 @@ async function setup(ctx) {
   }
   const registrations = []
   registrations.push(
+    await ctx.tool.hook("execute.before", async (event) => {
+      if (!event) return
+      const input = event.input && typeof event.input === "object" ? event.input : {}
+      const msg = beforeWrite(directory, event.tool, input.filePath, input.command)
+      if (msg) throw new Error(msg)
+    })
+  )
+  registrations.push(
     await ctx.tool.hook("execute.after", async (event) => {
       if (!event || !GATED_TOOLS.has(event.tool)) return
       if (event.status !== "completed") return
       const input = event.input
       const filePath = input && typeof input === "object" && typeof input.filePath === "string" ? input.filePath : null
-      const r = writeCheck(directory, filePath)
+      const r = await writeCheck(directory, filePath)
       if (!r) return
       if (!r.pass) throw new Error(r.block)
-      if (event.result && typeof event.result === "object") {
-        event.result.output = appendPass(typeof event.result.output === "string" ? event.result.output : "")
-      }
+      appendV2Result(event, r.output)
     })
   )
+  const canPrompt = !!(ctx.session && typeof ctx.session.prompt === "function")
   const controller = new AbortController()
   void (async () => {
     try {
       for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
         try {
           if (!event || typeof event.type !== "string") continue
-          const data = event.data && typeof event.data === "object" ? event.data : {}
+          const data = event.data && typeof event.data === "object" ? event.data : event.properties && typeof event.properties === "object" ? event.properties : {}
           const sessionID = typeof data.sessionID === "string" ? data.sessionID : null
           if (!sessionID) continue
-          if (event.type === "session.text.delta" && typeof data.delta === "string") {
-            pushText(sessionID, data.delta)
+          if ((event.type === "session.text.delta" || event.type === "session.next.text.delta") && typeof data.delta === "string") {
+            if (typeof data.assistantMessageID === "string" || typeof data.messageID === "string") pushText(sessionID, data.delta)
           } else if (event.type === "session.status" && data.status && data.status.type === "idle") {
             await onIdle({
               directory,
               sessionID,
-              prompt: (sid, text) => promptV2(ctx, sid, text),
+              canPrompt,
+              prompt: async (sid, text) => {
+                try {
+                  await ctx.session.prompt({ sessionID: sid, text })
+                  return true
+                } catch {
+                  return false
+                }
+              },
             })
           }
         } catch {

@@ -41,14 +41,19 @@ bash ~/.config/opencode/skills/vibeweaver-mini/scripts/setup_project.sh
 ## Checker gate
 
 `install.sh` 还会把 `vibeweaver-mini-gate.js` 装进
-`~/.config/opencode/plugins/`。项目里有 `vw_check.py`（或
-`.vw_test_hashes.json`）时激活；每次 write/edit 后跑 checker，失败就把修复包
-作为阻断消息返回，成功则输出 `ALL CHECKS PASS`。session idle 时如果模型声称
-完成而 checker 没绿，会追加纠正提示（预算 2 次/会话）。完整版项目
-（有 `tests/verification_log.md`）不归它管，由完整版 gate 接管。
+`~/.config/opencode/plugins/`。会话项目里有 `vw_check.py`（或没有
+`vw_check.py` 时的 mini `script/check.sh`）时激活；每次 write/edit 后跑
+checker，失败就把修复包作为阻断消息返回，成功则追加 checker 自己的输出
+（含 `ALL CHECKS PASS`）。gate 激活期间 checker、它的状态文件和
+`tests/verification_log.md` 都是只读的。
+
+session idle 时如果模型声称完成而 checker 没绿，会追加纠正提示（预算 2 次/
+会话，不重置）。完整版项目（根目录有 `tests/verification_log.md`）不归它管，
+由完整版 gate 接管。没有 prompt API 的宿主（当前 v2 上下文）只有写入 gate。
 
 关闭：`VIBEWEAVER_MINI_GATE=off`；checker 超时：`VIBEWEAVER_MINI_TIMEOUT_MS`
-（默认 120000）。
+（默认 900000，与 `vw_check.py` 一致）。`write`/`edit` 直接覆盖；bash 对
+checker/状态的常见重定向会被启发式拦截，其他 shell 改动不在钩子范围内。
 
 ## 硬规则（skill 内已写）
 

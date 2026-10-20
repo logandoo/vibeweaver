@@ -14,9 +14,10 @@ description: |
 You are a small model. Do not rely on memory, judgment, or planning. Follow
 this loop exactly. It is mechanical on purpose.
 
-The installed `vibeweaver-mini-gate` runs the checker after every write and
-blocks a completion claim until it prints `ALL CHECKS PASS`. You still run the
-checker yourself; the plugin is the backstop.
+The installed `vibeweaver-mini-gate` runs the checker after every write/edit and
+blocks a completion claim until it prints `ALL CHECKS PASS`. The checker and its
+state are read-only while the gate is active. You still run the checker
+yourself; the plugin is the backstop.
 
 1. Run `python3 vw_check.py` — if it is not in the project root, copy it there
    from the skill's `scripts/vw_check.py` (or run the project's `script/check.sh`).

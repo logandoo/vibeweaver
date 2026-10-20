@@ -8,21 +8,46 @@ PASS  v1 write/fail carries repair packet — [vibeweaver-mini-gate] CHECKER FAI
 FAIL: expected 4, got 3
 Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
 PASS  v1 write/pass does not throw
-PASS  v1 write/pass surfaces ALL CHECKS PASS — [vibeweaver-mini-gate] ALL CHECKS PASS
+PASS  v1 write/pass surfaces ALL CHECKS PASS — ALL CHECKS PASS
+PASS  v1 before blocks tests/verification_log.md — [vibeweaver-mini-gate] Creating tests/verification_log.md would disable the mini gate. Install the full vibeweaver skill or set VIBEWEAVER_MINI_GATE=off first.
+PASS  v1 before blocks checker writes — [vibeweaver-mini-gate] The checker and its state files are read-only while the gate is active. Fix the code, not the oracle.
+PASS  v1 before blocks bash redirection into the checker — [vibeweaver-mini-gate] The checker, its state files and tests/verification_log.md are read-only while the mini gate is active. Fix the code, not the oracle.
+PASS  v1 before allows running the checker
+PASS  v1 outside-project write is a no-op
+PASS  missing checker fails closed — [vibeweaver-mini-gate] CHECKER MISSING — do not claim done.
+CHECKER MISSING — vw_check.py (or the mini script/check.sh) was not found or is not the mini checker. Re-run setup_project.sh.
+Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
+PASS  exit 0 without ALL CHECKS PASS is blocked — [vibeweaver-mini-gate] CHECKER EXITED 0 WITHOUT ALL CHECKS PASS — do not claim done.
+(no output)
+Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
+PASS  edit is gated like write — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
+FAIL: expected 4, got 3
+Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
+PASS  gate runs do not consume the checker's cap/stall budget — {}
+PASS  checker timeout is reported distinctly — [vibeweaver-mini-gate] CHECKER TIMEOUT — do not claim done.
+CHECKER TIMEOUT after 200ms — the suite hung or is too slow.
+Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
 PASS  v1 idle/done + red checker prompts once — prompts=1
-PASS  v1 corrective text names the checker flag — {"path":{"id":"s-fail"},"body":{"parts":[{"type":"text","text":"[vibeweaver-mini-gate] You claimed completion, but the checker did not print ALL CHECKS PASS.\nRun `bash script/check.sh` (or `python3 vw_check.py`), fix the first failure, and repeat.\nOnly the literal line ALL CHECKS PASS counts as done."}]}}
+PASS  v1 corrective text names the checker flag — {"path":{"id":"s-fail"},"body":{"parts":[{"type":"text","text":"[vibeweaver-mini-gate] You claimed completion, but the checker did not print ALL CHECKS PASS.\nRun `python3 vw_check.py` (or `bash script/check.sh`), fix the first failure, and repeat.\nOnly the literal line ALL CHECKS PASS counts as done."}]}}
+PASS  repeat idle does not re-fire on consumed text — prompts=1
 PASS  v1 idle/done + green checker stays silent — prompts=1
 PASS  v1 idle/non-done stays silent — prompts=1
 PASS  v1 prompt budget = 2/session — prompts=3 (1 earlier + 2 budget)
 PASS  v1 non-mini project is a no-op
 PASS  v1 full-skill project is a no-op
+PASS  nested mini marker does not capture a full project
+PASS  script/check.sh fallback runs when vw_check.py is absent — ALL CHECKS PASS
 PASS  VIBEWEAVER_MINI_GATE=off disables the hook
-PASS  v2 registers execute.after
+PASS  v2 registers execute.before/after
+PASS  v2 before blocks checker writes — [vibeweaver-mini-gate] The checker and its state files are read-only while the gate is active. Fix the code, not the oracle.
 PASS  v2 write/fail throws — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
 FAIL: expected 4, got 3
 Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
 PASS  v2 write/pass does not throw
+PASS  v2 pass appends the checker line to content — wrote file
+ALL CHECKS PASS
 PASS  v2 idle/done + red checker prompts — prompts=1
+PASS  v2 without session.prompt: no crash, no prompt — write gate only
 PASS  real vw_check.py: failing pytest blocks with the repair packet — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
 F                                                                        [100%]
 =================================== FAILURES ===================================
@@ -48,8 +73,20 @@ NOT DONE.
 NEXT ACTION: make the observed value equal the expected value for the first
 failing test, then run the checker again.
 Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
-PASS  real vw_check.py: fixed code reaches ALL CHECKS PASS — [vibeweaver-mini-gate] ALL CHECKS PASS
-PASS  install.sh installs mini skill + gate — ok · ok · ok · ok
-PASS  setup_project.sh installs checker markers — /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-mini-proj-kshXtH
+PASS  real vw_check.py: fixed code reaches ALL CHECKS PASS — .                                                                        [100%]
+1 passed in 0.00s
 
-RESULT: 23/23 passed, 0 failed
+ALL CHECKS PASS
+PASS  real vw_check.py: conftest change hits the hash guard — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
+TEST SET CHANGED since first run — refusing to run: conftest.py
+A test change needs its justification: log
+  - test-change: <path> — <reason>
+in tests/verification_log.md, then re-run with
+  python3 vw_check.py --test-change "<the same reason>"
+Never edit tests to pass — fix the CODE (or justify the test change).
+A legitimate test change needs its justification: log `- test-change: <path> — <reason>` in tests/verification_log.md, then re-run with `--test-change "<same reason>"`.
+PASS  install.sh installs mini skill + gate — ok · ok · ok · ok
+PASS  setup_project.sh installs checker markers — /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-mini-proj-CFHPBH
+PASS  setup_project.sh refuses an unrelated vw_check.py — exit non-zero
+
+RESULT: 41/41 passed, 0 failed

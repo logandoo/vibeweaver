@@ -13,7 +13,8 @@ if [ -z "$CHECKER" ]; then
   echo "vw_check.py not found next to check.sh or under scripts/" >&2
   exit 1
 fi
-if python3 "$CHECKER" "$@"; then
+PY="${VIBEWEAVER_MINI_PYTHON:-python3}"
+if "$PY" "$CHECKER" "$@"; then
   echo "ALL CHECKS PASS"
   exit 0
 fi

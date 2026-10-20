@@ -52,15 +52,24 @@ until it prints ALL CHECKS PASS."
 ## The checker gate
 
 `install.sh` also installs `vibeweaver-mini-gate.js` into
-`~/.config/opencode/plugins/`. It activates when the project has `vw_check.py`
-(or `.vw_test_hashes.json`), runs the checker after every write/edit, blocks
-the tool result with the repair packet on failure, and surfaces
-`ALL CHECKS PASS` on success. At session idle it challenges a completion claim
-until the checker is green (budget: 2 prompts/session). Full-skill projects
-(`tests/verification_log.md`) are excluded — the full gate owns those.
+`~/.config/opencode/plugins/`. It activates when the session project has
+`vw_check.py` (or the mini `script/check.sh` when `vw_check.py` is absent),
+runs the checker after every write/edit, blocks the tool result with the repair
+packet on failure, and appends the checker's own output (including
+`ALL CHECKS PASS`) on success. The checker, its state files and
+`tests/verification_log.md` are read-only while the gate is active.
+
+At session idle it challenges a completion claim until the checker is green
+(budget: 2 prompts/session, no reset). Full-skill projects
+(`tests/verification_log.md` at the session root) are excluded — the full gate
+owns those. Hosts without a prompt API (the shipped v2 context) get the write
+gate only.
 
 Disable with `VIBEWEAVER_MINI_GATE=off`; checker timeout is
-`VIBEWEAVER_MINI_TIMEOUT_MS` (default 120000).
+`VIBEWEAVER_MINI_TIMEOUT_MS` (default 900000, matching `vw_check.py`).
+`write`/`edit` are covered directly; bash redirections into the checker or its
+state are blocked heuristically, and other shell mutations are outside the
+hook.
 
 ## Hard rules (already in the skill)
 

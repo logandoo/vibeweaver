@@ -594,11 +594,12 @@ oscillation are documented gaps, not claimed coverage.
 The gate is skill-agnostic in one direction: it fires on any project that has
 `tests/verification_log.md`. The mini kit does not create that file, so the full
 gate is not its guard. Mini ships a separate, smaller plugin,
-`vibeweaver-mini-gate.js`: it runs `vw_check.py` (or `script/check.sh`) after
-every write, blocks the tool result with the repair packet on failure, and at
-session idle challenges a completion claim until the checker prints
-`ALL CHECKS PASS`. The mini installer puts it in the plugin directory; the full
-auditor is not involved.
+`vibeweaver-mini-gate.js`: it runs `vw_check.py` (or the mini `script/check.sh`
+when `vw_check.py` is absent) after every write/edit, blocks the tool result
+with the repair packet on failure, and at session idle challenges a completion
+claim until the checker prints `ALL CHECKS PASS` (2 prompts/session). The
+checker and its state are read-only while the gate is active. The mini
+installer puts it in the plugin directory; the full auditor is not involved.
 
 One honest caveat: the plugins speak opencode's plugin API — both generations of
 it (v1's `server()` hook map and v2's `setup(ctx)` domain API, from one file each;
