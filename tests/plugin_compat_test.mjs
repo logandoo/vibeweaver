@@ -194,7 +194,9 @@ function auditLatchedProject(name, latchSession) {
   mkdirSync(path.join(root, ".vibeweaver"), { recursive: true })
   writeFileSync(
     path.join(root, ".vibeweaver", "audit-state.json"),
-    JSON.stringify({ sessions: {}, roots: { [root]: { red: { sessionID: latchSession, ts: Date.now(), bad: 2 } } } })
+    // future ts: keep the seeded latch newer than the acceptance mtime on
+    // coarse Windows FS clocks (otherwise releaseStale treats it as new-task)
+    JSON.stringify({ sessions: {}, roots: { [root]: { red: { sessionID: latchSession, ts: Date.now() + 60_000, bad: 2 } } } })
   )
   return root
 }
