@@ -33,7 +33,7 @@ PASS  T21 a different forbidden command still flags — BAD new=1
 PASS  T22 fresh forbidden command latches RED — latched bad=1
 PASS  T22 latch self-clears on the next GREEN audit (no env-off, no state surgery) — cleared; c8Flagged=1
 PASS  T23 mid-phase warns but neither latches nor persists dedup — red=undefined flagged=0
-PASS  T23 the final audit still latches the mid-task forbidden command — red={"sessionID":"ses_t23","ts":1792462314598,"bad":1} flagged=1
+PASS  T23 the final audit still latches the mid-task forbidden command — red={"sessionID":"ses_t23","ts":1792465689247,"bad":1} flagged=1
 PASS  T16 latching session stays blocked (in-session teeth) — A blocked
 PASS  T16 different session write does NOT release latch (D3: stale-session release removed) — takeover blocked — lock survives foreign writes
 PASS  T17 code write blocked while self-RED — blocked
@@ -363,9 +363,9 @@ PASS  T27e2 prompt contains four legal stops + working_note — [stop-guard] You
 PASS  T27e3 same tail second idle → no thrash (episode disarmed) — prompts=1
 PASS  T27e4 plugin-prompt echo must NOT self-whitelist → 2nd intervention (budget 2, review F1) — prompts=2
 PASS  T27e5 3rd episode beyond budget → log-only + debt journaled — prompts=2 budgetLog=true
-PASS  T27e6 stop-debt persisted in state (cap-bounded) — [{"ts":1792462317137,"sessionID":"ses_t27","kind":"euphemism","match":"上下文耗尽","why":"budget-exhausted"}]
+PASS  T27e6 stop-debt persisted in state (cap-bounded) — [{"ts":1792465692295,"sessionID":"ses_t27","kind":"euphemism","match":"上下文耗尽","why":"budget-exhausted"}]
 PASS  T27e7 debt dedup: distinct episode +1, repeat idle +0 — len=2
-PASS  T27e8 debt replayed into gate_audit.md stop-debt section — ## Stop-debt (§V12 false-stop journal — advisory, Tier-2 adjudicates) | - 2026-10-20T02:11:57.137Z stop-debt: euphemism "上下文耗尽" — budget-exh
+PASS  T27e8 debt replayed into gate_audit.md stop-debt section — ## Stop-debt (§V12 false-stop journal — advisory, Tier-2 adjudicates) | - 2026-10-20T03:08:12.295Z stop-debt: euphemism "上下文耗尽" — budget-exh
 PASS  T27e9 silent stop + on-disk incomplete → positive corrective prompt — prompts=1 [stop-guard] This is a STATE CHECK, not an accusation: tests/acceptance.md exists and the current task block has no TRUSTED `- final-run: --
 PASS  T27e10 user Q&A after a write is not auto-resumed (turn-scoped) — prompts=1
 PASS  T27e11 host error fences BOTH euphemism and positive triggers (no auto-resume) — prompts=1
@@ -458,35 +458,35 @@ PASS  T27e99 approval in a different clause is not a Class-E grant → prompt �
 PASS  T27e100 'nothing pending' does not negate a Class-E declaration → no prompt — prompts=0
 [vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
 [vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
-PASS  T27e21 v2 positive leg journals incomplete stop-debt (no prompt) — debt=[{"ts":1792462317447,"sessionID":"ses_v2stop","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"} prompts=0
+PASS  T27e21 v2 positive leg journals incomplete stop-debt (no prompt) — debt=[{"ts":1792465692633,"sessionID":"ses_v2stop","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"} prompts=0
 [vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
 PASS  T27e33 v2 blocked/failed write does NOT journal task-write debt — debt=[]
 [vibeweaver-audit] warn: Audit RED (BAD=10 UNCERTAIN=14)
 [vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
-PASS  T27e37 v2 gate-only completion journals debt (positive is always debt-only) — debt=[{"ts":1792462317632,"sessionID":"ses_v2gate","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}
+PASS  T27e37 v2 gate-only completion journals debt (positive is always debt-only) — debt=[{"ts":1792465692819,"sessionID":"ses_v2gate","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}
 [vibeweaver-audit] warn: Audit RED (BAD=1 UNCERTAIN=0)
 [vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
-PASS  T27e44 v2 old completed block does not exempt a new task → debt — debt=[{"ts":1792462317698,"sessionID":"ses_v2old","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}]
+PASS  T27e44 v2 old completed block does not exempt a new task → debt — debt=[{"ts":1792465692885,"sessionID":"ses_v2old","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}]
 [vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
 [vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
-PASS  T27e45 v2 bash redirect write → debt — debt=[{"ts":1792462317783,"sessionID":"ses_v2bash","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}
+PASS  T27e45 v2 bash redirect write → debt — debt=[{"ts":1792465692968,"sessionID":"ses_v2bash","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}
 [vibeweaver-audit] warn: Audit RED (BAD=9 UNCERTAIN=16)
 [vibeweaver-audit] warn: Audit RED (BAD=9 UNCERTAIN=16)
 [vibeweaver-stopguard] warn: false-stop detected (euphemism: 上下文快耗尽) — posting corrective prompt (1/2/stop)
 PASS  T27e46 old v2 gate does not suppress a later euphemism prompt — prompts=1
 [vibeweaver-audit] warn: Audit RED (BAD=10 UNCERTAIN=14)
 [vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
-PASS  T27e56 v2 gate + Done journals debt (positive is always debt-only) — debt=[{"ts":1792462318048,"sessionID":"ses_v2gatedone","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverifi
+PASS  T27e56 v2 gate + Done journals debt (positive is always debt-only) — debt=[{"ts":1792465693233,"sessionID":"ses_v2gatedone","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverifi
 [vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
 [vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
-PASS  T27e104 v2 positive + DOC claim journals debt (never silently ignores) — debt=[{"ts":1792462318114,"sessionID":"ses_v2doc","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}]
+PASS  T27e104 v2 positive + DOC claim journals debt (never silently ignores) — debt=[{"ts":1792465693298,"sessionID":"ses_v2doc","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}]
 [vibeweaver-audit] warn: Audit RED (BAD=10 UNCERTAIN=14)
 [vibeweaver-stopguard] warn: false-stop detected (euphemism: 上下文快耗尽) — posting corrective prompt (1/2/stop)
 PASS  T27e105 v2 explicit euphemism + model-authored gate still prompts — prompts=1
 [vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
 [vibeweaver-stopguard] warn: false-stop detected (euphemism: 上下文快耗尽) — posting corrective prompt (1/2/stop)
 [vibeweaver-stopguard] warn: stop-guard prompt failed — intervention not counted, debt journaled
-PASS  T27e106 v2 prompt rejection journals debt instead of burning budget — debt=[{"ts":1792462318280,"sessionID":"ses_v2pfail","kind":"euphemism","match":"上下文快耗尽","why":"prompt-failed"}]
+PASS  T27e106 v2 prompt rejection journals debt instead of burning budget — debt=[{"ts":1792465693465,"sessionID":"ses_v2pfail","kind":"euphemism","match":"上下文快耗尽","why":"prompt-failed"}]
 PASS  T27f user stop directive before claim → whitelisted, no prompt — prompts=0
 PASS  T27g finish:length + incomplete → corrective prompt (truncation ≠ complete) — prompts=1 [stop-guard] Your last turn ended with finish:"length" (output-limit truncation) — a truncated turn 
 PASS  T27h fill 15% quoted in corrective (input 1000 + cache.read 500 / 10000) — prompts=1 [stop-guard] Your last message declared context exhaustion and stopped mid-task. Measured context fill ≈ 15% (harness telemetry, one turn stale) — an exhaustion
@@ -567,7 +567,7 @@ PASS  T36c runaway prompt captured and marker-free — prompts=5 head=[loop-guar
 PASS  T36c runaway prompt still demands the completion output — [loop-guard] OUTPUT CEILING: turn output exceeded 262144 bytes (visible text only; hidden reasoning has its own higher b
 PASS  T36d user-fed gate-line text does NOT trigger the completion audit (no latch) — red=undefined
 PASS  T36e plugin-injected [loop-guard] marker text does NOT trigger the completion audit — red=undefined
-PASS  T36f genuine assistant gate-line STILL triggers the completion audit (control) — red={"sessionID":"ses_t36h","ts":1792462318497,"bad":9}
+PASS  T36f genuine assistant gate-line STILL triggers the completion audit (control) — red={"sessionID":"ses_t36h","ts":1792465693686,"bad":9}
 PASS  T37a tests/../src/a.js escape write is BLOCKED under RED (PoC) — traversal blocked
 PASS  T37b new-file write under tests/ stays allowed (evidence path, PoC-safe) — evidence path open
 PASS  T37c symlinked tests/ dir pointing at src/ is NOT an evidence path — symlink escape blocked

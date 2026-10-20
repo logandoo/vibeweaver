@@ -44,3 +44,6 @@ jobs:
 
       - name: Plugin compat harness (node, known E3/G9 allowed)
         run: node tests/plugin_compat_test.mjs --allow-known
+
+      - name: Mini checker gate harness
+        run: node tests/mini_gate_test.mjs

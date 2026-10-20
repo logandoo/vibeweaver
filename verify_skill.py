@@ -56,6 +56,12 @@ JS_PAYLOAD = [
     "vibeweaver-gate.js", "vibeweaver-audit.js", "scripts/vibeweaver-audit-core.js",
     "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
 ]
+MINI = ROOT / "vibeweaver-mini"
+MINI_FILES = [
+    "SKILL.md", "vibeweaver-mini-gate.js", "install.sh", "install.bat",
+    "scripts/vw_check.py", "scripts/check.sh",
+    "scripts/setup_project.sh", "scripts/setup_project.bat",
+]
 SOFT_BUDGET = 1400
 HARD_BUDGET = 1600
 
@@ -242,6 +248,30 @@ def main():
     else:
         warn("node not found — payload syntax check skipped (CI covers it)")
 
+    # 10) mini package + its checker gate
+    for rel in MINI_FILES:
+        if not (MINI / rel).is_file():
+            fail("missing mini file: vibeweaver-mini/%s" % rel)
+    if (MINI / "install.sh").is_file():
+        mini_sh = (MINI / "install.sh").read_text(encoding="utf-8")
+        for token in ["SKILL.md", "scripts/vw_check.py", "scripts/check.sh",
+                      "scripts/setup_project.sh", "vibeweaver-mini-gate.js"]:
+            if token not in mini_sh:
+                fail("mini install.sh does not install %s" % token)
+    if (MINI / "install.bat").is_file():
+        mini_bat = (MINI / "install.bat").read_text(encoding="utf-8")
+        for token in ["SKILL.md", "scripts\\vw_check.py", "scripts\\check.sh",
+                      "scripts\\setup_project.bat", "vibeweaver-mini-gate.js"]:
+            if token not in mini_bat:
+                fail("mini install.bat does not install %s" % token)
+    if node and (MINI / "vibeweaver-mini-gate.js").is_file():
+        with tempfile.TemporaryDirectory() as td:
+            tmp = pathlib.Path(td) / "mini_gate.js"
+            tmp.write_text((MINI / "vibeweaver-mini-gate.js").read_text(encoding="utf-8"), encoding="utf-8")
+            r = subprocess.run([node, "--check", str(tmp)], capture_output=True, text=True)
+            if r.returncode != 0:
+                fail("mini gate syntax check failed:\n" + (r.stderr or r.stdout)[:400])
+
     if WARNS:
         for w in WARNS:
             print("[verify_skill] WARN: " + w)
@@ -250,7 +280,7 @@ def main():
             print("[verify_skill] FAIL: " + f)
         print("verify_skill.py: %d failure(s)" % len(FAILS))
         return 1
-    print("verify_skill.py: package coherent (%d lines in SKILL.md, %d checks OK)" % (len(lines), 9))
+    print("verify_skill.py: package coherent (%d lines in SKILL.md, %d checks OK)" % (len(lines), 10))
     return 0
 
 

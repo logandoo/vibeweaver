@@ -31,11 +31,36 @@ Conclusion: **the loop is not the bottleneck — the oracle is.** The small mode
 happily runs the checker 12-36 times; what it lacks is trustworthy feedback. Give
 it the project's own tests as the oracle and it fixes what it could not fix before.
 
-## Usage
+## Install
 
-1. Put `SKILL.md` in a skill directory (e.g. `~/.config/opencode/skills/vibeweaver-mini/`).
-2. Copy `scripts/vw_check.py` into the project root.
-3. Force-inject or instruct: "run `python3 vw_check.py` until it prints ALL CHECKS PASS."
+```bash
+bash install.sh                 # macOS / Linux
+install.bat                     # Windows
+```
+
+Then, in the project you want the loop on:
+
+```bash
+bash ~/.config/opencode/skills/vibeweaver-mini/scripts/setup_project.sh
+# or: sh setup_project.sh /path/to/project
+```
+
+That copies `vw_check.py` and `script/check.sh` into the project — the markers
+the gate looks for. Then force-inject or instruct: "run `python3 vw_check.py`
+until it prints ALL CHECKS PASS."
+
+## The checker gate
+
+`install.sh` also installs `vibeweaver-mini-gate.js` into
+`~/.config/opencode/plugins/`. It activates when the project has `vw_check.py`
+(or `.vw_test_hashes.json`), runs the checker after every write/edit, blocks
+the tool result with the repair packet on failure, and surfaces
+`ALL CHECKS PASS` on success. At session idle it challenges a completion claim
+until the checker is green (budget: 2 prompts/session). Full-skill projects
+(`tests/verification_log.md`) are excluded — the full gate owns those.
+
+Disable with `VIBEWEAVER_MINI_GATE=off`; checker timeout is
+`VIBEWEAVER_MINI_TIMEOUT_MS` (default 120000).
 
 ## Hard rules (already in the skill)
 
@@ -54,6 +79,7 @@ it is a different route: move verification out of the prompt and into a
 deterministic program. They coexist: the full skill governs process
 trustworthiness, the mini governs the weak model's execution loop.
 
-The full enforcement plugins are **not** bundled with mini: they activate on
-`tests/verification_log.md`, which this kit does not create. Mini's hard floor is
-the checker; a mini-specific guard is an open design, not shipped.
+Mini does not use the full gate/auditor pair: those activate on
+`tests/verification_log.md`, which this kit does not create. It ships a smaller
+guard instead, `vibeweaver-mini-gate.js`, which enforces the checker's
+`ALL CHECKS PASS` line directly.

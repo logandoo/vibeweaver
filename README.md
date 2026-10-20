@@ -252,6 +252,10 @@ vibeweaver\install.bat
 Restart opencode. The skill triggers whenever you ask for a build, a fix, a debug
 session, or a deploy.
 
+For the small-model kit, `bash vibeweaver-mini/install.sh` (Windows:
+`install.bat`) installs the mini skill and its checker gate; run its
+`setup_project.sh` in the project to place `vw_check.py` + `script/check.sh`.
+
 `install.sh` / `install.bat` also install the enforcement plugins (the gate and
 the auditor). Installing them by hand:
 
@@ -301,7 +305,7 @@ This repository contains three sub-projects:
 | Directory          | What                                                                                                                                                                                                                                                                                                                                    |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `vibeweaver/`      | The full skill; this README describes it                                                                                                                                                                                                                                                                                                |
-| `vibeweaver-mini/` | Small-model kit: a 2 KB deterministic loop ("run the checker, fix the first failure, repeat") plus `scripts/vw_check.py`, a checker that prints a repair packet and refuses to run if the test set changed. Capability probe on a 3B-active model: loop + real tests 4/4, loop + self-written tests 1/4; the oracle decides, not the prose |
+| `vibeweaver-mini/` | Small-model kit: a 2 KB deterministic loop ("run the checker, fix the first failure, repeat") plus `scripts/vw_check.py`, a checker that prints a repair packet and refuses to run if the test set changed. `vibeweaver-mini-gate.js` runs the checker after writes and blocks a false done claim; `install.sh` / `.bat` + `setup_project.sh` install it. Capability probe on a 3B-active model: loop + real tests 4/4, loop + self-written tests 1/4; the oracle decides, not the prose |
 | `vibeweaver-eval/` | Benchmark rig: 16-task + flow A/B configs, grading scripts, raw runs, round reports                                                                                                                                                                                                                                                     |
 
 Which one to pick: **strong model** → full skill (force-injected); **weak
@@ -588,11 +592,13 @@ single-tool storms are caught; semantic no-ops (`sleep`, `ls`) and echo/read
 oscillation are documented gaps, not claimed coverage.
 
 The gate is skill-agnostic in one direction: it fires on any project that has
-`tests/verification_log.md`. The mini kit does not create that file by default —
-its contract is the checker's `ALL CHECKS PASS` line — so the full gate is **not**
-a drop-in for mini today. Mini users get the checker's hard floor; wiring the gate
-to mini needs either the evidence floor or a dedicated mini guard (open design,
-not shipped).
+`tests/verification_log.md`. The mini kit does not create that file, so the full
+gate is not its guard. Mini ships a separate, smaller plugin,
+`vibeweaver-mini-gate.js`: it runs `vw_check.py` (or `script/check.sh`) after
+every write, blocks the tool result with the repair packet on failure, and at
+session idle challenges a completion claim until the checker prints
+`ALL CHECKS PASS`. The mini installer puts it in the plugin directory; the full
+auditor is not involved.
 
 One honest caveat: the plugins speak opencode's plugin API — both generations of
 it (v1's `server()` hook map and v2's `setup(ctx)` domain API, from one file each;
@@ -855,9 +861,11 @@ python3 verify_skill.py                     # package integrity: payload, links,
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
 node vibeweaver/scripts/audit_selftest.mjs  # 568 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 mutations, each must be caught
+node tests/plugin_compat_test.mjs           # 69/71 dual loader compat (E3/G9 known)
+node tests/mini_gate_test.mjs               # mini checker gate: v1/v2 write + idle + installers
 ```
 
-CI runs both Python checks on Ubuntu / macOS / Windows
+CI runs the Python checks and the node harnesses on Ubuntu / macOS / Windows
 (`.github/workflows/verify.yml`).
 
 ## Contributing

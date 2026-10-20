@@ -15,7 +15,7 @@ PASS  B11-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
 PASS  B7-lite-table-unlicensed -> BAD=[B7,B12]
 PASS  B10-memory-na-unlicensed -> BAD=[B7,B10,B12]
 PASS  B11-template-unfilled -> BAD=[B11,B12]
-PASS  C18-doc-class-code-write -> BAD=[B12,C6,C18]
+PASS  C18-doc-class-code-write -> BAD=[B12,C18]
 PASS  lite-doc-clean -> BAD=[] assert_artifacts(class DOC)=exit 0
 PASS  W11-doc-output-html -> C18 BAD
 PASS  W11-doc-src-report-json -> C18 BAD

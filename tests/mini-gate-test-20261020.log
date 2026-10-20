@@ -1,0 +1,55 @@
+PASS  plugin module loads — /Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-mini/vibeweaver-mini-gate.js
+PASS  default export is { id, server, setup }
+PASS  plugin id — vibeweaver-mini-gate
+PASS  v1 write/fail throws — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
+FAIL: expected 4, got 3
+Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
+PASS  v1 write/fail carries repair packet — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
+FAIL: expected 4, got 3
+Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
+PASS  v1 write/pass does not throw
+PASS  v1 write/pass surfaces ALL CHECKS PASS — [vibeweaver-mini-gate] ALL CHECKS PASS
+PASS  v1 idle/done + red checker prompts once — prompts=1
+PASS  v1 corrective text names the checker flag — {"path":{"id":"s-fail"},"body":{"parts":[{"type":"text","text":"[vibeweaver-mini-gate] You claimed completion, but the checker did not print ALL CHECKS PASS.\nRun `bash script/check.sh` (or `python3 vw_check.py`), fix the first failure, and repeat.\nOnly the literal line ALL CHECKS PASS counts as done."}]}}
+PASS  v1 idle/done + green checker stays silent — prompts=1
+PASS  v1 idle/non-done stays silent — prompts=1
+PASS  v1 prompt budget = 2/session — prompts=3 (1 earlier + 2 budget)
+PASS  v1 non-mini project is a no-op
+PASS  v1 full-skill project is a no-op
+PASS  VIBEWEAVER_MINI_GATE=off disables the hook
+PASS  v2 registers execute.after
+PASS  v2 write/fail throws — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
+FAIL: expected 4, got 3
+Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
+PASS  v2 write/pass does not throw
+PASS  v2 idle/done + red checker prompts — prompts=1
+PASS  real vw_check.py: failing pytest blocks with the repair packet — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________________________________ test_add ___________________________________
+
+    def test_add():
+>       assert add(2, 2) == 4
+E       assert 5 == 4
+E        +  where 5 = add(2, 2)
+
+test_calc.py:4: AssertionError
+=========================== short test summary info ============================
+FAILED test_calc.py::test_add - assert 5 == 4
+1 failed in 0.01s
+
+FAILING TESTS:
+  FAILED test_calc.py::test_add
+
+FIRST FAILURE (observed != expected):
+  assert 5 == 4
+
+NOT DONE.
+NEXT ACTION: make the observed value equal the expected value for the first
+failing test, then run the checker again.
+Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
+PASS  real vw_check.py: fixed code reaches ALL CHECKS PASS — [vibeweaver-mini-gate] ALL CHECKS PASS
+PASS  install.sh installs mini skill + gate — ok · ok · ok · ok
+PASS  setup_project.sh installs checker markers — /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-mini-proj-kshXtH
+
+RESULT: 23/23 passed, 0 failed

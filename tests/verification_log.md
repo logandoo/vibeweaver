@@ -74,3 +74,12 @@ process, EN de-translationese, readme-weaver pass). Documentation-only change.
 - oracle: executable-acceptance — coverage script + mmdc exits + mm-sensor render grade + readme_lint facts 10/10 (12/12 links valid).
 - assert-run: assert_artifacts.py (temporary canonical copy under tests/, removed after the run): all 13 checks pass (exit 0)
 - final-run: --final — pass=13/fail=0
+
+## Task: mini checker gate (approach B)（2026-10-20）
+- class: CODE — new dual-compat plugin + installers + verify_skill/CI wiring + prose docs
+- audit-fix: 新 acceptance 块 → 释放上一波 latch；本任务独立 block
+- baseline: `python3 verify_skill.py` → 10 checks OK; `python3 -m unittest discover -s tests` → 56 tests OK; `node tests/plugin_compat_test.mjs --allow-known` → 69/71 known (run before edits)
+- Baseline verified GREEN — proceed
+- RED: `node tests/mini_gate_test.mjs` before the plugin existed → `FAIL plugin module loads — missing: .../vibeweaver-mini/vibeweaver-mini-gate.js` / `RESULT: 0/1 passed, 1 failed (expected RED: plugin not written yet)`
+- iter 1 PASS: `node tests/mini_gate_test.mjs` → 23/23 (v1+v2 write pass/fail, idle claim + 2-prompt budget, non-mini/full no-op, disable switch, real `vw_check.py` + pytest fail→pass, installers). `verify_skill.py` 10/10; unittest 56/56; audit selftest 568/0 (1 skipped); mutation 44/0; plugin compat 69/71 known.
+- oracle: executable-acceptance — `tests/mini_gate_test.mjs` drives the real plugin hooks and the real checker; the pytest case is the project-test tier.

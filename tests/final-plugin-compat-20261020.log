@@ -22,7 +22,7 @@ PASS  C5d-gate-v1: inline-list triggers form also fires — ok
 PASS  C5e-gate-v1: RED gate block message still carries the cue note — [GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_auth_
 PASS  C5f-gate-v1: tests/-path write still surfaces the cue — ok
 [GATE-WARNING (vibeweaver-cue)] memory cue: memory/projec
-PASS  C5g-gate-v1: >2 `**` groups rejected (no cue, no wedge) — elapsed=1ms
+PASS  C5g-gate-v1: >2 `**` groups rejected (no cue, no wedge) — elapsed=0ms
 PASS  C5h-gate-v1: scalar + zero-indent + trailing-comment trigger forms all fire — [GATE-WARNING (vibeweaver-cue)] memor | [GATE-WARNING (vibeweaver-cue)] memor | [GATE-WARNING (vibeweaver-cue)] memor
 PASS  C5i-gate-v1: CRLF+BOM topic file still cues — ok
 [GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_cr

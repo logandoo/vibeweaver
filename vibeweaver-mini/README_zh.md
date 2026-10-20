@@ -22,11 +22,33 @@
 
 结论：**循环不是瓶颈，oracle 才是。** 小模型乐意跑 12-36 次 checker；缺的是可信反馈。用项目自己的测试当 oracle，弱模型能修好它此前修不好的题。
 
-## 使用
+## 安装
 
-1. 把 `SKILL.md` 放进 skill 目录（如 `~/.config/opencode/skills/vibeweaver-mini/`）。
-2. 把 `scripts/vw_check.py` 复制到项目根目录。
-3. 强制注入或手动要求模型："运行 `python3 vw_check.py`，直到它打印 ALL CHECKS PASS。"
+```bash
+bash install.sh                 # macOS / Linux
+install.bat                     # Windows
+```
+
+然后在要跑循环的项目里：
+
+```bash
+bash ~/.config/opencode/skills/vibeweaver-mini/scripts/setup_project.sh
+# 或：sh setup_project.sh /path/to/project
+```
+
+它会把 `vw_check.py` 和 `script/check.sh` 放进项目——也就是 gate 识别 mini 的标记。之后强制注入或手动要求模型："运行 `python3 vw_check.py`，直到它打印 ALL CHECKS PASS。"
+
+## Checker gate
+
+`install.sh` 还会把 `vibeweaver-mini-gate.js` 装进
+`~/.config/opencode/plugins/`。项目里有 `vw_check.py`（或
+`.vw_test_hashes.json`）时激活；每次 write/edit 后跑 checker，失败就把修复包
+作为阻断消息返回，成功则输出 `ALL CHECKS PASS`。session idle 时如果模型声称
+完成而 checker 没绿，会追加纠正提示（预算 2 次/会话）。完整版项目
+（有 `tests/verification_log.md`）不归它管，由完整版 gate 接管。
+
+关闭：`VIBEWEAVER_MINI_GATE=off`；checker 超时：`VIBEWEAVER_MINI_TIMEOUT_MS`
+（默认 120000）。
 
 ## 硬规则（skill 内已写）
 
@@ -39,4 +61,4 @@
 
 完整版 vibeweaver 是给能力足够模型的完整工程契约（证据门禁、记忆、设计门、审计）。mini 不是它的压缩版，而是**另一条路线**：把"验证"从提示词里搬到确定性程序里。两者可以共存——完整版管流程可信度，mini 管弱模型的执行闭环。
 
-完整版的两个插件**没有**随 mini 提供：它们以 `tests/verification_log.md` 为激活条件，而 mini 默认不创建这个文件。mini 的硬底线是 checker；专门的 mini 守卫仍是未落地的设计。
+mini 不用完整版的 gate/auditor 组合：它们以 `tests/verification_log.md` 为激活条件，而 mini 不创建这个文件。mini 自带一个更小的守卫 `vibeweaver-mini-gate.js`，直接以 checker 的 `ALL CHECKS PASS` 为契约。

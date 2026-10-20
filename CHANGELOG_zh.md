@@ -2,6 +2,14 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-20：mini gate — 让 checker 成为插件契约
+
+**缺口。** 完整版 gate 以 `tests/verification_log.md` 激活；mini 从不创建它，所以把完整版插件直接装给 mini 是空转。mini 的唯一执行层是提示词里那句「去跑 checker」。
+
+**机制。** `vibeweaver-mini-gate.js`（单文件，v1+v2）识别 `vw_check.py` / `script/check.sh` / `.vw_test_hashes.json`，每次 write/edit 后跑 checker：失败就把修复包作为阻断消息返回，成功输出 `ALL CHECKS PASS`；session idle 时挑战完成声明，直到 checker 变绿（预算 2 次/会话）。完整版项目不归它管。`install.sh` / `install.bat` 安装 skill、脚本与插件；`setup_project.sh` / `.bat` 把 checker 标记放进项目。
+
+**验证。** `tests/mini_gate_test.mjs` 21/21（v1+v2 write 通过/失败、idle 声明与预算、非 mini/完整版 no-op、关闭开关、安装器）· `verify_skill.py` 10/10 · unittest 56/56 · plugin compat 69/71（E3/G9 已知）。
+
 ## 2026-10-19：W13 — v2 显式提示 + seal verifier 清理
 
 **缺口。** W12 后 v2 永远 debt-only：显式 `上下文耗尽` 停止也没有 corrective prompt。同时发布了一个只做了一半 parity 的 JS seal verifier，容易被误当成 `evidence_seal.py --check` 的等价物。

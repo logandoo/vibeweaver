@@ -2,6 +2,14 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-20: mini gate — the checker becomes the plugin contract
+
+**The gap.** The full gate activates on `tests/verification_log.md`; the mini kit never creates it, so shipping the full plugin pair to mini was a no-op. Mini's only enforcement was the prompt telling the model to run the checker.
+
+**The mechanism.** `vibeweaver-mini-gate.js` (one file, v1+v2) detects `vw_check.py` / `script/check.sh` / `.vw_test_hashes.json`, runs the checker after every write/edit, blocks the tool result with the repair packet on failure, surfaces `ALL CHECKS PASS` on success, and at session idle challenges a completion claim until the checker is green (budget 2/session). Full-skill projects are excluded. `install.sh` / `install.bat` install the skill, scripts and plugin; `setup_project.sh` / `.bat` place the checker markers in the project.
+
+**Verification.** `tests/mini_gate_test.mjs` 21/21 (v1+v2 write pass/fail, idle claim + budget, non-mini/full no-op, disable switch, installers) · `verify_skill.py` 10/10 · unittest 56/56 · plugin compat 69/71 (E3/G9 known).
+
 ## 2026-10-19: W13 — v2 explicit prompts + seal verifier cleanup
 
 **The gap.** W12 left v2 permanently debt-only: even an explicit `context exhausted` stop produced no corrective prompt. It also shipped a JS seal verifier that was only a partial parity port of `evidence_seal.py --check`, inviting false confidence.
