@@ -60,7 +60,21 @@ def discover():
         if "test" not in scripts:
             # a package.json without a test script is NOT an npm-test project
             return [], []
-        js = sorted(set(t for pat in ("**/*.test.js", "**/*.test.ts", "**/*.spec.js", "**/*.spec.ts")
+        js_pats = (
+            "**/*.test.js", "**/*.test.mjs", "**/*.test.cjs", "**/*.test.ts",
+            "**/*.test.tsx", "**/*.test.jsx",
+            "**/*.spec.js", "**/*.spec.mjs", "**/*.spec.cjs", "**/*.spec.ts",
+            "**/*.spec.tsx", "**/*.spec.jsx",
+            "test/**/*.js", "test/**/*.mjs", "test/**/*.cjs", "test/**/*.ts",
+            "test/**/*.tsx", "test/**/*.jsx",
+            "tests/**/*.js", "tests/**/*.mjs", "tests/**/*.cjs", "tests/**/*.ts",
+            "tests/**/*.tsx", "tests/**/*.jsx",
+            "__tests__/**/*.js", "__tests__/**/*.mjs", "__tests__/**/*.cjs",
+            "__tests__/**/*.ts", "__tests__/**/*.tsx", "__tests__/**/*.jsx",
+            "**/test-*.js", "**/test-*.mjs", "**/test-*.cjs", "**/test-*.ts",
+            "**/*-test.js", "**/*-test.mjs", "**/*-test.cjs", "**/*-test.ts",
+        )
+        js = sorted(set(t for pat in js_pats
                         for t in glob.glob(pat, recursive=True) if clean(t)))
         return js or ["package.json"], ["npm", "test", "--silent"]
     return [], []
@@ -90,7 +104,26 @@ def test_config_files():
                 out.add("package.json")
         except Exception:
             pass
+    for pat in ("jest.config.*", "vitest.config.*", ".mocharc.*",
+                "karma.conf.*", "playwright.config.*"):
+        out.update(t for t in glob.glob(pat) if clean(t))
     return sorted(out)
+
+
+def reset_state():
+    """A pass clears cap/stall counters; gate observation keeps the seen flag."""
+    try:
+        st = json.load(open(STATE_FILE))
+        if not isinstance(st, dict):
+            st = {}
+    except Exception:
+        st = {}
+    st["runs"] = 0
+    st["same_fail"] = 0
+    st["sig"] = ""
+    if NO_STATE:
+        st["seen"] = True
+    json.dump(st, open(STATE_FILE, "w"), indent=1)
 
 
 def mark_seen():
@@ -216,7 +249,9 @@ def main():
         return 1
     if r.returncode == 0:
         print("\nALL CHECKS PASS")
-        if not NO_STATE:
+        if NO_STATE:
+            reset_state()
+        else:
             bump_state(True, None)
         return 0
     failing = re.findall(r"^(FAILED\s+\S+|--- FAIL: \S+|not ok \d+ \S+|FAIL\s+\S+)", out, re.M)

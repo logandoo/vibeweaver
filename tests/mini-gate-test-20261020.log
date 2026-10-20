@@ -15,6 +15,8 @@ PASS  v1 before blocks bash redirection into the checker — [vibeweaver-mini-ga
 PASS  v1 before allows running the checker
 PASS  v1 outside-project write is a no-op
 PASS  v1 before blocks quoted bash redirection — [vibeweaver-mini-gate] The checker, its state files and tests/verification_log.md are read-only while the mini gate is active. Fix the code, not the oracle.
+PASS  v1 before blocks case-variant bash redirection — [vibeweaver-mini-gate] The checker, its state files and tests/verification_log.md are read-only while the mini gate is active. Fix the code, not the oracle.
+PASS  v1 before blocks .vw_* glob deletion — [vibeweaver-mini-gate] The checker, its state files and tests/verification_log.md are read-only while the mini gate is active. Fix the code, not the oracle.
 PASS  v1 case-insensitive checker path is protected — [vibeweaver-mini-gate] The checker and its state files are read-only while the gate is active. Fix the code, not the oracle.
 PASS  v1 case-insensitive full marker is protected — [vibeweaver-mini-gate] Creating tests/verification_log.md would disable the mini gate. Install the full vibeweaver skill or set VIBEWEAVER_MINI_GATE=off first.
 PASS  missing checker fails closed — [vibeweaver-mini-gate] CHECKER MISSING — do not claim done.
@@ -33,13 +35,15 @@ PASS  v1 idle/done + red checker prompts once — prompts=1
 PASS  v1 corrective text names the checker flag — {"path":{"id":"s-fail"},"body":{"parts":[{"type":"text","text":"[vibeweaver-mini-gate] You claimed completion, but the checker did not print ALL CHECKS PASS.\nRun `python3 vw_check.py` (or `bash script/check.sh`), fix the first failure, and repeat.\nOnly the literal line ALL CHECKS PASS counts as done."}]}}
 PASS  repeat idle does not re-fire on consumed text — prompts=1
 PASS  first-turn user text is not a completion claim — prompts=1
-PASS  v1 idle/done + green checker stays silent — prompts=1
-PASS  v1 idle/non-done stays silent — prompts=1
-PASS  v1 prompt budget = 2/session — prompts=3 (1 earlier + 2 budget)
+PASS  part-before-role order is buffered and claims — prompts=2
+PASS  v1 idle/done + green checker stays silent — prompts=2
+PASS  v1 idle/non-done stays silent — prompts=2
+PASS  v1 prompt budget = 2/session — prompts=4 (2 earlier + 2 budget)
 PASS  v1 non-mini project is a no-op
 PASS  v1 full-skill project is a no-op
 PASS  nested mini marker does not capture a full project
 PASS  script/check.sh fallback runs when vw_check.py is absent — ALL CHECKS PASS
+PASS  fallback checker path is read-only — [vibeweaver-mini-gate] The checker and its state files are read-only while the gate is active. Fix the code, not the oracle.
 PASS  VIBEWEAVER_MINI_GATE=off disables the hook
 PASS  v2 registers execute.before/after
 PASS  v2 before blocks checker writes — [vibeweaver-mini-gate] The checker and its state files are read-only while the gate is active. Fix the code, not the oracle.
@@ -81,6 +85,7 @@ PASS  real vw_check.py: fixed code reaches ALL CHECKS PASS — .                
 1 passed in 0.00s
 
 ALL CHECKS PASS
+PASS  gate pass resets cap/stall but keeps seen — {"seen":true,"runs":0,"same_fail":0,"sig":""}
 PASS  real vw_check.py: conftest change hits the hash guard — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
 TEST SET CHANGED since first run — refusing to run: conftest.py
 A test change needs its justification (record it in your report):
@@ -105,8 +110,16 @@ Then re-run with:
   python3 vw_check.py --test-change "<the same reason>"
 Never edit tests to pass.
 
+PASS  npm test files are hashed — test/foo.js, package.json
+PASS  npm test edit refuses to run — TEST SET CHANGED since first run — refusing to run: test/foo.js
+A test change needs its justification (record it in your report):
+  - test-change: <path> — <reason>
+Then re-run with:
+  python3 vw_check.py --test-change "<the same reason>"
+Never edit tests to pass.
+
 PASS  install.sh installs mini skill + gate — ok · ok · ok · ok
-PASS  setup_project.sh installs checker markers — /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-mini-proj-MmhtNd
+PASS  setup_project.sh installs checker markers — /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-mini-proj-MEdeTa
 PASS  setup_project.sh refuses an unrelated vw_check.py — exit non-zero
 
-RESULT: 48/48 passed, 0 failed
+RESULT: 55/55 passed, 0 failed

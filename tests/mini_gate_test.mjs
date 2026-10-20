@@ -207,6 +207,10 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   rec("v1 outside-project write is a no-op", outside === null, outside || "")
   const quoted = await v1Before(hooks, "bash", { command: 'echo x > "vw_check.py"' })
   rec("v1 before blocks quoted bash redirection", !!quoted && /read-only/.test(quoted), quoted || "no block")
+  const upperBash = await v1Before(hooks, "bash", { command: "echo x > VW_CHECK.PY" })
+  rec("v1 before blocks case-variant bash redirection", !!upperBash && /read-only/.test(upperBash), upperBash || "no block")
+  const globBash = await v1Before(hooks, "bash", { command: "rm -f .vw_*" })
+  rec("v1 before blocks .vw_* glob deletion", !!globBash && /read-only/.test(globBash), globBash || "no block")
   if (process.platform === "darwin" || process.platform === "win32") {
     const upperChecker = await v1Before(hooks, "write", { filePath: path.join(dir, "VW_CHECK.PY") })
     rec("v1 case-insensitive checker path is protected", !!upperChecker && /read-only/.test(upperChecker), upperChecker || "no block")
@@ -279,21 +283,26 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   await v1Idle(hooks, "s-user")
   rec("first-turn user text is not a completion claim", prompts.length === 1, `prompts=${prompts.length}`)
 
+  await hooks.event({ event: { type: "message.part.updated", properties: { sessionID: "s-rev", part: { type: "text", messageID: "m9", text: "Done." } } } })
+  await hooks.event({ event: { type: "message.updated", properties: { sessionID: "s-rev", info: { id: "m9", role: "assistant" } } } })
+  await v1Idle(hooks, "s-rev")
+  rec("part-before-role order is buffered and claims", prompts.length === 2, `prompts=${prompts.length}`)
+
   setState(dir, "pass")
   await v1Feed(hooks, "s-pass", "All done.")
   await v1Idle(hooks, "s-pass")
-  rec("v1 idle/done + green checker stays silent", prompts.length === 1, `prompts=${prompts.length}`)
+  rec("v1 idle/done + green checker stays silent", prompts.length === 2, `prompts=${prompts.length}`)
 
   await v1Feed(hooks, "s-nodone", "Still fixing the second assertion.")
   await v1Idle(hooks, "s-nodone")
-  rec("v1 idle/non-done stays silent", prompts.length === 1, `prompts=${prompts.length}`)
+  rec("v1 idle/non-done stays silent", prompts.length === 2, `prompts=${prompts.length}`)
 
   setState(dir, "fail")
   for (let i = 0; i < 3; i++) {
     await v1Feed(hooks, "s-budget", "Done.")
     await v1Idle(hooks, "s-budget")
   }
-  rec("v1 prompt budget = 2/session", prompts.length === 3, `prompts=${prompts.length} (1 earlier + 2 budget)`)
+  rec("v1 prompt budget = 2/session", prompts.length === 4, `prompts=${prompts.length} (2 earlier + 2 budget)`)
 }
 
 // ---- v1: non-mini and full-skill projects are untouched ----
@@ -320,11 +329,15 @@ if (process.platform !== "win32") {
   const dir = mkdtempSync(path.join(os.tmpdir(), "vw-mini-sh-"))
   cleanups.push(dir)
   mkdirSync(path.join(dir, "script"))
+  mkdirSync(path.join(dir, "scripts"))
   writeFileSync(path.join(dir, "script", "check.sh"), "#!/bin/sh\n# vw_check wrapper\necho 'ALL CHECKS PASS'\n")
+  writeFileSync(path.join(dir, "scripts", "vw_check.py"), FAKE_CHECKER)
   const { client } = v1Client()
   const hooks = await mod.default.server({ client, directory: dir })
   const r = await v1Write(hooks, dir)
   rec("script/check.sh fallback runs when vw_check.py is absent", !r.threw && /ALL CHECKS PASS/.test(r.output), r.output || r.message)
+  const protectedCheck = await v1Before(hooks, "write", { filePath: path.join(dir, "scripts", "vw_check.py") })
+  rec("fallback checker path is read-only", !!protectedCheck && /read-only/.test(protectedCheck), protectedCheck || "no block")
 }
 
 // ---- v1: disable switch ----
@@ -425,6 +438,8 @@ if (process.platform !== "win32") {
   writeFileSync(path.join(dir, "calc.py"), "def add(a, b):\n    return 4  # fixed\n")
   const good = await v1Write(hooks, dir)
   rec("real vw_check.py: fixed code reaches ALL CHECKS PASS", !good.threw && /ALL CHECKS PASS/.test(good.output), good.output || good.message)
+  const stPass = JSON.parse(readFileSync(stPath, "utf8"))
+  rec("gate pass resets cap/stall but keeps seen", stPass.seen === true && (stPass.runs || 0) === 0 && (stPass.same_fail || 0) === 0, JSON.stringify(stPass))
   appendFileSync(path.join(dir, "conftest.py"), "\n# changed pytest config\n")
   const tampered = await v1Write(hooks, dir)
   rec("real vw_check.py: conftest change hits the hash guard", tampered.threw && /TEST SET CHANGED/.test(tampered.message), tampered.message)
@@ -455,6 +470,30 @@ if (process.platform !== "win32") {
   appendFileSync(path.join(dir, "tests", "conftest.py"), "\n# changed\n")
   const second = run()
   rec("nested conftest change refuses to run", second.status !== 0 && /TEST SET CHANGED/.test(second.out), second.out.slice(-300))
+}
+
+// ---- npm runner: the tests it runs are hashed (Unix) ----
+if (process.platform !== "win32") {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "vw-mini-npm-"))
+  cleanups.push(dir)
+  copyFileSync(path.resolve(import.meta.dirname, "..", "vibeweaver-mini", "scripts", "vw_check.py"), path.join(dir, "vw_check.py"))
+  writeFileSync(path.join(dir, "package.json"), JSON.stringify({ scripts: { test: "node --test" } }, null, 1))
+  mkdirSync(path.join(dir, "test"))
+  writeFileSync(path.join(dir, "test", "foo.js"), "const assert = require('node:assert')\nassert.equal(1, 2)\n")
+  const py = "python3"
+  const run = () => {
+    try {
+      return { status: 0, out: execFileSync(py, ["vw_check.py"], { cwd: dir, encoding: "utf8", env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" } }) }
+    } catch (e) {
+      return { status: e.status ?? -1, out: `${e.stdout || ""}${e.stderr || ""}` }
+    }
+  }
+  run()
+  const h = JSON.parse(readFileSync(path.join(dir, ".vw_test_hashes.json"), "utf8"))
+  rec("npm test files are hashed", Object.prototype.hasOwnProperty.call(h, "test/foo.js"), Object.keys(h).join(", "))
+  writeFileSync(path.join(dir, "test", "foo.js"), "const assert = require('node:assert')\nassert.equal(1, 1)\n")
+  const second = run()
+  rec("npm test edit refuses to run", second.status !== 0 && /TEST SET CHANGED/.test(second.out), second.out.slice(-300))
 }
 
 // ---- installers (Unix; Windows is covered by the CI matrix's .bat path) ----

@@ -32,10 +32,18 @@ const MAX_TEXT = 4000
 const DEFAULT_TIMEOUT_MS = 900000
 const CASE_FOLD = process.platform === "darwin" || process.platform === "win32"
 const key = (p) => (CASE_FOLD ? String(p).toLowerCase() : String(p))
-const PROTECTED = new Set(["vw_check.py", path.join("script", "check.sh"), ".vw_test_hashes.json", ".vw_loop_state.json"].map(key))
+const PROTECTED = new Set([
+  "vw_check.py",
+  path.join("script", "check.sh"),
+  path.join("script", "vw_check.py"),
+  path.join("scripts", "vw_check.py"),
+  ".vw_test_hashes.json",
+  ".vw_loop_state.json",
+].map(key))
 const FULL_MARKER = path.join("tests", "verification_log.md")
 const MUTATOR = /(?:^|[^<])>{1,2}|\btee\b|\bsed\s+-i|\bcp\b|\bmv\b|\brm\b|\btouch\b|\btruncate\b/
-const PROTECTED_RE = /(^|[\s\/\\"'])(tests[\/\\]verification_log\.md|vw_check\.py|check\.sh|\.vw_test_hashes\.json|\.vw_loop_state\.json)(?=$|[\s;|&"'])/
+const PROTECTED_RE = /(^|[\s\/\\"'])(tests[\/\\]verification_log\.md|(?:script|scripts)[\/\\]vw_check\.py|vw_check\.py|check\.sh|\.vw_test_hashes\.json|\.vw_loop_state\.json)(?=$|[\s;|&"'])/i
+const VW_GLOB_RE = /(^|[\s\/\\"'])\.vw_[A-Za-z0-9_*?.\[\]]+/
 
 const SESSIONS = new Map() // sessionID -> { text, prompts, assistant:Set }
 
@@ -116,7 +124,7 @@ function stateFor(sessionID) {
   const key = typeof sessionID === "string" && sessionID ? sessionID : "(session)"
   let st = SESSIONS.get(key)
   if (!st) {
-    st = { text: "", prompts: 0, assistant: new Set() }
+    st = { text: "", prompts: 0, assistant: new Set(), pending: new Map() }
     SESSIONS.set(key, st)
     if (SESSIONS.size > 128) SESSIONS.delete(SESSIONS.keys().next().value)
   }
@@ -169,6 +177,7 @@ function runChecker(root) {
     return Promise.resolve({
       ok: false,
       missing: true,
+      label: "none",
       output: "CHECKER MISSING — vw_check.py (or the mini script/check.sh) was not found or is not the mini checker. Re-run setup_project.sh.",
     })
   }
@@ -192,6 +201,7 @@ function runChecker(root) {
             ok: false,
             timedOut,
             missingCmd,
+            label: c.label,
             output: out || (timedOut
               ? `CHECKER TIMEOUT after ${timeoutMs()}ms — the suite hung or is too slow.`
               : missingCmd
@@ -201,7 +211,7 @@ function runChecker(root) {
           return
         }
         const ok = /^\s*ALL CHECKS PASS\s*$/m.test(out)
-        resolve({ ok, output: out, noLine: !ok })
+        resolve({ ok, output: out, noLine: !ok, label: c.label })
       }
     )
   })
@@ -216,8 +226,9 @@ function blockText(r) {
         ? "[vibeweaver-mini-gate] CHECKER EXITED 0 WITHOUT ALL CHECKS PASS — do not claim done."
         : "[vibeweaver-mini-gate] CHECKER FAILED — do not claim done."
   const tail = r.output ? r.output.trim() : "(no output)"
+  const cmd = r.label === "script/check.sh" ? "bash script/check.sh" : `${pythonCmd()} vw_check.py`
   const hint = /TEST SET CHANGED/.test(tail)
-    ? "A legitimate test change needs its justification: record `- test-change: <path> — <reason>` in your report, then run `python3 vw_check.py --test-change \"<same reason>\"`. The mini gate keeps the checker's own state; do not edit tests to pass."
+    ? `A legitimate test change needs its justification: record \`- test-change: <path> — <reason>\` in your report, then run \`${cmd} --test-change "<same reason>"\`. The mini gate keeps the checker's own state; do not edit tests to pass.`
     : "Fix the first failure, then run the checker again until it prints ALL CHECKS PASS."
   return [head, tail, hint].join("\n")
 }
@@ -225,7 +236,7 @@ function blockText(r) {
 function doneText() {
   return [
     "[vibeweaver-mini-gate] You claimed completion, but the checker did not print ALL CHECKS PASS.",
-    "Run `python3 vw_check.py` (or `bash script/check.sh`), fix the first failure, and repeat.",
+    `Run \`${pythonCmd()} vw_check.py\` (or \`bash script/check.sh\`), fix the first failure, and repeat.`,
     "Only the literal line ALL CHECKS PASS counts as done.",
   ].join("\n")
 }
@@ -265,7 +276,7 @@ function beforeWrite(directory, tool, filePath, command) {
   const root = miniRoot(directory)
   if (!root) return null
   if (tool === "bash") {
-    if (typeof command === "string" && MUTATOR.test(command) && PROTECTED_RE.test(command)) {
+    if (typeof command === "string" && MUTATOR.test(command) && (PROTECTED_RE.test(command) || VW_GLOB_RE.test(command))) {
       return "[vibeweaver-mini-gate] The checker, its state files and tests/verification_log.md are read-only while the mini gate is active. Fix the code, not the oracle."
     }
     return null
@@ -313,11 +324,16 @@ function observePart(sessionID, part) {
   if (!part || typeof part !== "object" || part.type !== "text") return
   const st = stateFor(sessionID)
   if (typeof part.role === "string" && part.role !== "assistant") return
-  // Real v1 parts carry no role: accept them only after message.updated has
-  // identified this message as an assistant message. User text never enters.
-  if (typeof part.messageID !== "string" || !st.assistant.has(part.messageID)) return
-  if (typeof part.text === "string") pushText(sessionID, part.text)
-  else if (typeof part.delta === "string") pushText(sessionID, part.delta)
+  // Real v1 parts carry no role and may arrive before message.updated. Buffer
+  // them by messageID until the role is known; only assistant text is kept.
+  if (typeof part.messageID !== "string") return
+  const piece = typeof part.text === "string" ? part.text : typeof part.delta === "string" ? part.delta : ""
+  if (!piece) return
+  if (!st.assistant.has(part.messageID)) {
+    st.pending.set(part.messageID, ((st.pending.get(part.messageID) || "") + piece).slice(-MAX_TEXT))
+    return
+  }
+  pushText(sessionID, piece)
 }
 
 async function server({ client, directory }) {
@@ -342,8 +358,18 @@ async function server({ client, directory }) {
       if (!sessionID) return
       if (event.type === "message.updated" && props.info) {
         const st = stateFor(sessionID)
-        if (props.info.role === "assistant" && typeof props.info.id === "string") st.assistant.add(props.info.id)
-        else if (typeof props.info.id === "string") st.assistant.delete(props.info.id)
+        const id = typeof props.info.id === "string" ? props.info.id : null
+        if (props.info.role === "assistant" && id) {
+          st.assistant.add(id)
+          const queued = st.pending.get(id)
+          if (queued) {
+            pushText(sessionID, queued)
+            st.pending.delete(id)
+          }
+        } else if (id) {
+          st.assistant.delete(id)
+          st.pending.delete(id)
+        }
       } else if (event.type === "message.part.updated") {
         observePart(sessionID, props.part)
       } else if (event.type === "session.idle") {

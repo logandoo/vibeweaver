@@ -53,6 +53,7 @@ jobs:
         shell: cmd
         run: |
           call vibeweaver-mini\install.bat
+          if errorlevel 1 exit /b 1
           mkdir "%TEMP%\vw-mini-proj"
           call vibeweaver-mini\scripts\setup_project.bat "%TEMP%\vw-mini-proj"
           if not exist "%TEMP%\vw-mini-proj\vw_check.py" exit /b 1
