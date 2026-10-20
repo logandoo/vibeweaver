@@ -47,3 +47,13 @@ jobs:
 
       - name: Mini checker gate harness
         run: node tests/mini_gate_test.mjs
+
+      - name: Mini installers (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call vibeweaver-mini\install.bat
+          mkdir "%TEMP%\vw-mini-proj"
+          call vibeweaver-mini\scripts\setup_project.bat "%TEMP%\vw-mini-proj"
+          if not exist "%TEMP%\vw-mini-proj\vw_check.py" exit /b 1
+          if not exist "%TEMP%\vw-mini-proj\script\check.sh" exit /b 1

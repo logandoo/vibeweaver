@@ -72,17 +72,25 @@ def test_config_files():
     Hashing them closes the conftest/pytest-config bypass; a legitimate change
     goes through the same --test-change justification as a test edit.
     """
-    out = []
-    for f in ("conftest.py", "pytest.ini", "tox.ini", "setup.cfg"):
-        if os.path.isfile(f) and clean(f):
-            out.append(f)
-    if os.path.isfile("pyproject.toml") and clean("pyproject.toml"):
+    out = set()
+    for pat in ("**/conftest.py", "**/pytest.ini", "**/tox.ini", "**/setup.cfg"):
+        out.update(t for t in glob.glob(pat, recursive=True) if clean(t))
+    for p in glob.glob("**/pyproject.toml", recursive=True):
+        if clean(p):
+            try:
+                if "pytest" in open(p, encoding="utf-8").read():
+                    out.add(p)
+            except OSError:
+                pass
+    if os.path.isfile("package.json") and clean("package.json"):
         try:
-            if "pytest" in open("pyproject.toml", encoding="utf-8").read():
-                out.append("pyproject.toml")
-        except OSError:
+            pkg = json.load(open("package.json", encoding="utf-8"))
+            scripts = pkg.get("scripts") if isinstance(pkg.get("scripts"), dict) else {}
+            if "test" in scripts:
+                out.add("package.json")
+        except Exception:
             pass
-    return out
+    return sorted(out)
 
 
 def mark_seen():
@@ -164,11 +172,11 @@ def main():
                 # file to re-baseline") — a weakened test set now demands a
                 # `- test-change:` justification instead.
                 print("TEST SET CHANGED since first run — refusing to run: " + ", ".join(changed))
-                print("A test change needs its justification: log")
+                print("A test change needs its justification (record it in your report):")
                 print("  - test-change: <path> — <reason>")
-                print("in tests/verification_log.md, then re-run with")
+                print("Then re-run with:")
                 print("  python3 vw_check.py --test-change \"<the same reason>\"")
-                print("Never edit tests to pass — fix the CODE (or justify the test change).")
+                print("Never edit tests to pass.")
                 return 1
             print(f"TEST SET CHANGED — re-baselined under justification: {reason}")
             for t in changed:
@@ -181,9 +189,8 @@ def main():
         # the same `--test-change` justification a change needs.
         if os.path.exists(STATE_FILE) and not reason:
             print("HASH RECORD MISSING but the checker has run before — refusing to run.")
-            print("Deleting the record is not a re-baseline: log")
-            print("  - test-change: <path> — <reason>")
-            print("then re-run with --test-change \"<the same reason>\".")
+            print("Deleting the record is not a re-baseline; justify the test change:")
+            print("  python3 vw_check.py --test-change \"<reason>\"")
             return 1
         if reason:
             print(f"HASH RECORD created under justification: {reason}")

@@ -79,7 +79,7 @@ vibeweaver\install.bat     # Windows
 
 重启 opencode。要求构建、修改、调试或部署任何东西时，skill 会自动触发。
 
-小模型套件单独安装：`bash vibeweaver-mini/install.sh`（Windows：`install.bat`），它会装上 mini skill 和 `vibeweaver-mini-gate.js`；再在目标项目里运行它的 `setup_project.sh`，放入 `vw_check.py` + `script/check.sh`。
+小模型套件单独安装：`bash vibeweaver-mini/install.sh`（Windows：`install.bat`），它会装上 mini skill 和 `vibeweaver-mini-gate.js`；再在目标项目里运行 `setup_project.sh`（Windows：`setup_project.bat`），放入 `vw_check.py` + `script/check.sh`。Windows 上必须用 `vw_check.py`；`script/check.sh` 回退需要 bash。
 
 `install.sh` / `install.bat` 会把执行层插件（门禁 + 审计器）一并装上。手动安装插件：
 

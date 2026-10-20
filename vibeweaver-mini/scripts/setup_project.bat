@@ -36,6 +36,11 @@ if exist "%ROOT%\script\check.sh" (
         echo [ERROR] existing script\check.sh is not the mini wrapper; refusing to trust it.
         exit /b 1
     )
+    findstr /C:"ALL CHECKS PASS" "%ROOT%\script\check.sh" >nul
+    if errorlevel 1 (
+        echo [ERROR] existing script\check.sh is not the mini wrapper; refusing to trust it.
+        exit /b 1
+    )
     echo [OK] kept existing script\check.sh
 ) else (
     copy /y "%HERE%check.sh" "%ROOT%\script\check.sh" >nul

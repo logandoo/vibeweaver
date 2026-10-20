@@ -14,6 +14,9 @@ PASS  v1 before blocks checker writes — [vibeweaver-mini-gate] The checker and
 PASS  v1 before blocks bash redirection into the checker — [vibeweaver-mini-gate] The checker, its state files and tests/verification_log.md are read-only while the mini gate is active. Fix the code, not the oracle.
 PASS  v1 before allows running the checker
 PASS  v1 outside-project write is a no-op
+PASS  v1 before blocks quoted bash redirection — [vibeweaver-mini-gate] The checker, its state files and tests/verification_log.md are read-only while the mini gate is active. Fix the code, not the oracle.
+PASS  v1 case-insensitive checker path is protected — [vibeweaver-mini-gate] The checker and its state files are read-only while the gate is active. Fix the code, not the oracle.
+PASS  v1 case-insensitive full marker is protected — [vibeweaver-mini-gate] Creating tests/verification_log.md would disable the mini gate. Install the full vibeweaver skill or set VIBEWEAVER_MINI_GATE=off first.
 PASS  missing checker fails closed — [vibeweaver-mini-gate] CHECKER MISSING — do not claim done.
 CHECKER MISSING — vw_check.py (or the mini script/check.sh) was not found or is not the mini checker. Re-run setup_project.sh.
 Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
@@ -23,13 +26,13 @@ Fix the first failure, then run the checker again until it prints ALL CHECKS PAS
 PASS  edit is gated like write — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
 FAIL: expected 4, got 3
 Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
-PASS  gate runs do not consume the checker's cap/stall budget — {}
 PASS  checker timeout is reported distinctly — [vibeweaver-mini-gate] CHECKER TIMEOUT — do not claim done.
 CHECKER TIMEOUT after 200ms — the suite hung or is too slow.
 Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
 PASS  v1 idle/done + red checker prompts once — prompts=1
 PASS  v1 corrective text names the checker flag — {"path":{"id":"s-fail"},"body":{"parts":[{"type":"text","text":"[vibeweaver-mini-gate] You claimed completion, but the checker did not print ALL CHECKS PASS.\nRun `python3 vw_check.py` (or `bash script/check.sh`), fix the first failure, and repeat.\nOnly the literal line ALL CHECKS PASS counts as done."}]}}
 PASS  repeat idle does not re-fire on consumed text — prompts=1
+PASS  first-turn user text is not a completion claim — prompts=1
 PASS  v1 idle/done + green checker stays silent — prompts=1
 PASS  v1 idle/non-done stays silent — prompts=1
 PASS  v1 prompt budget = 2/session — prompts=3 (1 earlier + 2 budget)
@@ -73,20 +76,37 @@ NOT DONE.
 NEXT ACTION: make the observed value equal the expected value for the first
 failing test, then run the checker again.
 Fix the first failure, then run the checker again until it prints ALL CHECKS PASS.
+PASS  gate run marks seen without cap/stall — {"seen":true}
 PASS  real vw_check.py: fixed code reaches ALL CHECKS PASS — .                                                                        [100%]
 1 passed in 0.00s
 
 ALL CHECKS PASS
 PASS  real vw_check.py: conftest change hits the hash guard — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
 TEST SET CHANGED since first run — refusing to run: conftest.py
-A test change needs its justification: log
+A test change needs its justification (record it in your report):
   - test-change: <path> — <reason>
-in tests/verification_log.md, then re-run with
+Then re-run with:
   python3 vw_check.py --test-change "<the same reason>"
-Never edit tests to pass — fix the CODE (or justify the test change).
-A legitimate test change needs its justification: log `- test-change: <path> — <reason>` in tests/verification_log.md, then re-run with `--test-change "<same reason>"`.
+Never edit tests to pass.
+A legitimate test change needs its justification: record `- test-change: <path> — <reason>` in your report, then run `python3 vw_check.py --test-change "<same reason>"`. The mini gate keeps the checker's own state; do not edit tests to pass.
+PASS  test-change hint is followable — [vibeweaver-mini-gate] CHECKER FAILED — do not claim done.
+TEST SET CHANGED since first run — refusing to run: conftest.py
+A test change needs its justification (record it in your report):
+  - test-change: <path> — <reason>
+Then re-run with:
+  python3 vw_check.py --test-change "<the same reason>"
+Never edit tests to pass.
+A legitimate test change needs its justification: record `- test-change: <path> — <reason>` in your report, then run `python3 vw_check.py --test-change "<same reason>"`. The mini gate keeps the checker's own state; do not edit tests to pass.
+PASS  nested tests/conftest.py is hashed — tests/test_calc.py, tests/conftest.py
+PASS  nested conftest change refuses to run — TEST SET CHANGED since first run — refusing to run: tests/conftest.py
+A test change needs its justification (record it in your report):
+  - test-change: <path> — <reason>
+Then re-run with:
+  python3 vw_check.py --test-change "<the same reason>"
+Never edit tests to pass.
+
 PASS  install.sh installs mini skill + gate — ok · ok · ok · ok
-PASS  setup_project.sh installs checker markers — /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-mini-proj-CFHPBH
+PASS  setup_project.sh installs checker markers — /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-mini-proj-MmhtNd
 PASS  setup_project.sh refuses an unrelated vw_check.py — exit non-zero
 
-RESULT: 41/41 passed, 0 failed
+RESULT: 48/48 passed, 0 failed

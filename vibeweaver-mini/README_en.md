@@ -43,11 +43,13 @@ Then, in the project you want the loop on:
 ```bash
 bash ~/.config/opencode/skills/vibeweaver-mini/scripts/setup_project.sh
 # or: sh setup_project.sh /path/to/project
+# Windows: %USERPROFILE%\.config\opencode\skills\vibeweaver-mini\scripts\setup_project.bat
 ```
 
 That copies `vw_check.py` and `script/check.sh` into the project — the markers
 the gate looks for. Then force-inject or instruct: "run `python3 vw_check.py`
-until it prints ALL CHECKS PASS."
+until it prints ALL CHECKS PASS." On Windows use `python vw_check.py`; the
+`script/check.sh` fallback needs bash, so keep `vw_check.py` in the project.
 
 ## The checker gate
 

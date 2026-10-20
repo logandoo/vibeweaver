@@ -34,9 +34,10 @@ install.bat                     # Windows
 ```bash
 bash ~/.config/opencode/skills/vibeweaver-mini/scripts/setup_project.sh
 # 或：sh setup_project.sh /path/to/project
+# Windows：%USERPROFILE%\.config\opencode\skills\vibeweaver-mini\scripts\setup_project.bat
 ```
 
-它会把 `vw_check.py` 和 `script/check.sh` 放进项目——也就是 gate 识别 mini 的标记。之后强制注入或手动要求模型："运行 `python3 vw_check.py`，直到它打印 ALL CHECKS PASS。"
+它会把 `vw_check.py` 和 `script/check.sh` 放进项目——也就是 gate 识别 mini 的标记。之后强制注入或手动要求模型："运行 `python3 vw_check.py`，直到它打印 ALL CHECKS PASS。" Windows 上用 `python vw_check.py`；`script/check.sh` 回退需要 bash，所以项目里要保留 `vw_check.py`。
 
 ## Checker gate
 

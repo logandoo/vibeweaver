@@ -205,6 +205,14 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   rec("v1 before allows running the checker", bashRun === null, bashRun || "")
   const outside = await v1Before(hooks, "write", { filePath: path.join(os.tmpdir(), "outside.py") })
   rec("v1 outside-project write is a no-op", outside === null, outside || "")
+  const quoted = await v1Before(hooks, "bash", { command: 'echo x > "vw_check.py"' })
+  rec("v1 before blocks quoted bash redirection", !!quoted && /read-only/.test(quoted), quoted || "no block")
+  if (process.platform === "darwin" || process.platform === "win32") {
+    const upperChecker = await v1Before(hooks, "write", { filePath: path.join(dir, "VW_CHECK.PY") })
+    rec("v1 case-insensitive checker path is protected", !!upperChecker && /read-only/.test(upperChecker), upperChecker || "no block")
+    const upperFull = await v1Before(hooks, "write", { filePath: path.join(dir, "TESTS", "VERIFICATION_LOG.MD") })
+    rec("v1 case-insensitive full marker is protected", !!upperFull && /disable the mini gate/.test(upperFull), upperFull || "no block")
+  }
 }
 
 // ---- v1: missing/silent checker, edit, and no-state ----
@@ -239,15 +247,6 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   rec("edit is gated like write", threw && /CHECKER FAILED/.test(msg), msg)
 }
 {
-  const dir = project({ state: "fail" })
-  const { client } = v1Client()
-  const hooks = await mod.default.server({ client, directory: dir })
-  for (let i = 0; i < 3; i++) await v1Write(hooks, dir)
-  const stPath = path.join(dir, ".vw_loop_state.json")
-  const st = existsSync(stPath) ? JSON.parse(readFileSync(stPath, "utf8")) : {}
-  rec("gate runs do not consume the checker's cap/stall budget", (st.runs || 0) === 0, JSON.stringify(st))
-}
-{
   const dir = mkdtempSync(path.join(os.tmpdir(), "vw-mini-timeout-"))
   cleanups.push(dir)
   writeFileSync(
@@ -274,6 +273,11 @@ rec("plugin id", mod.default.id === "vibeweaver-mini-gate", String(mod.default.i
   rec("v1 corrective text names the checker flag", /ALL CHECKS PASS/.test(JSON.stringify(prompts[0] || {})), JSON.stringify(prompts[0] || {}))
   await v1Idle(hooks, "s-fail")
   rec("repeat idle does not re-fire on consumed text", prompts.length === 1, `prompts=${prompts.length}`)
+
+  await hooks.event({ event: { type: "message.updated", properties: { sessionID: "s-user", info: { id: "u1", role: "user" } } } })
+  await hooks.event({ event: { type: "message.part.updated", properties: { sessionID: "s-user", part: { type: "text", messageID: "u1", text: "Please complete the login page." } } } })
+  await v1Idle(hooks, "s-user")
+  rec("first-turn user text is not a completion claim", prompts.length === 1, `prompts=${prompts.length}`)
 
   setState(dir, "pass")
   await v1Feed(hooks, "s-pass", "All done.")
@@ -415,14 +419,42 @@ if (process.platform !== "win32") {
   const hooks = await mod.default.server({ client, directory: dir })
   const bad = await v1Write(hooks, dir)
   rec("real vw_check.py: failing pytest blocks with the repair packet", bad.threw && /FAILED|assert/i.test(bad.message), bad.message)
+  const stPath = path.join(dir, ".vw_loop_state.json")
+  const st = existsSync(stPath) ? JSON.parse(readFileSync(stPath, "utf8")) : {}
+  rec("gate run marks seen without cap/stall", st.seen === true && !st.runs && !st.same_fail, JSON.stringify(st))
   writeFileSync(path.join(dir, "calc.py"), "def add(a, b):\n    return 4  # fixed\n")
   const good = await v1Write(hooks, dir)
   rec("real vw_check.py: fixed code reaches ALL CHECKS PASS", !good.threw && /ALL CHECKS PASS/.test(good.output), good.output || good.message)
   appendFileSync(path.join(dir, "conftest.py"), "\n# changed pytest config\n")
   const tampered = await v1Write(hooks, dir)
   rec("real vw_check.py: conftest change hits the hash guard", tampered.threw && /TEST SET CHANGED/.test(tampered.message), tampered.message)
+  rec("test-change hint is followable", /--test-change/.test(tampered.message) && !/tests\/verification_log\.md/.test(tampered.message), tampered.message)
   if (prevPy === undefined) delete process.env.VIBEWEAVER_MINI_PYTHON
   else process.env.VIBEWEAVER_MINI_PYTHON = prevPy
+}
+
+// ---- nested pytest config is part of the hash set ----
+{
+  const dir = mkdtempSync(path.join(os.tmpdir(), "vw-mini-nested-"))
+  cleanups.push(dir)
+  copyFileSync(path.resolve(import.meta.dirname, "..", "vibeweaver-mini", "scripts", "vw_check.py"), path.join(dir, "vw_check.py"))
+  mkdirSync(path.join(dir, "tests"))
+  writeFileSync(path.join(dir, "tests", "test_calc.py"), "def test_add():\n    assert 5 == 4\n")
+  writeFileSync(path.join(dir, "tests", "conftest.py"), "def pytest_configure(config):\n    pass\n")
+  const py = process.platform === "win32" ? "python" : "python3"
+  const run = () => {
+    try {
+      return { status: 0, out: execFileSync(py, ["vw_check.py"], { cwd: dir, encoding: "utf8", env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" } }) }
+    } catch (e) {
+      return { status: e.status ?? -1, out: `${e.stdout || ""}${e.stderr || ""}` }
+    }
+  }
+  run()
+  const h = JSON.parse(readFileSync(path.join(dir, ".vw_test_hashes.json"), "utf8"))
+  rec("nested tests/conftest.py is hashed", Object.prototype.hasOwnProperty.call(h, "tests/conftest.py"), Object.keys(h).join(", "))
+  appendFileSync(path.join(dir, "tests", "conftest.py"), "\n# changed\n")
+  const second = run()
+  rec("nested conftest change refuses to run", second.status !== 0 && /TEST SET CHANGED/.test(second.out), second.out.slice(-300))
 }
 
 // ---- installers (Unix; Windows is covered by the CI matrix's .bat path) ----

@@ -30,10 +30,12 @@ const GATED_TOOLS = new Set(["write", "edit"])
 const MAX_PROMPTS = 2
 const MAX_TEXT = 4000
 const DEFAULT_TIMEOUT_MS = 900000
-const PROTECTED = new Set(["vw_check.py", path.join("script", "check.sh"), ".vw_test_hashes.json", ".vw_loop_state.json"])
+const CASE_FOLD = process.platform === "darwin" || process.platform === "win32"
+const key = (p) => (CASE_FOLD ? String(p).toLowerCase() : String(p))
+const PROTECTED = new Set(["vw_check.py", path.join("script", "check.sh"), ".vw_test_hashes.json", ".vw_loop_state.json"].map(key))
 const FULL_MARKER = path.join("tests", "verification_log.md")
 const MUTATOR = /(?:^|[^<])>{1,2}|\btee\b|\bsed\s+-i|\bcp\b|\bmv\b|\brm\b|\btouch\b|\btruncate\b/
-const PROTECTED_RE = /(^|[\s\/\\])(tests[\/\\]verification_log\.md|vw_check\.py|check\.sh|\.vw_test_hashes\.json|\.vw_loop_state\.json)(?=$|[\s;|&])/
+const PROTECTED_RE = /(^|[\s\/\\"'])(tests[\/\\]verification_log\.md|vw_check\.py|check\.sh|\.vw_test_hashes\.json|\.vw_loop_state\.json)(?=$|[\s;|&"'])/
 
 const SESSIONS = new Map() // sessionID -> { text, prompts, assistant:Set }
 
@@ -87,8 +89,8 @@ function isDir(p) {
 }
 
 function inside(root, p) {
-  const r = real(root)
-  const x = realPath(p)
+  const r = key(real(root))
+  const x = key(realPath(p))
   return x === r || x.startsWith(r + path.sep)
 }
 
@@ -130,8 +132,8 @@ function pushText(sessionID, piece) {
 function isCompletionClaim(text) {
   const t = String(text || "").slice(-1200).toLowerCase()
   if (!t) return false
-  if (/(not|never|isn't|is not|未|还没|尚未)\s*(yet\s*)?(all checks pass)/.test(t)) return false
-  if (/(not|never|isn't|is not|未|还没|尚未)\s*(done|complete|completed|finished|完成|搞定|做好)/.test(t)) return false
+  if (/(not|never|isn't|is not|haven't|hasn't|didn't|wasn't|weren't|未|还没|尚未|没有)\s*(yet\s*)?(all checks pass)/.test(t)) return false
+  if (/(not|never|isn't|is not|haven't|hasn't|didn't|wasn't|weren't|未|还没|尚未|没有)\s*(yet\s*)?(done|complete|completed|finished|完成|搞定|做好)/.test(t)) return false
   return /all checks pass|\b(done|complete|completed|finished)\b|完成|搞定|做好了|做完了|通过了/.test(t)
 }
 
@@ -198,7 +200,7 @@ function runChecker(root) {
           })
           return
         }
-        const ok = /ALL CHECKS PASS/.test(out)
+        const ok = /^\s*ALL CHECKS PASS\s*$/m.test(out)
         resolve({ ok, output: out, noLine: !ok })
       }
     )
@@ -215,7 +217,7 @@ function blockText(r) {
         : "[vibeweaver-mini-gate] CHECKER FAILED — do not claim done."
   const tail = r.output ? r.output.trim() : "(no output)"
   const hint = /TEST SET CHANGED/.test(tail)
-    ? "A legitimate test change needs its justification: log `- test-change: <path> — <reason>` in tests/verification_log.md, then re-run with `--test-change \"<same reason>\"`."
+    ? "A legitimate test change needs its justification: record `- test-change: <path> — <reason>` in your report, then run `python3 vw_check.py --test-change \"<same reason>\"`. The mini gate keeps the checker's own state; do not edit tests to pass."
     : "Fix the first failure, then run the checker again until it prints ALL CHECKS PASS."
   return [head, tail, hint].join("\n")
 }
@@ -270,8 +272,8 @@ function beforeWrite(directory, tool, filePath, command) {
   }
   if (!GATED_TOOLS.has(tool) || typeof filePath !== "string" || !filePath) return null
   if (!inside(root, filePath)) return null
-  const rel = path.relative(root, realPath(filePath))
-  if (rel === FULL_MARKER) {
+  const rel = key(path.relative(root, realPath(filePath)))
+  if (rel === key(FULL_MARKER)) {
     return "[vibeweaver-mini-gate] Creating tests/verification_log.md would disable the mini gate. Install the full vibeweaver skill or set VIBEWEAVER_MINI_GATE=off first."
   }
   if (PROTECTED.has(rel)) {
@@ -285,8 +287,8 @@ async function writeCheck(directory, filePath) {
   const root = miniRoot(directory)
   if (!root) return null
   if (typeof filePath !== "string" || !filePath || !inside(root, filePath)) return null
-  const rel = path.relative(root, realPath(filePath))
-  if (PROTECTED.has(rel) || rel === FULL_MARKER) {
+  const rel = key(path.relative(root, realPath(filePath)))
+  if (PROTECTED.has(rel) || rel === key(FULL_MARKER)) {
     return { pass: false, block: "[vibeweaver-mini-gate] The checker and its state files are read-only while the gate is active." }
   }
   const r = await runChecker(root)
@@ -311,7 +313,9 @@ function observePart(sessionID, part) {
   if (!part || typeof part !== "object" || part.type !== "text") return
   const st = stateFor(sessionID)
   if (typeof part.role === "string" && part.role !== "assistant") return
-  if (typeof part.messageID === "string" && st.assistant.size && !st.assistant.has(part.messageID)) return
+  // Real v1 parts carry no role: accept them only after message.updated has
+  // identified this message as an assistant message. User text never enters.
+  if (typeof part.messageID !== "string" || !st.assistant.has(part.messageID)) return
   if (typeof part.text === "string") pushText(sessionID, part.text)
   else if (typeof part.delta === "string") pushText(sessionID, part.delta)
 }

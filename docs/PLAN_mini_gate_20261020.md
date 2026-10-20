@@ -7,10 +7,10 @@
 | plugin id | `vibeweaver-mini-gate` | this plan |
 | plugin file | `vibeweaver-mini/vibeweaver-mini-gate.js` | repo layout |
 | disable env | `VIBEWEAVER_MINI_GATE=off` | mirrors `VIBEWEAVER_GATE` |
-| timeout env | `VIBEWEAVER_MINI_TIMEOUT_MS` (default 120000) | checker bound |
-| mini markers | `vw_check.py` · `script/check.sh` · `.vw_test_hashes.json` | mini kit |
-| full-skill marker (excludes mini mode) | `tests/verification_log.md` | full gate activation |
-| checker preference | `bash script/check.sh` → `python3 vw_check.py` | COV-2 path first |
+| timeout env | `VIBEWEAVER_MINI_TIMEOUT_MS` (default 900000) | checker bound |
+| mini markers | `vw_check.py` · mini `script/check.sh` · `.vw_test_hashes.json` | mini kit |
+| full-skill marker (excludes mini mode) | `tests/verification_log.md` at the session root | full gate activation |
+| checker preference | `python3 vw_check.py` → mini `bash script/check.sh` (Unix only) | oracle first |
 | pass flag | literal `ALL CHECKS PASS` | mini SKILL.md |
 | corrective-prompt budget | 2 per session | mirrors stop-guard budget |
 | test oracle | `tests/mini_gate_test.mjs` (executable acceptance) | this plan |

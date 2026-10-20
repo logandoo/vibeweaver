@@ -253,8 +253,10 @@ Restart opencode. The skill triggers whenever you ask for a build, a fix, a debu
 session, or a deploy.
 
 For the small-model kit, `bash vibeweaver-mini/install.sh` (Windows:
-`install.bat`) installs the mini skill and its checker gate; run its
-`setup_project.sh` in the project to place `vw_check.py` + `script/check.sh`.
+`install.bat`) installs the mini skill and its checker gate; run
+`setup_project.sh` (Windows: `setup_project.bat`) in the project to place
+`vw_check.py` + `script/check.sh`. Windows requires `vw_check.py`; the
+`script/check.sh` fallback needs bash.
 
 `install.sh` / `install.bat` also install the enforcement plugins (the gate and
 the auditor). Installing them by hand:

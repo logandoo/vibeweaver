@@ -8,7 +8,7 @@ Waves of design history, newest first. Entries are moved verbatim from the READM
 
 **The mechanism.** `vibeweaver-mini-gate.js` (one file, v1+v2) detects `vw_check.py` / the mini `script/check.sh` at the session root, runs the checker after every write/edit, blocks the tool result with the repair packet on failure, appends the checker's own `ALL CHECKS PASS` output on success, and at session idle challenges a completion claim until the checker is green (budget 2/session, no reset). The checker, its state files and `tests/verification_log.md` are read-only while the gate is active; full-skill projects are excluded. The checker now hashes pytest config (`conftest.py`, `pytest.ini`, `tox.ini`, `setup.cfg`, pytest-bearing `pyproject.toml`), disables bytecode caching, and gate observation runs do not consume the model's cap/stall budget. `install.sh` / `install.bat` install the skill, scripts and plugin; `setup_project.sh` / `.bat` place the checker markers in the project.
 
-**Verification.** `tests/mini_gate_test.mjs` 41/41 (v1+v2 write pass/fail, oracle guard, missing/silent checker, timeout, idle claim + budget, stale-text, non-mini/full/nested no-op, disable switch, real `vw_check.py` fail→pass, conftest hash guard, installers) · `verify_skill.py` 10/10 · unittest 56/56 · plugin compat 69/71 (E3/G9 known).
+**Verification.** `tests/mini_gate_test.mjs` 48/48 (v1+v2 write pass/fail, oracle guard, missing/silent checker, timeout, idle claim + budget, stale-text, non-mini/full/nested no-op, disable switch, real `vw_check.py` fail→pass, conftest hash guard, installers) · `verify_skill.py` 10/10 · unittest 56/56 · plugin compat 69/71 (E3/G9 known).
 
 ## 2026-10-19: W13 — v2 explicit prompts + seal verifier cleanup
 
