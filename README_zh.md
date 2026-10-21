@@ -47,20 +47,19 @@ coding agent 在真实项目上出问题，包括但不限于把文件删了、�
 
 ## 它能做什么
 
-- **NO TEST, NO DONE**：每次代码改动之后，必须真的跑过测试，并留下磁盘证据：日志文件、截图、操作录屏、页面音频。「能编译」不算证据。
-- **测试优先，没有例外**：有逻辑的代码一律 RED→GREEN。先写一个注定失败的测试，把失败输出贴进 `tests/verification_log.md`，再写让它通过的最小实现。第一次跑就过的测试说明不了任何问题。回归测试必须走完完整的「还原并失败」流程才算数。
+- **NO TEST, NO DONE，且测试优先**：每次代码改动之后，必须真的跑过测试，并留下磁盘证据：日志文件、截图、操作录屏、页面音频。「能编译」不算证据。有逻辑的代码一律 RED→GREEN：先写一个注定失败的测试，把失败输出贴进 `tests/verification_log.md`，再写让它通过的最小实现。第一次跑就过的测试说明不了任何问题；回归测试必须走完完整的「还原并失败」流程才算数。
 - **受信 oracle，拒绝自证**：只有项目或外部测试（或可执行的验收标准）能认证任务。生成的测试必须先过资格验证（stub 必挂、金标准必过、错误解必挂），且仍算弱证据；模型自写的测试最弱。规格里看不见的契约点标为待确认问题，不许发明。项目若有确定性 checker（`script/check.sh`、`tests/check.py`，或 APPENDIX §A11 的 `vw_check.py` 模板），checker 就是循环的反馈源。
-- **自动启动的验证循环**：改动一碰到运行时行为，agent 自动进入 `Act → Capture → Verify → Fix → Log`。验证器在任务开始时由行为探针选定（见[和 mm-sensor 怎么配合](#和-mm-sensor-怎么配合搭档不是对手)）：多模态模型按严格协议自读截图，[mm-sensor](https://github.com/logandoo/mm-sensor) 独立打分，或者由 DOM 与日志核验承担证据。验证器支持视频、音频时就一起录。
+- **自动启动的验证循环**：改动一碰到运行时行为，agent 自动进入 `Act → Capture → Verify → Fix → Log`。验证器在任务开始时由行为探针选定——模型原生打分、[mm-sensor](https://github.com/logandoo/mm-sensor) 独立打分、或 DOM 与日志核验（见[和 mm-sensor 怎么配合](#和-mm-sensor-怎么配合搭档不是对手)）。
 - **API 文档驱动的后端测试**：纯后端改动的循环是：更新 API 文档，做一次文档与代码一致性核对，照着文档写测试用例（不照着实现写），再用 httpx 跑「测试→修→再测」直到全绿。跨接口的改动还必须写真实 HTTP 的工作流场景，痕迹落盘（`tests/workflows/*.trace.log`）；直接调 service 层不算 E2E，不算数。
 - **脚本化生命周期**：构建与服务启停一律走 `script/` 目录下的脚本。裸 `npm run build`、`vite`、`npm start`、`uvicorn` 全部禁止。停服务必须用 `.pid` 文件模式；在共享机器上 `pkill -f "uvicorn"` 会顺带杀掉同事的服务。
 - **先研究再动手**：任何任务的第一步都是拆解问题（有不清楚的就停下来问，一次一个问题，别猜），并联网检索现成方案（exa MCP + Context7），评估至少两种方案再写代码。除非没有网络或只是琐碎的 typo、配置修改。背后的哲学：太阳底下没有新鲜事。如果真搜遍全网都找不到先例，那说明这活儿新到不该由我们干。
-- **项目记忆**：opencode 没有原生记忆系统，每场会话都是从头开始的新脑子。vibeweaver 用文件和规则硬造了一个：索引 + 主题文件、信任分级（⛔ 禁止 / ❌ 失败 / ✅ 已验证 / ⏳ 未验证）、修 bug 的状态机。完整机制见下文。
+- **项目记忆**：opencode 没有原生记忆系统，每场会话都是从头开始的新脑子。vibeweaver 用文件和规则硬造了一个：索引 + 主题文件、信任分级、修 bug 的状态机。完整机制见下文。
 - **日志与教训之间还有一层工作记忆**：append-only 日志回答「发生了什么」，策展的 memory/ 回答「这个项目什么是真的」，而跨迭代的任务还需要「此刻什么成立」——`tests/working_note.md` 保存活的假设账本（已确认 / 存疑 / 已排除 / 仍开放）、关键 file:line 发现、本任务死胡同、下一动作。每次更新整体重写，任何重入（compaction/新会话）第一个读它，任务结束蒸馏进 memory/ 并删除——删除本身由收官 `--final` 跑机器检查。gate 插件负责把这份账本押过上下文丢失：笔记被推进每次压缩 prompt（`experimental.session.compacting`）、在 `session.compacted` 事件后的首个请求重注入（system transform，按会话键控）、并在会话首次受门管的写入时以一行指针提示——投递计数落 `.vibeweaver/state.json`（`memoryDeliveries`），另有 harness 侧快照，笔记文件中途消失也不断供。
 - **记忆在该到的时刻自己到场**：主题文件可在 frontmatter 里声明 `triggers:` 路径 glob；agent 编辑命中文件时，门禁插件把一行提示注进工具结果——哪怕门禁正红、哪怕是任务第一次写入。投递是确定性的：被翻阅零次的记忆与不存在的记忆无从区分。glob 有上限（≤2 个 `**` 组、≤200 字符、拒控制字符）——记忆文本会被编译成正则，复杂度上限就是注入边界；字面前缀已不存在的 glob 会让证据检查直接失败，而不是悄悄永不触发。
 - **backlog 的外层循环**：给它一个队列就行——`tests/backlog.json`（一项一个 `passes` 标志）、只增不改的 `tests/progress.txt` 编年、每项 fresh context、每轮一件小任务、绿了才提交（循环的免疫系统）、显式停止信号（COMPLETE / BLOCKED / DECIDE / 预算——耗尽是续杯不是失败）、先监督跑再有限批跑。`scripts/backlog_check.py` 会把任何没有执行测试行点名的 `passes: true` 判为失败。
-- **执行层的牙齿，保持诚实**：证据检查器连日志本身也 lint（diagnosis 是占位词的 FAIL 不算一轮迭代）；会话审计要求收官 `--final` 跑在日志里留下行（否则这些检查从未被证明跑过）；stall 观察员对同一停滞签名只报一次、新 PASS 才重新武装——会刷屏的警告只会训练出麻木。
+- **执行层的牙齿，保持诚实**：会话审计要求收官 `--final` 跑在日志里留下行（否则这些检查从未被证明跑过）；stall 观察员对同一停滞签名只报一次、新 PASS 才重新武装——会刷屏的警告只会训练出麻木。
 - **循环有上限**：每个验证循环都受约束：单个子问题最多 `cap=5` 次迭代，`stall=3×`（同一标准连续失败三次就停下、换方向、把死路记进 memory）。
-- **退化输出看护（loop-guard）**：模型自己的生成跑飞时——同一段反复复读、无意义的裸 echo 序列（`1,2,…,179`、`a,b,…,kf`）、counter 墙（≥16 行同形尾行、每个数字段严格 +1）、超 2KB 的纯标点墙，有无换行都覆盖——审计插件从文本流里即时识别（reasoning part 同样覆盖，各走独立预算），打断会话并投递纠正提示（一段发作干预一次、每会话限次；`VIBEWEAVER_LOOPGUARD=off` 关闭）。单 turn 输出超 256KB 还有绝对上限兜底。它还盯着第二条通道：工具调用。模型宣告要调工具（"use Read now"）却连发裸 `echo "…"` 旁白标记、始终不真正调用时，同样会被打断（连续 ≥4 个 no-op bash 调用）；另有两枚检测器专打调用风暴——同一条调用同参重发 ≥4 次（`identical-tool-run`，canonical args 身份、只数不同 part id，永不折叠观测）与同一工具连砸 ≥120 次不同参数（`tool-frequency`，默认仅 warn；配置 `loopGuardToolFrequencyMin` 后才 abort，阈值 ≥20）。各通道发作预算独立，互不挤占。
+- **退化输出看护（loop-guard）**：模型自己的生成跑飞——同一段复读、裸 echo 序列、counter 墙、纯标点墙——或者宣告了工具调用却始终不真的调用，审计插件从文本流与工具流里即时识别、打断会话并投递纠正提示（一段发作干预一次、每会话限次；`VIBEWEAVER_LOOPGUARD=off` 关闭）。检测形态与预算见[执行层：门禁与审计](#执行层门禁与审计)。
 - **覆盖诚实，加一双独立的眼睛**：完工输出带一行 `[Coverage] criteria: N/M | unchecked: …`——查过的点名附证据，没查过的也点名：未查项永远不能被说成已完成，`UNVERIFIED` 格也洗不白成 `na`。当最强绿证是模型自写测试时，由全新 context 的复核者在不知道实现推理的情况下重跑检查。
 - **仪式经济学**：代码和绿测试先落地；memory 写入、评审包、决策长文在完工时从「每轮一行」的日志组装。每轮迭代的预算自检让限时任务收敛到交付物，而不是死在仪式中途；安全规则常驻，调试/评审协议只在其触发点才装载。
 - **行动分诊与状态修订**：每个计划动作在执行前标注 critical/exploratory/noisy；噪音先改写、不执行。证据否决假设时，承载它的工件就地重写——在过时计划旁边追加一条更正，只会继续污染后续决策（AEWM 失效模式的解药）。
@@ -71,10 +70,10 @@ coding agent 在真实项目上出问题，包括但不限于把文件删了、�
 ## 安装
 
 ```bash
-git clone https://github.com/logandoo/vibeweaver && cp -r vibeweaver/vibeweaver ~/.config/opencode/skills/vibeweaver
-# 或者在仓库本地副本里：
-./vibeweaver/install.sh    # Linux/macOS
-vibeweaver\install.bat     # Windows
+git clone https://github.com/logandoo/vibeweaver
+bash vibeweaver/vibeweaver/install.sh   # Linux/macOS（自带 mkdir -p + 幂等）
+# Windows，在仓库本地副本里：
+vibeweaver\install.bat
 ```
 
 重启 opencode。要求构建、修改、调试或部署任何东西时，skill 会自动触发。
@@ -119,7 +118,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 | 目录                 | 是什么                                                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `vibeweaver/`      | 完整版 skill，本 README 描述的就是它                                                                                                                   |
-| `vibeweaver-mini/` | 小模型套件：2KB 的确定性循环（「跑 checker、修第一个失败、重复」）+ `scripts/vw_check.py`（打印修复包、测试集变化即拒绝运行）。`vibeweaver-mini-gate.js` 在 write 后跑 checker、拦住假完成；`install.sh` / `.bat` + `setup_project.sh` 负责安装。3B 激活模型能力探针：循环 + 真测试 4/4，循环 + 自写测试 1/4；起决定作用的是 oracle，不是文案 |
+| `vibeweaver-mini/` | 小模型套件：2KB 的确定性循环（「跑 checker、修第一个失败、重复」）+ `scripts/vw_check.py`（打印修复包、测试集变化即拒绝运行）。`vibeweaver-mini-gate.js` 在 write 后跑 checker、拦住假完成；`install.sh` / `.bat` + `setup_project.sh` 负责安装。3B 激活模型能力探针：起决定作用的是 oracle，不是文案（数字见下文波次一节） |
 | `vibeweaver-eval/` | 评测架：16 题 A/B 评测的配置、评分脚本、原始结果、逐轮报告                                                                                                           |
 
 怎么选：**强模型** → 完整版（插件注入）；**弱指令遵循模型** → mini 常驻；**极弱模型（~3B 激活）** → mini + checker 强制注入。
@@ -205,7 +204,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 
 - **节点 = 带强制产物的阶段。** ZERO（拆解 + 联网检索）→ 项目模式判定 → 设计门 → 实现 → 验证循环 → 独立评审派发 → 完工表格。「模型说完了」不算一个阶段完成；它要求的产物真的落在磁盘上，才算完。
 - **边 = 显式条件，不是模型心情。** 新项目走一条流程，存量修改走另一条；验证器能力探测把采集/评分集分支成三种验证器模式；纯后端改动把浏览器循环替换成文档驱动的 API 测试循环。
-- **环路天生有界。** 每个循环共用同一份终止契约（`cap=5` 次迭代/子问题，`stall=3×`），而且停止条件由用户*最先*写下来，所以这张图保证有出口。
+- **环路天生有界。** 每个循环共用同一份终止契约（`cap=5` / `stall=3×`），而且停止条件由用户*最先*写下来，所以这张图保证有出口。
 - **遍历是软的，卡点是硬的。** 模型靠解释自然语言来走图，这部分依然是软的。但每个卡点的条件都可以机器校验：最终回答里的字面 token、被 `tests/assert_artifacts.py` 逐字节核对的磁盘证据，以及（装了插件时）一个工具级钩子：任何一个卡点没转过，agent 自己的写入就会被拦住，想走也走不动。
 
 这就是它为什么是状态机：当前阶段永远可以从文件里验证出来，而且没有证据就不允许声明任何状态转移。下面的门禁和审计器是同一个思路往下一层：图的最后两个卡点，由 opencode 本身执行，而不是由模型执行。
@@ -229,11 +228,11 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 
 同一观察通道还跑着 **loop-guard**：对助手文本流做有界尾窗扫描，识别跑飞的生成——尾部同一行组复读（块周期按数据推导，≤640 行；多行块 ≥3×，单行 ≥4×，纯标点分隔线豁免）、末尾连续 ≥12 个裸 token 步长 +1（整数或双十进制字母）、无换行流的字符级周期（≥32 字符单元复读 ≥4×）、counter 墙（≥16 行同形（非数字部分相同）尾行、每数字段严格 +1——「严格」正是时间戳日志与 `page N of M` 保持干净的边界）、纯标点墙自 ≥2KB 起命中。同一套机械还盯着 reasoning 通道（独立缓冲与发作预算：只在 reasoning 里发作的墙不再隐形），扫描入口对尾空白归一（以换行或多余空格收尾的复读不再藏住自己的种子）。命中后打断会话（v1 `session.abort` / v2 `session.interrupt({continue:false})`）并投递指出具体模式的纠正提示；一段发作干预一次（干净文本或新 turn 重新武装），每会话至多两次，之后的发作只记日志；单 turn 绝对上限 256KB 触发带独立纠正文案的 runaway 干预；编号列表（`1. 步骤`）这类「看着像序列」的正常文本不会触发，分隔线与 ASCII art 保持干净。
 
-守卫还看着**工具通道**——更阴的失效就住在那里：意图-动作脱节。模型宣告要调工具（"use Read now"、"final"、"grading"），实际发的却是裸 `echo "…"` bash 调用：每次 exit 0、字面各异、文本检测器一个都看不见，因为循环根本没碰文本流。这里的检测是内容级而非字节级：字面量参数、无副作用的 `echo`/`printf`/`true`/`:` 算 no-op，连续 ≥4 个相异 no-op bash 调用触发同一打断。同一工具 part 的流式重观测按 part id 去重、仅状态观测遮不住 run、被截断的命令会断开 run（截断能伪造字面量）。两通道各自的发作 arming 与预算独立——文本退化发作永远吞不掉工具通道的那次打断。另有两枚检测器覆盖 echo 分类器看不见的风暴形态：`identical-tool-run`（同 tool 同 canonical 参数（深度键排序 JSON 身份）、仅数不同 part id——永不使用观测折叠——重发 ≥4 次）与 `tool-frequency`（同一工具连砸 ≥120 次不同参数，默认仅 warn；配置 `loopGuardToolFrequencyMin` 后才 abort，阈值 ≥20）。每次中断本身就是 stall 声明（任何完工声明前写入 `- stall: noop-bash …` / `- stall: identical-tool-run …` / `- stall: tool-frequency …`；tool-frequency 的 stall 行仅在真 stall 时强制，合法批量写一行说明即可），且 pattern 全值自由（净化后 tool 名 + key 计数 + argsLen）——工具参数永远无法左右纠正提示。纠正提示要求真正推进（或在判据确已全过时输出完成产物）。如实划界：裸字面量 run、同参重发、单工具风暴都有机械捕捉；语义级 no-op（`sleep`、`ls`）与 echo/read 交错振荡是记录在案的缺口，不是声明覆盖。
+守卫还看着**工具通道**——更阴的失效就住在那里：意图-动作脱节。模型宣告要调工具（"use Read now"、"final"、"grading"），实际发的却是裸 `echo "…"` bash 调用：每次 exit 0、字面各异、文本检测器一个都看不见，因为循环根本没碰文本流。这里的检测是内容级而非字节级：字面量参数、无副作用的 `echo`/`printf`/`true`/`:` 算 no-op，连续 ≥4 个相异 no-op bash 调用触发同一打断。同一工具 part 的流式重观测按 part id 去重、仅状态观测遮不住 run、被截断的命令会断开 run（截断能伪造字面量）。两通道各自的发作 arming 与预算独立——文本退化发作永远吞不掉工具通道的那次打断。另有两枚检测器覆盖 echo 分类器看不见的风暴形态：`identical-tool-run`（同 tool 同 canonical 参数（深度键排序 JSON 身份）、仅数不同 part id——永不使用观测折叠——重发 ≥4 次）与 `tool-frequency`（同一工具连砸不同参数——默认 ≥120 次仅 warn（`loopGuardToolFrequencyWarnMin`，下限 20），配置 `loopGuardToolFrequencyMin` 后才 abort）。每次中断本身就是 stall 声明（任何完工声明前写入 `- stall: noop-bash …` / `- stall: identical-tool-run …` / `- stall: tool-frequency …`；tool-frequency 的 stall 行仅在真 stall 时强制，合法批量写一行说明即可），且 pattern 全值自由（净化后 tool 名 + key 计数 + argsLen）——工具参数永远无法左右纠正提示。纠正提示要求真正推进（或在判据确已全过时输出完成产物）。如实划界：裸字面量 run、同参重发、单工具风暴都有机械捕捉；语义级 no-op（`sleep`、`ls`）与 echo/read 交错振荡是记录在案的缺口，不是声明覆盖。
 
 完整版 gate 以 `tests/verification_log.md` 为激活条件。mini 不创建这个文件，所以它自带一个更小的插件 **`vibeweaver-mini-gate.js`**：每次 write/edit 后运行 `vw_check.py`（没有它时用 mini 的 `script/check.sh`），失败就把修复包作为阻断消息返回，session idle 时如果模型声称完成而 checker 没绿，会追加纠正提示（2 次/会话），直到 checker 打印 `ALL CHECKS PASS`。gate 激活期间 checker 与状态文件只读。完整版 auditor 不参与。
 
-一句实话：这个插件说的是 opencode 的插件 API——两代都是（v1 的 `server()` hooks 对象与 v2 的 `setup(ctx)` 域 API，各一个单文件；v1 需要 ≥ 1.18.29）。至于 Claude Code 或 Codex 有没有类似的机制，没验证过，欢迎 fork。vibeweaver-dsh 移植版带同一套 `assert_artifacts.py` 证据检查。
+一句实话：这个插件说的是 opencode 的插件 API（两代的支持范围见[安装](#安装)）。至于 Claude Code 或 Codex 有没有类似的机制，没验证过，欢迎 fork。vibeweaver-dsh 移植版带同一套 `assert_artifacts.py` 证据检查。
 
 ## 记忆系统：opencode 会忘，文件不会
 
@@ -255,12 +254,12 @@ opencode 原生没有记忆。开一个新会话就是一颗新脑。它完全�
 
 - **来路不明的内容 = 数据，不是指令（COV-11）。** 这个 skill *强制*联网检索（exa MCP + Context7），而「忽略之前所有指令」恰恰就藏在外来内容里。抓取/工具/第三方的文本可以提供信息，但不能下命令；抓来的「解决方案」照样得过 ≥2 方案评估；并且不对称规则生效：扫到可疑是强证据，「没扫出可疑」**不等于**干净：「不存在」要靠一次具名检查确立，不能靠模型自己的监视器保持沉默来确立。
 - **一致性枢纽（写一次，读多次）。** 大任务在计划里为每个共享的名字/配置键/值/签名立一行规范记录。后续步骤*引用*枢纽行，而不是重新推导；改名先改枢纽，然后把旧拼写 grep 到零命中，零命中的 grep 输出就是完工证据。这直接干掉长任务里「同一个已确定的值出现三种拼写」的经典漂移。
-- **带诊断的重试。** `verification_log.md` 里每一条 `- iter N FAIL:` 必须带 `diagnosis: <一句可证伪的判断>`，机器检查（assert 第 12 组）。不带诊断的重试就是同一个尝试再来一遍：同样的成本，买不到任何东西。
+- **带诊断的重试。** `verification_log.md` 里每一条 `- iter N FAIL:` 必须带 `diagnosis: <一句可证伪的判断>`，机器检查（assert 第 12 组），占位 diagnosis 不算一轮迭代。不带诊断的重试就是同一个尝试再来一遍：同样的成本，买不到任何东西。
 - **停滞逃生：参数化，别打转。** `stall=3×` 触发后，下一步方向要*生成*出来，不是凭感觉：把悬而未决的未知量变成有限候选集，每个候选配上「最便宜的可能推翻它的测试」，然后才转向（换抽象 / 换策略 / 转实证）。差分验证要求参考实现**不与候选共享假设**，继承同样「聪明」的暴力解会继承同一个 bug。两条便宜且独立的验证路径都存在时，两条都走：一致则结论得力，不一致恰好*定位*了错误假设。
 - **长间隔后的重入。** compaction / 跨 session / 长时间中断之后，agent 先全量重读 `verification_log.md`、逐行重读目标、重读契约，然后说出恢复后的第一步动作，按这个顺序，然后再碰工作（§3.3）。
 - **停滞观测机械化。** 门禁插件现在维护 `.vibeweaver/state.json`（原子写）：同一文件被改 3 次、中间没有新增 PASS 条目 → 触发一条指向逃生协议的 `GATE-WARNING`。`stall=3×` 以前是模型自己数的上限，现在插件也数。
 
-顺便把 skill 自己宣讲的渐进披露纪律用到了它身上：约 120 行的内嵌断言脚本变成规范的 `scripts/assert_artifacts.py`，四个后端/TDD/评审协议移入 `TESTING_PROTOCOLS.md`。入口文件从 79KB 的单文件做到今天的 767 行 / 47.8KB；上面每条新规则的成本是一行紧凑契约 + 一个指针。
+顺便把 skill 自己宣讲的渐进披露纪律用到了它身上：约 120 行的内嵌断言脚本变成规范的 `scripts/assert_artifacts.py`，四个后端/TDD/评审协议移入 `TESTING_PROTOCOLS.md`。入口文件从 79KB 的单文件做到今天的 765 行 / 47.8KB；上面每条新规则的成本是一行紧凑契约 + 一个指针。
 
 ## 和 mm-sensor 怎么配合：搭档，不是对手
 
@@ -330,7 +329,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 | 文件                                                  | 用途                                                                                                               |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `SKILL.md`                                          | 绑定操作契约 + 路由器（767 行，约 47.8KB，有体积守卫）                                                                               |
+| `SKILL.md`                                          | 绑定操作契约 + 路由器（765 行，约 47.8KB，有体积守卫）                                                                               |
 | `COMPLETION_GATE.md`                                | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单                                                                              |
 | `CODING_PRINCIPLES.md`                              | 4 条铁律（Think Before Coding · Simplicity First · Surgical Changes · Goal-Driven Execution）+ Fowler 12 项 smell 评审基线 |
 | `ENGINEERING_STD.md`                                | 工程标准细则                                                                                                           |
@@ -347,7 +346,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |
 | `vibeweaver-audit.js`                               | 三层机械审计器（Tier 0/1/2），会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈                                                                   |
 | `scripts/vibeweaver-audit-core.js`                  | 纯裁决核心（可无头测试）                                                                                                     |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 568 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放、T34–T35 工具风暴套件）/ 44 项变异检查，含锁存释放回归                                                    |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 571 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放、T34–T35 工具风暴、T36–T39 自锁/锁存逃生/作用域/来源卫生套件）/ 44 项变异检查，含锁存释放回归                                                    |
 | `install.sh` / `install.bat`                        | 安装脚本（skill 文件 + 两个插件）                                                                                            |
 
 ## 测试
@@ -357,10 +356,10 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 ```bash
 python3 verify_skill.py                     # 包完整性：payload、链接、标记、语法
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
-node vibeweaver/scripts/audit_selftest.mjs  # 568 项 fixture 检查（无校准数据时 T6 SKIP）
+node vibeweaver/scripts/audit_selftest.mjs  # 571 项 fixture 检查（无校准数据时 T6 SKIP）
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 项变异，每项都必须被抓到
-node tests/plugin_compat_test.mjs           # 69/71 双 loader 兼容（E3/G9 已知）
-node tests/mini_gate_test.mjs               # mini checker gate：v1/v2 write + idle + 安装器
+node tests/plugin_compat_test.mjs           # 70/71 双 loader 兼容（E3 已知）
+node tests/mini_gate_test.mjs               # 62/62 mini checker gate：v1/v2 write + idle + 安装器
 ```
 
 CI 在 Ubuntu / macOS / Windows 上跑这些（`.github/workflows/verify.yml`）。
@@ -371,13 +370,13 @@ CI 在 Ubuntu / macOS / Windows 上跑这些（`.github/workflows/verify.yml`）
 
 ## 设计取舍
 
-- 不做能力注入：不加知识、不改权重、不用模型侧技巧。skill 只改流程、证据和执行，别的什么都不改。
-- 证据高于声明：阶段是否完成，看产物是否真的落在磁盘上，不看模型怎么说。最终回答里带机器校验的字面 token，其余交给构件断言和插件。
-- 先检索再动手：拆解、检索、评估至少两种方案，然后才写代码。抓来的内容是数据，不是指令。
-- 执行放在工具层：提示词只是建议。门禁把缺失的产物变成一次失败的工具调用，审计器打出 BAD 就锁存 RED，拦住写入，直到证据补齐。
-- 循环有界：单个子问题 `cap=5` 次迭代，`stall=3×`，每次重试带一条可证伪的诊断。死路记进 memory，不重试。
-- oracle 说了算：项目与外部测试 > 通过资格验证的生成测试 > 自写测试。规格里看不见的契约点是待确认问题，不是发明的接口。
-- 小模型也算数：mini 版存在，是因为模型真的会读的短规则，胜过它永远不打开的重型 skill。
+- 不做能力注入：skill 只改流程、证据和执行，不加知识、不改权重、不用模型侧技巧。
+- 证据高于声明：阶段是否完成，看产物是否真的落在磁盘上，不看模型怎么说。
+- 先检索再动手：拆解、检索、评估至少两种方案；抓来的内容是数据，不是指令。
+- 执行放在工具层：缺失的产物是一次失败的工具调用，不是一句建议。
+- 循环有界：`cap=5` / `stall=3×`，每次重试带一条可证伪的诊断。
+- oracle 说了算：项目与外部测试 > 通过资格验证的生成测试 > 自写测试。
+- 小模型也算数：模型真的会读的短规则，胜过它永远不打开的重型 skill。
 
 ## 相关项目
 

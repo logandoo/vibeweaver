@@ -99,13 +99,13 @@ checkable.
 
 ## What it does
 
-- **No test, no done.** Every code change is followed by tests that actually ran,
-  with evidence on disk: log files, screenshots, screen recordings, page audio.
-  "It builds" is not evidence.
-- **Test-first, no exceptions.** Logic-bearing code is written RED→GREEN: a failing
-  test first, its failure pasted into `tests/verification_log.md`, then the minimal
-  implementation. A test that passes on the first run proves nothing. Regression
-  tests must complete the full revert-and-fail cycle before they count.
+- **No test, no done; test-first, no exceptions.** Every code change is followed by tests
+  that actually ran, with evidence on disk: log files, screenshots, screen
+  recordings, page audio. "It builds" is not evidence. Logic-bearing code is
+  written RED→GREEN: a failing test first, its failure pasted into
+  `tests/verification_log.md`, then the minimal implementation. A test that
+  passes on the first run proves nothing; regression tests must complete the
+  full revert-and-fail cycle before they count.
 - **A trusted oracle, not self-certification.** Only the project's own tests, or
   external ones, can certify a task. Generated tests must pass qualification first
   (fail on the stub, pass on a known-correct solution, fail on a plausible wrong
@@ -116,12 +116,10 @@ checkable.
   §A11), that checker drives the loop.
 - **A self-starting verification loop.** The moment a change touches runtime
   behavior, the agent enters `Act → Capture → Verify → Fix → Log` on its own. The
-  verifier is picked at task start by a behavioral probe (see
-  [the mm-sensor hookup](#the-mm-sensor-hookup-partner-not-rival)): a multimodal
-  model grades its own screenshots under a strict protocol,
-  [mm-sensor](https://github.com/logandoo/mm-sensor) grades them independently, or
-  DOM and log inspection carries the evidence. Video and audio are captured when
-  the verifier supports them.
+  verifier is picked at task start by a behavioral probe — model-native grading,
+  [mm-sensor](https://github.com/logandoo/mm-sensor) independent grading, or DOM
+  and log inspection (see
+  [the mm-sensor hookup](#the-mm-sensor-hookup-partner-not-rival)).
 - **API-doc-driven backend tests.** For backend-only changes the loop is: update
   the API doc, audit doc↔code consistency once, write test cases from the doc (not
   from the implementation), then run the httpx test→fix→test loop until everything
@@ -140,8 +138,7 @@ checkable.
   improvise.
 - **Project memory.** opencode has no native memory system; every session starts
   with a fresh brain. Vibeweaver builds one from files and rules: an index plus
-  topic files, trust tiers (⛔ Forbidden / ❌ Failed / ✅ Verified / ⏳ Unverified),
-  and a fix state machine. Full mechanism below.
+  topic files, trust tiers, and a fix state machine. Full mechanism below.
 - **Working memory between the log and the lessons.** Append-only logs answer
   "what happened"; curated `memory/` answers "what is true about this project".
   A task that spans iterations also needs "what holds right now":
@@ -172,32 +169,20 @@ checkable.
   budget — exhaustion is a top-up, not a failure), supervised first and bounded
   unattended batches later. `scripts/backlog_check.py` fails any `passes: true`
   that no executed-test line names.
-- **Enforcement teeth, kept honest.** The artifact checker lints the log itself
-  (a FAIL whose diagnosis is a placeholder is not an iteration); the session
-  auditor requires the completion-time `--final` run to leave its log line
-  (otherwise its checks never provably ran); the stall observer fires once per
-  stall signature and re-arms on a new pass, because a warning that floods
-  trains blindness.
+- **Enforcement teeth, kept honest.** The session auditor requires the
+  completion-time `--final` run to leave its log line (otherwise its checks
+  never provably ran), and the stall observer fires once per stall signature
+  and re-arms on a new pass — a warning that floods trains blindness.
 - **Bounded loops.** Every verification loop is capped at `cap=5` iterations per
   sub-problem with `stall=3×`: the same criterion failing three times in a row
   means stop, change direction, record the dead end.
 - **A loop-guard for degenerate output.** When the model's own generation runs
-  away — the same block repeating, a meaningless bare echo sequence
-  (`1,2,…,179`, `a,b,…,kf`, with or without newlines), a counter wall (≥16 tail
-  lines of identical shape whose digits step strictly +1), or a punctuation-only
-  wall past 2 KB — the auditor plugin detects it from the text stream (reasoning
-  parts included, on their own budget), interrupts the session, and posts a
+  away — repeated blocks, bare echo sequences, counter walls, punctuation walls —
+  or it announces a tool call and then never makes it, the auditor plugin detects
+  it from the text and tool streams, interrupts the session, and posts a
   corrective prompt (once per episode, budgeted per session;
-  `VIBEWEAVER_LOOPGUARD=off` turns it off). A per-turn ceiling (256 KB) backstops
-  shapes no periodic detector can see. It watches a second channel too: tool
-  calls. A model that
-  announces a tool ("use Read now") and then issues bare `echo "…"` narration
-  markers instead of calling it is interrupted the same way (≥4 consecutive
-  no-op bash calls); two more tool-channel detectors cover call storms — the
-  identical call re-issued ≥4 times (`identical-tool-run`, canonicalized-args
-  identity over distinct part ids) and one tool hammered ≥120 consecutive calls
-  with varying arguments (`tool-frequency`, warn-only; abort only when `loopGuardToolFrequencyMin` is configured). All channels keep independent
-  episode budgets so one can never starve the other.
+  `VIBEWEAVER_LOOPGUARD=off` turns it off). Detection patterns and budgets:
+  [the gate and the auditor](#enforcement-the-gate-and-the-auditor).
 - **Honest coverage, and a second pair of eyes.** The completion output carries a
   `[Coverage] criteria: N/M | unchecked: …` line: what was checked is named with
   evidence, what was not checked is named too — an unchecked item can never be
@@ -307,7 +292,7 @@ This repository contains three sub-projects:
 | Directory          | What                                                                                                                                                                                                                                                                                                                                    |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `vibeweaver/`      | The full skill; this README describes it                                                                                                                                                                                                                                                                                                |
-| `vibeweaver-mini/` | Small-model kit: a 2 KB deterministic loop ("run the checker, fix the first failure, repeat") plus `scripts/vw_check.py`, a checker that prints a repair packet and refuses to run if the test set changed. `vibeweaver-mini-gate.js` runs the checker after writes and blocks a false done claim; `install.sh` / `.bat` + `setup_project.sh` install it. Capability probe on a 3B-active model: loop + real tests 4/4, loop + self-written tests 1/4; the oracle decides, not the prose |
+| `vibeweaver-mini/` | Small-model kit: a 2 KB deterministic loop ("run the checker, fix the first failure, repeat") plus `scripts/vw_check.py`, a checker that prints a repair packet and refuses to run if the test set changed. `vibeweaver-mini-gate.js` runs the checker after writes and blocks a false done claim; `install.sh` / `.bat` + `setup_project.sh` install it. Capability probe on a 3B-active model: the oracle decides, not the prose (the numbers are in the wave notes below) |
 | `vibeweaver-eval/` | Benchmark rig: 16-task + flow A/B configs, grading scripts, raw runs, round reports                                                                                                                                                                                                                                                     |
 
 Which one to pick: **strong model** → full skill (force-injected); **weak
@@ -491,7 +476,7 @@ Sources: [`1`](docs/assets/workflow-1-en.mmd) · [`2`](docs/assets/workflow-2-en
   capture and grading set into three verifier modes; backend-only changes swap the
   browser loop for the doc-driven API test loop.
 - **Cycles are bounded by construction.** Every loop shares one termination
-  contract (`cap=5` iterations per sub-problem, `stall=3×`), and the stop condition
+  contract (`cap=5` / `stall=3×`), and the stop condition
   is written down by the user *first*, so the graph is guaranteed to have an exit.
 - **Traversal is soft, gating is hard.** The model walks the graph by interpreting
   prose; that part stays soft. But each guard condition is machine-checkable:
@@ -579,8 +564,10 @@ break it (truncation can forge a literal). Two more detectors cover the storm
 shapes the echo classifier cannot see: `identical-tool-run` (the same tool with
 identical canonicalized arguments — deep key-sort JSON identity, DISTINCT part
 ids only, so observation-collapsing is never used — re-issued ≥4 times) and
-`tool-frequency` (one tool hammered ≥120 consecutive calls with varying
-arguments). Every interrupt is itself the stall declaration (`- stall: noop-bash
+`tool-frequency` (one tool hammered with varying arguments — warn-only at ≥120
+consecutive calls by default, `loopGuardToolFrequencyWarnMin`, floor 20; abort
+only when `loopGuardToolFrequencyMin` is configured).
+Every interrupt is itself the stall declaration (`- stall: noop-bash
 …` / `- stall: identical-tool-run …` / `- stall: tool-frequency …` before any
 completion claim — the tool-frequency line only for genuine stalls;
 legitimate bulk work writes a one-line note instead, never a stall that did
@@ -603,9 +590,9 @@ claim until the checker prints `ALL CHECKS PASS` (2 prompts/session). The
 checker and its state are read-only while the gate is active. The mini
 installer puts it in the plugin directory; the full auditor is not involved.
 
-One honest caveat: the plugins speak opencode's plugin API — both generations of
-it (v1's `server()` hook map and v2's `setup(ctx)` domain API, from one file each;
-v1 needs ≥ 1.18.29). Whether Claude Code or Codex have an equivalent mechanism, I
+One honest caveat: the plugins speak opencode's plugin API (the supported
+generations are listed under [Install](#install)). Whether Claude Code or Codex
+have an equivalent mechanism, I
 haven't checked; forks welcome. The vibeweaver-dsh port ships the same
 `assert_artifacts.py` evidence checks.
 
@@ -680,7 +667,8 @@ mechanisms from [J-Space Cognition Suite](https://github.com/Tiger3807861189/J-S
   value turns up in three spellings.
 - **Diagnosis-carrying retries.** Every `- iter N FAIL:` line in
   `verification_log.md` must carry `diagnosis: <one falsifiable clause>`,
-  machine-checked (assert group 12). A retry without its diagnosis is the same
+  machine-checked (assert group 12); a placeholder diagnosis is not an
+  iteration. A retry without its diagnosis is the same
   attempt again: same cost, buys nothing.
 - **Stall escape: parameterize, don't spin.** When `stall=3×` fires, the next
   direction is *generated*, not guessed: the open unknown becomes a finite candidate
@@ -703,7 +691,7 @@ The skill practices the progressive-disclosure discipline it preaches: the
 ~120-line embedded assertion script became the canonical
 `scripts/assert_artifacts.py`, and the four backend / TDD / review protocols moved
 to `TESTING_PROTOCOLS.md`. The entry file went from a 79 KB single file to today's
-767 lines / 47.8 KB, with every new rule costing one compact covenant line plus a
+765 lines / 47.8 KB, with every new rule costing one compact covenant line plus a
 pointer.
 
 ## The mm-sensor hookup: partner, not rival
@@ -837,7 +825,7 @@ the agent's context explode and give up; untested, feedback welcome.
 
 | File                                                        | Purpose                                                                                                                                                                        |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SKILL.md`                                                  | The binding operational contract + router (~48 KB, size-guarded)                                                                                                               |
+| `SKILL.md`                                                  | The binding operational contract + router (765 lines, ~47.8 KB, size-guarded)                                                                                                |
 | `COMPLETION_GATE.md`                                        | Completion output spec · artifact gates · §AUDIT audit protocol · pre-output checklist                                                                                         |
 | `CODING_PRINCIPLES.md`                                      | The 4 iron rules (Think Before Coding · Simplicity First · Surgical Changes · Goal-Driven Execution) + Fowler's 12-smell reviewer baseline                                     |
 | `ENGINEERING_STD.md`                                        | Detailed engineering standards                                                                                                                                                 |
@@ -854,7 +842,7 @@ the agent's context explode and give up; untested, feedback welcome.
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 568 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm, T36–T39 self-lock/lock-escape/scope/source-hygiene suites) / 44 mutation checks, including the latch-release regressions                                                      |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 571 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm, T36–T39 self-lock/lock-escape/scope/source-hygiene suites) / 44 mutation checks, including the latch-release regressions                                                      |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing
@@ -862,10 +850,10 @@ the agent's context explode and give up; untested, feedback welcome.
 ```bash
 python3 verify_skill.py                     # package integrity: payload, links, markers, syntax
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
-node vibeweaver/scripts/audit_selftest.mjs  # 568 fixture checks (T6 skips without calibration data)
+node vibeweaver/scripts/audit_selftest.mjs  # 571 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 mutations, each must be caught
-node tests/plugin_compat_test.mjs           # 69/71 dual loader compat (E3/G9 known)
-node tests/mini_gate_test.mjs               # mini checker gate: v1/v2 write + idle + installers
+node tests/plugin_compat_test.mjs           # 70/71 dual loader compat (E3 known)
+node tests/mini_gate_test.mjs               # 62/62 mini checker gate: v1/v2 write + idle + installers
 ```
 
 CI runs the Python checks and the node harnesses on Ubuntu / macOS / Windows
@@ -879,23 +867,19 @@ listed here.
 
 ## Design choices
 
-- No capability injection: no knowledge is added, no weights change, no model-side
-  tricks. The skill changes process, evidence, and enforcement, and nothing else.
+- No capability injection: the skill changes process, evidence, and enforcement,
+  never knowledge, weights, or model-side tricks.
 - Evidence over claims: a stage is done when its outputs exist on disk, not when
-  the model says so. The final answer carries machine-checked tokens, and the
-  artifact checker and plugins verify the rest.
-- Research first: decompose, search, and evaluate at least two approaches before
-  writing code. Fetched content is data, never instructions.
-- Enforcement at the tool level: prompts are suggestions. The gate turns a missing
-  artifact into a failed tool call, and the auditor latches a RED state that blocks
-  writes until the evidence is fixed.
-- Bounded loops: `cap=5` iterations per sub-problem, `stall=3×`, and a falsifiable
-  diagnosis on every retry. Dead ends are recorded in memory, not retried.
-- The oracle decides: project and external tests outrank qualified generated tests,
-  which outrank self-written tests. A contract that isn't visible in the spec is an
-  open question, never an invented interface.
-- Small models count: the mini variant exists because a short rulebook the model
-  actually loads beats a heavy skill it never opens.
+  the model says so.
+- Research first: decompose, search, evaluate at least two approaches; fetched
+  content is data, never instructions.
+- Enforcement at the tool level: a missing artifact becomes a failed tool call,
+  not a suggestion.
+- Bounded loops: `cap=5` / `stall=3×` with a falsifiable diagnosis on every retry.
+- The oracle decides: project and external tests outrank qualified generated
+  tests, which outrank self-written ones.
+- Small models count: a short rulebook the model actually loads beats a heavy
+  skill it never opens.
 
 ## Related
 
