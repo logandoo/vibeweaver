@@ -1,13 +1,25 @@
-%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 46, "padding": 7}, "themeVariables": {"fontSize": "14px"}}}%%
+%%{init: {"flowchart": {"nodeSpacing": 16, "rankSpacing": 46, "padding": 6}, "themeVariables": {"fontSize": "14px"}}}%%
 flowchart LR
-    T{"§3.1 任务类型<br/>按主交付物"} -->|"C4 审计（只读）"| T4["docs/AUDIT_*.md<br/>finding 带 file:line + PoC<br/>Critical 项由 fresh-brain 复验"]
-    T -->|"C5 部署"| T5["清单齐备 · 回滚脚本先行<br/>部署动作本身是 Class-E 停<br/>部署后 smoke + 演练一次回滚"]
-    T -->|"C6 运维 / 事故"| T6["先取证再动手<br/>postmortem → 永久回归用例<br/>日常维护：每波 ≤5 个依赖升级"]
-    T -->|"C7 CLI / 库"| T7["project_profile.json 声明 cli 或 library<br/>CLI transcript + 退出码 + 输出 diff"]
-    T -->|"S1 spike"| T8["交付的是答案，不是代码<br/>探针计划 · 代码一律 throwaway<br/>要留下 = 新请求 + 自带基线"]
-    T -->|"C8 backlog 外层循环"| T9["重定位 → 只挑一个前沿项<br/>对它跑完整契约 · 绿了才提交<br/>停止：COMPLETE / BLOCKED / DECIDE / 预算"]
-    T5 --> E["实现 → 面板 3"]
-    T6 --> E
-    T7 --> H["验收 → 面板 3"]
-    T9 -->|"每轮一项"| E
-    T4 --> O["交付 → 面板 4"]
+    T{"§3.1<br/>任务类型"}
+    L3["面板 3<br/>实现 + 验证"]
+    L4["面板 4<br/>完工门"]
+
+    T -->|"构建 · 调试"| B["C1 新项目 / C2 存量<br/>+ §A4.6 调试"]
+    T -->|"C4 审计"| A["docs/AUDIT_*.md<br/>只读<br/>file:line + PoC"]
+    T -->|"C5 部署"| D["回滚脚本先行<br/>部署 = Class-E 停"]
+    T -->|"C6 运维"| O["先取证再动手<br/>→ 永久回归用例"]
+    T -->|"C7 CLI / 库"| N["画像：cli 或 library<br/>transcript + 退出码 + diff"]
+    T -->|"S1 spike"| S["交付答案，不留代码<br/>探针日志即证据"]
+    T -->|"C8 backlog"| K["每轮一项前沿任务<br/>绿了才提交<br/>停止：COMPLETE / BLOCKED<br/>/ DECIDE / 预算"]
+
+    B --> L3
+    D --> L3
+    O --> L3
+    N -->|"direct read"| L3
+    K -->|"每轮一项"| L3
+    A -->|"不进循环"| L4
+    S -->|"gate line"| L4
+    K -->|"循环收束"| L4
+    K -.->|"下一项"| K
+    A -.->|"整改项"| B
+    S -.->|"要留代码"| B

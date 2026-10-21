@@ -457,7 +457,7 @@ Read the four panels in order and you have the full contract graph.
 ![Entry and routing: ZERO, the two project modes, and the conditional C3 plan](docs/assets/workflow-1-en.svg)
 
 #### 2. Task-type routes
-![Task-type routes: C4 audit, C5 deploy, C6 ops, C7 non-web, S1 spike, C8 backlog](docs/assets/workflow-2-en.svg)
+![Task-type routes: build, C4 audit, C5 deploy, C6 ops, C7 non-web, S1 spike, C8 backlog, converging on panel 3 or panel 4](docs/assets/workflow-2-en.svg)
 
 #### 3. Implementation and verification
 ![Implementation: stacked change-shape branches and the bounded verification loop](docs/assets/workflow-3-en.svg)
@@ -471,9 +471,12 @@ Read the four panels in order and you have the full contract graph.
   completion table. A stage is not "done" because the
   model said so; it is done when its required outputs actually exist on disk.
 - **Edges are explicit conditions, not model mood.** Project mode forks on whether
-  code already exists; the primary deliverable picks the route, and a backlog queue
-  re-enters the loop once per item; the verifier probe in ZERO decides which capture
-  and grading set applies; backend-only changes swap the
+  code already exists. The primary deliverable picks the route, and every route has a
+  stated landing point: build, deploy, ops and non-web work enter the verification
+  loop, while the two routes that change no code (audit, spike) go straight to the
+  completion gate with the loop marked `na`. A backlog queue re-enters the loop once
+  per item and leaves through an explicit stop signal; the verifier probe in ZERO
+  decides which capture and grading set applies; backend-only changes swap the
   browser loop for the doc-driven API test loop.
 - **Cycles are bounded by construction.** Every loop shares one termination
   contract (`cap=5` / `stall=3×`), and the stop condition

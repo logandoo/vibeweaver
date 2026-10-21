@@ -1,13 +1,25 @@
-%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 46, "padding": 7}, "themeVariables": {"fontSize": "14px"}}}%%
+%%{init: {"flowchart": {"nodeSpacing": 16, "rankSpacing": 46, "padding": 6}, "themeVariables": {"fontSize": "14px"}}}%%
 flowchart LR
-    T{"§3.1 task type<br/>by deliverable"} -->|"C4 audit (read-only)"| T4["docs/AUDIT_*.md<br/>file:line + PoC<br/>Critical items re-verified fresh-brain"]
-    T -->|"C5 deploy"| T5["checklist · rollback script first<br/>the deploy action is a Class-E stop<br/>post-deploy smoke + one rollback drill"]
-    T -->|"C6 ops / incident"| T6["evidence before fixes<br/>postmortem → permanent regression case<br/>maintenance: ≤5 upgrades per wave"]
-    T -->|"C7 CLI / library"| T7["project_profile.json: cli or library<br/>CLI transcript + exit code + output diff"]
-    T -->|"S1 spike"| T8["an answer, not code<br/>probe plan · throwaway code<br/>keeping it = a new request + baseline"]
-    T -->|"C8 backlog / outer loop"| T9["reorient → one frontier item<br/>full covenant per item · green before commit<br/>stop: COMPLETE / BLOCKED / DECIDE / budget"]
-    T5 --> E["Implementation → panel 3"]
-    T6 --> E
-    T7 --> H["Acceptance → panel 3"]
-    T9 -->|"one item per iteration"| E
-    T4 --> O["Deliver → panel 4"]
+    T{"§3.1<br/>task type"}
+    L3["panel 3<br/>implementation<br/>+ verification"]
+    L4["panel 4<br/>completion gate"]
+
+    T -->|"build · fix"| B["C1 new / C2 existing<br/>+ §A4.6 debugging"]
+    T -->|"C4 audit"| A["docs/AUDIT_*.md<br/>read-only<br/>file:line + PoC"]
+    T -->|"C5 deploy"| D["rollback script first<br/>deploy = Class-E stop"]
+    T -->|"C6 ops"| O["evidence before fixes<br/>→ regression case"]
+    T -->|"C7 CLI / lib"| N["profile: cli or library<br/>transcript + exit code + diff"]
+    T -->|"S1 spike"| S["an answer, not code<br/>probe log = evidence"]
+    T -->|"C8 backlog"| K["one item per iteration<br/>green before commit<br/>stop: COMPLETE / BLOCKED<br/>/ DECIDE / budget"]
+
+    B --> L3
+    D --> L3
+    O --> L3
+    N -->|"direct read"| L3
+    K -->|"per item"| L3
+    A -->|"no loop"| L4
+    S -->|"gate line"| L4
+    K -->|"loop ends"| L4
+    K -.->|"next item"| K
+    A -.->|"remediation"| B
+    S -.->|"keep code"| B

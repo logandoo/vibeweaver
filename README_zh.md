@@ -192,7 +192,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 ![入口与路由：ZERO、两种项目模式、条件触发的 C3 计划](docs/assets/workflow-1-zh.svg)
 
 #### 2. 任务类型路由
-![任务类型路由：C4 审计、C5 部署、C6 运维、C7 非 Web、S1 spike、C8 backlog](docs/assets/workflow-2-zh.svg)
+![任务类型路由：构建、C4 审计、C5 部署、C6 运维、C7 非 Web、S1 spike、C8 backlog，汇流到面板 3 或面板 4](docs/assets/workflow-2-zh.svg)
 
 #### 3. 实现与验证
 ![实现：可叠加的改动形态分支与有界验证循环](docs/assets/workflow-3-zh.svg)
@@ -201,7 +201,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 ![完工：独立评审、记忆门、完工门、插件审计、交付](docs/assets/workflow-4-zh.svg)
 
 - **节点 = 带强制产物的阶段。** ZERO（拆解、检索、验证器探针、声明模式/泳道/类别）→ 项目模式 → 变更集够大时先写 C3 计划 → 实现 → 验证循环 → 独立评审派发 → 记忆写入 → 完工表格。「模型说完了」不算一个阶段完成；它要求的产物真的落在磁盘上，才算完。
-- **边 = 显式条件，不是模型心情。** 项目模式按「目录里有没有代码」分叉；主交付物决定走哪条路由，backlog 队列则每轮重回循环一次；ZERO 里的验证器探针决定采集与评分用哪一套；纯后端改动把浏览器循环换成文档驱动的 API 测试循环。
+- **边 = 显式条件，不是模型心情。** 项目模式按「目录里有没有代码」分叉。主交付物决定走哪条路由，每条路由都有写明落点：构建、部署、运维、非 Web 进验证循环，而两条不改代码的路由（审计、spike）直接把循环标成 `na`，直落完工门。backlog 队列每轮重回循环一次，靠显式停止信号离开；ZERO 里的验证器探针决定采集与评分用哪一套；纯后端改动把浏览器循环换成文档驱动的 API 测试循环。
 - **环路天生有界。** 每个循环共用同一份终止契约（`cap=5` / `stall=3×`），而且停止条件由用户*最先*写下来，所以这张图保证有出口。
 - **遍历是软的，卡点是硬的。** 模型靠解释自然语言来走图，这部分依然是软的。但每个卡点的条件都可以机器校验：最终回答里的字面 token、被 `tests/assert_artifacts.py` 逐字节核对的磁盘证据，以及（装了插件时）一个工具级钩子：任何一个卡点没转过，agent 自己的写入就会被拦住，想走也走不动。
 
