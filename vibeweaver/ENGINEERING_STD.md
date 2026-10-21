@@ -162,8 +162,18 @@ it runs in every class/profile and cannot be skipped.
 | `.gitignore` covers the detected stack (`node_modules/`; `.pnpm-store/` when pnpm; `.venv/`/`venv/` when Python) | — | missing pattern when the manifest exists |
 | untracked, non-ignored files | > 500 | > 2,000 (fail; partial scans refused) |
 | `.git` size (`git count-objects -v`) | > 200 MiB | > 1 GiB |
-| largest reachable blob (`--final`, `rev-list --all`) | > 10 MiB | > 40 MiB |
-| change-wave paths | — | > 2,000 (split the wave) |
+| largest reachable blob (preflight + `--final`, one boundary — G3 ratchet) | > 10 MiB (`held at baseline` WARN when committed-recorded) | > 40 MiB (ceiling on unrecorded debt) |
+| change-wave live paths (net deletions excluded — R3) | — | > 2,000 (split the wave) |
+
+**Existing debt does not block new work — the ratchet does (G3, W18).**
+`tests/debt_baseline.json` (written ONLY by `python3 tests/assert_artifacts.py
+--record-debt`) records today's measurements ONCE; afterwards the same check
+reports `held at baseline (reason)` as WARN while the number holds or shrinks,
+and FAILS the moment it GROWS (joeira/openchrome semantics: *debt may shrink
+or hold, never grow*). Unrecorded debt above the hard limit still fails —
+record it once, then only growth is a violation. `--record-debt` refuses NEW
+keys (that would launder new debt); the preflight and `--final` share ONE
+WARN/FAIL boundary (fail at entry, not at exit).
 
 **Remediation (index only — safe):**
 

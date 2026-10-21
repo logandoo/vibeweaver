@@ -32,6 +32,11 @@ import sys
 
 MEDIA_RE = re.compile(r"tests/(\S+\.(?:png|webm|wav|mp4|mp3))")
 TRACE_RE = re.compile(r"tests/(workflows/\S+?\.trace\.log)")
+# G5 (W18): non-web evidence (CLI/library task logs, bench reports, captured
+# JSON) is bound too — the seal's tamper promise must not be web-only. Cited
+# `tests/**/*.log|json|md` join the manifest under the cli/library profile
+# (SLSA/in-toto: a subject digest binds ANY artifact type).
+EVIDENCE_RE = re.compile(r"tests/(\S+\.(?:log|json|md))")
 TEST_CHANGE_RE = re.compile(r"(\S+\.(?:py|js|mjs|ts|tsx|jsx|go|rs))")
 # code fingerprint inputs — SHARED CONTRACT with scripts/assert_artifacts.py
 # (identical ext set AND identical file-set derivation; review R-I2 found the
@@ -151,8 +156,27 @@ def main():
 
     # regex groups capture the path AFTER `tests/` — keys are always
     # repo-relative `tests/...` (assert group 15b resolves them from root)
+    _prof = {}
+    _pf = tests / "project_profile.json"
+    if _pf.exists():
+        try:
+            _prof = json.loads(_pf.read_text(errors="replace")) or {}
+        except Exception:
+            _prof = {}
+    _prof_name = str(_prof.get("profile") or _prof.get("kind") or "")
     cited = sorted(set("tests/" + r for r in MEDIA_RE.findall(log + "\n" + acc)) |
                    set("tests/" + r for r in TRACE_RE.findall(log + "\n" + acc)))
+    if _prof_name in ("cli", "library"):
+        cited = sorted(set(cited) |
+                       set("tests/" + r for r in EVIDENCE_RE.findall(log + "\n" + acc)))
+    # self-referential subjects are NEVER bound (review A): the log/acceptance
+    # and the seal's own files are mutated BY the workflow (the mandated
+    # post-assert log append, the new-task acceptance rewrite, re-sealing) —
+    # binding them creates a tamper trap that can never converge.
+    SELF_REFS = {"tests/verification_log.md", "tests/acceptance.md",
+                 "tests/evidence_manifest.json", "tests/test_baseline.json",
+                 "tests/debt_baseline.json", "tests/working_note.md"}
+    cited = [c for c in cited if c not in SELF_REFS]
     files = {}
     for rel in cited:
         p = root / rel

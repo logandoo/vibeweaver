@@ -84,7 +84,12 @@ COVER = re.compile(
     re.I,
 )
 STRUCT_LINE = re.compile(r"^(?:#{1,6}\s|>|\|{1,2}\s*-+|\s*$)")
-EXEMPT_LINE = re.compile(r"(?:^- iter \d+ (?:PASS|FAIL):|^- Baseline verified GREEN|^- COV-\d+ skipped)")
+# G4 (W18): progress states (PARTIAL/PENDING/POST-HOC) are NOT result
+# claims — a status line never trips the claim lint. PASS/FAIL ARE result
+# claims and stay lintable (suppression: `- claim-ack: <line ref> — <reason>`,
+# Google-style suppression-with-reason; a bare ack suppresses nothing).
+EXEMPT_LINE = re.compile(r"(?:^- iter \d+ (?:PARTIAL|PENDING|POST-HOC):|^- Baseline verified GREEN|^- COV-\d+ skipped)")
+CLAIM_ACK = re.compile(r"^\s*-\s*claim-ack:[^\S\n]*(?:line[^\S\n]*|L)?(\d+)[^\S\n]*[-\u2013\u2014][^\S\n]*(\S.*)$", re.I | re.M)
 FENCE = re.compile(r"^\s{0,3}(?:```|~~~)")
 
 # --- groups 14-16: change-wave content gates (canonical spec:
@@ -178,20 +183,49 @@ def _unquote_git(p: str) -> str:
 
 
 def _wave_paths(root, base):
-    """Path list for the change wave — cheap preflight before `git log -p`."""
+    """(paths, deleted) for the change wave — cheap preflight before
+    `git log -p`. `deleted` = D-status paths (R3: deletion-only paths are
+    shrink and never count against the wave-size ceiling)."""
     paths = set()
+    deleted = set()
+    def _absorb(status_out, net_only=False):
+        # net_only=True feeds the NET diff (R3): a path is deletion-only iff
+        # its FINAL state is D — "ever deleted" laundered re-added live paths
+        # past the ceiling (review A PoC E1/E2).
+        for l in status_out.splitlines():
+            l = l.strip()
+            if not l:
+                continue
+            parts = l.split("\t")
+            if len(parts) >= 2 and parts[0].startswith("D"):
+                deleted.add(parts[-1])
+            elif net_only and len(parts) >= 2:
+                deleted.discard(parts[-1])
     if base:
         rc, out = _git(root, "log", "--name-only", "--format=", f"{base}..HEAD")
+        rc_s, out_s = _git(root, "log", "--name-status", "--format=", f"{base}..HEAD")
     else:
         rc, out = _git(root, "show", "--name-only", "--format=", "HEAD")
+        rc_s, out_s = _git(root, "show", "--name-status", "--format=", "HEAD")
     if rc == 0:
         paths.update(l for l in out.splitlines() if l.strip())
+    if rc_s == 0:
+        _absorb(out_s)
     for args in (["diff", "--name-only", "HEAD"],
                  ["diff", "--cached", "--name-only"]):
         rc, out = _git(root, *args)
         if rc == 0:
             paths.update(l for l in out.splitlines() if l.strip())
-    return paths
+    for args in (["diff", "--name-status", "HEAD"],
+                 ["diff", "--cached", "--name-status"]):
+        rc, out = _git(root, *args)
+        if rc == 0:
+            _absorb(out, net_only=True)
+    if base:
+        rc, out = _git(root, "diff", "--name-status", base, "HEAD")
+        if rc == 0:
+            _absorb(out, net_only=True)
+    return paths, deleted
 
 
 def wave_diff_text(root):
@@ -210,22 +244,41 @@ def wave_diff_text(root):
     if rc != 0:
         WAVE_CACHE[key] = ""
         return ""
-    rc, sha = _git(root, "log", "--format=%H", "-1", "--fixed-strings",
-                   "--grep=backup: before changes")
-    base = sha.strip() if rc == 0 and sha.strip() else ""
-    paths = _wave_paths(root, base)
-    if len(paths) > UNTRACKED_LIMIT:
-        WAVE_TOO_LARGE = f"{len(paths)} paths > {UNTRACKED_LIMIT}"
+    base, base_kind = wave_base(root)
+    if base_kind == "wave-base-invalid":
+        global WAVE_TOO_LARGE
+        WAVE_TOO_LARGE = f"- wave-base: {base} is not a resolvable ancestor commit of HEAD (fail-closed: an invalid anchor must never shrink the wave)"
+        WAVE_CACHE[key] = ""
+        return ""
+    paths, deleted = _wave_paths(root, base)
+    # R3 (W18): pure deletions are shrink, not growth — a hygiene wave that
+    # only removes files never trips the wave-size ceiling (ratchet semantics:
+    # shrinkage is always allowed); the guidance names the hygiene commit.
+    live_paths = paths - deleted
+    if len(live_paths) > UNTRACKED_LIMIT:
+        WAVE_TOO_LARGE = f"{len(live_paths)} paths > {UNTRACKED_LIMIT} ({len(deleted)} deletion-only path(s) excluded)"
         WAVE_CACHE[key] = ""
         return ""
     parts = []
     if base:
-        _, d = _git(root, "log", "-p", "--format=", f"{base}..HEAD")
+        rc_p, d = _git(root, "log", "-p", "--format=", f"{base}..HEAD")
+        if rc_p != 0:
+            WAVE_TOO_LARGE = f"git log {base}..HEAD failed — cannot materialize the wave (fail-closed)"
+            WAVE_CACHE[key] = ""
+            return ""
         parts.append(d)
     else:
-        _, d = _git(root, "show", "--format=", "HEAD")
+        rc_p, d = _git(root, "show", "--format=", "HEAD")
+        if rc_p != 0:
+            WAVE_TOO_LARGE = "git show HEAD failed — cannot materialize the wave (fail-closed)"
+            WAVE_CACHE[key] = ""
+            return ""
         parts.append(d)
-    _, d = _git(root, "diff", "HEAD")
+    rc_d, d = _git(root, "diff", "HEAD")
+    if rc_d != 0:
+        WAVE_TOO_LARGE = "git diff HEAD failed — cannot materialize the uncommitted wave tail (fail-closed)"
+        WAVE_CACHE[key] = ""
+        return ""
     parts.append(d)
     text = "\n".join(parts)
     if len(text.encode("utf-8", "replace")) > 16 * 1024 * 1024:
@@ -717,10 +770,34 @@ def read(p: pathlib.Path) -> str:
         return ""
 
 
-def claim_without_coverage(vl: str):
+def claim_without_coverage(vl: str, span=None):
     """Return violating (line_number, line) pairs: a claim verb on a prose line
     whose own line states no coverage scope. Fenced blocks, headings, tables
-    and structured entries are exempt — see EXEMPT_LINE."""
+    and structured entries are exempt — see EXEMPT_LINE.
+
+    G4 (W18): scans ONLY the current task block (`span` = (start, end) 1-based
+    raw line numbers; None = whole text) — historical blocks are out of scope
+    (the W11 line-47 class: fixing history to satisfy a lint is log forgery),
+    and `- claim-ack: <line ref> — <reason>` licenses the referenced line when
+    a reason is stated (bare ack = no suppression)."""
+    acks = {}
+    _ack_fence = False
+    for _ln, _line in enumerate(vl.splitlines(), 1):
+        if FENCE.match(_line):
+            _ack_fence = not _ack_fence
+            continue
+        if _ack_fence:
+            continue  # fenced examples license nothing (review A)
+        if span and not (span[0] <= _ln <= span[1]):
+            continue  # acks live in the CURRENT block (round 2: reverse retarget)
+        _am = CLAIM_ACK.match(_line.strip())
+        if not _am:
+            continue
+        _reason = _am.group(2).strip()
+        # reason lint (12b-grade): a vacuous ack is a bare suppression
+        if len(_reason) < 10 or re.fullmatch(r"(?i)[-?]*|none|n/?a|idk|unknown|tbd|ok|fine|yes", _reason):
+            continue
+        acks[int(_am.group(1))] = _reason
     hits = []
     in_fence = False
     for i, line in enumerate(vl.splitlines(), 1):
@@ -729,12 +806,72 @@ def claim_without_coverage(vl: str):
             continue
         if in_fence:
             continue
+        if span and not (span[0] <= i <= span[1]):
+            continue
         stripped = line.strip()
         if not stripped or STRUCT_LINE.match(stripped) or EXEMPT_LINE.match(stripped):
             continue
+        if CLAIM_ACK.match(stripped):
+            continue
+        if i in acks and (span is None or span[0] <= i <= span[1]):
+            continue  # acks apply to the CURRENT block only (line refs must not retarget history)
         if CLAIM.search(stripped) and not COVER.search(stripped):
             hits.append((i, stripped[:80]))
     return hits
+
+
+def last_iter_block_span(vl: str):
+    """G6/G4: (start_line, end_line) of the CURRENT (last iter-bearing) task
+    block in the RAW log — the same selection group 20 uses, with line
+    numbers so `- claim-ack: line N` / `- wave-base:` can anchor to it."""
+    lines = vl.splitlines()
+    starts = []
+    in_fence = False
+    for i, l in enumerate(lines, 1):
+        if FENCE.match(l):
+            in_fence = not in_fence
+            continue
+        if not in_fence and l.startswith("## "):
+            starts.append(i)
+    bounds = starts + [len(lines) + 1]
+    for k in range(len(starts) - 1, -1, -1):
+        a, b = bounds[k], bounds[k + 1]
+        block = "\n".join(lines[a - 1:b - 1])
+        if re.search(r"(?m)^## Task\b", block) or re.search(
+                r"(?m)^- iter \d+ (?:PASS|FAIL|PARTIAL|PENDING|POST-HOC)\b", block):
+            return (a, b - 1)
+    return (1, len(lines))
+
+
+def wave_base(root):
+    """G6: task-level wave anchor. The CURRENT task block's `- wave-base:
+    <sha>` wins (a doc-only/COV-9-skipped wave never mints a fresh `backup:
+    before changes` anchor, so the newest backup commit predates the task and
+    the measured wave swallows earlier waves' code). Fallback = the previous
+    behavior (newest backup commit), labeled so failures can name the fix."""
+    vl = read(root / "tests" / "verification_log.md") or ""
+    a, b = last_iter_block_span(vl)
+    block = "\n".join(vl.splitlines()[a - 1:b])  # span (a, b) is inclusive
+    for m in re.finditer(r"(?m)^- wave-base:\s*([0-9a-f]{7,40})\s*$", block):
+        cand = m.group(1)
+        # FAIL-CLOSED (review A Critical): the anchor comes from the
+        # agent-writable log, so it must resolve to a REAL commit that is an
+        # ANCESTOR of HEAD — an unvalidated sha silently empties the wave and
+        # blinds groups 14/15/16/18 at once (PoC: committed secret + bogus
+        # anchor passed clean). An unresolvable/non-ancestor anchor is a
+        # named failure, never a smaller wave.
+        rc1, _o1 = _git(root, "rev-parse", "--verify", "--quiet", cand + "^{commit}")
+        rc2, _o2 = _git(root, "merge-base", "--is-ancestor", cand, "HEAD")
+        rc3, _head_sha = _git(root, "rev-parse", "HEAD")
+        _cand_sha = _o1.strip() if rc1 == 0 else ""
+        # strict ancestor: an anchor AT/after the tip scans nothing (round-2
+        # PoC: `- wave-base: HEAD` blinded 14/15/16 with one log line)
+        if rc1 == 0 and rc2 == 0 and rc3 == 0 and _cand_sha != _head_sha.strip():
+            return cand, "wave-base"
+        return cand, "wave-base-invalid"
+    rc, sha = _git(root, "log", "--format=%H", "-1", "--fixed-strings",
+                   "--grep=backup: before changes")
+    return (sha.strip() if rc == 0 and sha.strip() else ""), "backup-anchor"
 
 
 def _manifest_dirs(root: pathlib.Path, names):
@@ -782,6 +919,95 @@ def _ignored(root: pathlib.Path, rel: str) -> bool:
     return rc3 == 0
 
 
+DEBT_BASELINE = "tests/debt_baseline.json"
+
+
+def debt_baseline_read(root):
+    try:
+        return json.loads(read(root / DEBT_BASELINE) or "{}") or {}
+    except Exception:
+        return {}
+
+
+def debt_recorded_head(root):
+    """The COMMITTED `recorded` value (tamper anchor) or None when the
+    baseline is untracked/absent in HEAD."""
+    rc, out = _git(root, "show", "HEAD:" + DEBT_BASELINE)
+    if rc != 0:
+        return None
+    try:
+        return int((json.loads(out) or {}).get("largest-blob", {}).get("recorded"))
+    except Exception:
+        return None
+
+
+def largest_blob(root):
+    """(max reachable blob bytes, ok) — shared by the group-21 ratchet and
+    `--record-debt` (one measurement path, one number)."""
+    rc, out = _git(root, "rev-list", "--objects", "--all")
+    if rc != 0:
+        return 0, False
+    reachable = {line.split(" ", 1)[0] for line in out.splitlines() if line.strip()}
+    rc2, out2 = _git(root, "cat-file", "--batch-check=%(objectname) %(objecttype) %(objectsize)",
+                     "--batch-all-objects")
+    if rc2 != 0:
+        return 0, False
+    max_blob = 0
+    for line in out2.splitlines():
+        parts = line.split()
+        if len(parts) == 3 and parts[1] == "blob" and parts[0] in reachable:
+            try:
+                max_blob = max(max_blob, int(parts[2]))
+            except ValueError:
+                pass
+    return max_blob, True
+
+
+def record_debt(root):
+    """G3: one-shot debt recording (openchrome one-way ratchet). Creates
+    tests/debt_baseline.json from today's measurements; later runs may only
+    SHRINK/HOLD existing keys — a NEW key launders new debt and is refused.
+    Missing items stay in the baseline (advisory) until removed by hand."""
+    import datetime
+    existed = (root / DEBT_BASELINE).exists()
+    bl = debt_baseline_read(root)
+    key = "largest-blob"
+    max_blob, ok = largest_blob(root)
+    if not ok:
+        print("record-debt: cannot measure the largest blob (git failed) — nothing recorded")
+        return 1
+    if key in bl:
+        old = int(bl[key].get("recorded", 0))
+        bl[key]["recorded"] = min(old, max_blob)
+        bl[key]["date"] = datetime.date.today().isoformat()
+        print(f"record-debt: {key} updated {old} -> {bl[key]['recorded']} (shrink-only)")
+    elif existed:
+        print(f"record-debt: refusing NEW key {key!r} — a new baseline entry launders new debt "
+              f"(shrink-only ratchet; a hand edit of {DEBT_BASELINE} is review-visible, never silent)")
+        return 1
+    else:
+        # tamper anchor (review A Critical): if git TRACKS the baseline but the
+        # working copy is gone, deletion-and-re-record must not launder grown
+        # debt as "pre-existing" — restore the committed baseline instead.
+        rc_g, _ = _git(root, "cat-file", "-e", "HEAD:" + DEBT_BASELINE)
+        if rc_g == 0:
+            print(f"record-debt: {DEBT_BASELINE} is tracked in HEAD but missing on disk — "
+                  f"restore it (`git checkout -- {DEBT_BASELINE}`); delete-and-re-record would launder new debt")
+            return 1
+        bl[key] = {"key": "reachable-blob-max", "recorded": max_blob,
+                   "date": datetime.date.today().isoformat(),
+                   "reason": "pre-existing history blob (recorded once, shrink-only ratchet)"}
+        print(f"record-debt: {key} recorded {max_blob} bytes")
+    tests = root / "tests"
+    tests.mkdir(exist_ok=True)
+    tmp = str(root / DEBT_BASELINE) + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(bl, f, indent=1, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, root / DEBT_BASELINE)
+    return 0
+
+
 def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
     """Group 21 — repository hygiene / VCS budget (COV-9 preflight, A10.1).
 
@@ -818,7 +1044,8 @@ def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
         check(not missing,
               "repo-hygiene: .gitignore does not cover node_modules/ at: "
               + ", ".join(missing[:3]) + (" …" if len(missing) > 3 else "")
-              + " — `git add -A` would sweep dependencies into history")
+              + " — `git add -A` would sweep dependencies into history"
+              + " (T2: if these .gitignore files are themselves ignored, commit them with `git add -f`)")
     if pnpm_dirs:
         missing = []
         for d in pnpm_dirs:
@@ -828,7 +1055,8 @@ def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
         check(not missing,
               "repo-hygiene: .gitignore does not cover .pnpm-store/ at: "
               + ", ".join(missing[:3]) + (" …" if len(missing) > 3 else "")
-              + " — the 886MB incident path")
+              + " — the 886MB incident path"
+              + " (T2: if these .gitignore files are themselves ignored, commit them with `git add -f`)")
     if py_dirs:
         missing = []
         for d in py_dirs:
@@ -839,7 +1067,8 @@ def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
         check(not missing,
               "repo-hygiene: .gitignore does not cover .venv/ or venv/ at: "
               + ", ".join(missing[:3]) + (" …" if len(missing) > 3 else "")
-              + " — Python deps are not source")
+              + " — Python deps are not source"
+              + " (T2: if these .gitignore files are themselves ignored, commit them with `git add -f`)")
 
     rc, out = _git(root, "ls-files")
     if rc != 0:
@@ -878,33 +1107,58 @@ def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
     if size_kib > GIT_SIZE_WARN_KIB:
         warn(f"repo-hygiene: .git is {size_kib / 1024:.0f} MiB (> 200 MiB) — schedule the A10.1 history audit", "21")
 
-    if final:
-        rc, out = _git(root, "rev-list", "--objects", "--all")
-        reachable = set()
-        if rc == 0:
-            reachable = {line.split(" ", 1)[0] for line in out.splitlines() if line.strip()}
-        rc2, out2 = _git(root, "cat-file", "--batch-check=%(objectname) %(objecttype) %(objectsize)",
-                         "--batch-all-objects")
-        max_blob = 0
-        if rc != 0 or rc2 != 0:
-            check(False, "repo-hygiene: git rev-list/cat-file failed — cannot verify the largest reachable blob (fail-closed)")
+    # G3 (W18) largest blob — ONE shared WARN/FAIL boundary at preflight AND
+    # --final ("fail at entry, not at exit"; the old entry-warn/exit-fail split
+    # misled the entry prompt), plus the one-way debt ratchet
+    # (tests/debt_baseline.json, written only by `--record-debt`):
+    #   held  (current <= recorded) → WARN `held at baseline (reason)`
+    #   grew  (current >  recorded) → FAIL (debt may shrink or hold, never grow)
+    #   unrecorded                  → FAIL above 40 MiB (with the record hint)
+    max_blob, blob_ok = largest_blob(root)
+    if not blob_ok:
+        check(False, "repo-hygiene: git rev-list/cat-file failed — cannot verify the largest reachable blob (fail-closed)")
+    else:
+        _deb = debt_baseline_read(root).get("largest-blob")
+        _mib = max_blob / 1024 / 1024
+        if _deb:
+            try:
+                _rec = int(_deb.get("recorded", 0))
+            except (TypeError, ValueError):
+                _rec = -1
+            _rec_head = debt_recorded_head(root)
+            # tamper anchor (review A Critical): the COMMITTED baseline is the
+            # ratchet's truth. A hand-RAISED `recorded` launders debt and fails;
+            # an UNTRACKED baseline buys nothing above the hard ceiling (then
+            # nag until it is committed).
+            if _rec_head is not None and _rec > _rec_head:
+                check(False, f"repo-hygiene: tests/debt_baseline.json `recorded` RAISED above its committed value "
+                             f"({_rec} > {_rec_head}) — growth is never grandfathered; restore the committed baseline")
+            elif _rec_head is None and max_blob > BLOB_FAIL:
+                check(False, f"repo-hygiene: largest blob {_mib:.1f} MiB > 40 MiB with an UNTRACKED debt baseline — "
+                             f"commit tests/debt_baseline.json (the tamper anchor) or move the blob to LFS/releases (A10.1)")
+            elif _rec < 0:
+                check(False, "repo-hygiene: tests/debt_baseline.json `recorded` is not an integer — repair the baseline (fail-closed)")
+            if max_blob > _rec:
+                check(False, f"repo-hygiene: largest blob {_mib:.1f} MiB GREW beyond the recorded debt baseline "
+                             f"{_rec / 1024 / 1024:.1f} MiB (tests/debt_baseline.json — {_deb.get('reason', 'no reason')}) "
+                             f"— debt may shrink or hold, never grow (A10.1 ratchet)")
+            elif max_blob > BLOB_WARN:
+                warn(f"repo-hygiene: largest blob {_mib:.1f} MiB held at baseline "
+                     f"({_deb.get('reason', 'recorded debt')}; recorded {_rec / 1024 / 1024:.1f} MiB — shrink-only)", "21")
         else:
-            for line in out2.splitlines():
-                parts = line.split()
-                if len(parts) == 3 and parts[1] == "blob" and parts[0] in reachable:
-                    try:
-                        max_blob = max(max_blob, int(parts[2]))
-                    except ValueError:
-                        pass
-        check(max_blob <= BLOB_FAIL,
-              f"repo-hygiene: largest blob {max_blob / 1024 / 1024:.1f} MiB > 40 MiB — move it to LFS/releases and rewrite history (A10.1)")
-        if max_blob > BLOB_WARN:
-            warn(f"repo-hygiene: largest blob {max_blob / 1024 / 1024:.1f} MiB (> 10 MiB) — audit before the next wave", "21")
+            check(max_blob <= BLOB_FAIL,
+                  f"repo-hygiene: largest blob {_mib:.1f} MiB > 40 MiB — move it to LFS/releases and rewrite history (A10.1); "
+                  f"pre-existing history debt: record once via `python3 tests/assert_artifacts.py --record-debt` "
+                  f"(shrink-only ratchet)")
+            if max_blob > BLOB_WARN:
+                warn(f"repo-hygiene: largest blob {_mib:.1f} MiB (> 10 MiB) — audit before the next wave "
+                     f"(or record as debt: --record-debt)", "21")
 
     check(not GIT_TIMEOUT,
           "repo-hygiene: a git call timed out — cannot fully verify the repository (fail-closed; re-run)")
     if WAVE_TOO_LARGE:
-        check(False, f"repo-hygiene: change wave too large ({WAVE_TOO_LARGE}) — split the wave before verification")
+        check(False, f"repo-hygiene: change wave too large ({WAVE_TOO_LARGE}) — split the wave before verification "
+                     f"(R3: pure deletions never count — a deletion-only wave belongs in its own hygiene commit)")
 
 
 def main():
@@ -915,6 +1169,8 @@ def main():
     ap.add_argument("--profile", default="", help="project profile: service|backend-api|web-static|cli|library — skips structurally-N/A groups (overrides tests/project_profile.json)")
     ap.add_argument("--class", dest="task_class", default="", choices=["DOC", "CONFIG", "CODE"],
                     help="COV-13 task class (§V11): DOC N/A's memory + service-lifecycle groups; CONFIG N/A's memory when the log carries `- memory: na (<why>)`. Default: auto-detect from the `- class: <X> — <basis>` first entry of the task block in tests/verification_log.md")
+    ap.add_argument("--record-debt", action="store_true",
+                    help="G3 ratchet: record today's existing-tree debt into tests/debt_baseline.json (shrink-only; new keys refused)")
     ap.add_argument("--final", action="store_true",
                     help="completion-time run (A4.4.1): additionally enforces group 19 — tests/working_note.md must be distilled+deleted (§A7.15). Mid-task / physical-gate runs omit this flag.")
     ap.add_argument("--json", action="store_true",
@@ -926,6 +1182,10 @@ def main():
         print(msg, file=sys.stderr if args.json else sys.stdout)
 
     root = pathlib.Path(__file__).resolve().parent.parent
+
+    # G3 ratchet: recording short-circuits the checks (it IS the bootstrap).
+    if args.record_debt:
+        sys.exit(record_debt(root))
 
     # --- project profile: declarative N/A for groups that are structurally
     # impossible for this project kind (a library has no service to start).
@@ -1008,7 +1268,7 @@ def main():
         _cur = ""
         for _b in re.split(r"(?m)^(?=## )", "\n".join(_live)):
             if (re.search(r"(?m)^## Task\b", _b)
-                    or re.search(r"(?m)^- iter \d+ (?:PASS|FAIL)\b", _b)):
+                    or re.search(r"(?m)^- iter \d+ (?:PASS|FAIL|PARTIAL|PENDING|POST-HOC)\b", _b)):
                 _cur = _b
         return _cur or re.split(r"(?m)^(?=## )", block_text)[-1]
 
@@ -1079,7 +1339,9 @@ def main():
             check(False, f"task class mismatch (C1): the wave diff's file kinds derive {_derived} "
                          f"({_dsum}) but this task claims the MORE LENIENT `class: {cls}` "
                          f"({cls_basis}) — restate `- class:` honestly or move the offending "
-                         f"files out of the wave")
+                         f"files out of the wave; if the anchor predates this task (doc-only/"
+                         f"COV-9-skipped waves mint no backup commit), record `- wave-base: <sha>` "
+                         f"in the current task block to re-anchor the wave sampling (G6)")
     class_skip_memory = (cls == "DOC" and not re.search(
         r"^- iter \d+ FAIL|^- stall:|cap-hit", cur_block, re.M)) or (
         cls == "CONFIG" and bool(re.search(r"^-[ \t]*memory:[ \t]*na[ \t]*\(", cur_block, re.M | re.I)))
@@ -1430,7 +1692,8 @@ def main():
     # 13) claim-without-coverage — a verification claim must state what it covered
     group("13")
     #     (A4.4 Gate Function — "verified" without a stated scope is not a result)
-    for i, snippet in claim_without_coverage(vl):
+    _g4_span = last_iter_block_span(vl)  # G4: current task block only
+    for i, snippet in claim_without_coverage(vl, _g4_span):
         check(False,
               f"verification_log.md line {i}: claim without stated coverage — {snippet!r} (A4.4 claim rule)")
 
@@ -1516,6 +1779,17 @@ def main():
         if _cited_media:
             check(False, f"cited media evidence is not sealed (C3) - run `python3 scripts/evidence_seal.py` "
                          f"(writes tests/evidence_manifest.json; {len(set(_cited_media))} file(s) cited)")
+
+    # 15c) G5 (W18): suspected hand-typed machine values — a real sha is
+    # exactly 64 hex; 60-63 or 65+ hex tokens are almost always copy errors
+    # (W12 wrote a 63-char sha into the log and an adversarial review caught
+    # it). Advisory by design; the fix is the recording tool (single write
+    # entry — never retype machine values).
+    group("15c")
+    _bad_sha = re.search(r"(?<![0-9a-f])([0-9a-f]{60,63}|[0-9a-f]{65,})(?![0-9a-f])", vl)
+    if _bad_sha:
+        warn(f"verification_log.md: suspected hand-typed sha ({len(_bad_sha.group(1))} hex chars; a real sha is 64) "
+             f"— copy machine values, never retype (scripts/record_evidence.sh --note)", "15c")
 
     # 16) risk-tier — risk-tier code paths require the A4.9 review package
     group("16")

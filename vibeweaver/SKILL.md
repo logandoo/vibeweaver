@@ -103,17 +103,18 @@ NON-SKIPPABLE. Lane L default: TWO adversarial fresh-context reviewers
 (VERIFICATION_UPGRADES §V4). Full protocol: §A4.9.
 
 `COV-9. Baseline-GREEN before any change (Modify-Existing)` — for every
-Modify-Existing task, your narration MUST include all three of these
-literal tokens IN ORDER, on separate lines after you survey the project:
+Modify-Existing task, your narration MUST include these
+literal tokens IN ORDER, each on its own line after you survey the project:
 Preflight (A10.1/21) before backup: `.gitignore`, no tracked vendor,
 budgets; RED = stop.
 ```
-git add -u && git commit --allow-empty -m "backup: before changes"
+git add -u && git add <explicit new paths> && git commit -m "chore: carry-over <previous wave> work"  # ① 前任工作先归档
+git add -u && git commit --allow-empty -m "backup: before changes"   # ② 字面兜底，不得删除
 bash script/linux/<existing-build-or-start>.sh (or test runner) — run-once baseline
 Baseline verified GREEN — proceed  (or: Baseline has N pre-existing failures → reported to user, logged to tests/verification_log.md, awaiting decision)
 ```
 "Build passed earlier" does NOT count — EVERY
-change-wave gets its own three lines. Record the verdict as the
+change-wave gets its own literal lines. Record the verdict as the
 FIRST entry under the task heading in `tests/verification_log.md` — the file,
 not narration, is what group 9 machine-checks. Pre-existing failures: report +
 ask (GUIDED) or ADR + proceed with failures quarantined by scope (AUTO).
@@ -190,17 +191,17 @@ and in your final answer (Class-scaled per COV-13 / §V11.3):`
 - `docs-drift:` line — named drift or `none (<why>)` (§V11.5)
 - (AUTO mode) `tests/decisions.md` + `[Decisions]` line — COV-12.
 
-Skip none of these for any runtime-affecting change. Class DOC/CONFIG swap
-heavy obligations for `na (reason)` per §V11.3; say so explicitly.
+Skip none for runtime-affecting change. Class DOC/CONFIG swap heavy
+obligations for `na (reason)` per §V11.3 — say so explicitly.
 
 **Ship order (VERIFICATION_UPGRADES §V9):** code+tests green FIRST (one-line
 log entries), then evidence, then the completion output; deferred ceremony
 (memory topics · review_package · ADR prose) is assembled from the log at
 completion time. Budget pressure degrades ceremony via `[Coverage]` /
 `UNVERIFIED` / `na (reason)` — never the deliverable, never by faking.
-**Action triage (§V10):** tag each planned action `[C|E|N]` in its log line;
-N (noise) is not executed — revise it first; when evidence kills an
-assumption, rewrite the artifact that carries it (edit, don't append).
+**Action triage (§V10):** tag planned actions `[C|E|N]` in the log; N (noise)
+is not executed — revise first; when evidence kills an assumption, rewrite
+the artifact carrying it (edit, don't append).
 
 ---
 
@@ -466,21 +467,22 @@ ALL pass or cap=5 / stall=3× stops you (COV-7).
 
 The SOLE final deliverable — no "done" without this EXACT table. Full protocol:
 §A4.4 in COMPLETION_GATE.md (R1b — read BEFORE the table; any self-audit NO =
-go back). Output order: (1) 9-item self-audit + `python3 tests/assert_artifacts.py --final`
-exit 0. (2) the `[Coverage]` line (VERIFICATION_UPGRADES §V3). (3) literal
-line `[Covenant Recall] checked: all 13 covenants hold for
-this completion`. (4) `[Memory Gate] Passed: …` (or `na (reason)` per §V11.3).
-(5) the gate line — EXACT
+go back). First: 9-item self-audit + `python3 tests/assert_artifacts.py
+--final` exit 0. Output order (the ONE authoritative order —
+COMPLETION_GATE §A4.4): `[Convergence]` → `[Coverage]` → `[Memory Gate]`
+(or `na (reason)` §V11.3) → `[Decisions]` → literal `[Covenant Recall]
+checked: all 13 covenants hold for this completion` → the `[Verification
+Gate]` gate line — EXACT
 shape, both HARD-GATE tokens LITERAL, each `pass` / `na`:
 ```
 [Verification Gate] Verifier: mm-sensor [video+audio|video|image] | model-native [image] | direct-read | Lane: S/M/L | Class: DOC|CONFIG|CODE | Loop executed: yes/no/N/A | Media graded externally: N/N (video N · audio N · screenshots N) | Iterations: N | Tests executed with artifacts: yes/no | E2E depth: real-HTTP / workflow-trace / service-direct / unit-only | Script-only build/lifecycle: yes/no | Fresh-run on final tree: yes/no | Fresh-verify: pass/N/A | TDD RED evidence: yes/no/N/A | Code review: clean / N-fixed / N/A | assert_artifacts.py: pass=N/fail=0 | covenant_recall: pass/na | memory_gate: pass/na | repo-hygiene: pass/na (…) | HARD-GATE-1: NO-TEST-NO-DONE=pass/na | HARD-GATE-2: SCRIPT-ONLY=pass/na
 ```
-(6) the 8-column completion table — EXACT header order:
+→ the 8-column completion table — EXACT header order:
 ```
 | # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
 ```
-One row per logical change; evidence = filename + what was confirmed or log
-file + key excerpt (not "tests passed"); `Commit` = short hash or `N/A`.
+One row per logical change; evidence = file + key excerpt (not "tests
+passed"); `Commit` = short hash or `N/A`.
 Class DOC/CONFIG: the 3-column lite table
 `| # | Problem | What Changed & Evidence |` (§V11.6) — ONLY with
 `Class: DOC|CONFIG` in the gate line.
@@ -619,9 +621,9 @@ project-local merge · consolidation · retrospective.
   Final Memory Gate before the completion table —
   [MEMORY_RULES.md §A7.9 / §A7.10](MEMORY_RULES.md); lesson-less tasks emit
   `- memory: na (<why>)` + `[Memory Gate] na (<why>)` (§V11.3, A7.1).
-- Output the `[Memory Gate] Passed: …` (or `na (reason)`) line immediately
-  before the completion table, AND `memory_gate: pass` (or `na` with reason)
-  in the `[Verification Gate]` line.
+- Output the `[Memory Gate] Passed: …` (or `na (reason)`) line in its order
+  slot (COMPLETION_GATE §A4.4), AND `memory_gate: pass` (or `na`) in the
+  `[Verification Gate]` line.
 - ★ Before the `[Memory Gate]` line: re-read §1 once and confirm the memory
   obligations (A7.9 write / A7.10 gate) hold for this session.
 
@@ -725,13 +727,11 @@ Full ~40-item list: COMPLETION_GATE.md §PRE-OUTPUT (R1b). Before declaring done
 - [ ] config from the project config file (never hardcoded) · acceptance checklist passed
 
 **If any item is unchecked, return to fix it. Do NOT output "done".**
-**State-transition permission:** once every PRE-OUTPUT checklist item
-(COMPLETION_GATE §PRE-OUTPUT, the full ~40-item list this core list
-summarizes) is checked and `assert_artifacts.py` exits 0, no further
-evidence-producing tool calls are expected — proceed through the remaining
-documented completion steps (sync/push/memory) and emit the completion
-output; never pad the transition with `echo`/narration tool calls
-(loop-guard `noop-bash`/`identical-tool-run`/opt-in `tool-frequency`, TP §A4.10).
+**State-transition permission:** once every PRE-OUTPUT item (COMPLETION_GATE
+§PRE-OUTPUT) is checked and `assert_artifacts.py` exits 0, no further
+evidence-producing calls are expected — finish the documented completion
+steps and emit the output; never pad with `echo`/narration calls (loop-guard
+`noop-bash`/`identical-tool-run`, TP §A4.10).
 
 ## Reference Files (companion files)
 

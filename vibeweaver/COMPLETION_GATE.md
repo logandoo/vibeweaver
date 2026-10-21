@@ -114,8 +114,14 @@ unit tests only — only acceptable for pure functions / single-endpoint
 tweaks (state the reason). Any runtime-affecting backend change with
 cross-endpoint behavior MUST report `real-HTTP` or `workflow-trace`.
 
-After ALL work is complete, output ONE summary table with ALL of these EXACT
-columns in this EXACT order:
+**Output order — the ONE authoritative order (D1 — single normative
+position; no second order exists here):**
+`[Convergence]` → `[Coverage]` → `[Memory Gate]` → `[Decisions]` →
+`[Covenant Recall]` → `[Verification Gate]` → completion table (all
+"immediately before/after" resolve here).
+
+After ALL work is complete, output ONE summary table with these EXACT
+columns:
 
 ```markdown
 | # | Problem | Research Sources (exa MCP / Context7) | Chosen Approach & Why | Files Changed | What Changed | Verification Evidence (Screenshot / Log) | Commit |
@@ -123,26 +129,22 @@ columns in this EXACT order:
 | 1 | ...     | Searched: X, Found: Y                | Approach Z (reason)    | src/a.ts, ... | ...          | screenshot_01.png → verified correct      | abc123 |
 ```
 
-**FORBIDDEN alternatives — NEVER use these:**
-- Do NOT split into multiple tables (e.g. a separate "Verification results" table).
-- Do NOT replace columns with `Requirement`, `Implementation`, `Key files`,
-  `Test method`, `Result`, or any other headers.
-- Do NOT omit the `Research Sources` or `Commit` columns.
-- Do NOT output prose summaries, bullet lists, or checklists as a substitute.
+**FORBIDDEN alternatives — NEVER use these:** do NOT split into multiple
+tables · replace columns (`Requirement`/`Implementation`/`Key files`/`Test
+method`/`Result`/any header substitute) · omit `Research Sources` or `Commit`
+· substitute prose summaries, bullet lists or checklists.
 
-**Column requirements (all 8 mandatory):**
-`#` sequential · `Problem` sub-problem addressed · `Research Sources` what was
-searched, key findings, rejected alternatives · `Chosen Approach & Why` chosen
-solution + rationale · `Files Changed` every modified file path · `What
-Changed` concise modification description · `Verification Evidence`
-screenshot filename+what was confirmed, or log file+key excerpt (not "tests
-passed") · `Commit` short hash; `N/A` if no commit made yet.
+**Column requirements (all 8 mandatory):** `#` sequential · `Problem`
+sub-problem · `Research Sources` searched/key findings/rejected alternatives ·
+`Chosen Approach & Why` solution + rationale · `Files Changed` every path ·
+`What Changed` concise description · `Verification Evidence` file + what was
+confirmed (log + key excerpt — not "tests passed") · `Commit` short hash or
+`N/A`.
 
 If multiple changes were made, add one row per logical change.
 
-(6) **AUTO-mode tasks** (COV-12) add the line `[Decisions] N auto-decisions
-→ tests/decisions.md` immediately before the completion table, and
-`tests/decisions.md` must exist with one ADR block per auto-decision.
+(6) **AUTO-mode** (COV-12): the `[Decisions]` line in its order slot;
+`tests/decisions.md` carries one ADR block per auto-decision.
 
 ## A4.4.1 G-DED Executable Artifact Assertions ★ NON-NEGOTIABLE
 
@@ -191,16 +193,27 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
 | 10 | every `tests/workflows/*.trace.log` cited in `verification_log.md` exists and >0 bytes | A4.7b |
 | 11 | every `tests/*.webm` / `tests/*.wav` / `tests/*.mp4` / `tests/*.mp3` cited in `verification_log.md` exists and >0 bytes | A4.1 Step 2/3 |
 | 12 | every `- iter N FAIL:` line carries `diagnosis:`, and (12b) the clause is substantive — ≥10 chars, not a placeholder (`-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`) | A4.1 Step 4 |
-| 13 | no claim word (verified/confirmed/validated/tested/proven + 已验证/已确认/已测试…) on a prose log line without a coverage scope on that line (fences, headings, tables, iter/baseline lines exempt) | A4.4 claim rule |
-| 14 | **secret scan** — no credential-looking string (AWS key · PRIVATE KEY block · `ghp_`/`github_pat_`/`xox*`/`sk-` tokens · k=v `api_key`/`secret`/`password`/`token` = ≥12-char value; reference/call values like `os.environ.get(…)`/`config.x` NOT flagged) on an ADDED diff line (newest `backup: before changes`..HEAD + uncommitted; untracked + ignored secret-named files (`.env*`, keys/certs) scanned whole); placeholder-marked lines (example/dummy/…) exempt; `*.md` hits WARN only; `assert_artifacts.py` never scanned. **User-approved credentials:** `vw-approved` exempts a line ONLY when the line matches a credential pattern AND the log pairs `- secret-approved: <path> — <reason>` (≤1 approval per path, pairing failure FAILs) | A4.4 content gate |
-| 15 | **test-change guard** — no REMOVED assertion line (`assert` · `self.assert*` · `expect(` · `pytest.raises` · `require(` · `def test_` · `it(` · `test(` · `func Test` · `@Test`) in a test code file (path segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*`; code exts; whole-file deletions included) without a `- test-change: <path> — <reason>` log line; NEW test files in the wave need their own line too (C3b hash baseline) | A4.8 test integrity |
+| 13 | no claim word (verified/confirmed/validated/tested/proven + 已验证/已确认/已测试…) on a prose line of the CURRENT task block lacking a coverage scope on that line — COVER vocabulary (G4) below; `- iter N PARTIAL/PENDING/POST-HOC:` progress lines, fences/headings/tables, baseline/COV-skip exempt; `- claim-ack: <line N> — <reason ≥10 chars>` licenses (current-block line refs only; fenced acks ignored) | A4.4 claim rule |
+| 14 | **secret scan** — no credential-looking string (AWS key · PRIVATE KEY block · `ghp_`/`github_pat_`/`xox*`/`sk-` · k=v `api_key`/`secret`/`password`/`token` = ≥12-char value; refs like `os.environ.get(…)` NOT flagged) on an ADDED wave line (anchor..HEAD + uncommitted; untracked + ignored secret-named (`.env*`, keys) whole-scanned); placeholder-marked exempt; `*.md` WARN only; `assert_artifacts.py` never scanned. **User-approved:** `vw-approved` exempts ONLY a line matching a credential pattern AND paired `- secret-approved: <path> — <reason>` (≤1/path) | A4.4 content gate |
+| 15 | **test-change guard** — no REMOVED assertion line (`assert`·`expect(`·`pytest.raises`·`require(`·`def test_`·`it(`·`test(`·`func Test`·`@Test`) in a test code file (segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*`; code exts; whole-file deletions included) without `- test-change: <path> — <reason>`; NEW test files need their own line (C3b hash baseline) | A4.8 test integrity |
 | 16 | **risk-tier** — when the wave diff/untracked touches a risk-tier code path (`auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` segment; code exts, deletions included), `tests/review_package.md` exists and >0 bytes — A4.9 non-skippable for risk-tier (existence check; freshness via §A4.9 scoped re-review) | A4.9 risk tiering |
-| 17a | **DOC-asset render gate (§V11.9)** — a delivered office/document asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave scope, deletions excluded) needs a `render:` log line naming it + existing >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain: soffice/libreoffice/pymupdf/pdftoppm/poppler/imagemagick>)`. **NO RENDER, NO DONE**; fires in EVERY class | §V11.9 render gate |
-| 17b | **exec-check (§V11.9)** — every delivered office asset also needs an `exec-check:` line naming it with `clean` or `escalat…` (vbaProject.bin / PDF JavaScript / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
-| 18 | **task-class coherence (COV-13)** — `--class DOC\|CONFIG\|CODE` (or the block's first `- class:`) N/A's only structurally-free groups (DOC: memory 4 + service-lifecycle 5; CONFIG: memory 4 with `- memory: na (<why>)`); a `--class` contradicting the log's class is a NAMED failure (§V11.7); a class never weakens an applicable group | COV-13 / §V11 |
+| 17a | **DOC-asset render gate (§V11.9)** — a delivered office asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave, deletions excluded) needs a `render:` line naming it + >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain>)`. **NO RENDER, NO DONE**; every class | §V11.9 render gate |
+| 17b | **exec-check (§V11.9)** — every delivered office asset needs an `exec-check:` line naming it with `clean` or `escalat…` (vbaProject.bin / PDF JS / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
+| 18 | **task-class coherence (COV-13)** — `--class DOC\|CONFIG\|CODE` (or the block's first `- class:`) N/A's only structurally-free groups (DOC: 4+5; CONFIG: 4 with `- memory: na (<why>)`); a `--class` contradicting the log is a NAMED failure (§V11.7); a class never weakens an applicable group | COV-13 / §V11 |
 | 19 | **working-note lifecycle (§A7.15, `--final` only)** — `tests/working_note.md` must NOT exist at completion: working memory is distilled into `memory/` (A7.9) and deleted before the completion table; a leftover is an undistilled lesson or zombie state | A7.15 / A7.10 check 6 |
 | 20 | **working-note creation side** — ≥2 iterations or a FAIL requires `- working-note:` lifecycle lines (created → updated → distilled → deleted) or `na (<why>)` in the block | §A7.15 |
-| 21 | **repo hygiene / VCS budget** — `.gitignore` present + stack patterns; no tracked vendor/cache; untracked ≤2,000; `.git` ≤1 GiB (warn >200 MiB); largest blob ≤40 MiB at `--final`; wave >2,000 paths fails (no scan) | COV-9 / A10.1 |
+| 21 | **repo hygiene / VCS budget** — `.gitignore` present + stack patterns (T2 hint: `git add -f` swallowed ignores); no tracked vendor/cache; untracked ≤2,000; `.git` ≤1 GiB (warn >200 MiB); largest blob — 40 MiB ceiling on UNRECORDED debt (G3, preflight==`--final`); pre-existing debt is grandfathered ONLY by a COMMITTED shrink-only baseline (`--record-debt`; deleted-but-tracked refuses re-record, untracked buys nothing >40 MiB, raised-vs-committed → FAIL) — held≤recorded → WARN `held at baseline`, grown → FAIL (committed raises stay review-visible; trust model names laziness/drift); wave >2,000 live paths fails (R3: net-deletions excluded) | COV-9 / A10.1 |
+
+**COVER vocabulary (G4 — a claim line's coverage scope):** 数量词
+`all/each/every/both`·全部/所有/逐一 · 分数/界 `3/3`·`N<M`·至少/至多/随机 ·
+criterion 引用 `criterion #2` · 产物路径 `tests/…`·`*.png`·`*.trace.log` ·
+覆盖词 `coverage/sweep`·覆盖/边界/用例/场景/包括/包含.
+
+**Machine values & anchors (G5/G6/T1):** git HEAD / sha256 enter the log only
+via `scripts/record_evidence.sh --note … [--hash …]` — never hand-typed hex
+(15c WARNs 60-63/65+ hex). Wave anchor = the block's `- wave-base: <sha>`
+(strict HEAD ancestor, validated; invalid → FAIL, never a smaller wave).
+A4.9 packages: `scripts/make_review_package.sh <BASE> <HEAD>`.
 
 The script byte-checks the artifacts behind every Gate Function claim — the
 external verifier for claims mm-sensor cannot see. The **canonical file is
@@ -247,27 +260,24 @@ false alarms than it catches. Mitigation is procedural, not mechanical: the
 completion-time `assert_artifacts.py --final` run + the audit's B12
 final-run check examine the resulting tree regardless of how it was edited.
 
-- **Fail-closed (D4, 2026-10-15):** EVERY assert failure blocks (evidence and
-  structure alike); only explicit `WARN` lines stay advisory. "The check could
-  not run" is itself a BLOCK (python3 missing, timeout, crash, placeholder/
-  stub exit 0 without the canonical shape). A legacy prose-only copy fails
-  closed on its output too (upgrade from `scripts/`). `--json` prints
+- **Fail-closed (D4):** EVERY assert failure blocks (evidence and structure);
+  only `WARN` lines stay advisory. "The check could not run" is itself a BLOCK
+  (python3 missing, timeout, crash, placeholder/stub). A legacy prose-only
+  copy fails closed too (upgrade from `scripts/`). `--json` prints
   `{ok, passes, fails:[{code,severity,detail}]}`.
 - `session.idle` with a RED gate writes a `warn` entry to the opencode log
   (tripwire when the agent stops on a red gate).
-- **Stall observer (stateful):** `.vibeweaver/state.json` (atomic writes;
-  gitignore it) keeps the last ≤20 ops with the current `iter N PASS` count;
-  the SAME file edited 3× with no new PASS gets a `[GATE-WARNING]` stall note
-  pointing at §A4.10 (parameterize / shift). Warnings only — never blocks
-  (COV-7, machine-counted).
+- **Stall observer (stateful):** `.vibeweaver/state.json` (gitignore it)
+  keeps the last ≤20 ops + the `iter N PASS` count; the SAME file edited 3×
+  with no new PASS gets a `[GATE-WARNING]` stall note (§A4.10). Warnings only
+  — never blocks (COV-7, machine-counted).
 - Escape hatch: `VIBEWEAVER_GATE=off` disables the plugin.
 - If `tests/assert_artifacts.py` does not exist yet, the plugin runs an
   inline evidence check and the GATE-BLOCKED message points to §A4.4.1.
 - **Trust model (named boundary):** the gate defends against laziness and
-  drift, not a hostile agent — a fake `assert_artifacts.py` printing
-  `{"ok":true}` is accepted by design (the copy ships with the skill and is
-  replaceable), and `tests/` writes are never gated (evidence-fix path).
-  Sealing against tampering is the manifest work (PLAN C3 / evidence seal).
+  drift, not a hostile agent — a fake `{"ok":true}` script is accepted by
+  design (the copy ships with the skill), and `tests/` writes are never gated
+  (evidence-fix path). Tamper detection is the seal's job (C3/C3b).
 - **Seal three-state (G1, W18)** — `tests/evidence_manifest.json` +
   `tests/test_baseline.json`, written ONLY by `scripts/evidence_seal.py`
   (SLSA/in-toto verdicts — "missing" is never rendered as "stale"):
@@ -306,24 +316,15 @@ are the audit trail (who asked for what, what the agent produced, who approved
 it). Each artifact MUST name its upstream link, so the chain can be walked in
 both directions:
 
-- `tests/acceptance.md` ← names the source it was derived from (user request /
-  design doc / incident record) under its heading.
-- `tests/verification_log.md` entries ← cite the acceptance criterion numbers
-  they prove (A4.1 Step 4 requires criterion refs on FAIL lines; PASS lines
-  state covered criteria/scope).
-- `tests/review_package.md` ← records the exact `git diff $BASE..$HEAD` range
-  it reviews (A4.9 Step 1).
-- `memory/fix_*.md` ← frontmatter `commit:` hash of the fix (A7.9) — the
-  memory layer's link back into the chain.
-- Incident records (`docs/POSTMORTEM_*.md`, APPENDIX C6) ← cite the alert /
-  log / metric that triggered them; the fix they produce cites the postmortem
-  in its commit message.
+- `tests/acceptance.md` ← its source (user request / design doc / incident).
+- `tests/verification_log.md` ← criterion numbers per entry (A4.1 Step 4).
+- `tests/review_package.md` ← the `git diff $BASE..$HEAD` range (A4.9 Step 1).
+- `memory/fix_*.md` ← frontmatter `commit:` hash (A7.9).
+- `docs/POSTMORTEM_*.md` (APPENDIX C6) ← the alert/metric; the fix cites it.
 
-A break in the chain (an artifact that names no upstream) is an audit gap:
-when you write an artifact, write its link. The links are file contents —
-greppable, machine-checkable, no model judgment involved (detection stays
-deterministic): criterion refs are linted by groups 12/13, commit hashes in
-fix memory are A7.10 gate 3, the review package's range is §A4.9 Step 1.
+A break in the chain is an audit gap: write the link when you write the
+artifact. Links are greppable file contents (groups 12/13 · A7.10 gate 3 ·
+§A4.9 Step 1) — detection stays deterministic.
 
 ---
 
@@ -345,16 +346,12 @@ calls). Full architecture notes: this file's preface in the skill.
   header · `assert_artifacts.py: pass=N/fail=0` · `covenant_recall: pass` ·
   `memory_gate: pass`.
 - **Group C — claim↔artifact cross-checks of the gate line (triage):**
-  `Loop executed: yes` ↔ iter entries · `Iterations: N` ↔ log line count ·
-  `Media graded externally: N` ↔ media files on disk · `E2E depth:
-  real-HTTP/workflow-trace` ↔ `tests/workflows/*.trace.log` · `TDD RED
-  evidence: yes` ↔ `- iter N FAIL:` line · `Fresh-run: yes` ↔ git HEAD
-  commit time vs last log write · `Code review: N/A` ↔ `A4.9 not triggered`
-  reason in text (clean/N-fixed ↔ `task` dispatch in tool log) · script-only
-  ↔ bash commands (forbidden raw `npm run build` / `vite` / `npm start` /
-  `uvicorn` / `pkill -f`) · R1/R1b/R2-5 reads ↔ read tool calls on the skill
-  files · verifier announcement (when loop executed) · COV-9 baseline entry
-  · HARD-GATE-1/2 values.
+  `Loop executed` ↔ iter entries · `Iterations` ↔ log count · `Media graded` ↔
+  files on disk · `E2E depth` ↔ `tests/workflows/*.trace.log` · `TDD RED` ↔
+  `- iter N FAIL:` · `Fresh-run` ↔ commit time vs log write · `Code review`
+  ↔ dispatch/reason · script-only ↔ bash (raw `npm run build`/`vite`/`npm
+  start`/`uvicorn`/`pkill -f` forbidden) · R1/R1b reads ↔ read tool calls ·
+  verifier announcement · COV-9 entry · HARD-GATE-1/2 values.
 
 **Report:** written to `tests/gate_audit.md` at session idle (refreshed at
 every session idle, which fires after EVERY assistant turn). The FULL final
@@ -535,7 +532,8 @@ Before declaring any task complete, explicitly list and confirm:
 - [ ] §2 **ZERO: Decompose & Web Research executed FIRST (exa MCP + Context7)**
 - [ ] Git repo committed after each major change
 - [ ] (Modify Existing only) **COV-9 Baseline-GREEN before changes** —
-      commit `backup: before changes` THEN run existing build/test/start
+      carry-over commit of the previous session's work FIRST (R2), then
+      `backup: before changes`, THEN run existing build/test/start
       once via `script/`; report pre-existing failures and log to
       `tests/verification_log.md`. **Per change-wave** (previous task's
       baseline does NOT count) and recorded as the first log entry:

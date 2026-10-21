@@ -1024,6 +1024,9 @@ function recordMemoryDelivery(root, kind) {
 // landed write).
 function gateCheckWrite(directory, filePath) {
   if (process.env.VIBEWEAVER_GATE === "off") return Promise.resolve(null)
+  // relative args.path resolves against the host directory (review A: cwd
+  // resolution made a tests/ write look like a non-evidence write)
+  if (filePath && !path.isAbsolute(filePath) && directory) filePath = path.resolve(directory, filePath)
   const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
   if (!root) return Promise.resolve(null)
   // Cue delivery is hoisted ABOVE the gate: a RED gate (e.g. the task's

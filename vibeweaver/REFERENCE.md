@@ -482,6 +482,10 @@ design). Everything else stays fully autonomous.
 # untracked ≤ 2k, .git ≤ 1 GiB. RED → fix .gitignore + `git rm -r --cached --ignore-unmatch`
 # FIRST; history rewrite (filter-repo) is Class-E, user-approved only.
 python3 tests/assert_artifacts.py --existing --json   # copy canonical script if missing
+# R2: archive the PREVIOUS session's uncommitted work FIRST (descriptive
+# commit), then the literal backup anchor — a bare backup commit swallows it
+# into the baseline and destroys attribution:
+git add -u && git add <explicit new paths> && git commit -m "chore: carry-over <previous wave> work"
 git add -u && git commit --allow-empty -m "backup: before changes"   # baseline (tracked-only — never `git add -A`)
 # ... make changes ...
 git add -u && git add <explicit new paths> && git commit -m "feat: description of change"
@@ -554,7 +558,8 @@ At session end, before the completion table, you MUST (operational rules in
 8. Check consolidation need (>15 topic files or index >150 lines / 20KB — see
    [MEMORY_RULES.md §A7.13](MEMORY_RULES.md)).
 9. Pass Final Memory Gate (A7.10) and output the `[Memory Gate] Passed: …`
-   (or `na (reason)` per §V11.3) line immediately before the completion table.
+   (or `na (reason)` per §V11.3) line in its slot of the authoritative output
+   order (COMPLETION_GATE §A4.4).
 
 ### C3. Large-Task Implementation Plan (Conditional)
 **Trigger:** work touching ≥3 files, or multi-step inter-dependencies (new

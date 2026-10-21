@@ -2,6 +2,14 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-21：W18 第 2/3 批 — 债棘轮、claim-lint 纪律、锚点校验、输出顺序唯一化
+
+**缺口。** 历史债"进门不拦出门拦"；claim-lint 扫全历史（逼人改日志）且无抑制通道；波取样锚点可静默吞并前几波；Class-E 重写 runbook 缺口与"外会话写可解 RED latch"的未归因释放键在第 1 批后仍在。
+
+**机制。** `tests/debt_baseline.json`（`--record-debt`、shrink-only、git 锚定：抬高即 FAIL、删除拒重录）把既有债记为 `held at baseline` WARN、增长即 FAIL，preflight 与 `--final` 同一边界。claim-lint 只扫当前任务块：PASS/FAIL 结果声明保持可查、PARTIAL/PENDING/POST-HOC 进度态豁免、`- claim-ack: line N — <reason>` 抑制（理由 lint、fence 无效、限当前块）。波锚点取任务块的 `- wave-base: <sha>` 且必须是 HEAD 严格祖先（伪/HEAD 锚点 fail-closed——否则 secret 扫描/test-change/风险级/C1 会被一行日志致盲）。seal 绑定非 web 证据（cli/library 下 `tests/**/*.{log,json,md}`，永不绑自身产物），`scripts/record_evidence.sh` 是机器值唯一写入口；`scripts/make_review_package.sh` 生成 A4.9 复审包。RED latch 的 new-task 释放归因化（per-session arm；外会话/bash 触碰不 arm）。完成输出顺序唯一化并机器钉住。
+
+**验证。** audit_selftest 571/0（1 skipped）· sweep 44/0 · compat 82/82 · assert 组 71/71 · `--existing --final` 28/28 · secret scan clean · 双对抗复审 + scoped re-review 轮 2（Critical 全闭、PoC 自证）· fresh-context verify 7/7 · 四副本字节一致 + eval canonical/pin 重钉。
+
 ## 2026-10-21：W18 第 1 批 — seal 三态、从未生效的 tests/ 豁免、Class-E 重写 runbook
 
 **缺口。** W12 一个波次实测 30+ 次 GATE-BLOCKED 误报：seal 缺失态被渲染成 "STALE …（missing != success）"；文档写明的 `tests/` 写入豁免在真实宿主参数形态下从未生效（插件读 `args.filePath`，而 opencode write/edit 传的是 `{path, …}`）；loop-guard 的尾随空白归一化把字符周期校验窗错开一个字节，以 `". "` 结尾的 4-copy 失控漏报。另外一次 `git filter-repo` 历史重写抹掉了未提交日志编辑，全部 commit 引用失效。

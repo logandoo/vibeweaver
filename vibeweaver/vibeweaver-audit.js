@@ -830,6 +830,8 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         : age > ttlHours * 3_600_000
           ? "ttl-expiry"
           : cur && latch.sessionID === cur && acceptanceMtime(root) > latch.ts
+              && state.roots[root].newTaskArms
+              && state.roots[root].newTaskArms[latch.sessionID] > latch.ts
             ? "new-task"
             : null
       if (!reason) return null
@@ -2234,13 +2236,30 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const cur = typeof sessionID === "string" && sessionID ? sessionID : null
     const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
     if (!root || !state.roots[root]) return null
+    // D-W18-6 (W18 review Important): the "new-task" release key is
+    // ATTRIBUTION-GATED. Only a tests/acceptance.md write observed for the
+    // LATCHING session arms it — a foreign session's write (or a bash
+    // touch/git checkout that never reaches this hook) can no longer unlock
+    // somebody else's RED latch (the two-step variant of the D3 bypass).
+    if (filePath && isTestDirPath(root, filePath) && /(^|[\\/])acceptance\.md$/.test(filePath)) {
+      // per-session arms (review A: a single slot let a FOREIGN acceptance
+      // write clobber the owner's arm and grief its legitimate release);
+      // bounded map, newest ts per session wins.
+      const entryA = state.roots[root]
+      if (!entryA.newTaskArms || typeof entryA.newTaskArms !== "object") entryA.newTaskArms = {}
+      entryA.newTaskArms[cur || "(none)"] = Date.now()
+      const _arms = Object.keys(entryA.newTaskArms)
+      if (_arms.length > 8) for (const _k of _arms.slice(0, _arms.length - 8)) delete entryA.newTaskArms[_k]
+      flush()
+      return null
+    }
     releaseStale(root, cur, "write")
     const latch = readLatch(state.roots[root])
     if (!latch) return null
     if (filePath && isTestDirPath(root, filePath)) return null
     const selfLatched = cur === latch.sessionID
     return selfLatched
-      ? "GATE-BLOCKED (vibeweaver-audit): YOUR session's mechanical audit is RED — read tests/gate_audit.md. To unblock: fix each [BAD] item (any test directory — tests/, dev/tests/, … — stays writable: repair the missing evidence and append `- audit-fix: …` entries to tests/verification_log.md), then re-emit a corrected [Verification Gate] line in your reply. The audit re-runs at every session idle and re-checks on every write. Starting a NEW task in this session? Per protocol write tests/acceptance.md first (Step 1 — tests/ is writable right now): a post-latch acceptance rewrite auto-releases the latch on your next gated write (journaled as new-task) — no other session, no TTL wait, no VIBEWEAVER_AUDIT=off needed; the old wave's debt stays in tests/gate_audit.md and your new wave's own final audit re-checks everything. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
+      ? "GATE-BLOCKED (vibeweaver-audit): YOUR session's mechanical audit is RED — read tests/gate_audit.md. To unblock: fix each [BAD] item (any test directory — tests/, dev/tests/, … — stays writable: repair the missing evidence and append `- audit-fix: …` entries to tests/verification_log.md), then re-emit a corrected [Verification Gate] line in your reply. The audit re-runs at every session idle and re-checks on every write. Starting a NEW task in this session? Per protocol write tests/acceptance.md first (Step 1 — tests/ is writable right now): a post-latch acceptance rewrite BY THE WRITE/EDIT TOOL (hook-observed; bash touches do not count — D-W18-6 attribution) auto-releases the latch on your next gated write (journaled as new-task) — no other session, no TTL wait, no VIBEWEAVER_AUDIT=off needed; the old wave's debt stays in tests/gate_audit.md and your new wave's own final audit re-checks everything. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
       : "GATE-BLOCKED (vibeweaver-audit): a mechanical RED latch for this project is still pending — read tests/gate_audit.md. The latch belongs to the session that earned it and does NOT release on other sessions' writes (D3: subagent/task-tool writes count as foreign). It releases only on that session's own new task (tests/acceptance.md rewritten after the latch) or after the red TTL (default 24h). Any test directory (tests/, dev/tests/, …) stays writable so evidence can be repaired. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
   }
 
@@ -2378,10 +2397,12 @@ async function server({ client, directory }) {
     "tool.execute.before": async (input, output) => {
       if (!input || (input.tool !== "write" && input.tool !== "edit")) return
       const args = (input && input.args) || (output && output.args) || {}
+      let fp = writePathFromArgs(args)
+      if (fp && !path.isAbsolute(fp) && directory) fp = path.resolve(directory, fp) // relative args.path (review A deadlock)
       const msg = m.beforeWrite({
         tool: input.tool,
         sessionID: input.sessionID,
-        filePath: writePathFromArgs(args),
+        filePath: fp,
       })
       if (msg) throw new Error(msg)
     },
@@ -2471,10 +2492,12 @@ async function setup(ctx) {
       const rawInput = event.input && typeof event.input === "object" ? event.input : null
       if (event.tool === "write" || event.tool === "edit") {
         const args = rawInput || {}
+        let fp = writePathFromArgs(args)
+        if (fp && !path.isAbsolute(fp)) fp = path.resolve(directory || process.cwd(), fp) // relative args.path
         const msg = m.beforeWrite({
           tool: event.tool,
           sessionID: event.sessionID,
-          filePath: writePathFromArgs(args),
+          filePath: fp,
         })
         if (msg) throw new Error(msg)
       }

@@ -908,6 +908,29 @@ recorded as open questions, never invented.
 
 ---
 
+## §A4.9 FCV Brief Template (T1 — fresh-context verify / reviewer brief)
+
+```markdown
+# FCV Brief — <task> (<date>)
+READ-ONLY run: execute the commands, report what you observe; do not fix.
+
+## Commands (run from the project root; capture exit codes)
+1. <covering test command>        → expect <N/N>
+2. <second suite>                 → expect <…>
+3. python3 tests/assert_artifacts.py --existing --final → expect exit 0
+4. python3 scripts/scan_secrets.py --all .               → expect clean
+
+## Claims to confirm (one row each)
+| claim | how to check | verdict |
+|-------|--------------|---------|
+| <e.g. tests/ exemption works for both arg shapes> | <grep/repro> | pass/fail |
+
+## Deliverable
+tests/fcv_report.md — the table above filled + `verdict: pass | fail`.
+Evidence rests on SELF-WRITTEN tests otherwise → this fresh-context re-run is
+the required `Fresh-verify: pass` field (VERIFICATION_UPGRADES §V1).
+```
+
 ## §A4.1.2 Design-Copy Fidelity — Capture + Measurement (Universal)
 
 Protocol: TESTING_PROTOCOLS.md §A4.1.2 (T0 identical capture · T1 geometry/

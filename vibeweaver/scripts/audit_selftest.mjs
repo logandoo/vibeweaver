@@ -1515,6 +1515,7 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   // a same-ms rewrite resolves to "no release" — teeth win the tie).
   await new Promise((r) => setTimeout(r, 5))
   write(root, "tests/acceptance.md", "wave2 criteria — new task begins\n")
+  await tryWrite(plugin, root, "tests/acceptance.md", "ses_t29") // D-W18-6: the rewrite must be ATTRIBUTED (hook-observed) to arm the release
   const allowed = (await tryWrite(plugin, root, "src/b.ts", "ses_t29")) === true
   const st25 = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root]
   const rel = (st25.redReleases || []).find((r) => r.reason === "new-task")
@@ -1522,6 +1523,37 @@ async function tryWrite(plugin, root, relPath, sessionId) {
     "T29b post-latch acceptance rewrite releases the latch in-session (journal: new-task)",
     allowed && st25.red == null && !!rel,
     allowed ? (rel ? `released, journaled by ${rel.by}` : "released but journal MISSING") : "deadlocked: " + JSON.stringify(st25.red)
+  )
+
+  // D-W18-6 PoC regressions: neither a FOREIGN session's acceptance write
+  // nor a hook-less (bash-style) touch may arm the latching session's
+  // release — the two-step variant of the D3 subagent bypass.
+  const rootF = newFixture("t29-newtask-foreign")
+  write(rootF, "tests/verification_log.md", "placeholder — no iter entries\n")
+  write(rootF, "tests/acceptance.md", "wave1 criteria\n")
+  const pluginF = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: rootF })
+  await latchRed(pluginF, "ses_t29f", rootF)
+  await new Promise((r) => setTimeout(r, 5))
+  write(rootF, "tests/acceptance.md", "wave2 criteria (FOREIGN writer)\n")
+  await tryWrite(pluginF, rootF, "tests/acceptance.md", "ses_FOREIGN") // foreign session arms nothing
+  const foreignBlocked = await tryWrite(pluginF, rootF, "src/b.ts", "ses_t29f")
+  rec(
+    "T29c a FOREIGN acceptance write never arms the owner's new-task release (D3 bypass closed)",
+    typeof foreignBlocked === "string" && /GATE-BLOCKED/.test(foreignBlocked),
+    foreignBlocked === true ? "BYPASS REOPENED — foreign write unlocked the latch" : "still blocked"
+  )
+  const rootB = newFixture("t29-newtask-bash")
+  write(rootB, "tests/verification_log.md", "placeholder — no iter entries\n")
+  write(rootB, "tests/acceptance.md", "wave1 criteria\n")
+  const pluginB = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: rootB })
+  await latchRed(pluginB, "ses_t29b", rootB)
+  await new Promise((r) => setTimeout(r, 5))
+  write(rootB, "tests/acceptance.md", "wave2 criteria (bash touch — no hook)\n") // never observed
+  const bashBlocked = await tryWrite(pluginB, rootB, "src/b.ts", "ses_t29b")
+  rec(
+    "T29d a hook-less (bash-style) acceptance touch never arms the release",
+    typeof bashBlocked === "string" && /GATE-BLOCKED/.test(bashBlocked),
+    bashBlocked === true ? "BYPASS REOPENED — mtime-only key still live" : "still blocked"
   )
 }
 
@@ -1585,6 +1617,7 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   // then the evidence wave.
   await new Promise((r) => setTimeout(r, 5))
   write(root, "tests/acceptance.md", "wave2 criteria\n")
+  await tryWrite(plugin, root, "tests/acceptance.md", "ses_t31") // D-W18-6 attribution arm
   const allowed = (await tryWrite(plugin, root, "src/conv.ts", "ses_t31")) === true
   rec("T31 wave2 new-task key opens the source-write path in-session", allowed, allowed ? "DOC->CODE unblocked without takeover" : "deadlocked: " + blocked1)
   // wave2 lands better evidence (A1/A2 clear) and re-emits the gate line:
@@ -1639,6 +1672,7 @@ async function tryWrite(plugin, root, relPath, sessionId) {
   await latchRed(plugin, "ses_t28c", root)
   await new Promise((r) => setTimeout(r, 5))
   write(root, "tests/acceptance.md", "wave2 criteria\n")
+  await tryWrite(plugin, root, "tests/acceptance.md", "ses_t28c") // D-W18-6 attribution arm
   const open = (await tryWrite(plugin, root, "src/w2.ts", "ses_t28c")) === true
   await emit("message.part.updated", { sessionID: "ses_t28c", part: { id: "t2", type: "text", text: "[Verification Gate] Verifier: mm-sensor [image] | Loop executed: yes | Iterations: 2 | assert_artifacts.py: pass=13/fail=0 | covenant_recall: pass | memory_gate: pass | HARD-GATE-1: NO-TEST-NO-DONE=pass | HARD-GATE-2: SCRIPT-ONLY=pass" } })
   await emit("session.idle", { sessionID: "ses_t28c" })
@@ -4076,6 +4110,37 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   rec("T39 plan template hangs under C3 (no bare §A7 template heading)",
     /C3 Plan Template/.test(appHead) && !/§A7\. Large-Task/.test(appHead),
     appHead.split("\n").filter((l) => /C3|§A7/.test(l)).join(" | "))
+  // D1 (W18 P2): the completion output order has exactly ONE normative
+  // position — the canonical sequence lives in COMPLETION_GATE §A4.4 and is
+  // referenced from SKILL.md. W12 juggled three competing orders; a second
+  // ordering claim anywhere in the payload is the same trap returning.
+  const SEQ = ["[Convergence]", "[Coverage]", "[Memory Gate]", "[Decisions]", "[Covenant Recall]", "[Verification Gate]"]
+  const spanHasOrder = (t, startPat, endTok) => {
+    const a = t.search(startPat)
+    const b = t.indexOf(endTok, a + 1)
+    if (a < 0 || b < 0) return false
+    const span = t.slice(a, b)
+    let prev = -1
+    for (const tok of SEQ) {
+      const i = span.indexOf(tok)
+      if (i < 0 || i <= prev) return false
+      prev = i
+    }
+    return true
+  }
+  const orderWhere = []
+  const secondOrder = []
+  for (const f of payloadMds) {
+    const t = readFileSync(path.join(root39, f), "utf8")
+    if (spanHasOrder(t, /Output order/, "completion table") || spanHasOrder(t, /Output order/, "gate line")) orderWhere.push(f)
+    const flat = t.replace(/\n/g, " ")
+    if (/\[Memory Gate\][^\n]{0,96}immediately before the completion table/.test(flat)) secondOrder.push(f + ":MemoryGate-immediately-before-table")
+    if (/\[Decisions\][^\n]{0,96}immediately before the completion table/.test(flat)) secondOrder.push(f + ":Decisions-immediately-before-table")
+    if (/Output order: \(1\)/.test(t)) secondOrder.push(f + ":numbered-output-order")
+  }
+  rec("T39 completion output order is unique (D1: one normative position)",
+    orderWhere.includes("COMPLETION_GATE.md") && orderWhere.includes("SKILL.md") && secondOrder.length === 0,
+    `order-in=${orderWhere.join(",") || "none"} second=${secondOrder.join(",") || "none"}`)
 }
 
 // ---------- T40/T41 — effectiveness guards for the SIGTRAP hardening ----------
