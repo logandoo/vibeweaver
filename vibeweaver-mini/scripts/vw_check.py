@@ -88,6 +88,14 @@ def discover():
     return [], []
 
 
+def norm_key(p):
+    """Hash-record keys are POSIX-style on EVERY platform: glob returns
+    native separators on Windows (`tests\\conftest.py`), and the record is
+    read/compared by tools that pin `tests/conftest.py` (CI: the nested
+    conftest test failed on windows-latest only)."""
+    return str(p).replace(os.sep, "/").replace("\\", "/")
+
+
 def test_config_files():
     """Files that can change which tests run without changing a test file.
 
@@ -196,12 +204,13 @@ def main():
         print("NOTE: a suite you wrote yourself is weak evidence — say so in your report.")
         return 1
 
-    hashes = {t: sha(t) for t in tests + test_config_files()}
+    hashes = {norm_key(t): sha(t) for t in tests + test_config_files()}
     if os.path.exists(HASH_FILE):
         try:
             old = json.load(open(HASH_FILE))
             if not isinstance(old, dict):
                 raise ValueError("bad record")
+            old = {norm_key(k): v for k, v in old.items()}  # legacy records may carry native separators
         except Exception:
             print("HASH RECORD UNREADABLE — refusing to run (fail-closed).")
             print("The record is machine-maintained; report the corruption instead of rebuilding it.")

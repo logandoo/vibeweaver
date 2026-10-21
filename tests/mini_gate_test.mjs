@@ -481,6 +481,7 @@ if (process.platform !== "win32") {
   run()
   const h = JSON.parse(readFileSync(path.join(dir, ".vw_test_hashes.json"), "utf8"))
   rec("nested tests/conftest.py is hashed", Object.prototype.hasOwnProperty.call(h, "tests/conftest.py"), Object.keys(h).join(", "))
+  rec("hash keys are POSIX-normalized on every platform (no native separators)", Object.keys(h).every((k) => !k.includes("\\")), Object.keys(h).join(", "))
   appendFileSync(path.join(dir, "tests", "conftest.py"), "\n# changed\n")
   const second = run()
   rec("nested conftest change refuses to run", second.status !== 0 && /TEST SET CHANGED/.test(second.out), second.out.slice(-300))
