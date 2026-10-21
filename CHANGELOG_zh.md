@@ -2,6 +2,14 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-21：W18 残余销项 — 棘轮跨历史、ack 绑定声明
+
+**缺口。** 批 2/3 复审后仍余两处：提交级抬高债基线后可通过（只对 HEAD 比较，且 50 修订 churn 窗口可驱逐低锚）；`- claim-ack:` 行号漂移后会静默改挂到别的声明行。
+
+**机制。** 债棘轮的 min 改为横跨该路径的全部提交修订（最新 50 + 首次采纳锚）——工作树或历史中的抬高一律 FAIL，churn 提交洗不掉。claim-ack 强制携带引文（`- claim-ack: line N "<quoted claim>" — <reason>`）绑定声明内容，漂移/fence/引文不符的 ack 一律不抑制并标 `stale claim-ack`。
+
+**验证。** assert 组 75/75（S67 提交级抬高 · S69 引文改挂 · S70 55 次 churn 窗口三用例钉住）· audit_selftest 571/0 · sweep 44/0 · compat 82/82 · `--existing --final` 29/29 · scoped 对抗复审（R1b/R2 闭合）· 四副本 + eval pins 重钉。
+
 ## 2026-10-21：W18 第 2/3 批 — 债棘轮、claim-lint 纪律、锚点校验、输出顺序唯一化
 
 **缺口。** 历史债"进门不拦出门拦"；claim-lint 扫全历史（逼人改日志）且无抑制通道；波取样锚点可静默吞并前几波；Class-E 重写 runbook 缺口与"外会话写可解 RED latch"的未归因释放键在第 1 批后仍在。

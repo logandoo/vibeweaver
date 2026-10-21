@@ -89,7 +89,10 @@ STRUCT_LINE = re.compile(r"^(?:#{1,6}\s|>|\|{1,2}\s*-+|\s*$)")
 # claims and stay lintable (suppression: `- claim-ack: <line ref> — <reason>`,
 # Google-style suppression-with-reason; a bare ack suppresses nothing).
 EXEMPT_LINE = re.compile(r"(?:^- iter \d+ (?:PARTIAL|PENDING|POST-HOC):|^- Baseline verified GREEN|^- COV-\d+ skipped)")
-CLAIM_ACK = re.compile(r"^\s*-\s*claim-ack:[^\S\n]*(?:line[^\S\n]*|L)?(\d+)[^\S\n]*[-\u2013\u2014][^\S\n]*(\S.*)$", re.I | re.M)
+# G4 ack = line ref + QUOTED claim + reason (the quote binds the ack to the
+# claim's content — without it a block edit silently retargets the
+# suppression onto whatever line now carries that number).
+CLAIM_ACK = re.compile(r'^\s*-\s*claim-ack:[^\S\n]*(?:line[^\S\n]*|L)?(\d+)[^\S\n]+"([^"]{4,80})"[^\S\n]*[-\u2013\u2014][^\S\n]*(\S.*)$', re.I | re.M)
 FENCE = re.compile(r"^\s{0,3}(?:```|~~~)")
 
 # --- groups 14-16: change-wave content gates (canonical spec:
@@ -770,6 +773,33 @@ def read(p: pathlib.Path) -> str:
         return ""
 
 
+def stale_claim_acks(vl: str, span=None):
+    """G4 residual (content binding): an ack whose line ref no longer points at
+    a claim line has DRIFTED — it suppresses nothing and is itself reported,
+    so a block edit can never silently retarget a suppression."""
+    acks = {}
+    in_fence = False
+    for n, line in enumerate(vl.splitlines(), 1):
+        if FENCE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        m = CLAIM_ACK.match(line.strip())
+        if m and (span is None or span[0] <= n <= span[1]):
+            acks[int(m.group(1))] = (n, m.group(2))
+    stale = []
+    lines = vl.splitlines()
+    for target, (ack_line, quote) in sorted(acks.items()):
+        txt = lines[target - 1].strip() if 0 < target <= len(lines) else ""
+        in_span = span is None or (span[0] <= target <= span[1])
+        is_claim = (bool(txt) and in_span and not STRUCT_LINE.match(txt) and not EXEMPT_LINE.match(txt)
+                    and not CLAIM_ACK.match(txt) and bool(CLAIM.search(txt)) and not COVER.search(txt))
+        if not is_claim or quote not in txt:
+            stale.append((ack_line, target))
+    return stale
+
+
 def claim_without_coverage(vl: str, span=None):
     """Return violating (line_number, line) pairs: a claim verb on a prose line
     whose own line states no coverage scope. Fenced blocks, headings, tables
@@ -793,11 +823,11 @@ def claim_without_coverage(vl: str, span=None):
         _am = CLAIM_ACK.match(_line.strip())
         if not _am:
             continue
-        _reason = _am.group(2).strip()
+        _reason = _am.group(3).strip()
         # reason lint (12b-grade): a vacuous ack is a bare suppression
         if len(_reason) < 10 or re.fullmatch(r"(?i)[-?]*|none|n/?a|idk|unknown|tbd|ok|fine|yes", _reason):
             continue
-        acks[int(_am.group(1))] = _reason
+        acks[int(_am.group(1))] = (_reason, _am.group(2))
     hits = []
     in_fence = False
     for i, line in enumerate(vl.splitlines(), 1):
@@ -814,7 +844,9 @@ def claim_without_coverage(vl: str, span=None):
         if CLAIM_ACK.match(stripped):
             continue
         if i in acks and (span is None or span[0] <= i <= span[1]):
-            continue  # acks apply to the CURRENT block only (line refs must not retarget history)
+            _reason_i, _quote = acks[i]
+            if _quote in stripped:
+                continue  # content-bound suppression (quote matches the claim line)
         if CLAIM.search(stripped) and not COVER.search(stripped):
             hits.append((i, stripped[:80]))
     return hits
@@ -927,6 +959,35 @@ def debt_baseline_read(root):
         return json.loads(read(root / DEBT_BASELINE) or "{}") or {}
     except Exception:
         return {}
+
+
+def debt_recorded_history_min(root):
+    """min `recorded` over every COMMITTED revision of the baseline — the
+    shrink-only ratchet spans the file's git HISTORY, not just HEAD (residual:
+    raise+commit looked like a fresh committed value and passed)."""
+    rc, out = _git(root, "log", "--format=%H", "--", DEBT_BASELINE)
+    if rc != 0:
+        return None
+    shas = [x.strip() for x in out.splitlines() if x.strip()]
+    if not shas:
+        return None
+    # window = newest 50 + ALWAYS the first-ever revision (the adoption
+    # anchor) — a churn window must never evict the low anchor and launder a
+    # raise (review R1b: 49 cosmetic commits did exactly that).
+    window = shas[:50]
+    if shas[-1] not in window:
+        window.append(shas[-1])
+    vals = []
+    for sha in window:
+        rc2, blob = _git(root, "show", f"{sha}:{DEBT_BASELINE}")
+        if rc2 != 0:
+            continue
+        try:
+            _v = (json.loads(blob) or {}).get("largest-blob", {}).get("recorded")
+            vals.append(int(_v)) if isinstance(_v, int) or (isinstance(_v, str) and _v.isdigit()) else None
+        except Exception:
+            continue
+    return min(vals) if vals else None
 
 
 def debt_recorded_head(root):
@@ -1130,9 +1191,14 @@ def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
             # ratchet's truth. A hand-RAISED `recorded` launders debt and fails;
             # an UNTRACKED baseline buys nothing above the hard ceiling (then
             # nag until it is committed).
+            _hist_min = debt_recorded_history_min(root)
             if _rec_head is not None and _rec > _rec_head:
                 check(False, f"repo-hygiene: tests/debt_baseline.json `recorded` RAISED above its committed value "
                              f"({_rec} > {_rec_head}) — growth is never grandfathered; restore the committed baseline")
+            elif _hist_min is not None and _rec > _hist_min:
+                check(False, f"repo-hygiene: tests/debt_baseline.json `recorded` RAISED above its committed history "
+                             f"({_rec} > {_hist_min} = min over revisions) — debt may shrink or hold, never grow, "
+                             f"and committing a raise does not launder it (A10.1 ratchet)")
             elif _rec_head is None and max_blob > BLOB_FAIL:
                 check(False, f"repo-hygiene: largest blob {_mib:.1f} MiB > 40 MiB with an UNTRACKED debt baseline — "
                              f"commit tests/debt_baseline.json (the tamper anchor) or move the blob to LFS/releases (A10.1)")
@@ -1696,6 +1762,9 @@ def main():
     for i, snippet in claim_without_coverage(vl, _g4_span):
         check(False,
               f"verification_log.md line {i}: claim without stated coverage — {snippet!r} (A4.4 claim rule)")
+    for _ack_line, _target in stale_claim_acks(vl, _g4_span):
+        warn(f"verification_log.md line {_ack_line}: stale claim-ack — line {_target} is not a claim line "
+             f"(the reference drifted; a stale ack suppresses nothing — re-point or drop it)", "13")
 
     # 14) secret scan — the change-wave diff / untracked files must not ADD
     group("14")

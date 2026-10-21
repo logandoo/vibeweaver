@@ -2,6 +2,14 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-21: W18 residual closures — the ratchet spans history, acks bind to claims
+
+**The gap.** Two sharp edges survived the batch-2/3 review: a hand-RAISED debt baseline could be COMMITTED and then passed (the check only compared against HEAD, and a 50-revision churn window could evict the low anchor), and a `- claim-ack:` line ref could drift onto a different claim and silently license it.
+
+**The mechanism.** The debt ratchet's min now spans the baseline path's committed revisions (newest 50 + the first-ever adoption anchor) — raises in the worktree OR in history fail, and churn commits launder nothing. Claim acks now carry the quoted claim (`- claim-ack: line N "<quoted claim>" — <reason>`); the quote binds the suppression to the claim's content, and drifted/fenced/misquoted acks suppress nothing and are flagged `stale claim-ack`.
+
+**Verification.** assert group fixtures 75/75 (S67 raise+commit · S69 quote-mismatch retarget · S70 55-commit churn window all pin the closures) · audit_selftest 571/0 · mutation_sweep 44/0 · plugin compat 82/82 · `--existing --final` 29/29 · scoped adversarial review (R1b/R2 closed) · four copies + eval pins repinned.
+
 ## 2026-10-21: W18 batch 2/3 — debt ratchet, claim-lint discipline, validated wave anchors, output-order unification
 
 **The gap.** Historical repo debt failed at the exit gate instead of the entry gate; the claim lint scanned history (forcing log forgery) and had no suppression channel; the wave anchor could silently swallow earlier waves; a `git filter-repo` runbook gap and an unattributed latch-release key (a subagent write could unlock a RED latch) survived the batch-1 wave.

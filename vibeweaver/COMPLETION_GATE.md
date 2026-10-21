@@ -192,17 +192,17 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
 | 9 | Modify-Existing (`--existing`): `verification_log.md` contains `Baseline verified GREEN` or `COV-9 skipped` | COV-9 |
 | 10 | every `tests/workflows/*.trace.log` cited in `verification_log.md` exists and >0 bytes | A4.7b |
 | 11 | every `tests/*.webm` / `tests/*.wav` / `tests/*.mp4` / `tests/*.mp3` cited in `verification_log.md` exists and >0 bytes | A4.1 Step 2/3 |
-| 12 | every `- iter N FAIL:` line carries `diagnosis:`, and (12b) the clause is substantive — ≥10 chars, not a placeholder (`-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`) | A4.1 Step 4 |
-| 13 | no claim word (verified/confirmed/validated/tested/proven + 已验证/已确认/已测试…) on a prose line of the CURRENT task block lacking a coverage scope on that line — COVER vocabulary (G4) below; `- iter N PARTIAL/PENDING/POST-HOC:` progress lines, fences/headings/tables, baseline/COV-skip exempt; `- claim-ack: <line N> — <reason ≥10 chars>` licenses (current-block line refs only; fenced acks ignored) | A4.4 claim rule |
+| 12 | every `- iter N FAIL:` line carries `diagnosis:`, and (12b) it is substantive — ≥10 chars, not a placeholder (`-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`) | A4.1 Step 4 |
+| 13 | no claim word (verified/confirmed/validated/tested/proven + 已验证/已确认/已测试…) on a prose line of the CURRENT task block lacking a coverage scope on that line — COVER vocabulary (G4) below; `- iter N PARTIAL/PENDING/POST-HOC:` progress lines, fences/headings/tables, baseline/COV-skip exempt; `- claim-ack: line N "<quoted claim>" — <reason ≥10 chars>` licenses (quote binds ack↔claim; current-block refs only; fenced/drifted/misquoted acks suppress nothing → `stale claim-ack`) | A4.4 claim rule |
 | 14 | **secret scan** — no credential-looking string (AWS key · PRIVATE KEY block · `ghp_`/`github_pat_`/`xox*`/`sk-` · k=v `api_key`/`secret`/`password`/`token` = ≥12-char value; refs like `os.environ.get(…)` NOT flagged) on an ADDED wave line (anchor..HEAD + uncommitted; untracked + ignored secret-named (`.env*`, keys) whole-scanned); placeholder-marked exempt; `*.md` WARN only; `assert_artifacts.py` never scanned. **User-approved:** `vw-approved` exempts ONLY a line matching a credential pattern AND paired `- secret-approved: <path> — <reason>` (≤1/path) | A4.4 content gate |
 | 15 | **test-change guard** — no REMOVED assertion line (`assert`·`expect(`·`pytest.raises`·`require(`·`def test_`·`it(`·`test(`·`func Test`·`@Test`) in a test code file (segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*`; code exts; whole-file deletions included) without `- test-change: <path> — <reason>`; NEW test files need their own line (C3b hash baseline) | A4.8 test integrity |
 | 16 | **risk-tier** — when the wave diff/untracked touches a risk-tier code path (`auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` segment; code exts, deletions included), `tests/review_package.md` exists and >0 bytes — A4.9 non-skippable for risk-tier (existence check; freshness via §A4.9 scoped re-review) | A4.9 risk tiering |
 | 17a | **DOC-asset render gate (§V11.9)** — a delivered office asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave, deletions excluded) needs a `render:` line naming it + >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain>)`. **NO RENDER, NO DONE**; every class | §V11.9 render gate |
-| 17b | **exec-check (§V11.9)** — every delivered office asset needs an `exec-check:` line naming it with `clean` or `escalat…` (vbaProject.bin / PDF JS / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
+| 17b | **exec-check (§V11.9)** — every delivered office asset needs an `exec-check:` line naming it with `clean` or `escalat…` (vbaProject / PDF JS / macro — `escalated → Class CODE` promotes) | §V11.9 delivery exec-check |
 | 18 | **task-class coherence (COV-13)** — `--class DOC\|CONFIG\|CODE` (or the block's first `- class:`) N/A's only structurally-free groups (DOC: 4+5; CONFIG: 4 with `- memory: na (<why>)`); a `--class` contradicting the log is a NAMED failure (§V11.7); a class never weakens an applicable group | COV-13 / §V11 |
 | 19 | **working-note lifecycle (§A7.15, `--final` only)** — `tests/working_note.md` must NOT exist at completion: working memory is distilled into `memory/` (A7.9) and deleted before the completion table; a leftover is an undistilled lesson or zombie state | A7.15 / A7.10 check 6 |
 | 20 | **working-note creation side** — ≥2 iterations or a FAIL requires `- working-note:` lifecycle lines (created → updated → distilled → deleted) or `na (<why>)` in the block | §A7.15 |
-| 21 | **repo hygiene / VCS budget** — `.gitignore` present + stack patterns (T2 hint: `git add -f` swallowed ignores); no tracked vendor/cache; untracked ≤2,000; `.git` ≤1 GiB (warn >200 MiB); largest blob — 40 MiB ceiling on UNRECORDED debt (G3, preflight==`--final`); pre-existing debt is grandfathered ONLY by a COMMITTED shrink-only baseline (`--record-debt`; deleted-but-tracked refuses re-record, untracked buys nothing >40 MiB, raised-vs-committed → FAIL) — held≤recorded → WARN `held at baseline`, grown → FAIL (committed raises stay review-visible; trust model names laziness/drift); wave >2,000 live paths fails (R3: net-deletions excluded) | COV-9 / A10.1 |
+| 21 | **repo hygiene / VCS budget** — `.gitignore` present + stack patterns (T2 hint: `git add -f` swallowed ignores); no tracked vendor/cache; untracked ≤2,000; `.git` ≤1 GiB (warn >200 MiB); largest blob — 40 MiB ceiling on UNRECORDED debt (G3, preflight==`--final`); pre-existing debt is grandfathered ONLY by a COMMITTED shrink-only baseline (`--record-debt`; deleted-but-tracked refuses re-record, untracked buys nothing >40 MiB, raise in worktree OR history → FAIL — min spans the path's revisions (newest 50 + first-ever anchor; churn launders nothing) — held≤recorded → WARN `held at baseline`, grown → FAIL; wave >2,000 live paths fails (R3: net-deletions excluded) | COV-9 / A10.1 |
 
 **COVER vocabulary (G4 — a claim line's coverage scope):** 数量词
 `all/each/every/both`·全部/所有/逐一 · 分数/界 `3/3`·`N<M`·至少/至多/随机 ·
@@ -210,10 +210,10 @@ criterion 引用 `criterion #2` · 产物路径 `tests/…`·`*.png`·`*.trace.l
 覆盖词 `coverage/sweep`·覆盖/边界/用例/场景/包括/包含.
 
 **Machine values & anchors (G5/G6/T1):** git HEAD / sha256 enter the log only
-via `scripts/record_evidence.sh --note … [--hash …]` — never hand-typed hex
-(15c WARNs 60-63/65+ hex). Wave anchor = the block's `- wave-base: <sha>`
-(strict HEAD ancestor, validated; invalid → FAIL, never a smaller wave).
-A4.9 packages: `scripts/make_review_package.sh <BASE> <HEAD>`.
+via `scripts/record_evidence.sh` — never hand-typed hex (15c WARNs 60-63/65+
+hex). Wave anchor = the block's `- wave-base: <sha>` (strict HEAD ancestor,
+validated; invalid → FAIL, never a smaller wave). A4.9 packages:
+`scripts/make_review_package.sh <BASE> <HEAD>`.
 
 The script byte-checks the artifacts behind every Gate Function claim — the
 external verifier for claims mm-sensor cannot see. The **canonical file is
@@ -275,9 +275,9 @@ final-run check examine the resulting tree regardless of how it was edited.
 - If `tests/assert_artifacts.py` does not exist yet, the plugin runs an
   inline evidence check and the GATE-BLOCKED message points to §A4.4.1.
 - **Trust model (named boundary):** the gate defends against laziness and
-  drift, not a hostile agent — a fake `{"ok":true}` script is accepted by
-  design (the copy ships with the skill), and `tests/` writes are never gated
-  (evidence-fix path). Tamper detection is the seal's job (C3/C3b).
+  drift, not a hostile agent — a fake `{"ok":true}` script passes by design;
+  `tests/` writes are never gated (evidence-fix path). Tamper = the seal's
+  job (C3/C3b).
 - **Seal three-state (G1, W18)** — `tests/evidence_manifest.json` +
   `tests/test_baseline.json`, written ONLY by `scripts/evidence_seal.py`
   (SLSA/in-toto verdicts — "missing" is never rendered as "stale"):
