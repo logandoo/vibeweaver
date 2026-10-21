@@ -1,10 +1,12 @@
+%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 46, "padding": 7}, "themeVariables": {"fontSize": "14px"}}}%%
 flowchart TD
-    J["Acceptance green (panel 3)"] --> K{"COV-8 major change?"}
-    K -->|"yes"| L["§A4.9 independent review dispatch<br/>Artifacts: review record + ruling"]
-    K -->|"no"| M["§A4.4 completion gate<br/>convergence line + 8-column table<br/>assert_artifacts.py exit 0"]
-    L --> M
-    M --> N["Memory Gate<br/>A7.9 memory write + A7.10 passed"]
-    N --> P{"Plugin audit Tier 0/1/2"}
-    P -->|"BAD → GATE-BLOCKED / RED latch"| E["Back to implementation (panel 3)"]
+    J["Acceptance green (panel 3)"] --> K{"COV-8 review trigger?<br/>new feature · ≥3 files · schema or API<br/>risk-tier path · behavior semantics"}
+    K -->|"yes"| L["§A4.9 independent review<br/>fresh-context reviewer<br/>Lane L: two adversarial"]
+    K -->|"no"| N["A7.9 memory write + A7.10 Final Memory Gate<br/>working note distilled, then deleted"]
+    L --> N
+    N --> M["§A4.4 completion gate<br/>assert_artifacts.py --final exit 0 (21 groups)<br/>[Convergence] → [Coverage] → [Memory Gate]<br/>→ [Decisions] → [Covenant Recall] → gate line<br/>8-column table (lite for DOC / CONFIG)"]
+    M -.-> S["legal stops: all-pass · cap-stall + ❌<br/>PAUSED packet · coverage-honest partial"]
+    M --> P{"plugin audit at session idle<br/>Tier 0/1/2 · loop-guard · stop-guard"}
+    P -->|"BAD → session-scoped RED latch"| E["Back to implementation (panel 3)"]
     P -->|"OK"| O["Deliver<br/>(C4 audit reports converge here)"]
     T4["C4 audit report (panel 2)"] --> O

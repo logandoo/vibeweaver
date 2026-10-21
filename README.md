@@ -8,14 +8,14 @@ Vibeweaver doesn't make a model stronger; it makes the ability already there act
 
 ```bash
 git clone https://github.com/logandoo/vibeweaver
-bash vibeweaver/vibeweaver/install.sh   # mkdir -p + idempotent (cp -r breaks on missing parents / nests on re-run)
+bash vibeweaver/vibeweaver/install.sh   # idempotent; safe to re-run
 ```
 
 Restart opencode and ask for the work; the skill triggers on implement /
 modify / debug / deploy coding tasks (not on Q&A or pure consulting).
 Saying "strictly follow vibeweaver" at the start of the request makes triggering
-essentially certain. Plugins, optional extras, and the Windows path:
-[Install](#install).
+essentially certain. For the plugins, the optional extras, and the Windows path,
+see [Install](#install).
 
 ## Why it exists
 
@@ -132,8 +132,9 @@ checkable.
   shared box kills your coworker's service.
 - **Research before code.** The first action on any task is decomposing the problem
   (asking when anything is unclear, one question at a time) and searching the web
-  (exa MCP + Context7) for prior art, evaluating at least two approaches. Skipped
-  only for a trivial typo or config change. The philosophy: nothing new under the
+  (exa MCP + Context7) for prior art, evaluating at least two approaches. Only a
+  trivial typo or config fix may skip it, or a spec that already determines the
+  implementation; the reason gets written down. The philosophy: nothing new under the
   sun. If a genuine search turns up no precedent, the task is too novel to
   improvise.
 - **Project memory.** opencode has no native memory system; every session starts
@@ -229,7 +230,7 @@ checkable.
 
 ```bash
 git clone https://github.com/logandoo/vibeweaver
-bash vibeweaver/vibeweaver/install.sh   # Linux/macOS (mkdir -p + idempotent)
+bash vibeweaver/vibeweaver/install.sh   # Linux/macOS
 # Windows, from a clone of this repo:
 vibeweaver\install.bat
 ```
@@ -237,10 +238,10 @@ vibeweaver\install.bat
 Restart opencode. The skill triggers whenever you ask for a build, a fix, a debug
 session, or a deploy.
 
-For the small-model kit, `bash vibeweaver-mini/install.sh` (Windows:
-`install.bat`) installs the mini skill and its checker gate; run
-`setup_project.sh` (Windows: `setup_project.bat`) in the project to place
-`vw_check.py` + `script/check.sh`. Windows requires `vw_check.py`; the
+The small-model kit installs separately: `bash vibeweaver-mini/install.sh`
+(Windows: `install.bat`) puts in the mini skill and its checker gate. Then run
+`setup_project.sh` (Windows: `setup_project.bat`) inside your project to place
+`vw_check.py` and `script/check.sh`. On Windows use `vw_check.py`; the
 `script/check.sh` fallback needs bash.
 
 `install.sh` / `install.bat` also install the enforcement plugins (the gate and
@@ -254,7 +255,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 The gate is the enforcement layer and the skill is the instruction layer; both work
 independently, so the skill runs fine without the plugins.
 
-Both plugins are a single file each that supports **opencode v1 (≥ 1.18.29) and
+Each plugin is a single file that supports **opencode v1 (≥ 1.18.29) and
 opencode v2 (≥ 2.0.0)** at the same time: the module default-exports
 `{ id, server, setup }`, v1's loader calls `server()` for the v1 hook map, and
 v2's loader decodes `{ id, setup }` and calls `setup(ctx)` for the domain-API
@@ -291,8 +292,8 @@ This repository contains three sub-projects:
 
 | Directory          | What                                                                                                                                                                                                                                                                                                                                    |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `vibeweaver/`      | The full skill; this README describes it                                                                                                                                                                                                                                                                                                |
-| `vibeweaver-mini/` | Small-model kit: a 2 KB deterministic loop ("run the checker, fix the first failure, repeat") plus `scripts/vw_check.py`, a checker that prints a repair packet and refuses to run if the test set changed. `vibeweaver-mini-gate.js` runs the checker after writes and blocks a false done claim; `install.sh` / `.bat` + `setup_project.sh` install it. Capability probe on a 3B-active model: the oracle decides, not the prose (the numbers are in the wave notes below) |
+| `vibeweaver/`      | The full skill: binding contract, router, and reference files                                                                                                                                                                                                                                                                            |
+| `vibeweaver-mini/` | Small-model kit: a 2 KB deterministic loop ("run the checker, fix the first failure, repeat") plus `scripts/vw_check.py`, a checker that prints a repair packet and refuses to run if the test set changed. `vibeweaver-mini-gate.js` runs the checker after writes and blocks a false done claim; `install.sh` / `.bat` + `setup_project.sh` install it. Capability probe on a 3B-active model: the oracle decides, not the prose |
 | `vibeweaver-eval/` | Benchmark rig: 16-task + flow A/B configs, grading scripts, raw runs, round reports                                                                                                                                                                                                                                                     |
 
 Which one to pick: **strong model** → full skill (force-injected); **weak
@@ -337,7 +338,7 @@ designed to make rounds comparable and hard to game:
 **The package has changed since these rounds, so every table carries its
 generation.** G1 is August 2026: 71 KB full skill, 2.2–5.7 KB minis. G2 is
 September 2026: 41.8 KB full skill, 1.7 KB mini kit. G3 is what `install.sh`
-delivers today: about 49 KB full skill and 2 KB mini. The 16-task rounds below
+delivers today: 47.8 KB full skill and 2 KB mini. The 16-task rounds below
 are G1. Waves 6–7 are G2. Waves 11–13 ran during the G2 era; the October waves
 hardened what now ships as G3. **No 16-task round has been run on G3.**
 
@@ -449,31 +450,30 @@ in `vibeweaver-eval/`.
 
 ## The workflow is a graph, not a checklist
 
-See the whole graph first, then read the breakdown (every node is a stage with
-mandatory artifacts, every edge is an explicit condition). The graph is split into
-four panels so each stays readable; together they are the full contract graph.
+Every node is a stage with mandatory artifacts; every edge is an explicit condition.
+Read the four panels in order and you have the full contract graph.
 
 #### 1. Entry and routing
-![Entry and routing: ZERO, project mode C1-C3](docs/assets/workflow-1-en.svg)
+![Entry and routing: ZERO, the two project modes, and the conditional C3 plan](docs/assets/workflow-1-en.svg)
 
 #### 2. Task-type routes
-![Task routes C4-C8 and S1](docs/assets/workflow-2-en.svg)
+![Task-type routes: C4 audit, C5 deploy, C6 ops, C7 non-web, S1 spike, C8 backlog](docs/assets/workflow-2-en.svg)
 
 #### 3. Implementation and verification
-![Implementation, change-type branches, bounded verification loop](docs/assets/workflow-3-en.svg)
+![Implementation: stacked change-shape branches and the bounded verification loop](docs/assets/workflow-3-en.svg)
 
 #### 4. Completion and enforcement
-![Review, completion gate, memory, plugin audit, delivery](docs/assets/workflow-4-en.svg)
+![Completion: review dispatch, memory gate, completion gate, plugin audit, delivery](docs/assets/workflow-4-en.svg)
 
-Sources: [`1`](docs/assets/workflow-1-en.mmd) · [`2`](docs/assets/workflow-2-en.mmd) · [`3`](docs/assets/workflow-3-en.mmd) · [`4`](docs/assets/workflow-4-en.mmd), rendered with mermaid-cli.
-
-- **Nodes are stages with mandatory artifacts.** ZERO (decompose + research) →
-  project-mode detection → design gates → implementation → verification loop →
-  independent review dispatch → completion table. A stage is not "done" because the
+- **Nodes are stages with mandatory artifacts.** ZERO (decompose, research, probe the
+  verifier, declare mode / lane / class) → project mode → the C3 plan when the change
+  set is large → implementation → verification loop → review dispatch → memory write →
+  completion table. A stage is not "done" because the
   model said so; it is done when its required outputs actually exist on disk.
-- **Edges are explicit conditions, not model mood.** A new project forks to one
-  workflow, modify-existing to another; the verifier capability probe branches the
-  capture and grading set into three verifier modes; backend-only changes swap the
+- **Edges are explicit conditions, not model mood.** Project mode forks on whether
+  code already exists; the primary deliverable picks the route, and a backlog queue
+  re-enters the loop once per item; the verifier probe in ZERO decides which capture
+  and grading set applies; backend-only changes swap the
   browser loop for the doc-driven API test loop.
 - **Cycles are bounded by construction.** Every loop shares one termination
   contract (`cap=5` / `stall=3×`), and the stop condition
@@ -518,67 +518,72 @@ project's `tests/assert_artifacts.py` (the same script the gate runs), grades th
 final output against its own claim checks, and re-checks the on-disk evidence.
 
 A BAD grade latches a **session-scoped** RED state that blocks the agent's writes
-until the evidence is actually fixed. Because the latch is session-scoped, a
-truncated session can never brick a project again: the latch self-releases on
-session change, on TTL expiry, via legacy-state migration — or when the latching
-session itself starts its NEXT task (rewriting `tests/acceptance.md` is the
-protocol's own first action, and `tests/` stays writable under the latch), so a
-multi-wave session never needs another session, a TTL wait, or an env-off restart
-to keep working. Stale-buffer re-audits with an unchanged failure signature can
-neither refresh a live latch's timestamp nor resurrect a released one — a new
-completion claim re-arms the teeth honestly. Every release is journaled and
-surfaced in the audit report (see the 2026-08-21 and 2026-10-02 entries in
-[CHANGELOG.md](CHANGELOG.md)). A forbidden raw command (C8) flags only once per
-project — the latch always stays self-clearable on the next clean audit.
+until the evidence is actually fixed. Being session-scoped is what stops a truncated
+session from bricking a project: the latch releases on a session change, on TTL
+expiry, or through legacy-state migration. It also releases when the latching session
+starts its next task — rewriting `tests/acceptance.md` is that task's first move, and
+`tests/` stays writable under the latch. A multi-wave session therefore needs neither
+a second session, nor a TTL wait, nor an env-off restart.
 
-The same observation channel also runs the **loop-guard**: a bounded tail scan of
-the assistant text stream for runaway generation — an identical line-group
-repeating (any block period, line-aligned or a no-newline stream; a single line
-needs 4 copies, multi-line blocks 3), a trailing run of ≥12 bare tokens stepping
-+1 (integers or bijective base-26 letters), a counter wall (≥16 consecutive tail
-lines with identical non-digit shape whose every digit run steps strictly +1 —
-strictness is what keeps timestamp logs and `page N of M` clean), or a
-punctuation-only wall once the wall itself passes 2 KB. The same machinery runs
-a reasoning channel too: reasoning parts get their own buffer and episode budget
-(a wall living only in reasoning text was invisible to the old guard), and
-trailing whitespace is normalized at scan entry, so a runaway ending in a
-newline or stray spaces no longer hides its own seed. On a hit it interrupts the
-session (v1 `session.abort` / v2 `session.interrupt({continue:false})`) and posts
-a corrective prompt naming the pattern; one intervention per episode (re-armed
-after clean text or a new turn), two per session at most, further episodes are
-log-only. A per-turn absolute ceiling — one turn's streamed output beyond 256 KB —
-raises the same interrupt with its own corrective prompt. Near-misses are
-designed out: numbered lists with content are not bare tokens, a 2× repeat is
-below the bar, and separator rules / ASCII art stay clean.
+A stale-buffer re-audit with an unchanged failure signature can neither refresh a live
+latch's timestamp nor resurrect a released one; only a new completion claim re-arms
+it. Every release is journaled and surfaced in the audit report (see the 2026-08-21
+and 2026-10-02 entries in [CHANGELOG.md](CHANGELOG.md)). A forbidden raw command
+(auditor check C8, not the backlog workflow of the same name) flags once per project;
+the latch stays self-clearable on the next clean audit.
 
-The guard also watches the **tool channel**, which is where a nastier failure
-lives: intent-action decoupling. The model narrates a tool call ("use Read now",
-"final", "grading") and then emits bare `echo "…"` bash calls instead — every one
-exits 0, the strings vary, and none of the text detectors can see it because the
-loop never touches the text stream. The detector is content-level, not
-byte-level: `echo`/`printf`/`true`/`:` with literal arguments and no side
-effects count as no-op, and four consecutive distinct no-op bash calls trip the
-same interrupt. Streamed re-observations of one tool part dedupe by part id,
-status-only observations can't mask the run, and truncated recorded commands
-break it (truncation can forge a literal). Two more detectors cover the storm
-shapes the echo classifier cannot see: `identical-tool-run` (the same tool with
-identical canonicalized arguments — deep key-sort JSON identity, DISTINCT part
-ids only, so observation-collapsing is never used — re-issued ≥4 times) and
-`tool-frequency` (one tool hammered with varying arguments — warn-only at ≥120
-consecutive calls by default, `loopGuardToolFrequencyWarnMin`, floor 20; abort
-only when `loopGuardToolFrequencyMin` is configured).
-Every interrupt is itself the stall declaration (`- stall: noop-bash
-…` / `- stall: identical-tool-run …` / `- stall: tool-frequency …` before any
-completion claim — the tool-frequency line only for genuine stalls;
-legitimate bulk work writes a one-line note instead, never a stall that did
-not happen), and every pattern is fully values-free (sanitized tool name +
-key count + argsLen) so tool arguments can never steer the corrective prompt. The two
-channels keep independent episode arming and budgets, so a text-degeneration
-episode can never consume the tool channel's interrupt. The corrective prompt
-demands the real progress move — or the completion output if the criteria really
-are all passing. Honest scope: bare literal runs, identical-call repeats, and
-single-tool storms are caught; semantic no-ops (`sleep`, `ls`) and echo/read
-oscillation are documented gaps, not claimed coverage.
+The same observation channel also runs the **loop-guard**, a bounded tail scan of
+the assistant text stream for runaway generation. Five shapes trip it: an identical
+line-group repeating at the tail (period derived from the data; a single line needs
+4 copies, multi-line blocks 3); a char-level period in a no-newline stream (the same
+≥32-char string ≥4×); a trailing run of ≥12 bare tokens stepping +1 (integers or
+bijective base-26 letters); a counter wall, ≥16 consecutive tail lines with identical
+non-digit shape whose every digit run steps strictly +1, where strictness is what
+keeps timestamp logs and `page N of M` clean; or a punctuation-only wall once the
+wall itself passes 2 KB.
+
+The same machinery watches the reasoning channel too: reasoning parts get their own
+buffer and episode budget (a wall living only in reasoning text was invisible to the
+old guard), and trailing whitespace is normalized at scan entry, so a runaway ending
+in a newline or stray spaces no longer hides its own seed. On a hit it interrupts the
+session (v1 `session.abort` / v2 `session.interrupt({continue:false})`) and posts a
+corrective prompt naming the pattern: one intervention per episode (re-armed after
+clean text or a new turn), two per session at most, further episodes log-only. A
+per-turn absolute ceiling, one turn's streamed output beyond 256 KB, raises the same
+interrupt with its own corrective prompt. Near-misses are designed out: numbered
+lists with content are not bare tokens, a 2× repeat is below the bar, and separator
+rules / ASCII art stay clean.
+
+The guard also watches the **tool channel**, where a nastier failure lives:
+intent-action decoupling. The model narrates a tool call ("use Read now", "final",
+"grading") and then emits bare `echo "…"` bash calls instead. Every one exits 0, the
+strings vary, and none of the text detectors can see it, because the loop never
+touches the text stream. The detector is content-level, not byte-level:
+`echo`/`printf`/`true`/`:` with literal arguments and no side effects count as no-op,
+and four consecutive distinct no-op bash calls trip the same interrupt. Streamed
+re-observations of one tool part dedupe by part id, status-only observations can't
+mask the run, and truncated recorded commands break it, since truncation can forge a
+literal.
+
+Two more detectors cover the storm shapes the echo classifier cannot see.
+`identical-tool-run`: the same tool with identical canonicalized arguments (deep
+key-sort JSON identity, distinct part ids only, so observation-collapsing is never
+used) re-issued ≥4 times. `tool-frequency`: one tool hammered with varying arguments,
+warn-only at ≥120 consecutive calls by default (`loopGuardToolFrequencyWarnMin`,
+floor 20), abort only when `loopGuardToolFrequencyMin` is configured.
+
+Every interrupt is itself the stall declaration: before any completion claim the log
+carries `- stall: noop-bash …` / `- stall: identical-tool-run …` /
+`- stall: tool-frequency …`. The tool-frequency line is forced only for genuine
+stalls; legitimate bulk work writes a one-line note instead, never a stall that did
+not happen. Every pattern is fully values-free (sanitized tool name + key count +
+argsLen), so tool arguments can never steer the corrective prompt. The two channels
+keep independent episode arming and budgets, so a text-degeneration episode can never
+consume the tool channel's interrupt. The corrective prompt demands the real progress
+move, or the completion output if the criteria really are all passing. Honest scope:
+bare literal runs, identical-call repeats, and single-tool storms are caught; semantic
+no-ops (`sleep`, `ls`) and echo/read oscillation are documented gaps, not claimed
+coverage.
 
 The gate is skill-agnostic in one direction: it fires on any project that has
 `tests/verification_log.md`. The mini kit does not create that file, so the full
@@ -635,14 +640,13 @@ builds a memory out of files and rules:
   (`~/.config/opencode/vibeweaver/memory/`) holds your cross-project preferences
   and conventions; project-local memory holds everything project-specific. Both
   load at session start; project-local wins on conflict.
-- **Housekeeping.** The index has a consolidation trigger (150 lines / 20 KB, or
+- **Housekeeping.** The index has a consolidation trigger (150 lines / 20 KB, or more
+  than 15 topic files): ⛔ / ✅ / user / feedback entries survive consolidation, stale
+  ⏳ entries get pruned, and a `.session-scratchpad.md` tracks mid-session backtracking
+  before being deleted when the real memories are written.
 
-  > 15 topic files): ⛔ / ✅ / user / feedback entries survive consolidation, stale
-  > ⏳ entries get pruned, and a `.session-scratchpad.md` tracks mid-session
-  > backtracking before being deleted when the real memories are written.
-
-In short: filesystem plus rules doing the job of a memory layer, so the model
-doesn't relearn your project from zero every session.
+Filesystem plus rules stand in for the memory layer opencode does not have, so the
+model stops relearning your project from zero every session.
 
 ## The cognitive overlay: state management beyond the tools
 
@@ -687,12 +691,11 @@ mechanisms from [J-Space Cognition Suite](https://github.com/Tiger3807861189/J-S
   triggers a `GATE-WARNING` stall note pointing at the escape protocol. `stall=3×`
   used to be a bound the model counted for itself; now the plugin counts too.
 
-The skill practices the progressive-disclosure discipline it preaches: the
-~120-line embedded assertion script became the canonical
-`scripts/assert_artifacts.py`, and the four backend / TDD / review protocols moved
-to `TESTING_PROTOCOLS.md`. The entry file went from a 79 KB single file to today's
-765 lines / 47.8 KB, with every new rule costing one compact covenant line plus a
-pointer.
+The skill practices the progressive-disclosure discipline it preaches: a rule that
+outgrows its covenant line gets extracted into a reference file — the assertion
+script became `scripts/assert_artifacts.py`, the backend / TDD / review protocols
+moved to `TESTING_PROTOCOLS.md` — and every new rule costs the entry file one
+compact covenant line plus a pointer.
 
 ## The mm-sensor hookup: partner, not rival
 
@@ -716,9 +719,9 @@ works, but results take a small hit. The division of labor:
   audio on disk.
 - mm-sensor grades it independently. The maker/checker split: while mm-sensor is the
   verifier, the model that wrote the code is forbidden from grading its own
-  screenshots. Vibeweaver alone falls back to direct-read self-grading when the
-  model fails its own probe (weaker), and it demands extra cross-checks against DOM
-  and logs.
+  screenshots. Without mm-sensor, a model that fails its own probe falls back to
+  direct-read self-grading — weaker, so the skill demands extra cross-checks against
+  DOM and logs.
 - A capability probe decides how much evidence gets captured. At task start,
   vibeweaver runs `vision.py --probe` to ask the model behind mm-sensor what it can
   actually perceive. Full-modal models get the `[video+audio]` mode: Playwright
@@ -731,8 +734,8 @@ works, but results take a small hit. The division of labor:
   explicitly and the loop continues on video + screenshots. Audio is an added
   signal, never a criterion by itself.
 
-In one line: vibeweaver decides *what must be captured*; the verifier (model-native
-or mm-sensor) decides *what the evidence actually says*.
+vibeweaver decides *what must be captured*; the verifier, model-native or mm-sensor,
+decides *what the evidence actually says*.
 
 ## Design-copy fidelity: measurement before judgment
 
@@ -804,7 +807,7 @@ both are skill ecosystems, but they bet on different things:
 
 | Dimension          | vibeweaver                                                                                                                                                                                     | superpowers                                                                                                                                                          |
 | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Workflow           | Decompose → **web research (near-mandatory)** → task-type routing (build / audit / deploy / ops / non-web / spike) → design docs / plan (when scoped) → test-first → evidence gates            | Classify the request (spike / bounded / architectural) → design approval → spec + bite-sized plan (architectural path) → subagent-per-task execution                 |
+| Workflow           | Decompose → **web research (near-mandatory)** → task-type routing (build / audit / deploy / ops / non-web / spike / backlog loop) → design docs / plan (when scoped) → test-first → evidence gates            | Classify the request (spike / bounded / architectural) → design approval → spec + bite-sized plan (architectural path) → subagent-per-task execution                 |
 | Core bet           | **Research-first + evidence-gated completion**, near-mandatory web search before code (nothing new under the sun), tests must run and leave artifacts, enforced by a tool-level plugin gate    | **Planning-first + approval-first**, no implementation before the human approves the intent; the ceremony scales with the task, the approval gate never does         |
 | Human involvement  | AUTO by default: the agent settles defined interaction points itself and logs an ADR; GUIDED (more checkpoints) on request                                                                     | Approval is the hard gate on every path: a spike gets a nod, a bounded task gets a yes to an in-chat design, and an architectural one is approved section by section |
 | Execution model    | Same session, verifier continuity, memory and evidence accumulate across the task; subagents are read-only reviewers                                                                           | Fresh subagent per task, context isolation; the coordinator reviews between tasks                                                                                    |
@@ -814,12 +817,12 @@ both are skill ecosystems, but they bet on different things:
 | Agent support      | opencode (with a plugin gate; [vibeweaver-dsh](https://github.com/logandoo/vibeweaver-dsh) is the DeepSeek port; Claude Code / Codex unknown, forks welcome)                                   | Claude Code, Codex, Cursor, Gemini CLI, Copilot, opencode, etc.                                                                                                      |
 | Public benchmark   | Published A/B vs no-skill baseline, multiple models                                                                                                                                            | None                                                                                                                                                                 |
 
-Short version: both start by decomposing, then planning. The weight differs:
-superpowers invests in the plan and keeps a human gate on every path; vibeweaver
-makes the research step near-mandatory, lets the agent proceed by default (AUTO),
-and gates completion on evidence. They're not enemies; you could run both, if you
-have that kind of token budget. Honestly, I don't know whether running both makes
-the agent's context explode and give up; untested, feedback welcome.
+Both start by decomposing, then planning; the weight differs. Superpowers invests in
+the plan and keeps a human gate on every path; vibeweaver makes the research step
+near-mandatory, lets the agent proceed by default (AUTO), and gates completion on
+evidence. They're not enemies; you could run both, if you have that kind of token
+budget. Whether running both blows the agent's context up is untested — feedback
+welcome.
 
 ## Files
 
@@ -834,7 +837,7 @@ the agent's context explode and give up; untested, feedback welcome.
 | `WORKFLOWS_EXTENDED.md`                                     | §M dual modes + Class-E list + ADR/PAUSED formats · C4 audit / C5 deploy / C6 ops / C7 non-web / S1 spike · profile reference                                                  |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`                   | Project memory subsystem                                                                                                                                                       |
 | `VERIFICATION_UPGRADES.md`                                  | §V1 FCV · §V2 test integrity · §V3 coverage honesty · §V4 adversarial review · §V5 lanes · §V11 task class + doc-skill delegation and the DOC-asset render gate               |
-| `scripts/assert_artifacts.py`                               | The canonical assertion script projects copy into `tests/` (19 groups: artifact presence, evidence integrity, diagnosis/claim lint, secret scan, test-change guard, risk-tier, DOC-asset render gate, exec-check, task-class coherence, working-note lifecycle) |
+| `scripts/assert_artifacts.py`                               | The canonical assertion script projects copy into `tests/` (21 groups: artifact presence, evidence integrity, diagnosis/claim lint, secret scan, test-change guard, risk-tier, DOC-asset render + exec-check, task-class coherence, working-note lifecycle, repo-hygiene budget) |
 | `scripts/mm_probe.py`                                       | Behavioral self-multimodality probe + comparative sub-probe (verifier selection, COV-5)                                                                                                                |
 | `scripts/ui_fidelity.py`                                    | Design-copy fidelity measurement (§A4.1.2): pixel diff (pixelmatch v5.3.0 port) + clusters, DOM box Δ/overlap/occlusion verdicts + reference-image region extraction — stdlib only                                  |
 | `scripts/scan_secrets.py`                                   | Standalone secret scan for the completion checklist (assert group 14) — credential-looking strings on the change-wave diff                                                      |
@@ -864,6 +867,10 @@ CI runs the Python checks and the node harnesses on Ubuntu / macOS / Windows
 Issues and PRs are welcome, especially ports to other agents (Claude Code, Codex,
 …). If you adapt the skill to another agent, open an issue and link it so it can be
 listed here.
+
+The workflow diagrams are generated, not hand-drawn: edit the Mermaid sources in
+`docs/assets/*.mmd`, then re-render with
+`mmdc -i <name>.mmd -o <name>.svg -b white`. Commit both files.
 
 ## Design choices
 

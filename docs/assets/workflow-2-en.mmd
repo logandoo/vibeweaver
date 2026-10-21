@@ -1,10 +1,13 @@
+%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 46, "padding": 7}, "themeVariables": {"fontSize": "14px"}}}%%
 flowchart LR
-    T{"§3.1 task type"} -->|"C4 audit (read-only)"| T4["docs/AUDIT_*.md<br/>findings need file:line + PoC<br/>independent subagent re-verification"]
-    T -->|"C5 deploy"| T5["pre-deploy checklist → rollback first<br/>deploy action = Class-E human confirm"]
-    T -->|"C6 ops/incident"| T6["evidence before fixes<br/>postmortem → permanent regression case"]
-    T -->|"C7 CLI/library"| T7["project profile declares N/A<br/>CLI transcript + exit code + golden diff"]
-    T -->|"S1 spike"| T8["answer, not code<br/>probe plan 2–3 sentences · cheapest correct probe<br/>throwaway code; keeping it = new request + baseline"]
+    T{"§3.1 task type<br/>by deliverable"} -->|"C4 audit (read-only)"| T4["docs/AUDIT_*.md<br/>file:line + PoC<br/>Critical items re-verified fresh-brain"]
+    T -->|"C5 deploy"| T5["checklist · rollback script first<br/>the deploy action is a Class-E stop<br/>post-deploy smoke + one rollback drill"]
+    T -->|"C6 ops / incident"| T6["evidence before fixes<br/>postmortem → permanent regression case<br/>maintenance: ≤5 upgrades per wave"]
+    T -->|"C7 CLI / library"| T7["project_profile.json: cli or library<br/>CLI transcript + exit code + output diff"]
+    T -->|"S1 spike"| T8["an answer, not code<br/>probe plan · throwaway code<br/>keeping it = a new request + baseline"]
+    T -->|"C8 backlog / outer loop"| T9["reorient → one frontier item<br/>full covenant per item · green before commit<br/>stop: COMPLETE / BLOCKED / DECIDE / budget"]
     T5 --> E["Implementation → panel 3"]
     T6 --> E
     T7 --> H["Acceptance → panel 3"]
+    T9 -->|"one item per iteration"| E
     T4 --> O["Deliver → panel 4"]

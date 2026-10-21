@@ -1,12 +1,17 @@
+%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 46, "padding": 7}, "themeVariables": {"fontSize": "14px"}}}%%
 flowchart TD
-    E["Implementation (panel 1/2)"] --> F{"Change type"}
-    F -->|"runtime-visible"| G1["§A4.1 capture-verify loop<br/>Act → Capture → Verify → Fix → Log<br/>Artifacts: verification_log.md + media evidence"]
-    F -->|"backend-only"| G2["§A4.7 doc-driven API tests<br/>+ §A4.7b cross-endpoint workflow trace"]
-    F -->|"logic-bearing"| G3["§A4.8 TDD + trusted oracle<br/>RED evidence first, then GREEN<br/>project tests certify · checker drives"]
-    G1 --> H{"Acceptance all green?"}
+    E["Implementation (panel 1 / 2)"] --> F{"Change shape<br/>may stack"}
+    F -->|"runtime"| G1["§A4.1 capture → verify → fix loop<br/>verifier from the panel-1 probe"]
+    F -->|"backend-only"| G2["§A4.7 doc-driven API tests<br/>+ §A4.7b real-HTTP traces"]
+    F -->|"logic-bearing"| G3["§A4.8 RED→GREEN<br/>trusted oracle decides"]
+    F -->|"DOC / CONFIG"| G5["read-back + smoke<br/>office assets: render gate"]
+    G1 -.->|"fidelity criteria"| G4["§A4.1.2 measure first<br/>ui_fidelity.py boxes / diff"]
+    G1 --> H{"All green?"}
     G2 --> H
     G3 --> H
-    H -->|"no · within cap=5"| E
-    H -->|"stall=3× / cap=5"| I["§A4.10 parameterized escape<br/>change direction · fresh-brain retry"]
+    G4 --> H
+    G5 --> H
+    H -->|"no · inside cap=5"| E
+    H -->|"stall=3× or cap=5"| I["§A4.10 parameterized escape<br/>candidate set + cheapest refuting test<br/>❌ recorded in memory/"]
     I --> E
     H -->|"yes"| J["Completion → panel 4"]

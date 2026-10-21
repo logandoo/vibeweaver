@@ -1,12 +1,17 @@
+%%{init: {"flowchart": {"nodeSpacing": 14, "rankSpacing": 46, "padding": 7}, "themeVariables": {"fontSize": "14px"}}}%%
 flowchart TD
-    E["实现（面板 1/2）"] --> F{"改动类型"}
-    F -->|"运行时可见"| G1["§A4.1 采集验证循环<br/>Act → Capture → Verify → Fix → Log<br/>产物：verification_log.md + 媒体证据"]
-    F -->|"纯后端"| G2["§A4.7 文档驱动 API 测试<br/>+ §A4.7b 跨接口 workflow trace"]
-    F -->|"逻辑代码"| G3["§A4.8 TDD + 受信 oracle<br/>先 RED 证据，再 GREEN 实现<br/>项目测试认证 · checker 驱动"]
-    G1 --> H{"验收全绿？"}
+    E["实现（接面板 1 / 2）"] --> F{"改动形态<br/>可叠加"}
+    F -->|"运行时"| G1["§A4.1 采集 → 验证 → 修复循环<br/>验证器取自面板 1 的探针"]
+    F -->|"纯后端"| G2["§A4.7 文档驱动 API 测试<br/>+ §A4.7b 真实 HTTP trace"]
+    F -->|"逻辑代码"| G3["§A4.8 RED→GREEN<br/>由受信 oracle 裁决"]
+    F -->|"DOC / CONFIG"| G5["回读 + smoke 检查<br/>office 资产走渲染门"]
+    G1 -.->|"验收点名保真"| G4["§A4.1.2 先测量后判定<br/>ui_fidelity.py boxes / diff"]
+    G1 --> H{"全绿？"}
     G2 --> H
     G3 --> H
-    H -->|"否 · cap=5 内"| E
-    H -->|"stall=3× / cap=5"| I["§A4.10 参数化逃生<br/>换方向 · fresh-brain 重试"]
+    G4 --> H
+    G5 --> H
+    H -->|"否 · 在 cap=5 内"| E
+    H -->|"stall=3× 或 cap=5"| I["§A4.10 参数化逃生<br/>候选集 + 最便宜的反证测试<br/>❌ 记进 memory/"]
     I --> E
     H -->|"是"| J["完工 → 面板 4"]
