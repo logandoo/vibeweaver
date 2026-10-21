@@ -287,7 +287,7 @@ Before outputting the completion table, you MUST pass this gate. If any check fa
 
 1. **Memory files exist** — At least one new or updated topic file exists in `memory/` for this session (unless the task was purely informational and produced nothing persistable).
 2. **Index updated** — `memory/MEMORY.md` contains a pointer to the new topic file(s), and the index is under 200 lines / 25KB.
-3. **Fix entries have commit** — Every `type: fix` topic file written this session includes `commit: <short-hash>` in its frontmatter.
+3. **Fix entries have commit** — Every `type: fix` topic file written this session includes `commit: <short-hash>` in its frontmatter. **History-rewrite waves (Class-E `git filter-repo`, ENGINEERING_STD §A10.1) must complete the commit-map hash remap BEFORE passing this gate** — every `commit:` cited in `memory/**` and `tests/verification_log.md` is rewritten from `.git/filter-repo/commit-map` (copy, never retype a hash), then this gate re-checks them.
 4. **No stale references introduced** — Any file/function/line cited in new memories was verified against current code during this session.
 5. **Scratchpad cleaned (legacy)** — the pre-§A7.15 `memory/.session-scratchpad.md` is superseded by tests/working_note.md; if a legacy scratchpad exists, delete it after permanent memories are written.
 6. **Working note resolved** — If `tests/working_note.md` was created (§A7.15), its persistable content was distilled into the topic files written this session and the file itself is deleted. The completion-time `assert_artifacts.py --final` run (group 19) machine-checks the deletion.

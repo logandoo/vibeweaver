@@ -353,7 +353,11 @@ async function runAssert(root) {
     const argv = jsonSupported ? ["--json", ...flags] : flags
     const { err, stdout, stderr } = await runPython(script, argv, root)
     const out = `${stdout}${stderr ? "\n" + stderr : ""}`.trim()
-    const label = argv.join(" ") || "(none)"
+    // the transport flag (--json) is NOT a leniency flag: label attempts by
+    // the real flag combo so a strict pass reads "(none)" and never triggers
+    // the "passed only under …" note (W18 noise audit — the note fired on
+    // every new root's first clean run).
+    const label = argv.filter((a) => a !== "--json").join(" ") || "(none)"
     if (/unrecognized arguments/.test(out)) {
       // A copy without --json (BL-3) falls back to prose mode ONCE — still
       // fail-closed on its output. A copy that rejects the OTHER canonical
@@ -448,12 +452,43 @@ function collectMessages(attempts) {
   return { blocking, warnings }
 }
 
+// WARN-level findings the assert reported on a PASSING run (G1 three-state:
+// `evidence seal: none yet`, partial seal, bootstrap advisories). Advisory —
+// surfaced as non-blocking notes so the state is visible without blocking
+// the write (W12: the missing seal was rendered as a self-contradictory
+// STALE BLOCK; SLSA-style verification is explicitly polymorphic and never
+// calls "missing" a "mismatch").
+function assertWarnings(outputs) {
+  const out = []
+  const seen = new Set()
+  const push = (msg) => {
+    if (!msg || seen.has(msg)) return
+    seen.add(msg)
+    out.push(msg)
+  }
+  for (const o of outputs) {
+    const json = parseAssertJson(String(o || ""))
+    const items = json && Array.isArray(json.fails) ? json.fails : []
+    for (const f of items) {
+      if (f && typeof f === "object" && f.severity === "warn") push(String(f.detail ?? f.code ?? f))
+    }
+    // ALWAYS also scan the prose WARN lines (review A Minor): the greedy
+    // JSON extraction can fail on stray braces in diagnostics, and a failed
+    // parse must not silently drop the advisories.
+    for (const line of String(o || "").split("\n")) {
+      const m = line.trim()
+      if (m.startsWith("WARN ")) push(m.slice(5))
+    }
+  }
+  return out
+}
+
 function inlineCheck(root) {
   const failures = []
   const testsDir = path.join(root, "tests")
   const log = safeRead(path.join(testsDir, "verification_log.md"))
   const acc = safeRead(path.join(testsDir, "acceptance.md"))
-  if (!/- iter \d+ (PASS|FAIL):/.test(log)) {
+  if (!/- iter \d+ (PASS|FAIL)\b/.test(log)) {
     failures.push("tests/verification_log.md has no `- iter N PASS/FAIL:` entries (COV-1)")
   }
   if (!/^>\s*cap=5\s+stall=3/m.test(acc)) {
@@ -479,21 +514,27 @@ async function checkGate(root) {
         if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
         RESULT_CACHE.set(key, null) // cache the CLEAN verdict (the note is out-of-band)
       }
+      const notes = []
+      for (const w of assertWarnings([r.output, ...(r.attempts || []).map((a) => a.output)])) {
+        // once per (root, message) — a repeated advisory is alarm flood and
+        // trains warning-blindness (same latch rule as the stall note)
+        const k = root + "|" + w
+        if (LENIENT_NOTED.has(k)) continue
+        LENIENT_NOTED.add(k)
+        notes.push(w)
+      }
       const flags = r.flags || ""
       if (flags && flags !== "(none)") {
         const noteKey = root + "|" + flags
         if (!LENIENT_NOTED.has(noteKey)) {
           LENIENT_NOTED.add(noteKey)
-          if (LENIENT_NOTED.size > 64) LENIENT_NOTED.clear()
-          return {
-            blocking: [],
-            warnings: [
-              `assert_artifacts.py passed only under ${flags} — the strict run reported: ${((r.attempts && r.attempts[0] && String(r.attempts[0].output).split("\n")[0]) || "failures").slice(0, 120)} (expected for Modify-Existing/backend tasks; suspicious for new projects)`,
-            ],
-          }
+          notes.push(
+            `assert_artifacts.py passed only under ${flags} — the strict run reported: ${((r.attempts && r.attempts[0] && String(r.attempts[0].output).split("\n")[0]) || "failures").slice(0, 120)} (expected for Modify-Existing/backend tasks; suspicious for new projects)`,
+          )
         }
       }
-      return null
+      if (LENIENT_NOTED.size > 64) LENIENT_NOTED.clear()
+      return notes.length ? { blocking: [], warnings: notes } : null
     }
     {
       const { blocking, warnings } = collectMessages(r.attempts)
@@ -512,7 +553,9 @@ async function checkGate(root) {
 
 function countPasses(root) {
   const log = safeRead(path.join(root, "tests", "verification_log.md"))
-  return (log.match(/^- iter \d+ PASS:/gm) || []).length
+  // COV-1's grammar (`PASS\b`, colon optional) — a colon-less PASS must still
+  // count as progress for the stall observer (W18 review r2 parity fix).
+  return (log.match(/^- iter \d+ PASS\b/gm) || []).length
 }
 
 // Facts about recent operations only — the judgement (stall vs. hard
@@ -579,6 +622,27 @@ function blockMessage(root, result) {
   return lines.join("\n")
 }
 
+// The host's write/edit tools carry the target under `filePath` (v1 sample
+// shapes) but the canonical opencode tool args are {path, content} /
+// {path, oldString, newString}. Reading only `filePath` left every REAL write
+// unattributed, so the tests/-evidence exemption below could never engage —
+// W12 saw 30+ false GATE-BLOCKED banners on tests/ writes ("tests/ writes are
+// never gated" per COMPLETION_GATE §A4.4.2), reproduced live in W18. Accept
+// the known arg spellings; an unknown shape stays fail-closed (full gate).
+function writePathFromArgs(args) {
+  if (!args || typeof args !== "object") return null
+  const seen = []
+  for (const key of ["filePath", "path", "file_path"]) {
+    const v = args[key]
+    if (typeof v === "string" && v) seen.push(v)
+  }
+  if (!seen.length) return null
+  // Two DIFFERENT target spellings in one call is an unknown host shape —
+  // fail closed (full gate) rather than let one key smuggle the exemption.
+  if (seen.some((v) => v !== seen[0])) return null
+  return seen[0]
+}
+
 function isEvidencePath(root, filePath) {
   if (typeof filePath !== "string" || !filePath) return false
   // normalize first (kills `memory/../src/app.js` traversal AND symlinked
@@ -590,7 +654,10 @@ function isEvidencePath(root, filePath) {
   const normFile = resolveWritePath(filePath)
   const rel = path.relative(normRoot, normFile)
   if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return false
-  const seg = rel.split(path.sep)[0].toLowerCase()
+  // EXACT first-segment match (review A Minor): case-folding made `Tests/` /
+  // `Memory/` a false exemption on case-sensitive filesystems — fail closed
+  // (a mis-cased evidence dir gets gated = noise, never a hole).
+  const seg = rel.split(path.sep)[0]
   return seg === "test" || seg === "tests" || seg === "memory"
 }
 
@@ -1086,7 +1153,7 @@ async function server({ client, directory }) {
   return {
     "tool.execute.after": async (input, output) => {
       if (!GATED_TOOLS.has(input.tool)) return
-      const filePath = input.args && typeof input.args.filePath === "string" ? input.args.filePath : null
+      const filePath = writePathFromArgs(input.args)
       const r = await gateCheckWrite(directory, filePath)
       if (r && r.block) throw new Error(r.block)
       if (r && r.notes) {
@@ -1171,7 +1238,7 @@ async function setup(ctx) {
     // v1 parity: tool.execute.after fires only for successful executions.
     if (event.status !== "completed") return
     const input = event.input
-    const filePath = input && typeof input === "object" && typeof input.filePath === "string" ? input.filePath : null
+    const filePath = writePathFromArgs(input)
     const r = await gateCheckWrite(directory, filePath)
     if (r && r.block) throw new Error(r.block)
     if (r && r.notes) appendNotesToV2Result(event, r.notes)

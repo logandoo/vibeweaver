@@ -176,12 +176,45 @@ git ls-files | rg '(^|/)(node_modules|\.pnpm-store|\.venv|site-packages)/' || ec
 git count-objects -vH
 ```
 
-**History rewrite (destructive — Class-E, user approval required):**
+**History rewrite (destructive — Class-E, user approval required).**
+W12 runbook gap that lost real data: an uncommitted `verification_log.md`
+edit was wiped by the tree reset, and every `memory/**/commit:` /
+review-package reference went stale when all hashes changed. The order below
+is mandatory — steps 1, 2 and 5 are the incident fixes.
 
 ```bash
-git clone --mirror <repo> ../<repo>-backup-$(date +%Y%m%d).git
-git filter-repo --path .pnpm-store --path node_modules --path .venv \
-  --path '*.zip' --path '*.sql.gz' --invert-paths
+# 0) USER APPROVAL first (Class-E). Record the decision in tests/decisions.md.
+# 1) CLEAN TREE — forced capture (a rewrite resets tracked files and drops
+#    every uncommitted change; this is the step that lost the W12 log edits).
+#    STOP until `git status --porcelain` is empty — untracked work counts:
+git status --porcelain
+git add -u                        # tracked modifications
+git add <explicit new paths>      # untracked work you keep — NAME them
+#   (or `git stash push -u` to keep the work out of the wave entirely;
+#    `git add -A` stays forbidden in a mixed workspace — the staging rule)
+git commit -m "chore: carry-over <previous wave> work before history rewrite"
+test -z "$(git status --porcelain)" || { echo "STOP: tree still dirty"; exit 1; }
+# 2) MIRROR BACKUP (keep it; log the path AND commit that log line — step 1's
+#    clean-tree rule applies to the log edit itself):
+git clone --mirror . ../<repo>-backup-$(date +%Y%m%d-%H%M).git
+#    capture the BEFORE measurements NOW (step 4 compares them AFTER):
+git count-objects -vH ; git cat-file --batch-all-objects --batch-check | sort -k3 -n | tail -3 ; git rev-list --count --all
+# 3) REWRITE — typical offender path set (add the wave's own offenders):
+git filter-repo --invert-paths --path .pnpm-store --path node_modules \
+  --path .venv --path playwright-cache --path '*.zip' --path '*.sql.gz' \
+  --path workspace/<vendor>/opencode.db
+# 4) VERIFY the surgery (对照 step 2 的 BEFORE 值记录 all three AFTER):
+git count-objects -vH                                   # .git size
+git cat-file --batch-all-objects --batch-check \
+  | sort -k3 -n | tail -3                               # largest blobs
+git rev-list --count --all                              # commit count
+# 5) HASH REMAP — every commit id changed; references are rewritten FROM
+#    .git/filter-repo/commit-map (copy, never retype a hash by hand; the
+#    file is space-separated "old new" pairs under an "old new" header):
+#      memory/**/commit:  ·  tests/verification_log.md  ·  review packages
+awk 'NR>1{print substr($1,1,12) " -> " substr($2,1,12)}' .git/filter-repo/commit-map
+# 6) POST-CLEANUP (git filter-branch checklist legacy):
+git for-each-ref --format='%(refname)' | grep refs/original && echo "LEFTOVER" || echo clean
 git reflog expire --expire=now --all && git gc --prune=now --aggressive
 # coordinate with every collaborator before force-pushing; keep the mirror.
 ```

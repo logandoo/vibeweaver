@@ -190,26 +190,25 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
 | 9 | Modify-Existing (`--existing`): `verification_log.md` contains `Baseline verified GREEN` or `COV-9 skipped` | COV-9 |
 | 10 | every `tests/workflows/*.trace.log` cited in `verification_log.md` exists and >0 bytes | A4.7b |
 | 11 | every `tests/*.webm` / `tests/*.wav` / `tests/*.mp4` / `tests/*.mp3` cited in `verification_log.md` exists and >0 bytes | A4.1 Step 2/3 |
-| 12 | every `- iter N FAIL:` log line carries its `diagnosis:` clause, and (12b log-format lint) the clause is substantive — ≥10 chars, not a placeholder token (`-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`) | A4.1 Step 4 |
-| 13 | no claim word (verified/confirmed/validated/tested/proven + Chinese 已验证/已确认/已测试…) appears on a prose log line without a coverage scope on that same line (fenced blocks, headings, tables, iter/baseline lines exempt) | A4.4 claim rule |
-| 14 | **secret scan** — no credential-looking string (AWS access key · `-----BEGIN … PRIVATE KEY-----` block · `ghp_`/`github_pat_`/`xox*`/`sk-` incl. `sk-proj-`/`sk-ant-` tokens · JSON or k=v form `api_key`/`secret`/`password`/`token` `= value` with value ≥12 chars; unquoted reference/call values like `os.environ.get(…)`/`config.x`/`self.x` are NOT flagged) appears on an ADDED line of the change-wave diff (per-commit patches of newest `backup: before changes` commit..HEAD + uncommitted; no backup commit → last commit + uncommitted; untracked non-ignored + ignored secret-named files (`.env*`, keys/certs) are scanned whole). Lines carrying a placeholder marker (example/sample/dummy/placeholder/changeme/redacted/fake/`<…>`) are exempt; `*.md` hits print WARN but do not FAIL; any `assert_artifacts.py` is never scanned. **User-approved credentials:** a `vw-approved` marker exempts a line ONLY when the line also matches a credential pattern (prose mentions are no-ops) AND `verification_log.md` carries the path-scoped pairing `- secret-approved: <path> — <reason>` (marker count per path ≤ approvals; pairing failure FAILs regardless of file type) | A4.4 content gate |
-| 15 | **test-change guard** — no REMOVED assertion line (`assert` · `self.assert*` · `expect(` · `pytest.raises` · `require(` · `def test_` · `it(` · `test(` · `func Test` · `@Test`) in a test code file (path segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*` basename; code extensions only — whole-file deletions included) unless `verification_log.md` carries a `- test-change: <path> — <reason>` line. An agent fixing code must not silently weaken the check on that code; NEW test files in the wave need their own `- test-change:` line too (C3b hash baseline) | A4.8 test integrity |
-| 16 | **risk-tier** — when the change-wave diff or an untracked file touches a risk-tier code path (`auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` path segment; code extensions only — deletions included), `tests/review_package.md` exists and >0 bytes — A4.9 review is non-skippable for risk-tier paths (existence check; package FRESHNESS is enforced by the §A4.9 scoped re-review process) | A4.9 risk tiering |
-| 17a | **DOC-asset render gate (§V11.9)** — when the change wave DELIVERS an office/document asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave scope: `backup: before changes`..HEAD + uncommitted + untracked, deletions excluded), `tests/verification_log.md` carries a `render:` line naming that asset bound to existing >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain: soffice/libreoffice/pymupdf/pdftoppm/poppler/imagemagick>)`. **NO RENDER, NO DONE**; fires in EVERY class (a mixed CODE wave shipping a docx owes the same render) | §V11.9 render gate |
-| 17b | **exec-check (§V11.9)** — every delivered office asset also needs a recorded executable-behavior check: an `exec-check:` line naming the asset with `clean` or `escalat…` (vbaProject.bin / PDF JavaScript / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
-| 18 | **task-class coherence (COV-13)** — `--class DOC\|CONFIG\|CODE` (or the log's `- class:` first entry of the current task block) N/A's only the class's structurally-free groups (DOC: memory 4 + service-lifecycle 5; CONFIG: memory 4 when the log carries `- memory: na (<why>)`); a `--class` flag contradicting the log's class is a NAMED failure (§V11.7 one class per task); a class never weakens an applicable group | COV-13 / §V11 |
-| 19 | **working-note lifecycle (§A7.15, `--final` only)** — `tests/working_note.md` must NOT exist at completion time: the task working memory is distilled into `memory/` (A7.9) and deleted before the completion table; a leftover is an undistilled lesson or zombie state leaking into the next task | A7.15 / A7.10 check 6 |
-| 20 | **working-note creation side** — ≥2 iterations or a FAIL requires `- working-note:` lifecycle lines (created → updated → distilled → deleted) or `na (<why>)` in the current task block | §A7.15 |
+| 12 | every `- iter N FAIL:` line carries `diagnosis:`, and (12b) the clause is substantive — ≥10 chars, not a placeholder (`-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`) | A4.1 Step 4 |
+| 13 | no claim word (verified/confirmed/validated/tested/proven + 已验证/已确认/已测试…) on a prose log line without a coverage scope on that line (fences, headings, tables, iter/baseline lines exempt) | A4.4 claim rule |
+| 14 | **secret scan** — no credential-looking string (AWS key · PRIVATE KEY block · `ghp_`/`github_pat_`/`xox*`/`sk-` tokens · k=v `api_key`/`secret`/`password`/`token` = ≥12-char value; reference/call values like `os.environ.get(…)`/`config.x` NOT flagged) on an ADDED diff line (newest `backup: before changes`..HEAD + uncommitted; untracked + ignored secret-named files (`.env*`, keys/certs) scanned whole); placeholder-marked lines (example/dummy/…) exempt; `*.md` hits WARN only; `assert_artifacts.py` never scanned. **User-approved credentials:** `vw-approved` exempts a line ONLY when the line matches a credential pattern AND the log pairs `- secret-approved: <path> — <reason>` (≤1 approval per path, pairing failure FAILs) | A4.4 content gate |
+| 15 | **test-change guard** — no REMOVED assertion line (`assert` · `self.assert*` · `expect(` · `pytest.raises` · `require(` · `def test_` · `it(` · `test(` · `func Test` · `@Test`) in a test code file (path segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*`; code exts; whole-file deletions included) without a `- test-change: <path> — <reason>` log line; NEW test files in the wave need their own line too (C3b hash baseline) | A4.8 test integrity |
+| 16 | **risk-tier** — when the wave diff/untracked touches a risk-tier code path (`auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` segment; code exts, deletions included), `tests/review_package.md` exists and >0 bytes — A4.9 non-skippable for risk-tier (existence check; freshness via §A4.9 scoped re-review) | A4.9 risk tiering |
+| 17a | **DOC-asset render gate (§V11.9)** — a delivered office/document asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave scope, deletions excluded) needs a `render:` log line naming it + existing >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain: soffice/libreoffice/pymupdf/pdftoppm/poppler/imagemagick>)`. **NO RENDER, NO DONE**; fires in EVERY class | §V11.9 render gate |
+| 17b | **exec-check (§V11.9)** — every delivered office asset also needs an `exec-check:` line naming it with `clean` or `escalat…` (vbaProject.bin / PDF JavaScript / macro sheet — `escalated → Class CODE` promotes the wave) | §V11.9 delivery exec-check |
+| 18 | **task-class coherence (COV-13)** — `--class DOC\|CONFIG\|CODE` (or the block's first `- class:`) N/A's only structurally-free groups (DOC: memory 4 + service-lifecycle 5; CONFIG: memory 4 with `- memory: na (<why>)`); a `--class` contradicting the log's class is a NAMED failure (§V11.7); a class never weakens an applicable group | COV-13 / §V11 |
+| 19 | **working-note lifecycle (§A7.15, `--final` only)** — `tests/working_note.md` must NOT exist at completion: working memory is distilled into `memory/` (A7.9) and deleted before the completion table; a leftover is an undistilled lesson or zombie state | A7.15 / A7.10 check 6 |
+| 20 | **working-note creation side** — ≥2 iterations or a FAIL requires `- working-note:` lifecycle lines (created → updated → distilled → deleted) or `na (<why>)` in the block | §A7.15 |
 | 21 | **repo hygiene / VCS budget** — `.gitignore` present + stack patterns; no tracked vendor/cache; untracked ≤2,000; `.git` ≤1 GiB (warn >200 MiB); largest blob ≤40 MiB at `--final`; wave >2,000 paths fails (no scan) | COV-9 / A10.1 |
 
 The script byte-checks the artifacts behind every Gate Function claim — the
 external verifier for claims mm-sensor cannot see. The **canonical file is
-`scripts/assert_artifacts.py` inside this skill's installation directory**
-(e.g. `~/.config/opencode/skills/vibeweaver/scripts/assert_artifacts.py`).
+`scripts/assert_artifacts.py` inside this skill's installation directory**.
 
 **If `tests/assert_artifacts.py` does not exist in the project → COPY THE
 CANONICAL FILE** (do NOT write your own variant — self-written variants
-consistently omit check groups; observed in real runs):
+consistently omit check groups):
 
 ```bash
 cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
@@ -218,17 +217,14 @@ cp <skill-dir>/scripts/assert_artifacts.py tests/assert_artifacts.py
 The only allowed edit after copying is adding project-specific assertion
 lines — never remove or weaken groups 1-21.
 
-**Self-verify the copy is complete (MUST do after copying it):** the script
-MUST contain each of these 22 markers — `verification_log` · `cap=5` ·
-`screenshot` · `MEMORY.md` · `start.sh` · `git repo needs` · `FLOW_DESIGN` ·
-`README` · `Baseline verified GREEN` · `workflow trace` · `media evidence` ·
+**Self-verify the copy (MUST after copying):** the script MUST contain each of these 22 markers —
+`verification_log` · `cap=5` · `screenshot` ·
+`MEMORY.md` · `start.sh` · `git repo needs` · `FLOW_DESIGN` · `README` ·
+`Baseline verified GREEN` · `workflow trace` · `media evidence` ·
 `diagnosis:` · `claim without stated coverage` · `secret scan` ·
 `test-change:` · `risk-tier` · `secret-approved` · `DOC-asset render gate` ·
-`exec-check` · `working_note` · `working-note` · `repo-hygiene`. Grep all 22;
-ANY
-missing marker means an incomplete variant — re-copy from the canonical file.
-A script missing a marker will not catch the missing artifact; a complete
-script is what the exit-0 gate verifies.
+`exec-check` · `working_note` · `working-note` · `repo-hygiene`. Grep all
+22; ANY missing = incomplete variant — re-copy from canonical.
 
 When running with `--backend-only` and skipping `PAGE_DESIGN.html`, the
 completion table MUST state the literal phrase
@@ -252,23 +248,18 @@ completion-time `assert_artifacts.py --final` run + the audit's B12
 final-run check examine the resulting tree regardless of how it was edited.
 
 - **Fail-closed (D4, 2026-10-15):** EVERY assert failure blocks (evidence and
-  structure alike — the old keyword classifier is gone); only explicit `WARN`
-  lines stay advisory. "The check could not run" is itself a BLOCK: python3
-  missing, timeout, crash, or a placeholder/stub script (exit 0 without the
-  canonical result shape) all GATE-BLOCK. A legacy prose-only copy of
-  `assert_artifacts.py` fails closed on its output too (upgrade it from the
-  skill's `scripts/`). Structured channel: `--json` prints
+  structure alike); only explicit `WARN` lines stay advisory. "The check could
+  not run" is itself a BLOCK (python3 missing, timeout, crash, placeholder/
+  stub exit 0 without the canonical shape). A legacy prose-only copy fails
+  closed on its output too (upgrade from `scripts/`). `--json` prints
   `{ok, passes, fails:[{code,severity,detail}]}`.
 - `session.idle` with a RED gate writes a `warn` entry to the opencode log
   (tripwire when the agent stops on a red gate).
-- **Stall observer (stateful):** the plugin keeps `.vibeweaver/state.json`
-  in the project root (atomic writes; working state — gitignore it). After
-  each gated operation it keeps the last ≤20 ops with the current
-  `iter N PASS` count; if the SAME file was edited 3× with NO new PASS
-  entry in between, it appends a `[GATE-WARNING]` stall note pointing at
-  §A4.10 (parameterize / shift — do not retry the same direction). Warnings
-  only — the observer never blocks, mirroring COV-7's model-counted bound
-  with machine counting.
+- **Stall observer (stateful):** `.vibeweaver/state.json` (atomic writes;
+  gitignore it) keeps the last ≤20 ops with the current `iter N PASS` count;
+  the SAME file edited 3× with no new PASS gets a `[GATE-WARNING]` stall note
+  pointing at §A4.10 (parameterize / shift). Warnings only — never blocks
+  (COV-7, machine-counted).
 - Escape hatch: `VIBEWEAVER_GATE=off` disables the plugin.
 - If `tests/assert_artifacts.py` does not exist yet, the plugin runs an
   inline evidence check and the GATE-BLOCKED message points to §A4.4.1.
@@ -277,6 +268,30 @@ final-run check examine the resulting tree regardless of how it was edited.
   `{"ok":true}` is accepted by design (the copy ships with the skill and is
   replaceable), and `tests/` writes are never gated (evidence-fix path).
   Sealing against tampering is the manifest work (PLAN C3 / evidence seal).
+- **Seal three-state (G1, W18)** — `tests/evidence_manifest.json` +
+  `tests/test_baseline.json`, written ONLY by `scripts/evidence_seal.py`
+  (SLSA/in-toto verdicts — "missing" is never rendered as "stale"):
+
+  | state | condition | verdict |
+  |---|---|---|
+  | `no-seal` | neither file exists | WARN `evidence seal: none yet — run scripts/evidence_seal.py after the first green test run` (bootstrap; sealing is opt-in) |
+  | `partial` | baseline only | C3 finding — a seal once existed; deleting the manifest clears nothing |
+  | `tamper` | hash mismatch / sealed file gone | C3 finding `… (C3 tamper)` / `sealed evidence missing … (C3)` |
+  | `stale` | code changed after sealing | C3 finding `sealed evidence is STALE (C3 freshness) …` |
+  | `current` | seal matches the tree | silent |
+
+  A C3 finding BLOCKs when the seal obligation is live, WARNs
+  (`advisory until the first green - iter N PASS`) in the bootstrap window
+  (no green PASS in the current task block — the wave's backup anchor makes
+  old seals fresh-stale at wave start; W12's 30+ false banners). `--final`
+  ALWAYS enforces (completion = the sealing moment); the cited-media rule
+  (`cited media evidence is not sealed (C3)`) is unconditional; the green
+  marker uses COV-1's `PASS\b` grammar.
+- **`tests/` writes are never gated — either arg shape:** write/edit carry
+  the target as `args.path` (canonical) or `args.filePath` (adapter); the
+  exemption resolves both (symlink-safe normalize, EXACT first segment
+  `tests/` · `test/` · `memory/`; nested `src/tests/` is not evidence).
+  Tampering is detected afterwards by the seal (C3/C3b).
 
 The GATE-BLOCKED message means **keep working — fix the evidence, then the
 next write/edit re-checks automatically**. It is a completion gate, not an

@@ -2,6 +2,14 @@
 
 Waves of design history, newest first. Entries are moved verbatim from the README; the current state of the project is described in [README.md](README.md).
 
+## 2026-10-21: W18 batch 1 — seal three-state, the tests/ exemption that never engaged, and the Class-E rewrite runbook
+
+**The gap.** W12 measured 30+ false GATE-BLOCKED banners in one wave, all noise: the evidence seal's missing state was rendered as "STALE … (missing != success)", the documented `tests/` write exemption never engaged on the real host arg shape (the plugins read `args.filePath`; opencode's write/edit carry `{path, …}`), and the loop-guard's trailing-whitespace normalization shifted the char-period verification windows one byte off, so a 4-copy runaway ending in `". "` was missed. A `git filter-repo` history rewrite also lost uncommitted log edits and left every commit-hash reference stale.
+
+**The mechanism.** Seal findings are now an explicit polymorphic verdict (`no-seal` WARN · `partial`/`tamper`/`stale` C3 findings · `current` silent) with a bootstrap window whose teeth never disengage at `--final`; both write-gating plugins resolve `filePath`/`path`/`file_path` and exempt `tests/`·`memory/` writes by exact first segment; the char-period detector probes the normalized tail AND the raw tail (union: only a MISS can become a FIRE on an exact ≥4-copy period). The stale compat assertion that had encoded a removed latch bypass (foreign write auto-release) is re-specced to the D3 semantics, strictly harder, and the known-failure quarantine is gone. `ENGINEERING_STD.md` §A10.1 gains a six-step Class-E history-rewrite runbook (forced clean-tree capture → mirror backup + BEFORE measurements → filter-repo → before/after对照 → commit-map hash remap → refs-original/reflog cleanup), drilled end-to-end in a tmp repo.
+
+**Verification.** audit_selftest 568/0 (1 skipped) · mutation_sweep 44/0 · plugin compat 82/82 (E3/G9 fixed — quarantine removed) · assert group fixtures 56/56 · `assert_artifacts.py --existing --final` 29/29 · dual adversarial review + scoped re-review (2 Critical + 2 Important fixed) · fresh-context verify pass · four copies byte-identical (dev → system/plugins, open-source, repo; eval canonicals + task pins repinned).
+
 ## 2026-10-20: mini gate — the checker becomes the plugin contract
 
 **The gap.** The full gate activates on `tests/verification_log.md`; the mini kit never creates it, so shipping the full plugin pair to mini was a no-op. Mini's only enforcement was the prompt telling the model to run the checker.

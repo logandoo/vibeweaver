@@ -2,6 +2,14 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-21：W18 第 1 批 — seal 三态、从未生效的 tests/ 豁免、Class-E 重写 runbook
+
+**缺口。** W12 一个波次实测 30+ 次 GATE-BLOCKED 误报：seal 缺失态被渲染成 "STALE …（missing != success）"；文档写明的 `tests/` 写入豁免在真实宿主参数形态下从未生效（插件读 `args.filePath`，而 opencode write/edit 传的是 `{path, …}`）；loop-guard 的尾随空白归一化把字符周期校验窗错开一个字节，以 `". "` 结尾的 4-copy 失控漏报。另外一次 `git filter-repo` 历史重写抹掉了未提交日志编辑，全部 commit 引用失效。
+
+**机制。** seal 结论改为显式多态（`no-seal` WARN · `partial`/`tamper`/`stale` 为 C3 finding · `current` 静默），bootstrap 窗口在 `--final` 永远收牙；两个写门禁插件统一解析 `filePath`/`path`/`file_path`，按精确首段豁免 `tests/`·`memory/` 写入；字符周期探测器对归一化尾与原始尾双探针（union：只可能把 MISS 变 FIRE，且须精确 ≥4 副本周期）。那条编码了已删除绕过语义（外会话写自动释放 latch）的陈旧断言按 D3 语义重定、只紧不松，known-failure 豁免删除。`ENGINEERING_STD.md` §A10.1 增加六步 Class-E 历史重写 runbook（强制提交令→mirror 备份+BEFORE 测量→filter-repo→前后对照→commit-map remap→refs-original/reflog 清理），并在 tmp 仓完整演练。
+
+**验证。** audit_selftest 568/0（1 skipped）· mutation_sweep 44/0 · plugin compat 82/82（E3/G9 修复，豁免删除）· assert 组 fixture 56/56 · `assert_artifacts.py --existing --final` 29/29 · 双对抗复审 + scoped re-review（2 Critical + 2 Important 已修）· fresh-context verify pass · 四副本字节一致（dev → system/plugins、open-source、repo；eval canonical + task pins 已 repin）。
+
 ## 2026-10-20：mini gate — 让 checker 成为插件契约
 
 **缺口。** 完整版 gate 以 `tests/verification_log.md` 激活；mini 从不创建它，所以把完整版插件直接装给 mini 是空转。mini 的唯一执行层是提示词里那句「去跑 checker」。

@@ -1448,32 +1448,70 @@ def main():
     for f in test_change_guard(root, cur_block):
         check(False, f)
 
-    # 15b) C3 (P1, BL-11/12): evidence manifest — tamper + freshness.
-    #     The manifest is written ONLY by scripts/evidence_seal.py; a hash
-    #     mismatch means the evidence changed after sealing, and a stale
-    #     code_fingerprint means the evidence predates later code changes
-    #     ("先造证据后改代码"). At completion (--final) cited media must be
-    #     sealed at all (missing != success - Agent Evidence spec).
+    # 15b) C3 (P1, BL-11/12): evidence manifest — tamper + freshness, with the
+    #     G1 three-state diagnostic (W18 gate hardening):
+    #       no-seal — neither tests/evidence_manifest.json nor
+    #                 tests/test_baseline.json exists → WARN (a bootstrapping
+    #                 state, not a violation: no baseline != violation —
+    #                 OWASP CVE-lite first-run-baseline semantics);
+    #       stale   — a seal exists but the evidence changed after sealing →
+    #                 FAIL with the STALE wording (missing != success);
+    #       current — silent.
+    #     Bootstrap rule (早期波次豁免 — "封印义务在首次绿测之后才成立"): while
+    #     the CURRENT task block has no green `- iter N PASS` entry there is
+    #     no green evidence to bind, so seal findings stay WARN (advisory) —
+    #     the wave's own backup anchor makes every previous seal trivially
+    #     stale at wave start (that asymmetry produced W12's 30+ false STALE
+    #     banners). Two hard limits keep the bootstrap from becoming an
+    #     off-switch (W18 review A Critical #1): (a) `--final` ALWAYS enforces
+    #     (completion IS the sealing moment — missing != success), and (b)
+    #     the green marker accepts the same `PASS` grammar as COV-1 / the
+    #     gate's countPasses (`PASS\b`, colon optional), so a punctuation
+    #     variant cannot disarm it.
     group("15b")
     _man_p = tests / "evidence_manifest.json"
-    if _man_p.exists():
-        try:
-            _man = json.loads(read(_man_p) or "{}")
-        except Exception:
-            _man = {}
-        for _rel, _meta in sorted((_man.get("files") or {}).items()):
-            _fp = root / _rel
-            if not _fp.is_file():
-                check(False, f"sealed evidence missing: {_rel} (evidence_manifest) - evidence deleted after seal (C3)")
-                continue
-            _cur = hashlib.sha256(_fp.read_bytes()).hexdigest()
-            check(_cur == (_meta or {}).get("sha256"),
-                  f"sealed evidence {_rel} hash mismatch (C3 tamper) - the file changed after "
-                  f"scripts/evidence_seal.py sealed it; re-run the covering tests and re-seal")
-        check(code_fingerprint(root) == _man.get("code_fingerprint"),
-              "sealed evidence is STALE (C3 freshness) - wave code changed after evidence_seal.py "
-              "ran; re-run the covering tests and re-seal (missing != success)")
-    elif args.final:
+    _bl_p = tests / "test_baseline.json"
+    _seal_live = args.final or bool(re.search(r"^- iter \d+ PASS\b", cur_block, re.M))
+
+    def _seal_finding(msg):
+        # a seal violation only BLOCKS while green evidence exists to protect
+        if _seal_live:
+            check(False, msg)
+        else:
+            warn(msg + " — advisory until the first green `- iter N PASS` "
+                       "(seal obligation starts after the first green test run)", "15b")
+
+    if _man_p.exists() or _bl_p.exists():
+        if _man_p.exists():
+            try:
+                _man = json.loads(read(_man_p) or "{}")
+            except Exception:
+                _man = {}
+            for _rel, _meta in sorted((_man.get("files") or {}).items()):
+                _fp = root / _rel
+                if not _fp.is_file():
+                    _seal_finding(f"sealed evidence missing: {_rel} (evidence_manifest) - evidence deleted after seal (C3)")
+                    continue
+                _cur = hashlib.sha256(_fp.read_bytes()).hexdigest()
+                if _cur != (_meta or {}).get("sha256"):
+                    _seal_finding(f"sealed evidence {_rel} hash mismatch (C3 tamper) - the file changed after "
+                                  f"scripts/evidence_seal.py sealed it; re-run the covering tests and re-seal")
+            if code_fingerprint(root) != _man.get("code_fingerprint"):
+                _seal_finding("sealed evidence is STALE (C3 freshness) - wave code changed after evidence_seal.py "
+                              "ran; re-run the covering tests and re-seal (missing != success)")
+        else:
+            # partial seal: evidence_seal.py writes BOTH files in one run, so
+            # a baseline WITHOUT a manifest means the manifest was deleted.
+            # That is C3 tamper, not bootstrap — deleting the manifest must
+            # not clear the seal obligations (W18 review B Important).
+            _seal_finding("evidence_manifest.json missing while tests/test_baseline.json exists (C3) - a seal was "
+                          "written once; deleting the manifest does not clear the seal obligations - run "
+                          "`python3 scripts/evidence_seal.py` and re-verify the evidence")
+    else:
+        warn("evidence seal: none yet — run scripts/evidence_seal.py after the first green test run", "15b")
+    if args.final and not _man_p.exists():
+        # unconditional: --final IS the sealing moment (missing != success)
+        # — the bootstrap exemption never reaches completion.
         _cited_media = re.findall(r"tests/(\S+\.(?:png|webm|wav|mp4|mp3))", vl, re.I)
         if _cited_media:
             check(False, f"cited media evidence is not sealed (C3) - run `python3 scripts/evidence_seal.py` "

@@ -19,11 +19,14 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 //   non-test write until it self-corrects (fix evidence + corrected gate
 //   line, re-checked at every session idle).
 //   The latch is SESSION-SCOPED: a truncated/aborted session must not be
-//   able to hold the next task hostage, so the latch auto-releases on the
-//   first write/idle of a DIFFERENT session, or after redTtlHours (default
-//   24, audit.json), or immediately for legacy boolean state. Every release
-//   is recorded in state (bounded) + app log + a "## Stale RED releases"
-//   section of tests/gate_audit.md — never silently dropped.
+//   able to hold the next task hostage, so the latch releases on the owning
+//   session's own new task (tests/acceptance.md rewritten after the latch),
+//   after redTtlHours (default 24, audit.json), or for legacy boolean state
+//   (D3, 2026-10-15: a FOREIGN session's write releases NOTHING — a subagent
+//   write used to clear the latch and bypass the whole gate; foreign writes
+//   are blocked too). Every release is recorded in state (bounded) + app log
+//   + a "## Stale RED releases" section of tests/gate_audit.md — never
+//   silently dropped.
 //   Any test/tests directory in the project (tests/, dev/tests/, src/test/…)
 //   stays writable while RED so the evidence-fix path never deadlocks.
 // Tier 2 (escalation): UNCERTAIN / sampling / high-risk -> escalate=true in
@@ -197,6 +200,27 @@ function resolveWritePath(filePath, depth = 0) {
   }
 }
 
+// Host arg-shape parity (W18 G2, review A Critical #2): the canonical
+// opencode write/edit tools carry the target as `args.path` ({path, content} /
+// {path, oldString, newString}); `args.filePath` is only one adapter shape.
+// Reading `filePath` alone left the RED-latch test-dir exemption (the
+// evidence-fix path below) unreachable on the REAL host shape — a latched
+// session could not write tests/acceptance.md despite the block message
+// promising it. Same contract as vibeweaver-gate.js `writePathFromArgs`.
+function writePathFromArgs(args) {
+  if (!args || typeof args !== "object") return null
+  const seen = []
+  for (const key of ["filePath", "path", "file_path"]) {
+    const v = args[key]
+    if (typeof v === "string" && v) seen.push(v)
+  }
+  if (!seen.length) return null
+  // Two DIFFERENT target spellings in one call is an unknown host shape —
+  // fail closed (full gate), same contract as vibeweaver-gate.js.
+  if (seen.some((v) => v !== seen[0])) return null
+  return seen[0]
+}
+
 function isTestDirPath(root, filePath) {
   if (typeof filePath !== "string" || !filePath) return false
   const normRoot = resolveWritePath(root)
@@ -204,8 +228,11 @@ function isTestDirPath(root, filePath) {
   const rel = normFile.startsWith(normRoot + path.sep) ? normFile.slice(normRoot.length + path.sep.length) : null
   if (rel == null) return false
   return rel.split(/[\\/]/).some((seg) => {
-    const s = seg.toLowerCase()
-    return s === "test" || s === "tests"
+    // EXACT name match (W18 review r2): case-folding made `Tests/` a false
+    // exemption on case-sensitive filesystems. Nested test dirs
+    // (src/tests/, dev/tests/) stay exempt by design — the RED-latch
+    // evidence-fix path must reach ANY test directory.
+    return seg === "test" || seg === "tests"
   })
 }
 
@@ -318,8 +345,23 @@ function lettersToIndex(s) {
 // real letter/digit content — repeated JSX/HTML elements ×3 are legitimate
 // codegen and stay clean.
 function charPeriodRepeat(tailIn) {
+  // Tail-noise tolerance AND phase alignment are BOTH needed: rstrip-ing the
+  // tail recovers the periodic ground under stream noise (the "Stop it."-
+  // wall case), but when the repeated unit itself ENDS in whitespace
+  // ("…running. " ×N) that same rstrip shifts every END-ANCHORED verification
+  // window off the true period phase — the 4-copy bar then compares windows
+  // of unequal length and can never be met (W18 G9: x4 of a 63-char sentence
+  // MISSED while x3 correctly stayed clean). So probe the normalized tail
+  // first (existing behavior, bit-for-bit unchanged) and then the RAW tail
+  // (exact end-aligned periods). Union semantics: the raw probe can only turn
+  // a MISS into a FIRE on an exact >=4-copy suffix period of a >=32-char
+  // letter/digit unit — the documented bar, unchanged.
+  const norm = tailIn.replace(/[\s\u200B-\u200D]+$/, "")
+  return charPeriodProbe(norm) || (norm.length === tailIn.length ? null : charPeriodProbe(tailIn))
+}
+
+function charPeriodProbe(tail) {
   const minP = LOOP_CHAR_MIN_PERIOD
-  const tail = tailIn.replace(/[\s\u200B-\u200D]+$/, "")
   if (tail.length < minP * 4) return null
   const seed = tail.slice(-LOOP_CHAR_SEED)
   // Punctuation-only walls ("!"×4000, "!!! "×800) are real degeneration
@@ -2339,7 +2381,7 @@ async function server({ client, directory }) {
       const msg = m.beforeWrite({
         tool: input.tool,
         sessionID: input.sessionID,
-        filePath: typeof args.filePath === "string" ? args.filePath : null,
+        filePath: writePathFromArgs(args),
       })
       if (msg) throw new Error(msg)
     },
@@ -2432,7 +2474,7 @@ async function setup(ctx) {
         const msg = m.beforeWrite({
           tool: event.tool,
           sessionID: event.sessionID,
-          filePath: typeof args.filePath === "string" ? args.filePath : null,
+          filePath: writePathFromArgs(args),
         })
         if (msg) throw new Error(msg)
       }
