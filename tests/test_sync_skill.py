@@ -77,6 +77,7 @@ def build_full(root):
     repo = dev.parent / "repo"
     (repo / "vibeweaver").mkdir(parents=True)
     (repo / "tests").mkdir(parents=True)
+    (repo / "tests" / "assert_artifacts.py").write_bytes((dev / "tests" / "assert_artifacts.py").read_bytes())
     (repo / "vibeweaver" / "SKILL.md").write_text("payload sentinel\n", encoding="utf-8")
     (repo / "vibeweaver" / "scripts").mkdir(parents=True)
     for name in ("assert_artifacts.sha256", "evidence_lock.py", "repair_checker.sh", "state_sanitize.py", "contract_lint.py"):

@@ -93,6 +93,9 @@ def copy_plan(dev: Path, installed: Path, eval_dir: Path, repo: Path = None):
     # The sync tooling ships too so the repo tree can reproduce the checks its
     # changelog cites (review I3 — claims never outlive their reproducer).
     if repo is not None:
+        # Task 3 step 1: the project-copy checker ships in the public tree and
+        # must be byte-identical too (it is the one a consumer project runs).
+        plan[0][2].append(("repo", repo / "tests" / "assert_artifacts.py"))
         plan.append(("plugin_compat_test.mjs", dev / "tests" / "plugin_compat_test.mjs", [
             ("repo", repo / "tests" / "plugin_compat_test.mjs"),
         ]))
