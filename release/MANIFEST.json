@@ -1,5 +1,5 @@
 {
-  "commit": "f497d519e917be1e9fad74c74e8786ab40cf2c04",
+  "commit": "9fcd3557897a3c0d055a63692ba86e27f5307e43",
   "files": [
     {
       "bytes": 44419,
@@ -107,9 +107,9 @@
       "sha256": "c1a3de0065218d31a8cfde698d0a06be069adfdf7ae0bdb1fae21d8033b52ab3"
     },
     {
-      "bytes": 6069,
+      "bytes": 5925,
       "path": "vibeweaver/scripts/make_release_manifest.py",
-      "sha256": "dfdf4820f180929a01ed5d98892ca9d2d2a4327c58de427d6e1ccdfc1062777a"
+      "sha256": "2ee291f346abc3702c4993305386fab5eea3b113ec2dee9a75c3b5943bcc408e"
     },
     {
       "bytes": 1290,

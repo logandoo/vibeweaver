@@ -20,7 +20,7 @@ missing/broken manifest is refused (`--no-verify` is development-only).
 # 1) Corrupt-detection only (trust boundary: the digest must come from an
 #    independent channel — a sha256 shipped in the same bundle proves nothing
 #    against replacement).
-sha256sum -c release/MANIFEST.sha256
+(cd release && sha256sum -c MANIFEST.sha256)
 
 # 2) Full file-by-file verification (canonical, no extra tooling).
 python3 scripts/verify_release.py --root . --manifest release/MANIFEST.json

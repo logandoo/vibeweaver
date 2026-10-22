@@ -72,6 +72,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          sha256sum -c release/MANIFEST.sha256
+          (cd release && sha256sum -c MANIFEST.sha256)
           python3 scripts/verify_release.py --root . --tag "${GITHUB_REF_NAME}"
           gh attestation verify release/MANIFEST.json --owner "${GITHUB_REPOSITORY_OWNER}"
