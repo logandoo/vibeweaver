@@ -42,17 +42,17 @@ class ContractLintTest(unittest.TestCase):
 
     def test_duplicate_cov0_fails(self):
         p = self.pay / "SKILL.md"
-        p.write_text(p.read_text() + "`COV-0. duplicate` — x.\n", encoding="utf-8")
+        p.write_text(p.read_text(encoding="utf-8") + "`COV-0. duplicate` — x.\n", encoding="utf-8")
         self.assertTrue(any("COV-0" in e for e in self.errors()), self.errors())
 
     def test_missing_cov_fails(self):
         p = self.pay / "SKILL.md"
-        p.write_text(p.read_text().replace("`COV-7. Rule 7` — text.\n", ""), encoding="utf-8")
+        p.write_text(p.read_text(encoding="utf-8").replace("`COV-7. Rule 7` — text.\n", ""), encoding="utf-8")
         self.assertTrue(any("COV numbering" in e for e in self.errors()), self.errors())
 
     def test_precedence_missing_fails(self):
         p = self.pay / "SKILL.md"
-        p.write_text(p.read_text().replace("Precedence: COV-0", "Precedence: none"), encoding="utf-8")
+        p.write_text(p.read_text(encoding="utf-8").replace("Precedence: COV-0", "Precedence: none"), encoding="utf-8")
         self.assertTrue(any("precedence" in e.lower() for e in self.errors()), self.errors())
 
     def test_banned_placeholder_fails(self):
@@ -61,7 +61,7 @@ class ContractLintTest(unittest.TestCase):
 
     def test_legacy_contradiction_fails(self):
         p = self.pay / "SKILL.md"
-        p.write_text(p.read_text() + "artifacts on disk and in your final answer; only tests/ counts.\n", encoding="utf-8")
+        p.write_text(p.read_text(encoding="utf-8") + "artifacts on disk and in your final answer; only tests/ counts.\n", encoding="utf-8")
         self.assertTrue(any("legacy" in e for e in self.errors()), self.errors())
 
     def test_skill_size_cap_fails(self):
