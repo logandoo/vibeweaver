@@ -3,7 +3,7 @@
 ## Project Context
 - [Mini checker gate](project_mini_gate.md) — why mini needs its own plugin; activation, oracle guard, review lessons (2026-10-20)
 - W0 trust floor (2026-10-22, ✅ verified dev+repo) — signed-manifest path, checker pin, evidence lock, bootstrap pointer, state redaction; evidence in `tests/w0/`
-- Release topology (2026-10-22, ✅) — dev tree is source; payload = `vibeweaver/`; tags `w18`/`w18.1` immutable; `w18.2.4` is the W0 release (w18.2..w18.2.3 superseded)
+- Release topology (2026-10-22, ✅) — dev tree is source; payload = `vibeweaver/`; tags `w18`/`w18.1` immutable; `w18.3` is the W1 release (default core; W0 `w18.2.x` superseded)
 - Trust boundaries (2026-10-22, ✅) — `docs/TRUST_MODEL.md`: lazy forgery vs hostile root, TCB, residual risks
 - Compatibility (2026-10-22, ⏳) — opencode v1/v2 only; other hosts are adapters (D-002), not equal-semantics
 

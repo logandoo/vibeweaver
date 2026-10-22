@@ -91,6 +91,8 @@ def _included(rel, prefix):
             return inner in TOP_LEVEL_FILES
         if inner.startswith("scripts/"):
             return pathlib.PurePosixPath(inner).suffix.lower() in SCRIPT_SUFFIXES
+        if inner.startswith("profiles/"):
+            return True
         return False
     # dev layout: payload files live at the root
     if "/" not in rel:
@@ -98,6 +100,8 @@ def _included(rel, prefix):
     if rel.startswith("scripts/"):
         return pathlib.PurePosixPath(rel).suffix.lower() in SCRIPT_SUFFIXES
     if rel.startswith("vibeweaver-mini/"):
+        return True
+    if rel.startswith("profiles/"):
         return True
     return False
 

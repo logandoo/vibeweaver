@@ -23,6 +23,8 @@ def build_tree(tmp):
     for name in lint_mod.COMPANIONS:
         (pay / name).write_text("# %s\n" % name, encoding="utf-8")
     (pay / "bootstrap.md").write_text("# bootstrap\n", encoding="utf-8")
+    (tmp / "profiles" / "core").mkdir(parents=True)
+    (tmp / "profiles" / "core" / "SKILL.md").write_text("# core\n`COV-0` .. `COV-13`\n", encoding="utf-8")
     return pay
 
 
@@ -63,6 +65,10 @@ class ContractLintTest(unittest.TestCase):
         p = self.pay / "SKILL.md"
         p.write_text(p.read_text(encoding="utf-8") + "artifacts on disk and in your final answer; only tests/ counts.\n", encoding="utf-8")
         self.assertTrue(any("legacy" in e for e in self.errors()), self.errors())
+
+    def test_missing_core_profile_fails(self):
+        (self.tmp / "profiles" / "core" / "SKILL.md").unlink()
+        self.assertTrue(any("profiles/core" in e for e in self.errors()), self.errors())
 
     def test_skill_size_cap_fails(self):
         (self.pay / "SKILL.md").write_text("x" * 49000, encoding="utf-8")

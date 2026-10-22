@@ -466,6 +466,7 @@ function findProjectRoot(startDirs) {
     if (!start) continue
     for (let d = path.resolve(start); ; d = path.dirname(d)) {
       if (existsSync(path.join(d, "tests", "verification_log.md"))) return d
+      if (existsSync(path.join(d, ".vibeweaver", "project.json"))) return d
       if (d === path.dirname(d)) break
     }
   }
@@ -525,6 +526,37 @@ function parseAssertJson(stdout) {
   return null
 }
 
+function currentTaskBlock(root) {
+  const log = safeRead(path.join(root, "tests", "verification_log.md"))
+  const blocks = log.split(/^(?=## )/m)
+  let cur = ""
+  for (const b of blocks) if (/^- iter \d+ (?:PASS|FAIL|PARTIAL)/m.test(b)) cur = b
+  return cur
+}
+
+function lenientAllowed(root) {
+  const block = currentTaskBlock(root)
+  const hasClass = /^- class:/m.test(block)
+  const hasProfile = /^- profile:/m.test(block)
+  const prof = safeRead(path.join(root, "tests", "project_profile.json"))
+  let uiFalse = false
+  try { const j = JSON.parse(prof || "{}"); uiFalse = j && j.ui === false } catch { uiFalse = false }
+  const backendOk = uiFalse || /^- ui:\s*none\b/m.test(block)
+  return { existing: hasClass && hasProfile, backend: backendOk }
+}
+
+function writeGateResult(root, flags, cls) {
+  try {
+    const p = path.join(root, "tests", "gate_result.json")
+    const body = JSON.stringify({ flags: flags || "(none)", class: cls || "", at: new Date().toISOString() })
+    const tmp = p + ".tmp"
+    writeFileSync(tmp, body)
+    renameSync(tmp, p)
+  } catch {
+    /* evidence write must never break the gate */
+  }
+}
+
 async function runAssert(root) {
   const pin = verifyChecker(root)
   const project = path.join(root, "tests", "assert_artifacts.py")
@@ -537,7 +569,13 @@ async function runAssert(root) {
   const attempts = []
   let jsonSupported = true
   const final = process.env.VIBEWEAVER_GATE_FINAL === "1"
-  for (const combo of FLAG_COMBOS) {
+  const allowed = lenientAllowed(root)
+  const combos = FLAG_COMBOS.filter((c) => {
+    if (c.includes("--existing") && !allowed.existing) return false
+    if (c.includes("--backend-only") && !allowed.backend) return false
+    return true
+  })
+  for (const combo of combos) {
     const flags = final ? ["--final", ...combo] : combo
     const argv = jsonSupported ? ["--json", ...rootArgs, ...flags] : [...rootArgs, ...flags]
     const { err, stdout, stderr } = await runPython(script, argv, root)
@@ -690,6 +728,15 @@ function inlineCheck(root) {
 }
 
 async function checkGate(root) {
+  const logPath = path.join(root, "tests", "verification_log.md")
+  if (!existsSync(logPath)) {
+    const key = root + "|inactive"
+    if (!LENIENT_NOTED.has(key)) {
+      LENIENT_NOTED.add(key)
+      return { blocking: [], warnings: ["GATE-INACTIVE: marker present but tests/verification_log.md is missing — the gate cannot attribute a task class; create the log or remove the marker"] }
+    }
+    return null
+  }
   const assertsPath = path.join(root, "tests", "assert_artifacts.py")
   if (existsSync(assertsPath)) {
     const pin = verifyChecker(root)
@@ -731,6 +778,8 @@ async function checkGate(root) {
         }
       }
       if (LENIENT_NOTED.size > 64) LENIENT_NOTED.clear()
+      const cls = (currentTaskBlock(root).match(/^- class:\s*(DOC|CONFIG|CODE)/m) || [])[1] || ""
+      writeGateResult(root, r.flags || "(none)", cls)
       return notes.length ? { blocking: [], warnings: notes } : null
     }
     {
@@ -741,6 +790,7 @@ async function checkGate(root) {
       if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
       RESULT_CACHE.set(key, result)
     }
+    writeGateResult(root, (r.attempts && r.attempts.length ? "(failed)" : "(none)"), "")
     return result
   }
   const failures = inlineCheck(root)
@@ -1132,7 +1182,14 @@ function bootstrapText() {
   if (_bootstrapText !== null) return _bootstrapText
   const p = path.join(canonicalHome(), "bootstrap.md")
   const raw = safeRead(p).trim()
-  _bootstrapText = raw || [
+  const modelClass = process.env.VIBEWEAVER_MODEL_CLASS || "unknown"
+  const modelLine = "model_class=" + modelClass + (modelClass === "unknown" ? " (unknown -> core + warning)" : "")
+  _bootstrapText = (raw ? raw + "\n\n" : "") + [
+    BOOTSTRAP_MARK,
+    modelLine,
+    "A coding task is active. Read SKILL.md §1 (covenants), then",
+    "TESTING_PROTOCOLS.md §A4.1/§A4.8; evidence goes to tests/.",
+  ].join("\n") || [
     BOOTSTRAP_MARK,
     "A coding task is active. Read SKILL.md §1 (covenants), then",
     "TESTING_PROTOCOLS.md §A4.1/§A4.8; evidence goes to tests/.",
@@ -1295,6 +1352,96 @@ function recordMemoryDelivery(root, kind) {
 // Ordering mirrors the legacy v1 hook: a blocking result short-circuits
 // BEFORE the stall observer records the op (a blocked write is not a
 // landed write).
+const RISK_PATH_RE = /(^|\/)(auth|security|payments?|billing|crypto|migrations?|permissions?|acl)(\/|\.|_|$)/i
+
+function approvalsText(root) {
+  return safeRead(path.join(root, "tests", "decisions.md"))
+}
+
+function riskApproved(root, target) {
+  if (!target) return false
+  const text = approvalsText(root)
+  const rel = target.replace(/\\/g, "/")
+  for (const line of text.split("\n")) {
+    if (!/risk-approved:|destructive-approved:/i.test(line)) continue
+    if (line.includes(rel) || line.includes(path.basename(rel))) return true
+  }
+  return false
+}
+
+function riskPathBlock(root, filePath) {
+  if (process.env.VIBEWEAVER_RISK_GATE === "off") return null
+  if (!filePath) return null
+  const rel = relativeUnderRoot(root, filePath)
+  if (!rel || !RISK_PATH_RE.test(rel)) return null
+  if (riskApproved(root, rel)) return null
+  return `GATE-BLOCKED (vibeweaver risk-path gate): ${rel} matches a risk-tier path (auth/security/payment/billing/crypto/migration/permission/acl). Add a user-approved line to tests/decisions.md: \`- risk-approved: ${rel} — <why>\` (Class-E), or set VIBEWEAVER_RISK_GATE=off with user consent.`
+}
+
+function riskCommandBlock(root, command) {
+  if (process.env.VIBEWEAVER_RISK_GATE === "off") return null
+  if (typeof command !== "string" || !command) return null
+  const m = command.match(/(?:^|[;&|]\s*)(?:sudo\s+)?(?:rm|git\s+rm)\s+(?:-[^\s]+\s+)*([^;&|]+)/)
+  if (!m) return null
+  const targets = m[1].split(/\s+/).filter((x) => x && !x.startsWith("-"))
+  for (const target of targets) {
+    const rel = target.replace(/^['"]|['"]$/g, "").replace(/\\/g, "/")
+    if (RISK_PATH_RE.test(rel) && !riskApproved(root, rel)) {
+      return `GATE-BLOCKED (vibeweaver risk-path gate): deleting risk-tier path ${rel} requires a user-approved \`- risk-approved: ${rel} — <why>\` line in tests/decisions.md.`
+    }
+  }
+  return null
+}
+
+const DESTRUCTIVE_ALLOW = /(^|\/)(node_modules|\.venv|venv|dist|build|target|coverage|\.next|\.pytest_cache|__pycache__)(\/|$)|^(\$TMPDIR|\/tmp)(\/|$)/
+
+function destructiveApproved(root, command) {
+  const text = approvalsText(root)
+  for (const line of text.split("\n")) {
+    if (!/destructive-approved:|risk-approved:/i.test(line)) continue
+    const needle = line.split(/destructive-approved:|risk-approved:/i)[1] || ""
+    if (needle.trim() && (command.includes(needle.trim().split(" — ")[0].trim()) || line.includes(command))) return true
+  }
+  return false
+}
+
+function destructiveBlock(root, command) {
+  if (process.env.VIBEWEAVER_DESTRUCTIVE_GATE === "off") return null
+  if (typeof command !== "string" || !command) return null
+  if (destructiveApproved(root, command)) return null
+  const c = command.trim()
+  if (/git\s+add\s+(?:-A|--all)\b/.test(c)) return "GATE-BLOCKED (destructive guard): `git add -A` stages ignored/vendor trees (45k-path incident). Use `git add -u` + explicit paths, or add `- destructive-approved: git add -A — <why>`."
+  if (/git\s+reset\s+--hard\b/.test(c)) return "GATE-BLOCKED (destructive guard): `git reset --hard` discards uncommitted work. Add a Class-E decision line or use a stash."
+  if (/git\s+clean\s+-[a-z]*[fd][a-z]*/.test(c)) return "GATE-BLOCKED (destructive guard): `git clean -fdx` deletes untracked files. Add a Class-E decision line first."
+  if (/git\s+(?:checkout|restore)\s+--\s+\./.test(c)) return "GATE-BLOCKED (destructive guard): `git checkout/restore -- .` discards the whole worktree. Add a Class-E decision line first."
+  if (/\btruncate\s+/.test(c)) return "GATE-BLOCKED (destructive guard): `truncate` destroys file content. Add a Class-E decision line first."
+  const m = c.match(/(?:^|[;&|]\s*)(?:sudo\s+)?rm\s+(?:-[^\s]+\s+)+([^;&|]+)/)
+  if (m) {
+    const targets = m[1].split(/\s+/).map((x) => x.replace(/^['"]|['"]$/g, "")).filter(Boolean)
+    const bad = targets.filter((target) => !DESTRUCTIVE_ALLOW.test(target))
+    if (bad.length) return "GATE-BLOCKED (destructive guard): recursive delete of non-allowlisted path(s): " + bad.join(", ") + ". Add `- destructive-approved: <command> — <why>` for a Class-E action."
+  }
+  return null
+}
+
+function beforeToolCheck(directory, tool, args) {
+  const root0 = findProjectRoot([directory])
+  if (tool === "bash" || tool === "shell") {
+    if (root0 && args && typeof args.command === "string") {
+      return riskCommandBlock(root0, args.command) || destructiveBlock(root0, args.command)
+    }
+    return null
+  }
+  const filePath = writePathFromArgs(args)
+  if (!filePath) return null
+  const abs = path.isAbsolute(filePath) ? filePath : path.resolve(directory || ".", filePath)
+  const root = findProjectRoot([directory, path.dirname(abs)])
+  if (!root) return null
+  const risk = riskPathBlock(root, abs)
+  if (risk) return risk
+  return null
+}
+
 function gateCheckWrite(directory, filePath) {
   if (process.env.VIBEWEAVER_GATE === "off") return Promise.resolve(null)
   // relative args.path resolves against the host directory (review A: cwd
@@ -1305,6 +1452,12 @@ function gateCheckWrite(directory, filePath) {
   // Cue delivery is hoisted ABOVE the gate: a RED gate (e.g. the task's
   // first write, empty log) is exactly when "read it before editing" must
   // arrive — delivery must never depend on the gate being green.
+  const block = currentTaskBlock(root)
+  const docClaim = /^- class:\s*DOC\b/m.test(block)
+  const codeExt = /\.(?:py|js|mjs|ts|tsx|jsx|go|rs|java|c|cc|cpp|h|hpp|rb|php|cs|sh|bash|ps1)$/i
+  if (docClaim && filePath && codeExt.test(filePath)) {
+    return Promise.resolve({ block: `GATE-BLOCKED (vibeweaver class guard): the current task block declares \`- class: DOC\` but this write targets a code file (${path.basename(filePath)}). DOC is prose/office only; reclassify the task (CODE/CONFIG) before writing code.` })
+  }
   const cues = cueNotes(root, filePath)
   // Protected evidence (W0 Task 2.5): acceptance/profile/debt/lock are NOT
   // ordinary evidence — they are the rules of the game. A write runs the
@@ -1437,6 +1590,11 @@ function firstTouchCue(directory, sessionID) {
 
 async function server({ client, directory }) {
   return {
+    "tool.execute.before": async (input, output) => {
+      if (!input) return
+      const risk = beforeToolCheck(directory, input.tool, input.args || (output && output.args) || {})
+      if (risk) throw new Error(risk)
+    },
     "tool.execute.after": async (input, output) => {
       if (!GATED_TOOLS.has(input.tool)) return
       const filePath = writePathFromArgs(input.args)
@@ -1538,6 +1696,16 @@ async function setup(ctx) {
     if (cue) appendNotesToV2Result(event, [cue])
   })
   registrations.push(registration)
+  try {
+    const before = await ctx.tool.hook("execute.before", async (event) => {
+      if (!event || !event.input) return
+      const risk = beforeToolCheck(directory, event.tool, event.input)
+      if (risk) throw new Error(risk)
+    })
+    if (before) registrations.push(before)
+  } catch {
+    /* host without a pre-hook: risk gate is post-hoc only */
+  }
   // v2 bootstrap (PLAN W0 Task 4): use the session context hook when the host
   // exposes it. The shipped 1.18.35 v2 context has no session domain, so this
   // block is feature-detected and stays a no-op there (bootstrap.md is the

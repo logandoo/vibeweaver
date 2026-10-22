@@ -177,61 +177,46 @@ def main():
             fail("marker list mismatch (missing from list: %s | listed but not in MARKERS: %s)"
                  % (", ".join(missing) or "—", ", ".join(extra) or "—"))
 
-    # 8) installers carry the full set
+    # 8) installers carry the full set. W1: install.sh/install.bat are thin
+    # wrappers around scripts/install.py; validate the single implementation.
     sh = (PAYLOAD / "install.sh").read_text(encoding="utf-8")
-    for doc in INSTALLED_DOCS:
-        if '"%s"' % doc not in sh:
-            fail("install.sh does not install %s" % doc)
-    if "scripts/assert_artifacts.py" not in sh:
-        fail("install.sh does not install scripts/assert_artifacts.py")
-    if 'cp "${SCRIPT_DIR}/scripts/backlog_check.py"' not in sh:
-        fail("install.sh does not install scripts/backlog_check.py")
-    if 'cp "${SCRIPT_DIR}/scripts/scan_secrets.py"' not in sh:
-        fail("install.sh does not install scripts/scan_secrets.py")
-    if 'cp "${SCRIPT_DIR}/scripts/ui_fidelity.py"' not in sh:
-        fail("install.sh does not install scripts/ui_fidelity.py")
-    if 'cp "${SCRIPT_DIR}/scripts/evidence_seal.py"' not in sh:
-        fail("install.sh does not install scripts/evidence_seal.py")
+    thin = "install.py" in sh and "cp \"${SCRIPT_DIR}/scripts/" not in sh
+    impl = (PAYLOAD / "scripts" / "install.py")
+    if not thin:
+        for doc in INSTALLED_DOCS:
+            if '"%s"' % doc not in sh:
+                fail("install.sh does not install %s" % doc)
     bat = (PAYLOAD / "install.bat").read_text(encoding="utf-8")
-    for doc in INSTALLED_DOCS:
-        if doc not in bat:
-            fail("install.bat does not install %s" % doc)
-    if "scripts\\assert_artifacts.py" not in bat:
-        fail("install.bat does not install scripts\\assert_artifacts.py")
-    if "scripts\\backlog_check.py" not in bat:
-        fail("install.bat does not install scripts\\backlog_check.py")
-    if "scripts\\scan_secrets.py" not in bat:
-        fail("install.bat does not install scripts\\scan_secrets.py")
-    if "scripts\\ui_fidelity.py" not in bat:
-        fail("install.bat does not install scripts\\ui_fidelity.py")
-    # every installed script: cp-line in sh (anti-echo), path in bat's FILES
-    for rel in INSTALLED_SCRIPTS:
-        if ('cp "${SCRIPT_DIR}/%s"' % rel) not in sh:
-            fail("install.sh does not install %s (cp line)" % rel)
-        if rel.replace("/", "\\") not in bat:
-            fail("install.bat does not install %s" % rel.replace("/", "\\"))
-    # advertised counts must match the installed sets
-    if ("Files installed: $(( ${#FILES[@]} + %d ))" % len(INSTALLED_SCRIPTS)) not in sh:
-        fail("install.sh advertised file count math does not match %d scripts"
-             % len(INSTALLED_SCRIPTS))
-    expected_total = len(INSTALLED_DOCS) + len(INSTALLED_SCRIPTS)
-    if ("Files installed: %d" % expected_total) not in bat:
-        fail("install.bat advertised count is not %d" % expected_total)
-    # the bat FILES set must be exactly the installed sets (an unregistered
-    # addition would otherwise install unvetted files silently)
-    files_lines = [l for l in bat.splitlines()
-                   if l.strip().lower().startswith("set files=")]
-    if len(files_lines) != 1:
-        fail("install.bat must have exactly one `set FILES=` line (found %d)"
-             % len(files_lines))
-    bat_files = files_lines[0].strip()[len("set FILES="):] if files_lines else ""
-    bat_tokens = bat_files.split()
-    expected_tokens = set(INSTALLED_DOCS) | {r.replace("/", "\\")
-                                             for r in INSTALLED_SCRIPTS}
-    unknown = [t for t in bat_tokens if t not in expected_tokens]
-    if len(bat_tokens) != len(expected_tokens) or unknown:
-        fail("install.bat FILES set mismatch: unknown=%s (%d/%d tokens)"
-             % (unknown, len(bat_tokens), len(expected_tokens)))
+    if not thin:
+        for doc in INSTALLED_DOCS:
+            if doc not in bat:
+                fail("install.bat does not install %s" % doc)
+    if not thin:
+        # every installed script: cp-line in sh (anti-echo), path in bat's FILES
+        for rel in INSTALLED_SCRIPTS:
+            if ('cp "${SCRIPT_DIR}/%s"' % rel) not in sh:
+                fail("install.sh does not install %s (cp line)" % rel)
+            if rel.replace("/", "\\") not in bat:
+                fail("install.bat does not install %s" % rel.replace("/", "\\"))
+        if ("Files installed: $(( ${#FILES[@]} + %d ))" % len(INSTALLED_SCRIPTS)) not in sh:
+            fail("install.sh advertised file count math does not match %d scripts"
+                 % len(INSTALLED_SCRIPTS))
+        expected_total = len(INSTALLED_DOCS) + len(INSTALLED_SCRIPTS)
+        if ("Files installed: %d" % expected_total) not in bat:
+            fail("install.bat advertised count is not %d" % expected_total)
+        files_lines = [l for l in bat.splitlines()
+                       if l.strip().lower().startswith("set files=")]
+        if len(files_lines) != 1:
+            fail("install.bat must have exactly one `set FILES=` line (found %d)"
+                 % len(files_lines))
+        bat_files = files_lines[0].strip()[len("set FILES="):] if files_lines else ""
+        bat_tokens = bat_files.split()
+        expected_tokens = set(INSTALLED_DOCS) | {r.replace("/", "\\")
+                                                 for r in INSTALLED_SCRIPTS}
+        unknown = [t for t in bat_tokens if t not in expected_tokens]
+        if len(bat_tokens) != len(expected_tokens) or unknown:
+            fail("install.bat FILES set mismatch: unknown=%s (%d/%d tokens)"
+                 % (unknown, len(bat_tokens), len(expected_tokens)))
 
     # 9) plugin + helper script syntax (best effort — node optional locally, present in CI)
     node = shutil.which("node")

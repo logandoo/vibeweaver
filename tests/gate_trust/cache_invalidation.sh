@@ -26,7 +26,7 @@ PY
 )"
 printf '%s  assert_artifacts.py\n' "$DIGEST" > "$HOME_DIR/scripts/assert_artifacts.sha256"
 cp "$HOME_DIR/scripts/assert_artifacts.py" "$P/tests/assert_artifacts.py"
-printf '> cap=5  stall=3x\n1. fixture\n' > "$P/tests/acceptance.md"
+printf '> cap=5  stall=3×\n1. fixture\n' > "$P/tests/acceptance.md"
 printf '## fixture\n- class: CODE - basis: fixture\n- Baseline verified GREEN - fixture\n' > "$P/tests/verification_log.md"
 
 OUT="$(node "$SEQ" "$P" "$HOME_DIR")"

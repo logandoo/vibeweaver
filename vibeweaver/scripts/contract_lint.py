@@ -93,8 +93,17 @@ def lint(root):
     if boot.exists() and boot.stat().st_size > 2048:
         errors.append("bootstrap.md is %d bytes (cap 2048)" % boot.stat().st_size)
 
-    if not (root / "profiles" / "core" / "SKILL.md").exists() and not (pay / "profiles" / "core" / "SKILL.md").exists():
-        warnings.append("profiles/core/SKILL.md not present yet (warning until Task 9)")
+    core = (root / "profiles" / "core" / "SKILL.md") if (root / "profiles" / "core" / "SKILL.md").is_file() else (pay / "profiles" / "core" / "SKILL.md")
+    if not core.is_file():
+        errors.append("profiles/core/SKILL.md missing (Task 9)")
+    elif len(core.read_text(encoding="utf-8", errors="replace")) // 4 > 4000:
+        errors.append("profiles/core/SKILL.md exceeds 4k tokens")
+    mini = (root / "vibeweaver-mini" / "SKILL.md") if (root / "vibeweaver-mini" / "SKILL.md").is_file() else (pay / "vibeweaver-mini" / "SKILL.md")
+    if mini.is_file() and len(mini.read_text(encoding="utf-8", errors="replace")) // 4 > 2000:
+        errors.append("vibeweaver-mini/SKILL.md exceeds 2k tokens")
+    full_tokens = sum(len((pay / f).read_text(encoding="utf-8", errors="replace")) for f in ("SKILL.md",) + COMPANIONS if (pay / f).is_file()) // 4
+    if full_tokens > 90000:
+        errors.append("full contract is %d tokens (cap 90000)" % full_tokens)
     return errors, warnings
 
 

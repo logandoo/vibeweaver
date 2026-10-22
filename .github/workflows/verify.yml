@@ -55,8 +55,16 @@ jobs:
           bash tests/gate_trust/run.sh
           bash tests/gate_trust/cache_invalidation.sh
           bash tests/gate_trust/evidence_integrity/run.sh
+          bash tests/gate_trust/gate_activation/run.sh
+          bash tests/gate_trust/risk_paths/run.sh
+          bash tests/gate_trust/destructive_commands/run.sh
+          bash tests/security/run.sh
           node tests/bootstrap_test.mjs
           node tests/state_bounds_test.mjs
+          python3 scripts/perf_budget.py --check --quick
+
+      - name: Claims registry
+        run: python3 scripts/check_claims.py
 
       - name: Clean-clone self check
         shell: bash

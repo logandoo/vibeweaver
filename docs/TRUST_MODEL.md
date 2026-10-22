@@ -16,7 +16,8 @@ outside the model.
 | Supply-chain release replacement | signed manifest / GitHub attestation; `install.sh` verifies | signing key or CI compromise | `.github/workflows/release.yml` |
 | Multi-tenant activation | project-root marker (`tests/verification_log.md`) | host misconfiguration | gate hook tests |
 | Subagent bootstrap leakage | child-session keys + full-contract dedupe | real host subagent input shape unprobed (adapter gap) | `tests/bootstrap_test.mjs` (mock shapes) |
-| Destructive command (`git add -A`, `rm -rf`) | **not in P0** (Task 7.5, pre-write guard) | execution-level damage | deferred to W1 |
+| Risk-tier path write/delete | pre-write risk gate + `tests/decisions.md` `risk-approved:` line | host without `tool.execute.before` degrades to post-hoc | `tests/gate_trust/risk_paths/run.sh` |
+| Destructive command (`git add -A`, `rm -rf`) | pre-write guard + allowlist + `destructive-approved:` ADR | shell tool bypasses if the host exposes no pre-hook (adapter-only) | `tests/gate_trust/destructive_commands/run.sh` (11/11) |
 
 ## Scope notes
 

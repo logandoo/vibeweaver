@@ -29,12 +29,20 @@ const hooks = await gate.server({
   directory: project,
 })
 let verdict = "CLEAN"
+let notes = []
 try {
-  await hooks["tool.execute.after"](
+  const out = { output: "" }
+  const r = await hooks["tool.execute.after"](
     { tool: "write", args: { path: target }, sessionID: "s-gate-trust" },
-    { output: "" },
+    out,
   )
+  if (r && r.notes) notes = r.notes
+  if (out.output) notes.push(out.output)
 } catch (e) {
   verdict = "BLOCK:" + String((e && e.message) || e)
 }
-console.log(verdict)
+if (process.env.VW_DRIVE_JSON === "1") {
+  console.log(JSON.stringify({ verdict, notes }))
+} else {
+  console.log(verdict)
+}

@@ -98,7 +98,16 @@ class ReleaseManifestTest(unittest.TestCase):
     def test_malformed_digest_fails(self):
         self.manifest["files"][0]["sha256"] = "not-a-digest"
         errors = verify_manifest(self.root, self.manifest)
-        self.assertTrue(any("sha256" in e for e in errors), errors)
+        self.assertTrue(any("bad sha256" in e for e in errors), errors)
+
+    def test_expected_tag_mismatch_fails(self):
+        errors = verify_manifest(self.root, self.manifest, expected_tag="other")
+        self.assertTrue(any("tag" in e for e in errors), errors)
+
+    def test_bad_bytes_type_fails(self):
+        self.manifest["files"][0]["bytes"] = "nope"
+        errors = verify_manifest(self.root, self.manifest)
+        self.assertTrue(any("bad bytes" in e for e in errors), errors)
 
     def test_path_traversal_rejected(self):
         self.manifest["files"].append({"path": "../escape.txt", "sha256": "0" * 64, "bytes": 1})

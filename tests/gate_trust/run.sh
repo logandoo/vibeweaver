@@ -14,7 +14,7 @@ trap 'rm -rf "$T"' EXIT
 mkproj() {
   local p="$1"
   mkdir -p "$p/tests" "$p/src"
-  printf '> cap=5  stall=3x\n1. fixture\n' > "$p/tests/acceptance.md"
+  printf '> cap=5  stall=3×\n1. fixture\n' > "$p/tests/acceptance.md"
   printf '## fixture\n- class: CODE - basis: fixture\n- Baseline verified GREEN - fixture\n' > "$p/tests/verification_log.md"
   printf 'const x = 1\n' > "$p/src/app.js"
 }

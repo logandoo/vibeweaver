@@ -1033,7 +1033,7 @@ function assertGreenProject(name) {
   writeFileSync(path.join(root, "tests", "acceptance.md"), "> cap=5  stall=3×\n\n# Acceptance\n1. ok\n")
   writeFileSync(
     path.join(root, "tests", "verification_log.md"),
-    "## Task: fixture | 2026-10-21\n- Baseline verified GREEN\n- iter 1 PASS: all criteria (evidence: scaffold, 1/1)\n- working-note: created → distilled → deleted\n"
+    "## Task: fixture | 2026-10-21\n- class: CODE\n- profile: full\n- Baseline verified GREEN\n- iter 1 PASS: all criteria (evidence: scaffold, 1/1)\n- working-note: created → distilled → deleted\n"
   )
   writeFileSync(path.join(root, "memory", "MEMORY.md"), "# Project Memory Index\n- [T](topic.md)\n")
   writeFileSync(path.join(root, "memory", "topic.md"), "# t\n")
@@ -1163,7 +1163,7 @@ function runAssertJson(root) {
   // G1 three-state (gate side): bootstrap window — a stale seal BEFORE any
   // green `- iter N PASS` in the task block is advisory (note), not a block.
   const root = assertGreenProject("gate-stale-bootstrap-v1")
-  writeFileSync(path.join(root, "tests", "verification_log.md"), "## Task: w18-bootstrap\n- Baseline verified GREEN\n- iter 1 FAIL: criterion #1 | diagnosis: the validator ran before state hydration | changed: app/a.py\n- working-note: created (fixture)\n")
+  writeFileSync(path.join(root, "tests", "verification_log.md"), "## Task: w18-bootstrap\n- class: CODE\n- profile: full\n- Baseline verified GREEN\n- iter 1 FAIL: criterion #1 | diagnosis: the validator ran before state hydration | changed: app/a.py\n- working-note: created (fixture)\n")
   execFileSync(PY, [payloadScript("evidence_seal.py")], { cwd: root, encoding: "utf8" })
   mkdirSync(path.join(root, "src"), { recursive: true })
   writeFileSync(path.join(root, "src", "late.js"), "export const x = 1\n")
