@@ -4,7 +4,7 @@
 # 48967B = +1 CR per line, and every .sh unparseable). Force LF everywhere;
 # batch files keep CRLF (cmd.exe goto/label semantics).
 * text=auto eol=lf
-*.bat text eol=crlf
+*.bat -text
 *.png binary
 *.webm binary
 *.wav binary
