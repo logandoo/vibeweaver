@@ -20,7 +20,7 @@ RUN  compat    82/82
 RUN  mini      62/62
 FAIL README_zh.md: compat: claim 70/71 != run 82/82
 check_doc_counts.py: 1 claim mismatch(es) — FAIL (exit 1)
-PASS  CDC12 main() seam: doc wiring reaches the exit code (ok→0, drift→1) — ok=0 bad=1
+PASS  CDC12 main() seam: doc wiring reaches the exit code (ok->0, drift->1) — ok=0 bad=1
 PASS  CDC13 non-zero exit cannot bind claims — value=None err=compat: suite exited 1 — claims cannot bind a red run
 
 === 13/13 pass ===

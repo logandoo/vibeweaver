@@ -140,13 +140,14 @@ def main():
                   "node vibeweaver/scripts/mutation_sweep.mjs  # 44 项变异\n"
                   "node tests/plugin_compat_test.mjs  # 82/82 双 loader 兼容\n"
                   "node tests/mini_gate_test.mjs  # 62/62 mini checker gate\n")
-        (tdp / "README.md").write_text(doc_en)
-        (tdp / "README_zh.md").write_text(doc_zh)
+        (tdp / "README.md").write_text(doc_en, encoding="utf-8")
+        (tdp / "README_zh.md").write_text(doc_zh, encoding="utf-8")
         fake = lambda key: (runs[key], None)  # noqa: E731
         rc_ok = cdc.main([], root=tdp, run=fake)
-        (tdp / "README_zh.md").write_text(doc_zh.replace("82/82", "70/71"))
+        (tdp / "README_zh.md").write_text(doc_zh.replace("82/82", "70/71"),
+                                          encoding="utf-8")
         rc_bad = cdc.main([], root=tdp, run=fake)
-    rec("CDC12 main() seam: doc wiring reaches the exit code (ok→0, drift→1)",
+    rec("CDC12 main() seam: doc wiring reaches the exit code (ok->0, drift->1)",
         rc_ok == 0 and rc_bad == 1, f"ok={rc_ok} bad={rc_bad}")
 
     # CDC13 (review M2): a non-zero exit with a green-looking SUMMARY binds
