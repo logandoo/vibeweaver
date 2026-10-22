@@ -2,7 +2,7 @@
 // usage: node drive_gate.mjs <project> <target>   (env: VIBEWEAVER_HOME)
 import { existsSync } from "node:fs"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 const project = process.argv[2]
 const target = process.argv[3]
@@ -10,7 +10,7 @@ if (!project || !target) {
   console.error("usage: node drive_gate.mjs <project> <target>")
   process.exit(2)
 }
-const here = path.dirname(new URL(import.meta.url).pathname)
+const here = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(here, "..", "..")
 const candidates = [
   process.env.VIBEWEAVER_GATE_MODULE,

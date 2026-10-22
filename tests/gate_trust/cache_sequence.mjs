@@ -4,7 +4,7 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs"
 import { createHash } from "node:crypto"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 const project = process.argv[2]
 const home = process.argv[3]
@@ -13,7 +13,7 @@ if (!project || !home) {
   process.exit(2)
 }
 process.env.VIBEWEAVER_HOME = home
-const here = path.dirname(new URL(import.meta.url).pathname)
+const here = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(here, "..", "..")
 const gatePath = [path.join(repoRoot, "vibeweaver-gate.js"), path.join(repoRoot, "vibeweaver", "vibeweaver-gate.js")].find((p) => existsSync(p))
 const mod = await import(pathToFileURL(gatePath).href)

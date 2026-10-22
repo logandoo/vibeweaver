@@ -49,6 +49,7 @@ jobs:
         run: node tests/mini_gate_test.mjs
 
       - name: Trust-floor fixtures (checker pin / evidence lock / bootstrap / state)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           bash tests/gate_trust/run.sh

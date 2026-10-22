@@ -7,7 +7,7 @@ import os from "node:os"
 import path from "node:path"
 
 import { existsSync as exists } from "node:fs"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 const HERE = new URL("..", import.meta.url).pathname
 const HOME = exists(new URL("../vibeweaver/SKILL.md", import.meta.url).pathname)
   ? new URL("../vibeweaver", import.meta.url).pathname

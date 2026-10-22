@@ -3,11 +3,11 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 process.env.VIBEWEAVER_MAX_STATE_BYTES = "120000"
 process.env.VIBEWEAVER_RETENTION_DAYS = "14"
-const here = path.dirname(new URL(import.meta.url).pathname)
+const here = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(here, "..")
 const auditPath = [path.join(repoRoot, "vibeweaver-audit.js"), path.join(repoRoot, "vibeweaver", "vibeweaver-audit.js")].find((p) => existsSync(p))
 const audit = (await import(pathToFileURL(auditPath).href)).default
