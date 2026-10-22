@@ -17,7 +17,7 @@ trap 'rm -rf "$T"' EXIT
 mkproj() {
   local p="$1"
   mkdir -p "$p/tests"
-  printf '> cap=5  stall=3x\n\n## Task A\n1. criterion A\n' > "$p/tests/acceptance.md"
+  printf '> cap=5  stall=3×\n\n# Task A\n1. criterion A\n' > "$p/tests/acceptance.md"
   printf '## Task A\n- class: CODE\n- Baseline verified GREEN\n- iter 1 PASS: criterion #1 (evidence: tests/x.log)\n' > "$p/tests/verification_log.md"
   printf '{"profile":"library"}\n' > "$p/tests/project_profile.json"
   printf '{"max_bytes":4096,"recorded":[]}\n' > "$p/tests/debt_baseline.json"
@@ -68,5 +68,29 @@ P="$T/legacy"; mkproj "$P"
 python3 "$LOCK" --root "$P" --init >/dev/null
 python3 "$LOCK" --root "$P" --check --final >/dev/null 2>&1; expect_ok legacy-migration "$?"
 
+# 7) new task section appended AFTER a final-run -> clean rebase
+P="$T/rebase"; mkproj "$P"
+python3 "$LOCK" --root "$P" --init >/dev/null
+printf -- '- final-run: --final — pass=1/fail=0\n' >> "$P/tests/verification_log.md"
+python3 "$LOCK" --root "$P" --seal-log >/dev/null
+printf '\n# Task B\n> cap=5  stall=3×\n1. criterion B\n' >> "$P/tests/acceptance.md"
+python3 "$LOCK" --root "$P" --check --rebase-new-task >/dev/null 2>&1; expect_ok new-task-rebase "$?"
+printf '2. criterion B changed\n' >> "$P/tests/acceptance.md"
+python3 "$LOCK" --root "$P" --check >/dev/null 2>&1; expect new-task-section-tamper "$?"
+
+# 8) new task appended WITHOUT final-run -> refuse escape
+P="$T/escape"; mkproj "$P"
+python3 "$LOCK" --root "$P" --init >/dev/null
+printf '\n# Task B\n> cap=5  stall=3×\n1. criterion B\n' >> "$P/tests/acceptance.md"
+python3 "$LOCK" --root "$P" --check --rebase-new-task >/dev/null 2>&1; expect no-final-run-escape "$?"
+
+# 9) lock deleted after evidence exists -> gate refuses silent re-init
+P="$T/missing"; mkproj "$P"
+python3 "$LOCK" --root "$P" --init >/dev/null
+rm "$P/tests/.evidence.lock"
+printf '2. loosen\n' >> "$P/tests/acceptance.md"
+OUT="$(VIBEWEAVER_HOME="$(dirname "$(dirname "$LOCK")")" node "$DRIVE" "$P" "$P/tests/acceptance.md" 2>&1 || true)"
+if [[ "$OUT" == *"missing AFTER task evidence"* ]]; then echo "PASS  missing-lock-after-evidence: BLOCKED"; else echo "FAIL  missing-lock-after-evidence: $OUT"; fail=1; fi
+
 if [[ "$fail" -ne 0 ]]; then echo "EVIDENCE-INTEGRITY FAIL"; exit 1; fi
-echo "EVIDENCE-INTEGRITY OK 6/6"
+echo "EVIDENCE-INTEGRITY OK 6/6 (+ new-task 3/3)"

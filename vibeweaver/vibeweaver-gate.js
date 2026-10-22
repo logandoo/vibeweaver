@@ -437,6 +437,16 @@ async function checkProtectedEvidence(root, filePath) {
   }
   const lockPath = path.join(root, "tests", ".evidence.lock")
   if (!existsSync(lockPath)) {
+    // Bootstrap only before evidence exists. A lock that disappeared after a
+    // `- iter`/`- final-run` line is a tamper signal, not a fresh project:
+    // re-initializing would bless the tampered acceptance/profile/debt.
+    const log = safeRead(path.join(root, "tests", "verification_log.md"))
+    const hasEvidence = /^- (?:iter \d+ (?:PASS|FAIL)|final-run:|assert-run:)/m.test(log)
+    if (hasEvidence) {
+      return {
+        block: "GATE-BLOCKED (vibeweaver evidence lock): tests/.evidence.lock is missing AFTER task evidence exists — this is a tamper signal, not a bootstrap. Restore it from git, or run `python3 scripts/evidence_lock.py --root . --init --force --approved` (Class-E) to re-baseline.",
+      }
+    }
     const init = await runEvidenceLock(script, root, ["--init"])
     if (init.code !== 0) {
       return { block: `GATE-BLOCKED (vibeweaver evidence lock): could not initialize ${lockPath}\n${init.out}` }

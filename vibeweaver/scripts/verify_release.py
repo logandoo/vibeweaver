@@ -4,7 +4,7 @@
 Consumer command (from the release bundle root):
 
     python3 scripts/verify_release.py
-    # MANIFEST OK 24/24
+    # MANIFEST OK N/N
 
 Failure is closed: missing file, extra file, byte-count drift, digest drift,
 duplicate/unsafe paths, or a bad schema exits 1 and names the path. A tag /

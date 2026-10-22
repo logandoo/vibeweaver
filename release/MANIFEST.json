@@ -1,5 +1,5 @@
 {
-  "commit": "7ccc5e9c74e2af30ef5f78c257b77e09935f974b",
+  "commit": "59ca5eb472659cb69d4844579a3d3bc955460543",
   "files": [
     {
       "bytes": 44419,
@@ -97,9 +97,9 @@
       "sha256": "e9fd3b5bb676ecedfef17704cc1f8eee5c01ebaed6941c64a595fa44b79c6b5b"
     },
     {
-      "bytes": 13998,
+      "bytes": 15158,
       "path": "vibeweaver/scripts/evidence_lock.py",
-      "sha256": "636f5028d2c2502015337c72b9c258a4fb01bdd002bfca7f7e0b18a4fbfc5cf0"
+      "sha256": "7532069f09bb512a54ab1a0498fb0d55091b45b8021c1ca24a9efb6a74b0b1be"
     },
     {
       "bytes": 12632,
@@ -107,9 +107,9 @@
       "sha256": "c1a3de0065218d31a8cfde698d0a06be069adfdf7ae0bdb1fae21d8033b52ab3"
     },
     {
-      "bytes": 5925,
+      "bytes": 5734,
       "path": "vibeweaver/scripts/make_release_manifest.py",
-      "sha256": "2ee291f346abc3702c4993305386fab5eea3b113ec2dee9a75c3b5943bcc408e"
+      "sha256": "e7ba44994085c291272df97a386dd984e4f0ca365b711e078973e13741c02f54"
     },
     {
       "bytes": 1290,
@@ -152,9 +152,9 @@
       "sha256": "8b9feb25b91e4aa7d405c07b17d8ae2ffd7335e3c7d487ef3fa6316257b2c6cf"
     },
     {
-      "bytes": 5359,
+      "bytes": 5357,
       "path": "vibeweaver/scripts/verify_release.py",
-      "sha256": "9a1634e2edeb79a48e386ccf7330b8714b3e324a5aedb157977b67ddcc936070"
+      "sha256": "dacc2dbac3322db7ddb17e6e8fed11511cb0378d9ab3b909ae94fdd655ba5a8b"
     },
     {
       "bytes": 80461,
@@ -167,11 +167,11 @@
       "sha256": "ee32df2e56afd34e4ee8da19e099752d66442e20bae4c6ee1e9fb807e957442d"
     },
     {
-      "bytes": 66181,
+      "bytes": 66912,
       "path": "vibeweaver/vibeweaver-gate.js",
-      "sha256": "7d9ca5336711976acff1bfc677e12028fb53022462e7db9f95cbf07e72b6c756"
+      "sha256": "641f282bd242bfb2aee39a909db99a51e5f2415f6cebe1579b07e5e7f1f08256"
     }
   ],
   "schema_version": 1,
-  "tag": "w18.2.1"
+  "tag": "w18.2.2"
 }

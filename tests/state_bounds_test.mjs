@@ -37,6 +37,7 @@ const skillPart = (sid) => ({
   const hooks = await load(root)
   const s = path.join(root, ".vibeweaver", "audit-state.json")
   await hooks.event({ event: { type: "message.part.updated", properties: { sessionID: "s1", part: skillPart("s1") } } })
+  await hooks.event({ event: { type: "message.part.updated", properties: { sessionID: "s1", part: { type: "reasoning", id: "r1", messageID: "m1", text: `sshpass -p ${"hunter" + "2"} AKIA${"ABCDEFGHIJKLMNOP"}` } } } })
   const N = Number(process.env.VW_STATE_EVENTS || 20000)
   for (let i = 0; i < N; i++) {
     const part = {

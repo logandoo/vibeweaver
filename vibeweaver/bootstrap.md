@@ -1,6 +1,6 @@
 # using-vibeweaver (bootstrap v1)
 
-You are working with the vibeweaver skill. This 1 KB pointer is injected at
+You are working with the vibeweaver skill. This 1–2 KB pointer is injected at
 session start. Read the profile it names; do not load the full 340 KB contract
 unless the task class demands it.
 

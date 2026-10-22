@@ -85,9 +85,6 @@ def _included(rel, prefix):
         if not rel.startswith(prefix):
             return False
         inner = rel[len(prefix):]
-        if not inner or "/" in inner.split("/")[0] and not inner.startswith("vibeweaver-mini/"):
-            # only direct payload files, scripts/, and the sibling mini tree
-            pass
         if inner.startswith("vibeweaver-mini/"):
             return True
         if "/" not in inner:

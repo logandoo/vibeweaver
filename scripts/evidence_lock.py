@@ -41,6 +41,10 @@ MAGIC = {
 }
 
 
+def norm_section(text):
+    return (text.rstrip() + "\n") if text.strip() else ""
+
+
 def sha_bytes(b):
     return hashlib.sha256(b).hexdigest()
 
@@ -57,9 +61,27 @@ def section(text):
     lines = text.splitlines(keepends=True)
     idx = 0
     for i, line in enumerate(lines):
-        if line.startswith("## "):
+        if re.match(r"^#{1,2} ", line):
             idx = i
-    return lines[idx].rstrip("\r\n") if lines and lines[idx].startswith("## ") else "", "".join(lines[idx:]), idx
+    head = lines[idx].rstrip("\r\n") if lines and re.match(r"^#{1,2} ", lines[idx]) else ""
+    return head, "".join(lines[idx:]), idx
+
+
+def section_slice(text, heading):
+    """Slice from `heading` to the next heading (any level) or EOF."""
+    lines = text.splitlines(keepends=True)
+    out = []
+    started = False
+    for line in lines:
+        if not started:
+            if line.rstrip("\r\n") == heading.rstrip("\r\n"):
+                started = True
+                out.append(line)
+            continue
+        if re.match(r"^#{1,2} ", line):
+            break
+        out.append(line)
+    return "".join(out)
 
 
 def read_text(p):
@@ -85,14 +107,6 @@ def _line_hashes(text):
     return [sha_bytes(line.encode("utf-8")) for line in text.splitlines()]
 
 
-def _log_state(root, data):
-    text = read_text(pathlib.Path(root) / "tests" / "verification_log.md")
-    lines = text.splitlines()
-    hashes = _line_hashes(text)
-    base_n = int(data.get("baseline_lines", 0))
-    return text, lines, hashes, base_n
-
-
 def build_lock(root, previous=None):
     root = pathlib.Path(root)
     acc = read_text(root / "tests" / "acceptance.md")
@@ -114,8 +128,8 @@ def build_lock(root, previous=None):
         "acceptance": {
             "heading": heading,
             "start_line": start,
-            "sha256": sha_bytes(sec.encode("utf-8")),
-            "bytes": len(sec.encode("utf-8")),
+            "sha256": sha_bytes(norm_section(sec).encode("utf-8")),
+            "bytes": len(norm_section(sec).encode("utf-8")),
         },
         "profile": {"sha256": sha_file(root / "tests" / "project_profile.json") or None},
         "debt": {"sha256": sha_file(root / "tests" / "debt_baseline.json") or None},
@@ -133,10 +147,13 @@ def build_lock(root, previous=None):
     return lock
 
 
-def init(root, force=False):
+def init(root, force=False, approved=False):
     p = _lock_path(root)
     if p.exists() and not force:
         print("EVIDENCE-LOCK FAIL: %s already exists (use --update-acceptance/--seal-log)" % p, file=sys.stderr)
+        return 1
+    if force and not approved:
+        print("EVIDENCE-LOCK FAIL: --force requires --approved (Class-E; re-baselining rewrites the anchor)", file=sys.stderr)
         return 1
     prev = None
     if p.exists():
@@ -195,11 +212,12 @@ def verify(root, final=False, rebase_new_task=False):
         return ["evidence lock unparseable: %s" % e]
 
     errors = []
+    log_text = read_text(root / "tests" / "verification_log.md")
     # --- acceptance section -------------------------------------------------
     acc_text = read_text(root / "tests" / "acceptance.md")
     heading, sec, start = section(acc_text)
     locked = lock.get("acceptance", {})
-    cur_sha = sha_bytes(sec.encode("utf-8"))
+    cur_sha = sha_bytes(norm_section(sec).encode("utf-8"))
     if heading == locked.get("heading") and cur_sha != locked.get("sha256"):
         errors.append(
             "acceptance section changed after lock (sha256 %s != %s) — "
@@ -208,15 +226,20 @@ def verify(root, final=False, rebase_new_task=False):
         )
     elif heading != locked.get("heading"):
         locked_heading = str(locked.get("heading") or "")
-        old = acc_text.split(locked_heading, 1)[1] if locked_heading and locked_heading in acc_text else ""
-        old_sha = sha_bytes((locked_heading + old).encode("utf-8")) if old else ""
+        old = section_slice(acc_text, locked_heading) if locked_heading else ""
+        old_sha = sha_bytes(norm_section(old).encode("utf-8")) if old else ""
         if locked_heading and locked_heading in acc_text and old_sha == locked.get("sha256"):
-            if rebase_new_task:
+            log_has_final = bool(re.search(r"(?m)^- final-run:\s*--final\s*[—-]\s*pass=\d+/fail=0", log_text))
+            if rebase_new_task and log_has_final:
                 data = build_lock(root, lock)
                 _write_lock(root, data)
                 lock = data
+            elif rebase_new_task:
+                errors.append(
+                    "new task section detected while the current task has no `- final-run: --final … pass=N/fail=0` — "
+                    "refusing auto-rebase (it would be an escape hatch); finish the task or use --update-acceptance --approved")
             else:
-                errors.append("new task section detected (%r) — run --init --force or --rebase-new-task" % heading)
+                errors.append("new task section detected (%r) — finish the current task then re-run, or --update-acceptance --approved" % heading)
         else:
             errors.append("acceptance task section heading changed and the locked section was not preserved")
 
@@ -344,13 +367,13 @@ def main(argv=None):
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--rebase-new-task", action="store_true")
     ap.add_argument("--reason", default="")
-    ap.add_argument("--approved", action="store_true")
+    ap.add_argument("--approved", action="store_true", help="Class-E approval for re-baseline/acceptance changes")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     root = pathlib.Path(args.root).resolve()
 
     if args.init:
-        return init(root, args.force)
+        return init(root, args.force, args.approved)
     if args.update_acceptance:
         errs = update_acceptance(root, args.reason, args.approved)
     elif args.seal_log:
