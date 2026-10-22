@@ -523,18 +523,19 @@ async function runAssert(root) {
   const canonical = pin.canonical
   const canonicalOk = canonical && sha256File(canonical) === (pin.expected || pin.digest)
   const script = canonicalOk ? canonical : project
+  const rootArgs = canonicalOk ? ["--root", root] : []
   const attempts = []
   let jsonSupported = true
   const final = process.env.VIBEWEAVER_GATE_FINAL === "1"
   for (const combo of FLAG_COMBOS) {
     const flags = final ? ["--final", ...combo] : combo
-    const argv = jsonSupported ? ["--json", ...flags] : flags
+    const argv = jsonSupported ? ["--json", ...rootArgs, ...flags] : [...rootArgs, ...flags]
     const { err, stdout, stderr } = await runPython(script, argv, root)
     const out = `${stdout}${stderr ? "\n" + stderr : ""}`.trim()
     // the transport flag (--json) and the gate mode (--final) are NOT
     // leniency flags: label attempts by the real flag combo so a strict pass
     // reads "(none)" and never triggers the "passed only under …" note.
-    const label = flags.filter((a) => a !== "--json" && a !== "--final").join(" ") || "(none)"
+    const label = flags.filter((a) => a !== "--json" && a !== "--final" && a !== "--root" && a !== root).join(" ") || "(none)"
     if (/unrecognized arguments/.test(out)) {
       // A copy without --json (BL-3) falls back to prose mode ONCE — still
       // fail-closed on its output. A copy that rejects the OTHER canonical
@@ -1102,6 +1103,21 @@ const BOOTSTRAP_MARK = "using-vibeweaver (bootstrap v" + BOOTSTRAP_VERSION + ")"
 const FULL_CONTRACT_MARK = "§1 OPERATING COVENANT"
 let _bootstrapText = null
 
+
+// The host's system context is an array of LLM.SystemPart objects
+// ({type:"text", text}); a bare string fails provider schema validation.
+// Older v1 harnesses used strings, so preserve that shape when present.
+function systemTextOf(part) {
+  return typeof part === "string" ? part : (part && typeof part.text === "string" ? part.text : "")
+}
+
+function pushSystemText(output, text) {
+  if (!Array.isArray(output.system)) output.system = []
+  const arr = output.system
+  const objectShape = arr.length === 0 || arr.some((p) => p && typeof p === "object" && p.type === "text")
+  arr.push(objectShape ? { type: "text", text } : text)
+}
+
 function bootstrapText() {
   if (_bootstrapText !== null) return _bootstrapText
   const p = path.join(canonicalHome(), "bootstrap.md")
@@ -1128,7 +1144,7 @@ function injectBootstrap(input, output) {
   const sid = input && (input.sessionID || (input.session && input.session.id))
   if (!sid || typeof sid !== "string") return null
   if (!Array.isArray(output.system)) output.system = []
-  const joined = output.system.join("\n")
+  const joined = output.system.map(systemTextOf).join("\n")
   if (joined.includes(FULL_CONTRACT_MARK)) return null // host already force-injected full
   if (joined.includes(BOOTSTRAP_MARK)) {
     SESSION_MEM.bootstrapped.add(sid)
@@ -1136,7 +1152,7 @@ function injectBootstrap(input, output) {
     return null
   }
   if (SESSION_MEM.bootstrapped.has(sid)) return null
-  output.system.push(BOOTSTRAP_MARK + "\n\n" + bootstrapText())
+  pushSystemText(output, BOOTSTRAP_MARK + "\n\n" + bootstrapText())
   SESSION_MEM.bootstrapped.add(sid)
   capBounded(SESSION_MEM.bootstrapped)
   return BOOTSTRAP_MARK
@@ -1449,7 +1465,7 @@ async function server({ client, directory }) {
       if (!root) return
       try {
         if (Array.isArray(output.system)) {
-          output.system.push(compactStateBundle(root))
+          pushSystemText(output, compactStateBundle(root))
           SESSION_MEM.pendingResume.delete(sid) // consume only after a successful push (I2)
           recordMemoryDelivery(root, "compactResume")
         }

@@ -17,7 +17,8 @@ const GATE_PATH = exists(new URL("../vibeweaver-gate.js", import.meta.url).pathn
   ? new URL("../vibeweaver-gate.js", import.meta.url).pathname
   : new URL("../vibeweaver/vibeweaver-gate.js", import.meta.url).pathname
 const gate = (await import(pathToFileURL(GATE_PATH).href)).default
-const boot = (arr) => (arr || []).filter((s) => String(s).includes("using-vibeweaver (bootstrap v")).length
+const textOf = (s) => (typeof s === "string" ? s : s && typeof s.text === "string" ? s.text : "")
+const boot = (arr) => (arr || []).filter((s) => textOf(s).includes("using-vibeweaver (bootstrap v")).length
 const results = []
 function rec(name, ok, detail = "") {
   results.push([name, ok])
@@ -36,9 +37,16 @@ const sys = hooks["experimental.chat.system.transform"]
   const first = boot(out.system)
   await sys({ sessionID: "boot-s1" }, out)
   const second = boot(out.system)
-  const text = out.system.find((s) => String(s).includes("using-vibeweaver (bootstrap v")) || ""
+  const text = out.system.map(textOf).find((s) => s.includes("using-vibeweaver (bootstrap v")) || ""
   rec("v1 session start injects exactly once", first === 1 && second === 1, `first=${first} second=${second}`)
   rec("bootstrap payload is the 1-2 KB pointer", String(text).length > 200 && String(text).length < 4096 && String(text).includes("tests/"), `len=${String(text).length}`)
+}
+
+{
+  const out = { system: [{ type: "text", text: "base" }] }
+  await sys({ sessionID: "boot-obj" }, out)
+  const part = out.system.find((s) => textOf(s).includes("using-vibeweaver (bootstrap v"))
+  rec("v1 object-shaped system gets an LLM.SystemPart", !!part && typeof part === "object" && part.type === "text", `shape=${part && typeof part}`)
 }
 
 {

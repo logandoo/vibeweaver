@@ -936,26 +936,26 @@ const BLOCK = "function foo() {\n  return computeValue(x)\n}\n"
 
   const sys1 = { system: ["base"] }
   await h["experimental.chat.system.transform"]({ sessionID: "s1" }, sys1)
-  rec("D3a-gate-v1: system transform before compacted event injects bootstrap only (no resume)", sys1.system.filter((s) => String(s).includes("WORKING-STATE")).length === 0 && sys1.system.filter((s) => String(s).includes("using-vibeweaver (bootstrap")).length === 1, `n=${sys1.system.length}`)
+  rec("D3a-gate-v1: system transform before compacted event injects bootstrap only (no resume)", sys1.system.filter((s) => String(s && typeof s === "object" ? s.text : s).includes("WORKING-STATE")).length === 0 && sys1.system.filter((s) => String(s && typeof s === "object" ? s.text : s).includes("using-vibeweaver (bootstrap")).length === 1, `n=${sys1.system.length}`)
   await h.event({ event: { type: "session.compacted", data: { sessionID: "s1" } } })
   const sysOther = { system: ["base"] }
   await h["experimental.chat.system.transform"]({ sessionID: "s9" }, sysOther)
-  rec("D3b-gate-v1: different session does not consume the pending resume", sysOther.system.filter((s) => String(s).includes("WORKING-STATE")).length === 0, `n=${sysOther.system.length}`)
+  rec("D3b-gate-v1: different session does not consume the pending resume", sysOther.system.filter((s) => String(s && typeof s === "object" ? s.text : s).includes("WORKING-STATE")).length === 0, `n=${sysOther.system.length}`)
   const sys2 = { system: ["base"] }
   await h["experimental.chat.system.transform"]({ sessionID: "s1" }, sys2)
   rec(
     "D3c-gate-v1: compacted session's next system transform gets the resume bundle",
-    sys2.system.filter((s) => String(s).includes("VIBEWEAVER WORKING-STATE") && String(s).includes("confirmed: x")).length === 1,
+    sys2.system.filter((s) => String(s && typeof s === "object" ? s.text : s).includes("VIBEWEAVER WORKING-STATE") && String(s && typeof s === "object" ? s.text : s).includes("confirmed: x")).length === 1,
     `n=${sys2.system.length}`
   )
   const sys3 = { system: ["base"] }
   await h["experimental.chat.system.transform"]({ sessionID: "s1" }, sys3)
-  rec("D3d-gate-v1: second call does not re-inject (fire ledger consumed after delivery)", sys3.system.filter((s) => String(s).includes("WORKING-STATE")).length === 0, `n=${sys3.system.length}`)
+  rec("D3d-gate-v1: second call does not re-inject (fire ledger consumed after delivery)", sys3.system.filter((s) => String(s && typeof s === "object" ? s.text : s).includes("WORKING-STATE")).length === 0, `n=${sys3.system.length}`)
   // D3e — v1 envelope uses `properties`, not `data` (regression: session-keyed arm silently broke)
   await h.event({ event: { type: "session.compacted", properties: { sessionID: "s2" } } })
   const sys4 = { system: ["base"] }
   await h["experimental.chat.system.transform"]({ sessionID: "s2" }, sys4)
-  rec("D3e-gate-v1: v1 `properties` envelope arms the resume", sys4.system.filter((s) => String(s).includes("VIBEWEAVER WORKING-STATE")).length === 1, `n=${sys4.system.length}`)
+  rec("D3e-gate-v1: v1 `properties` envelope arms the resume", sys4.system.filter((s) => String(s && typeof s === "object" ? s.text : s).includes("VIBEWEAVER WORKING-STATE")).length === 1, `n=${sys4.system.length}`)
 
   const outW1 = { output: "write ok" }
   await h["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "c1", args: { filePath: path.join(root, "src", "a.js") } }, outW1)
@@ -1013,6 +1013,10 @@ const payloadFile = (rel) => {
   return existsSync(local) ? local : path.join(REPO_ROOT, "vibeweaver", rel)
 }
 const payloadScript = (name) => payloadFile(path.join("scripts", name))
+// Checker-pin isolation (W0): the harness must test the payload in THIS tree,
+// not whatever skill happens to be installed on the host. Otherwise a newer
+// installed pin makes the repo's own fixtures fail (or worse, pass).
+process.env.VIBEWEAVER_HOME = path.dirname(payloadFile("SKILL.md"))
 // Cross-platform interpreter (review C1): windows-latest resolves `python`,
 // macOS runners ship `python3`; PYTHON env overrides both.
 const PY = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3")

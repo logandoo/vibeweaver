@@ -1346,6 +1346,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--existing", action="store_true", help="Modify-Existing task: skip new-project §A5 design-doc + git checks")
     ap.add_argument("--backend-only", action="store_true", help="no UI: skip PAGE_DESIGN.html and project_build.sh checks")
+    ap.add_argument("--root", default="", help="project root override (canonical checker run from the skill install)")
     ap.add_argument("--profile", default="", help="project profile: service|backend-api|web-static|cli|library — skips structurally-N/A groups (overrides tests/project_profile.json)")
     ap.add_argument("--class", dest="task_class", default="", choices=["DOC", "CONFIG", "CODE"],
                     help="COV-13 task class (§V11): DOC N/A's memory + service-lifecycle groups; CONFIG N/A's memory when the log carries `- memory: na (<why>)`. Default: auto-detect from the `- class: <X> — <basis>` first entry of the task block in tests/verification_log.md")
@@ -1363,7 +1364,7 @@ def main():
         # --json keeps stdout PURE JSON; diagnostics move to stderr
         print(msg, file=sys.stderr if args.json else sys.stdout)
 
-    root = pathlib.Path(__file__).resolve().parent.parent
+    root = pathlib.Path(args.root).resolve() if args.root else pathlib.Path(__file__).resolve().parent.parent
 
     # W0 Task 3 — clean-clone bootstrap: structural checks only. Must run
     # before the task-block gates (a fresh clone has no current task yet).

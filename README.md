@@ -17,7 +17,7 @@ Saying "strictly follow vibeweaver" at the start of the request makes triggering
 essentially certain. For the plugins, the optional extras, and the Windows path,
 see [Install](#install).
 
-## Verify this release (w18.2)
+## Verify this release (w18.2.1 — supersedes w18.2)
 
 Tags are immutable. From a clone at the tag:
 

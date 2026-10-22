@@ -1,5 +1,5 @@
 {
-  "commit": "9fcd3557897a3c0d055a63692ba86e27f5307e43",
+  "commit": "7ccc5e9c74e2af30ef5f78c257b77e09935f974b",
   "files": [
     {
       "bytes": 44419,
@@ -77,9 +77,9 @@
       "sha256": "76ca7518b3466ad613863e4c8140ae21ecddd0974aa5a9b108291f191003a84d"
     },
     {
-      "bytes": 104015,
+      "bytes": 104186,
       "path": "vibeweaver/scripts/assert_artifacts.py",
-      "sha256": "dd8eec10554ec37d9f479999915b5fb37025470ce3ca73628bca716e8cfec702"
+      "sha256": "40090938cdb5cc093fa84b95b49e2bb1ea40b3de2b77856c47257767c9b4ddaa"
     },
     {
       "bytes": 296964,
@@ -167,11 +167,11 @@
       "sha256": "ee32df2e56afd34e4ee8da19e099752d66442e20bae4c6ee1e9fb807e957442d"
     },
     {
-      "bytes": 65399,
+      "bytes": 66181,
       "path": "vibeweaver/vibeweaver-gate.js",
-      "sha256": "cf3613920c06650af2d4787ac788bc6a91d81994c782e272a6486f4cf6b8fa47"
+      "sha256": "7d9ca5336711976acff1bfc677e12028fb53022462e7db9f95cbf07e72b6c756"
     }
   ],
   "schema_version": 1,
-  "tag": "w18.2"
+  "tag": "w18.2.1"
 }
