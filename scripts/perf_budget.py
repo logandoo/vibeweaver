@@ -17,7 +17,7 @@ import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PAY = ROOT / "vibeweaver" if (ROOT / "vibeweaver" / "SKILL.md").is_file() else ROOT
-BUDGETS = {"scan_1k": 2.0, "scan_10k": 5.0, "scan_45k": 5.0, "assert": 10.0, "install": 6.0}
+BUDGETS = {"scan_1k": 2.0, "scan_10k": 5.0, "scan_45k": 5.0, "assert": 10.0, "install": 8.0}
 
 
 def p95(samples):

@@ -12,7 +12,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-002",
@@ -25,7 +25,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-003",
@@ -103,7 +103,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-009",
@@ -142,7 +142,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-012",
@@ -285,7 +285,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-023",
@@ -298,7 +298,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-024",
@@ -350,7 +350,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-028",
@@ -363,7 +363,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-029",
@@ -415,7 +415,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-033",
@@ -441,7 +441,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-035",
@@ -493,7 +493,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-039",
@@ -519,7 +519,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-041",
@@ -597,7 +597,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-047",
@@ -623,7 +623,7 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
     },
     {
       "id": "C-049",
@@ -649,7 +649,72 @@
       "generation": "G1 (single-run benchmark) or executed suite count",
       "n": 16,
       "seeds": 1,
-      "ci": "not computed (single run, directional)"
+      "ci": "directional (single run; no CI interval)"
+    },
+    {
+      "id": "C-X01",
+      "token": "13/13",
+      "claim": "CI/test count in current CHANGELOG entry",
+      "command": "python3 check_doc_counts.py",
+      "expected_regex": "13\\/13",
+      "platform": "CI matrix",
+      "evidence": "CHANGELOG.md current entry",
+      "generation": "executed suite",
+      "n": null,
+      "seeds": null,
+      "ci": null
+    },
+    {
+      "id": "C-X02",
+      "token": "15/15",
+      "claim": "CI/test count in current CHANGELOG entry",
+      "command": "python3 check_doc_counts.py",
+      "expected_regex": "15\\/15",
+      "platform": "CI matrix",
+      "evidence": "CHANGELOG.md current entry",
+      "generation": "executed suite",
+      "n": null,
+      "seeds": null,
+      "ci": null
+    },
+    {
+      "id": "C-X03",
+      "token": "44/0",
+      "claim": "CI/test count in current CHANGELOG entry",
+      "command": "python3 check_doc_counts.py",
+      "expected_regex": "44\\/0",
+      "platform": "CI matrix",
+      "evidence": "CHANGELOG.md current entry",
+      "generation": "executed suite",
+      "n": null,
+      "seeds": null,
+      "ci": null
+    },
+    {
+      "id": "C-X04",
+      "token": "571/0",
+      "claim": "CI/test count in current CHANGELOG entry",
+      "command": "python3 check_doc_counts.py",
+      "expected_regex": "571\\/0",
+      "platform": "CI matrix",
+      "evidence": "CHANGELOG.md current entry",
+      "generation": "executed suite",
+      "n": null,
+      "seeds": null,
+      "ci": null
+    },
+    {
+      "id": "C-X05",
+      "token": "70/71",
+      "claim": "CI/test count in current CHANGELOG entry",
+      "command": "python3 check_doc_counts.py",
+      "expected_regex": "70\\/71",
+      "platform": "CI matrix",
+      "evidence": "CHANGELOG.md current entry",
+      "generation": "executed suite",
+      "n": null,
+      "seeds": null,
+      "ci": null
     }
   ]
 }

@@ -53,7 +53,7 @@ assets are immutable (`w18`, `w18.1` are historical and untouched).
 The in-tree `release/MANIFEST.json` is a **build input**; the release workflow
 regenerates it at tag time with `commit=<tagged SHA>` and uploads that asset.
 The published asset — not the in-tree copy — is the authoritative manifest.
-`w18.2.x` is superseded by **w18.3.4** (W1: installer lifecycle, core profile
+`w18.2.x` is superseded by **w18.3.5** (W1: installer lifecycle, core profile
 default, gate activation, risk/destructive pre-write guards, claims registry,
 compatibility matrix). Task 10 (rule-level TDD pilot) is not run here and is
 reported as unchecked/directional.

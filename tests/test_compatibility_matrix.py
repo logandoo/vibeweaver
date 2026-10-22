@@ -35,6 +35,7 @@ class CompatibilityMatrixTest(unittest.TestCase):
         for osname in ("Linux", "macOS", "Windows"):
             self.assertIn(osname, doc)
         self.assertIn("adapter", doc)
+        self.assertNotIn("Node 20 / 22", doc)
         self.assertIn("unsupported", doc)
 
     def test_actions_are_pinned(self):

@@ -107,6 +107,15 @@ class InstallerLifecycleTest(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual((self.skill / "SKILL.md").read_text(encoding="utf-8"), "# skill v1\n")
 
+    def test_force_backup_copies_unmanaged_file(self):
+        self.skill.mkdir(parents=True)
+        (self.skill / "SKILL.md").write_text("USER DATA\n", encoding="utf-8")
+        r = self.run_installer("--profile", "full", "--force")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        backups = list((self.home / ".config" / "opencode" / "skills").glob("vibeweaver.bak.*"))
+        self.assertTrue(backups)
+        self.assertEqual((backups[-1] / "SKILL.md").read_text(encoding="utf-8"), "USER DATA\n")
+
     def test_from_migration_and_unknown_profile(self):
         self.assertEqual(self.run_installer("--profile", "full").returncode, 0)
         r = self.run_installer("--from", "w18.2.4")

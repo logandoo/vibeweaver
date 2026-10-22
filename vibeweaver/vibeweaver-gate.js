@@ -1596,6 +1596,20 @@ async function server({ client, directory }) {
       if (risk) throw new Error(risk)
     },
     "tool.execute.after": async (input, output) => {
+      if (input.tool === "bash" || input.tool === "shell") {
+        // Host without a pre-hook: the guard cannot stop execution, but it
+        // must not disappear silently — surface a post-hoc GATE-WARNING.
+        const cmd = input.args && typeof input.args.command === "string" ? input.args.command : ""
+        const root = findProjectRoot([directory])
+        if (root && cmd) {
+          const warn = riskCommandBlock(root, cmd) || destructiveBlock(root, cmd)
+          if (warn) {
+            output.output = (output.output ? output.output + "\n" : "") +
+              "[GATE-WARNING (vibeweaver)] post-hoc (host has no pre-execution hook): " + warn
+          }
+        }
+        return
+      }
       if (!GATED_TOOLS.has(input.tool)) return
       const filePath = writePathFromArgs(input.args)
       const r = await gateCheckWrite(directory, filePath)

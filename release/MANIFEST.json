@@ -1,5 +1,5 @@
 {
-  "commit": "4a1fa4a32757284cb423002e1d889c2558e461b4",
+  "commit": "4b6682609303ac3e6f7027f5524b8259619a51ce",
   "files": [
     {
       "bytes": 44419,
@@ -97,9 +97,9 @@
       "sha256": "53f653a768403e94c836696859a6fdf96083cc5417ebc240c3914203a8f2f411"
     },
     {
-      "bytes": 2912,
+      "bytes": 3079,
       "path": "vibeweaver/scripts/check_claims.py",
-      "sha256": "e0a306f940664941148eca688002019dbf4a2d86a52117d2da3a44f75fec5779"
+      "sha256": "a202c2b1c39806a6230a20542821fde3ad842b2eb6d32c3d446bfce57d90f970"
     },
     {
       "bytes": 5480,
@@ -117,9 +117,9 @@
       "sha256": "c1a3de0065218d31a8cfde698d0a06be069adfdf7ae0bdb1fae21d8033b52ab3"
     },
     {
-      "bytes": 10368,
+      "bytes": 10840,
       "path": "vibeweaver/scripts/install.py",
-      "sha256": "d5ed352b5364d425595d9849fd0e0764e81097946f27c15ac91b07419f23c32f"
+      "sha256": "2b28a30e4ac831aa6d967ce5a5ec708f93eac2cc553d159e4261e87d683119ac"
     },
     {
       "bytes": 5856,
@@ -144,7 +144,7 @@
     {
       "bytes": 4183,
       "path": "vibeweaver/scripts/perf_budget.py",
-      "sha256": "35ce564f8aa3aa428b4ddc888c0720d213334383a5ef462591daba8fad97314f"
+      "sha256": "84517275aa125b32aa333c9e2f805b2c8c7f2c85ce9825c51d0f73308f5c0cf7"
     },
     {
       "bytes": 1755,
@@ -192,11 +192,11 @@
       "sha256": "ee32df2e56afd34e4ee8da19e099752d66442e20bae4c6ee1e9fb807e957442d"
     },
     {
-      "bytes": 75262,
+      "bytes": 75969,
       "path": "vibeweaver/vibeweaver-gate.js",
-      "sha256": "83ef60ba6eec846dc27c9318caf84375bc43c1694a557cd5e847df5fd7a5d5e4"
+      "sha256": "85be2a8535d9b372d0c9d5848e1633164a70d9387af078ee663d9a02f11064c3"
     }
   ],
   "schema_version": 1,
-  "tag": "w18.3.4"
+  "tag": "w18.3.5"
 }

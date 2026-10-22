@@ -113,10 +113,21 @@ def backup(target, manifest):
     bdir = target.parent / (target.name + ".bak." + time.strftime("%Y%m%d%H%M%S"))
     bdir.mkdir(parents=True, exist_ok=True)
     files = (manifest or {}).get("files", [])
-    for entry in files:
-        rel = entry["path"]
-        src = target / rel
-        if src.is_file():
+    if files:
+        for entry in files:
+            rel = entry["path"]
+            src = target / rel
+            if src.is_file():
+                atomic_copy(src, bdir / rel)
+    else:
+        # Unmanaged pre-existing tree: --force may overwrite it. Snapshot every
+        # non-memory file so the printed "backup" promise is true.
+        for src in sorted(target.rglob("*")):
+            if not src.is_file():
+                continue
+            rel = src.relative_to(target).as_posix()
+            if rel.startswith("memory/"):
+                continue
             atomic_copy(src, bdir / rel)
     if (target / MANIFEST_NAME).is_file():
         atomic_copy(target / MANIFEST_NAME, bdir / MANIFEST_NAME)
@@ -158,7 +169,7 @@ def cmd_install(args):
         print("install.py: refusing to overwrite unmanaged file(s): " + ", ".join(conflicts), file=sys.stderr)
         print("  re-run with --force (a backup is taken first)", file=sys.stderr)
         return 1
-    if old is not None or conflicts:
+    if old is not None or conflicts or args.backup:
         bdir = backup(target, old)
         if bdir:
             print(f"[OK] backup: {bdir}")

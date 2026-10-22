@@ -5,13 +5,14 @@ Only combinations with a CI leg are **supported**. Everything else is either an
 
 | Host | Node | Python | OS | Status | Evidence |
 |---|---|---|---|---|---|
-| opencode v1 | 20 / 22 | 3.9 | Linux | supported | `verify.yml` ubuntu 3.9 |
-| opencode v1 | 20 / 22 | 3.12 | Linux | supported | `verify.yml` ubuntu 3.12 |
-| opencode v1 | 20 / 22 | 3.9 | macOS | supported | `verify.yml` macos 3.9 |
-| opencode v1 | 20 / 22 | 3.12 | macOS | supported | `verify.yml` macos 3.12 |
-| opencode v1 | 20 / 22 | 3.9 | Windows | supported (POSIX trust fixtures skipped) | `verify.yml` windows 3.9 |
-| opencode v1 | 20 / 22 | 3.12 | Windows | supported (POSIX trust fixtures skipped) | `verify.yml` windows 3.12 |
-| opencode v2 | 20 / 22 | 3.9 / 3.12 | Linux/macOS/Windows | supported | same matrix; v2 loader unit tests |
+| opencode v1 | 20 | 3.9 | Linux | supported | `verify.yml` ubuntu 3.9 |
+| opencode v1 | 20 | 3.12 | Linux | supported | `verify.yml` ubuntu 3.12 |
+| opencode v1 | 20 | 3.9 | macOS | supported | `verify.yml` macos 3.9 |
+| opencode v1 | 20 | 3.12 | macOS | supported | `verify.yml` macos 3.12 |
+| opencode v1 | 20 | 3.9 | Windows | supported (POSIX trust fixtures skipped) | `verify.yml` windows 3.9 |
+| opencode v1 | 20 | 3.12 | Windows | supported (POSIX trust fixtures skipped) | `verify.yml` windows 3.12 |
+| opencode v2 | 20 | 3.9 / 3.12 | Linux/macOS/Windows | supported | same matrix; v2 loader unit tests |
+| opencode v1/v2 | 22 | any | any | adapter | no Node 22 CI leg yet |
 | Claude Code / Codex / Gemini | any | any | any | adapter | no equal-semantics claim (D-002) |
 | Chatbot / hosted service | any | any | any | unsupported | out of scope (D-005) |
 

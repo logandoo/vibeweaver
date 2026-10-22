@@ -33,8 +33,12 @@ def live_text(path):
 
 
 def current_changelog(path):
+    """Newest entry = the FIRST `## ` block after the preamble (reverse-chronological)."""
     text = path.read_text(encoding="utf-8", errors="replace")
     parts = re.split(r"(?m)^(?=## )", text)
+    for part in parts[1:]:
+        if part.strip():
+            return part
     return parts[-1] if parts else ""
 
 
