@@ -1,5 +1,5 @@
 {
-  "commit": "59ca5eb472659cb69d4844579a3d3bc955460543",
+  "commit": "862948dafb9f39ad2281388a2f65e856aee99f49",
   "files": [
     {
       "bytes": 44419,
@@ -173,5 +173,5 @@
     }
   ],
   "schema_version": 1,
-  "tag": "w18.2.2"
+  "tag": "w18.2.3"
 }

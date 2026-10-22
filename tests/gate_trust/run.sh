@@ -5,8 +5,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DRIVE="$ROOT/tests/gate_trust/drive_gate.mjs"
-CANON="$ROOT/scripts/assert_artifacts.py"
-[[ -f "$CANON" ]] || CANON="$ROOT/vibeweaver/scripts/assert_artifacts.py"
+CANON="$ROOT/vibeweaver/scripts/assert_artifacts.py"
+[[ -f "$CANON" ]] || CANON="$ROOT/scripts/assert_artifacts.py"
 HOME_DIR="$(dirname "$(dirname "$CANON")")"
 T="$(mktemp -d "${TMPDIR:-/tmp}/vw-gate-trust-XXXXXX")"
 trap 'rm -rf "$T"' EXIT
