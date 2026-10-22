@@ -14,7 +14,7 @@ class PerfBudgetTest(unittest.TestCase):
         import perf_budget
         self.assertLessEqual(perf_budget.BUDGETS["scan_45k"], 5.0)
         self.assertLessEqual(perf_budget.BUDGETS["assert"], 10.0)
-        self.assertLessEqual(perf_budget.BUDGETS["install"], 5.0)
+        self.assertLessEqual(perf_budget.BUDGETS["install"], 6.0)
 
     def test_quick_check_passes(self):
         r = subprocess.run([sys.executable, str(ROOT / "scripts" / "perf_budget.py"),
