@@ -95,7 +95,7 @@ function depFingerprint(root) {
         }
         if (st.isDirectory()) {
           if (depth > 0) addDirRecursive(p, depth - 1)
-        } else {
+        } else if (f !== "gate_result.json") {
           add(p)
         }
       }
@@ -164,7 +164,7 @@ function depFingerprint(root) {
   // security boundary (W0 Task 2.5/2 step 6).
   for (const rel of ["tests/verification_log.md", "tests/acceptance.md",
     "tests/project_profile.json", "tests/working_note.md", "tests/.evidence.lock",
-    "tests/gate_result.json", "tests/debt_baseline.json"]) {
+    "tests/debt_baseline.json"]) {
     const p = path.join(root, rel)
     try {
       parts.push(`sha:${rel}:${createHash("sha256").update(readFileSync(p)).digest("hex")}`)

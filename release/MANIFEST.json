@@ -1,5 +1,5 @@
 {
-  "commit": "3707592f20d98e2754a9e15c1227d448419e87a1",
+  "commit": "ba61f0b1f5c7e94f19d5f22a29796265b7fb64e1",
   "files": [
     {
       "bytes": 44419,
@@ -62,9 +62,9 @@
       "sha256": "f2c2453137e458738d9729628011bd412fcffafb509a3c894be045475cc7edf4"
     },
     {
-      "bytes": 174,
+      "bytes": 247,
       "path": "vibeweaver/install.sh",
-      "sha256": "9436780b0e67a0a79094ee6189c26891e1e25d31028d21393bac62a667165871"
+      "sha256": "1a93d18eb6d8532fc871b3dcc65f410dc541d57ea9817b9e3b4b339074a8096f"
     },
     {
       "bytes": 4722,
@@ -192,11 +192,11 @@
       "sha256": "ee32df2e56afd34e4ee8da19e099752d66442e20bae4c6ee1e9fb807e957442d"
     },
     {
-      "bytes": 75258,
+      "bytes": 75262,
       "path": "vibeweaver/vibeweaver-gate.js",
-      "sha256": "e8a4ff0f30be436f05f199103b60bd876436e6e6d3d2c95586e6ec846a7ff5fc"
+      "sha256": "83ef60ba6eec846dc27c9318caf84375bc43c1694a557cd5e847df5fd7a5d5e4"
     }
   ],
   "schema_version": 1,
-  "tag": "w18.3"
+  "tag": "w18.3.1"
 }
