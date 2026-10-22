@@ -51,11 +51,48 @@ COMPAT_RUN = "=== COMPAT HARNESS: 82/82 passed, 0 failed ===\n"
 MINI_RUN = "RESULT: 62/62 passed, 0 failed\n"
 
 
+def cdc14_17(runs):
+    """CDC14-17 (2026-10-22 CI incident): mini gate counts are platform
+    dependent (62 macOS / 60 Linux / 55 Windows - POSIX-only + installer
+    cases). Claims may carry a platform tag; each matrix leg binds its own
+    number, foreign platforms' claims defer to their own leg."""
+    import sys as _sys
+    plat = cdc.PLATFORM
+    base = {k: [((v[0], v[1]), None)] for k, v in
+            (("selftest", (571, 0)), ("mutation", (44, 0)), ("compat", (82, 82)))}
+    tagged = ("node tests/mini_gate_test.mjs  # 62/62 (macOS) / 60/60 (Linux) / "
+              "55/55 (Windows) mini checker gate\n")
+    cl = cdc.extract_claims(tagged)
+    rec("CDC14 platform-tagged claims extract with tags",
+        bool(cl.get("mini")) and len(cl["mini"]) == 3
+        and all(isinstance(c, tuple) and len(c) == 2 and isinstance(c[1], str)
+                for c in cl["mini"]), str(cl))
+    all_tags = {"macOS": (62, 62), "Linux": (60, 60), "Windows": (55, 55)}
+    run_here = all_tags[plat] + (0,)
+    mine = dict(base)
+    mine["mini"] = [c for c in cl["mini"] if c[1] in (None, plat)]
+    errs_ok = cdc.compare_counts({**runs, "mini": run_here}, mine, "tagged docs")
+    rec("CDC15 this-platform tagged claim binds; foreign tags defer", errs_ok == [],
+        str([e for e in errs_ok if "mini" in e]))
+    wrong = dict(base)
+    wrong["mini"] = [(all_tags["Windows" if plat == "macOS" else "macOS"], plat)]
+    errs_bad = cdc.compare_counts({**runs, "mini": run_here}, wrong, "tagged docs")
+    rec("CDC16 wrong number for THIS platform fails even when tagged",
+        any("mini" in e for e in errs_bad), str([e for e in errs_bad if "mini" in e]))
+    others = dict(base)
+    others["mini"] = [(v, k) for k, v in all_tags.items() if k != plat]
+    errs_none = cdc.compare_counts({**runs, "mini": run_here}, others, "tagged docs")
+    rec("CDC17 no claim for this platform is a named error",
+        any("platform" in e for e in errs_none),
+        f"plat={plat} {[e for e in errs_none if 'mini' in e]}")
+
+
 def main():
     en = cdc.extract_claims(EN)
     rec("CDC1 EN claim shapes extracted",
-        en.get("selftest") == [571] and en.get("mutation") == [44]
-        and en.get("compat") == [(82, 82)] and en.get("mini") == [(62, 62)],
+        en.get("selftest") == [(571, None)] and en.get("mutation") == [(44, None)]
+        and en.get("compat") == [((82, 82), None)]
+        and en.get("mini") == [((62, 62), None)],
         str(en))
 
     zh = cdc.extract_claims(ZH)
@@ -81,18 +118,19 @@ def main():
         str(cdc.compare_counts(runs, en)))
 
     stale = dict(en)
-    stale["compat"] = [(70, 71)]
+    stale["compat"] = [((70, 71), None)]
     errs = cdc.compare_counts(runs, stale)
     rec("CDC6 mismatched claim FAILS (falsifiable anchor: 70/71 vs 82/82)",
         any("compat" in e and "70/71" in e for e in errs), str(errs)[:160])
 
-    missing = {"selftest": [571], "mutation": [44], "compat": [(82, 82)]}
+    missing = {"selftest": [(571, None)], "mutation": [(44, None)],
+               "compat": [((82, 82), None)]}
     errs = cdc.compare_counts(runs, missing)
     rec("CDC7 suite with no claim is a named error", any("mini" in e for e in errs),
         str(errs)[:160])
 
     red = dict(en)
-    red["compat"] = [(82, 82, 1)]
+    red["compat"] = [((82, 82), None)]
     runs_red = dict(runs)
     runs_red["compat"] = (82, 82, 1)
     errs = cdc.compare_counts(runs_red, red)
@@ -122,7 +160,7 @@ def main():
     cl = cdc.extract_changelog_claims(CHANGELOG)
     errs = cdc.compare_counts(runs, cl, "changelog newest entry")
     rec("CDC11 newest changelog entry binds by name (70/71 fails) + old entry exempt",
-        cl.get("compat") == [(70, 71)] and cl.get("selftest") == [(571, 0)]
+        cl.get("compat") == [((70, 71), None)] and cl.get("selftest") == [((571, 0), None)]
         and any("compat" in e for e in errs) and not any("568" in e or "71/71" in e
                                                         for e in errs),
         str(errs)[:160])
@@ -155,6 +193,8 @@ def main():
     value, err = cdc.evaluate_proc("compat", COMPAT_RUN, 1)
     rec("CDC13 non-zero exit cannot bind claims", value is None
         and "exited 1" in (err or ""), f"value={value} err={err}")
+
+    cdc14_17(runs)
 
     fails = [n for n, ok, _ in RESULTS if not ok]
     print(f"\n=== {len(RESULTS) - len(fails)}/{len(RESULTS)} pass" +

@@ -76,6 +76,16 @@ QUARANTINE_FILES = (".github/workflows/verify.yml", "tests/plugin_compat_test.mj
 DOCS = ("README.md", "README_zh.md")
 CHANGELOGS = ("CHANGELOG.md", "CHANGELOG_zh.md")
 
+# 2026-10-22 CI incident: the mini gate's case count is platform dependent
+# (62 macOS / 60 Linux / 55 Windows — POSIX-only blocks + installer cases in
+# tests/mini_gate_test.mjs). Claims may carry a platform tag; the tag-less form
+# is universal and must match every leg. Each CI matrix leg binds the claim
+# for ITS platform; foreign platforms' claims defer to their own leg.
+PLATFORM = {"darwin": "macOS", "linux": "Linux", "win32": "Windows"}.get(
+    __import__("sys").platform, __import__("sys").platform)
+TAGGED_PAIR = re.compile(
+    r"(?<![\w.])(\d+)\s*/\s*(\d+)(?:\s*\((macOS|Linux|Windows)\))?")
+
 
 def _read(path):
     return path.read_text(encoding="utf-8", errors="replace")
@@ -86,26 +96,37 @@ def fmt(value):
 
 
 def extract_claims(text):
-    """{suite: [distinct claimed values]} — only lines naming the suite's
-    command. Prose that merely mentions a number (wave notes, benchmark
-    tables) never names the command and is therefore never a claim."""
+    """{suite: [(value, tag)]} — only lines naming the suite's command. The
+    tag is the platform qualifier ("62/62 (macOS)") or None (universal).
+    Prose that merely mentions a number (wave notes, benchmark tables) never
+    names the command and is therefore never a claim."""
     claims = {}
     for line in text.splitlines():
         for key, spec in SUITES.items():
             if spec["anchor"] not in line:
                 continue
-            for m in spec["claim"].finditer(line):
-                value = int(m.group(1))
-                if key in ("compat", "mini"):
-                    value = (int(m.group(1)), int(m.group(2)))
+            found = []
+            if key in ("compat", "mini"):
+                pm = TAGGED_PAIR.search(line)
+                if pm:
+                    found.append(((int(pm.group(1)), int(pm.group(2))), pm.group(3)))
+                    if pm.group(3):  # platform-list form: tagged follow-ons
+                        for pm2 in TAGGED_PAIR.finditer(line[pm.end():]):
+                            if pm2.group(3):
+                                found.append(((int(pm2.group(1)), int(pm2.group(2))),
+                                              pm2.group(3)))
+            else:
+                for m in spec["claim"].finditer(line):
+                    found.append((int(m.group(1)), None))
+            for item in found:
                 seen = claims.setdefault(key, [])
-                if value not in seen:
-                    seen.append(value)
+                if item not in seen:
+                    seen.append(item)
     return claims
 
 
 def extract_changelog_claims(text):
-    """{suite: [distinct claims]} from the NEWEST changelog entry only.
+    """{suite: [(value, tag)]} from the NEWEST changelog entry only.
 
     Older entries are dated history — their counts were true of their tree.
     The newest entry describes THIS tree and must reproduce here."""
@@ -115,9 +136,19 @@ def extract_changelog_claims(text):
     for key, pattern in CHANGELOG_CLAIM.items():
         seen = []
         for m in pattern.finditer(section):
-            value = (int(m.group(1)), int(m.group(2)))
-            if value not in seen:
-                seen.append(value)
+            line_end = section.find("\n", m.start())
+            rest = section[m.end():line_end]
+            tagm = re.match(r"\s*\((macOS|Linux|Windows)\)", rest)
+            item = ((int(m.group(1)), int(m.group(2))),
+                    tagm.group(1) if tagm else None)
+            if item not in seen:
+                seen.append(item)
+            if tagm:  # platform-list form: tagged follow-ons belong here
+                for pm in TAGGED_PAIR.finditer(rest[tagm.end():]):
+                    if pm.group(3):
+                        it2 = ((int(pm.group(1)), int(pm.group(2))), pm.group(3))
+                        if it2 not in seen:
+                            seen.append(it2)
         if seen:
             claims[key] = seen
     return claims
@@ -144,7 +175,11 @@ def _matches(key, claim, run):
 
 
 def compare_counts(runs, claims, where="docs"):
-    """Every stated claim must equal the run; a red run binds nothing."""
+    """Every applicable claim must equal the run; a red run binds nothing.
+
+    Claim = (value, tag). tag None = universal (must match this run); tag
+    == PLATFORM = must match this run; other tags defer to their own CI
+    matrix leg (each leg binds its platform's number)."""
     errors = []
     for key in SUITES:
         run = runs.get(key)
@@ -160,9 +195,15 @@ def compare_counts(runs, claims, where="docs"):
             errors.append(f"{key}: no count claim found in {where} "
                           f"(state {fmt(_claim_repr(key, run))} next to the name)")
             continue
-        for claim in got:
-            if not _matches(key, claim, run):
-                errors.append(f"{key}: claim {fmt(claim)} != run "
+        applicable = [c for c in got if c[1] in (None, PLATFORM)]
+        if not applicable:
+            errors.append(f"{key}: no count claim for this platform ({PLATFORM}) "
+                          f"in {where} — foreign-tag claims defer to their leg")
+            continue
+        for value, tag in applicable:
+            if not _matches(key, value, run):
+                suffix = f"/{tag}" if tag else ""
+                errors.append(f"{key}: claim {fmt(value)}{suffix} != run "
                               f"{fmt(_claim_repr(key, run))}")
     return errors
 

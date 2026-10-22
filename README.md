@@ -859,7 +859,7 @@ python3 -m unittest discover -s tests -v    # skill self-tests + checker regress
 node vibeweaver/scripts/audit_selftest.mjs  # 571 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 mutations, each must be caught
 node tests/plugin_compat_test.mjs           # 82/82 dual loader compat (no quarantine)
-node tests/mini_gate_test.mjs               # 62/62 mini checker gate: v1/v2 write + idle + installers
+node tests/mini_gate_test.mjs               # 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows) mini checker gate: v1/v2 write + idle + installers
 ```
 
 CI runs the Python checks and the node harnesses on Ubuntu / macOS / Windows
