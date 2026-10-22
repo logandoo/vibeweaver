@@ -1,0 +1,177 @@
+{
+  "commit": "2e4711fe6034b9a4a1ba40c20d6766975815004b",
+  "files": [
+    {
+      "bytes": 44419,
+      "path": "vibeweaver/APPENDIX.md",
+      "sha256": "17d21ce3d5935dc7b47997351d94c2b77a48886fa05d2db3f97f5b1cf4020bcc"
+    },
+    {
+      "bytes": 4096,
+      "path": "vibeweaver/CODING_PRINCIPLES.md",
+      "sha256": "50a21fd64484aaa14f762f95160ca8b4aede4fd4f7a8c7ef7b4df0808b225a6f"
+    },
+    {
+      "bytes": 44988,
+      "path": "vibeweaver/COMPLETION_GATE.md",
+      "sha256": "55ae5573d697f60f8ba816eef5259fff215db9f53b1789220609d0ac43bd3d77"
+    },
+    {
+      "bytes": 16311,
+      "path": "vibeweaver/ENGINEERING_STD.md",
+      "sha256": "93baab0b85e364151c188b1e7f86776b11a91fc2ec672b83a06e59fe8e1b8859"
+    },
+    {
+      "bytes": 28958,
+      "path": "vibeweaver/MEMORY_RULES.md",
+      "sha256": "320fe284137e92ed09765aee5fce72c6791485e1fe80fddbc9d3ef521a22aee7"
+    },
+    {
+      "bytes": 10393,
+      "path": "vibeweaver/MEMORY_TEMPLATES.md",
+      "sha256": "5a462797c38eeca38d698ec7e1995a54feaac3c2d34ac82bc8e6ff4fcec63ed9"
+    },
+    {
+      "bytes": 32773,
+      "path": "vibeweaver/REFERENCE.md",
+      "sha256": "a56e33a3e250934d67603830d64f067e33633974cf3a0feb6c3f0f080b4999e9"
+    },
+    {
+      "bytes": 48715,
+      "path": "vibeweaver/SKILL.md",
+      "sha256": "33c66ba16c23d3eec76451877eb35f798b8fe04be9780d8a6849db63fa79340d"
+    },
+    {
+      "bytes": 45000,
+      "path": "vibeweaver/TESTING_PROTOCOLS.md",
+      "sha256": "0d47bbc1f68cd6295d5da51515a7dcf43f70cb6d37aa9feb6cb172a64ebc905e"
+    },
+    {
+      "bytes": 44941,
+      "path": "vibeweaver/VERIFICATION_UPGRADES.md",
+      "sha256": "75da75dcfad39f19bb00376807ac3a5fc766f602b6ea2d3f3487a70ea99d8786"
+    },
+    {
+      "bytes": 23866,
+      "path": "vibeweaver/WORKFLOWS_EXTENDED.md",
+      "sha256": "720eec73e0a782ede0d99d1341ceb74a9e5b842e51e43674687702d4a944e267"
+    },
+    {
+      "bytes": 1740,
+      "path": "vibeweaver/install.bat",
+      "sha256": "1fe8de89bb8102e41dd23761db8af82397026876c4474412d0e17091f068a20c"
+    },
+    {
+      "bytes": 7427,
+      "path": "vibeweaver/install.sh",
+      "sha256": "589875a1aa768e2472e5063296402b085e45d52abd1156e10d72e5c9a844aaab"
+    },
+    {
+      "bytes": 16182,
+      "path": "vibeweaver/scripts/ab/obj_eval.mjs",
+      "sha256": "743c378e259c044a4c7a74d5be0913de82a3394e1a55e5cc20edf33e49c85778"
+    },
+    {
+      "bytes": 14132,
+      "path": "vibeweaver/scripts/ab/run.mjs",
+      "sha256": "76ca7518b3466ad613863e4c8140ae21ecddd0974aa5a9b108291f191003a84d"
+    },
+    {
+      "bytes": 104015,
+      "path": "vibeweaver/scripts/assert_artifacts.py",
+      "sha256": "dd8eec10554ec37d9f479999915b5fb37025470ce3ca73628bca716e8cfec702"
+    },
+    {
+      "bytes": 296964,
+      "path": "vibeweaver/scripts/audit_selftest.mjs",
+      "sha256": "df06d3839240c72648a7581b28cda1f17ad604bbc3c029114f029f176f4a0d1d"
+    },
+    {
+      "bytes": 4050,
+      "path": "vibeweaver/scripts/backlog_check.py",
+      "sha256": "53f653a768403e94c836696859a6fdf96083cc5417ebc240c3914203a8f2f411"
+    },
+    {
+      "bytes": 4735,
+      "path": "vibeweaver/scripts/contract_lint.py",
+      "sha256": "e9fd3b5bb676ecedfef17704cc1f8eee5c01ebaed6941c64a595fa44b79c6b5b"
+    },
+    {
+      "bytes": 13998,
+      "path": "vibeweaver/scripts/evidence_lock.py",
+      "sha256": "636f5028d2c2502015337c72b9c258a4fb01bdd002bfca7f7e0b18a4fbfc5cf0"
+    },
+    {
+      "bytes": 12632,
+      "path": "vibeweaver/scripts/evidence_seal.py",
+      "sha256": "c1a3de0065218d31a8cfde698d0a06be069adfdf7ae0bdb1fae21d8033b52ab3"
+    },
+    {
+      "bytes": 5925,
+      "path": "vibeweaver/scripts/make_release_manifest.py",
+      "sha256": "2ee291f346abc3702c4993305386fab5eea3b113ec2dee9a75c3b5943bcc408e"
+    },
+    {
+      "bytes": 1290,
+      "path": "vibeweaver/scripts/make_review_package.sh",
+      "sha256": "b648559e09f4615d7e5d9859d30b713ecd7d873765bb067ba1f67cbffb26ce97"
+    },
+    {
+      "bytes": 27021,
+      "path": "vibeweaver/scripts/mm_probe.py",
+      "sha256": "c06939a52d59a61beceda7b14a13235fcd1e5e1ed591148961fddb9d73882e58"
+    },
+    {
+      "bytes": 27435,
+      "path": "vibeweaver/scripts/mutation_sweep.mjs",
+      "sha256": "64be81e8d915cace91ef9290a3f407a2dd2cbbead45b807676a5a5c3903312b1"
+    },
+    {
+      "bytes": 1755,
+      "path": "vibeweaver/scripts/record_evidence.sh",
+      "sha256": "dd15a29d8fcf54da781f21f5695b1d29da0f69aeefb7974f79d444717d8bb3ec"
+    },
+    {
+      "bytes": 1435,
+      "path": "vibeweaver/scripts/repair_checker.sh",
+      "sha256": "048913b4db3f6f5546b64eb12d0cd19a2dc0f4540ca2bf96bc5119f7401ea585"
+    },
+    {
+      "bytes": 15065,
+      "path": "vibeweaver/scripts/scan_secrets.py",
+      "sha256": "85412844f44d2b16b000471a61bb693f7f819cf2064ac1d184b815347215957d"
+    },
+    {
+      "bytes": 6229,
+      "path": "vibeweaver/scripts/state_sanitize.py",
+      "sha256": "30a2085896bad2e6b6f3de34dbc183d00ce9be823bb6e936144a1dbaa3ca34be"
+    },
+    {
+      "bytes": 43568,
+      "path": "vibeweaver/scripts/ui_fidelity.py",
+      "sha256": "8b9feb25b91e4aa7d405c07b17d8ae2ffd7335e3c7d487ef3fa6316257b2c6cf"
+    },
+    {
+      "bytes": 5359,
+      "path": "vibeweaver/scripts/verify_release.py",
+      "sha256": "9a1634e2edeb79a48e386ccf7330b8714b3e324a5aedb157977b67ddcc936070"
+    },
+    {
+      "bytes": 80461,
+      "path": "vibeweaver/scripts/vibeweaver-audit-core.js",
+      "sha256": "3eb0bfd9d0df2e3efe38a92922a797b61d7111267216b218c45c29c08d4d1d0f"
+    },
+    {
+      "bytes": 137807,
+      "path": "vibeweaver/vibeweaver-audit.js",
+      "sha256": "ee32df2e56afd34e4ee8da19e099752d66442e20bae4c6ee1e9fb807e957442d"
+    },
+    {
+      "bytes": 65399,
+      "path": "vibeweaver/vibeweaver-gate.js",
+      "sha256": "cf3613920c06650af2d4787ac788bc6a91d81994c782e272a6486f4cf6b8fa47"
+    }
+  ],
+  "schema_version": 1,
+  "tag": "w18.2"
+}

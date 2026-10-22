@@ -13,6 +13,20 @@ bash vibeweaver/vibeweaver/install.sh   # 幂等，可重复执行
 
 重启 opencode，然后直接提需求就行，skill 会自动触发。当然，如果需求最开始加一句「严格遵守 vibeweaver」会更好，基本能确保百分百触发。插件、可选配件和 Windows 安装方式见[安装](#安装)。
 
+## 验证本版本（w18.2）
+
+tag 不可变。在对应 tag 的 clone 中执行：
+
+```bash
+python3 scripts/verify_release.py --root .   # MANIFEST OK N/N
+sha256sum -c release/MANIFEST.sha256         # 仅防损坏，不防替换
+gh attestation verify release/MANIFEST.json --owner logandoo
+```
+
+`release/MANIFEST.json` 用 SHA-256 绑定全部 payload 文件，`vibeweaver/install.sh`
+在复制前验证。效果宣称在预注册 G3 评测完成前保持 `unverified`/`directional`；
+不把单次结果当作可靠性结论。
+
 ## 为什么需要它
 
 不加约束的大脑，是一台充斥认知偏差与事后合理化的机器；科学方法正是为约束它而生：预注册、双盲评审、实验台账、可复现。大语言模型是同一种机器：模式补全飞快，事后编故事同样飞快。

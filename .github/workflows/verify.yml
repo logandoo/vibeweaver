@@ -15,9 +15,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -33,7 +33,7 @@ jobs:
       # W6 (PLAN): the JS harness is part of the gate — syntax checks are not
       # tests. Node matrix alongside Python; run from the skill payload root.
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "20"
 
@@ -47,6 +47,19 @@ jobs:
 
       - name: Mini checker gate harness
         run: node tests/mini_gate_test.mjs
+
+      - name: Trust-floor fixtures (checker pin / evidence lock / bootstrap / state)
+        shell: bash
+        run: |
+          bash tests/gate_trust/run.sh
+          bash tests/gate_trust/cache_invalidation.sh
+          bash tests/gate_trust/evidence_integrity/run.sh
+          node tests/bootstrap_test.mjs
+          node tests/state_bounds_test.mjs
+
+      - name: Clean-clone self check
+        shell: bash
+        run: bash tests/self_check.sh
 
       - name: Doc claims parity (README counts vs harness runs)
         run: python check_doc_counts.py

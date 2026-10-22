@@ -102,6 +102,21 @@ def copy_plan(dev: Path, installed: Path, eval_dir: Path, repo: Path = None):
         plan.append(("test_sync_skill.py", dev / "tests" / "test_sync_skill.py", [
             ("repo", repo / "tests" / "test_sync_skill.py"),
         ]))
+        # W0 Task 2/2.5/4: these ship with the payload and are covered by the
+        # release manifest; a stale repo copy re-opens the three-line checker
+        # hole or leaves bootstrap/evidence-lock out of the install.
+        for rel in ("assert_artifacts.sha256", "evidence_lock.py", "repair_checker.sh", "state_sanitize.py"):
+            plan.append((rel, dev / "scripts" / rel, [
+                ("installed", installed / "scripts" / rel),
+                ("repo", repo / "vibeweaver" / "scripts" / rel),
+            ]))
+        plan.append(("bootstrap.md", dev / "bootstrap.md", [
+            ("installed", installed / "bootstrap.md"),
+            ("repo", repo / "vibeweaver" / "bootstrap.md"),
+        ]))
+        plan.append(("contract_lint.py", dev / "scripts" / "contract_lint.py", [
+            ("repo", repo / "vibeweaver" / "scripts" / "contract_lint.py"),
+        ]))
     return plan
 
 

@@ -1,0 +1,6 @@
+PASS  20k-event state stays under the 120 KB cap — size=22668
+PASS  state file contains no plaintext credential — len=22668
+PASS  state preserves the command shape with redaction markers
+PASS  retention drops stale sessions — new
+
+STATE-BOUNDS 4/4 passed

@@ -1,0 +1,14 @@
+[1/4] assert_artifacts.py --self-check
+SELF-CHECK OK
+[2/4] doc claims parity
+RUN  selftest  571/0
+RUN  mutation  44/0
+RUN  compat    82/82
+RUN  mini      62/62
+check_doc_counts.py: every stated count equals this tree's runs (exit 0)
+[3/4] payload coherence
+verify_skill.py: package coherent (763 lines in SKILL.md, 10 checks OK)
+[4/4] contract lint
+WARN  profiles/core/SKILL.md not present yet (warning until Task 9)
+0 conflicts
+SELF-CHECK OK

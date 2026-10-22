@@ -1069,6 +1069,120 @@ def record_debt(root):
     return 0
 
 
+def evidence_lock_check(root: pathlib.Path, final: bool):
+    """W0 Task 2.5: verify tests/.evidence.lock (acceptance/profile/debt/log/media).
+
+    The lock is optional for projects sealed before this wave (legacy warning),
+    but when present a mismatch is a hard failure. The script itself is
+    resolved from the canonical skill first so a project copy cannot weaken it.
+    """
+    import os
+    cands = []
+    vh = os.environ.get("VIBEWEAVER_HOME", "")
+    if vh:
+        cands.append(pathlib.Path(vh) / "scripts" / "evidence_lock.py")
+    cands.append(pathlib.Path(__file__).resolve().parent / "evidence_lock.py")
+    cands.append(root / "scripts" / "evidence_lock.py")
+    cands.append(root / "tests" / "evidence_lock.py")
+    script = next((p for p in cands if p.is_file()), None)
+    if script is None:
+        warn("evidence lock: evidence_lock.py not installed — protected evidence unchecked (legacy layout)", "evidence-lock")
+        return
+    lock = root / "tests" / ".evidence.lock"
+    if not lock.exists():
+        warn("evidence lock: tests/.evidence.lock missing — legacy task; run scripts/evidence_lock.py --init", "evidence-lock")
+        return
+    cmd = [sys.executable, str(script), "--root", str(root), "--check"]
+    if final:
+        cmd.append("--final")
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    except Exception as e:
+        warn(f"evidence lock: check could not run ({e})", "evidence-lock")
+        return
+    if r.returncode != 0:
+        detail = [l.strip() for l in (r.stdout + "\n" + r.stderr).splitlines() if l.strip()]
+        check(False, "evidence lock: " + " | ".join(detail[:4]), "evidence-lock")
+
+
+PAYLOAD_MD = (
+    "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md",
+    "ENGINEERING_STD.md", "REFERENCE.md", "APPENDIX.md",
+    "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
+    "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
+)
+PAYLOAD_REQUIRED = (
+    "scripts/assert_artifacts.py", "scripts/evidence_seal.py",
+    "scripts/evidence_lock.py", "scripts/scan_secrets.py",
+    "scripts/repair_checker.sh", "scripts/assert_artifacts.sha256",
+    "vibeweaver-gate.js", "vibeweaver-audit.js", "install.sh", "bootstrap.md",
+)
+
+
+def payload_root_of(root: pathlib.Path) -> pathlib.Path:
+    if (root / "vibeweaver" / "SKILL.md").is_file():
+        return root / "vibeweaver"
+    return root
+
+
+def self_check_files(root: pathlib.Path) -> list:
+    """W0 Task 3: structural checks only — no task block, baseline, or
+    working note required. This is the clean-clone bootstrap gate."""
+    errors = []
+    pay = payload_root_of(root)
+    for name in PAYLOAD_MD:
+        if not (pay / name).is_file():
+            errors.append(f"payload missing: {pay / name}")
+    for rel in PAYLOAD_REQUIRED:
+        if not (pay / rel).is_file():
+            errors.append(f"payload missing: {pay / rel}")
+    # one-level markdown links (verified skills forbid dead relative links)
+    link_re = re.compile(r"\]\(([^)#\s]+\.md)(?:#[^)]*)?\)")
+    for md in sorted(pay.glob("*.md")):
+        text = md.read_text(encoding="utf-8", errors="replace")
+        # examples inside fenced/inline code are illustrations, not links
+        text = re.sub(r"```[\s\S]*?(?:```|$)", "", text)
+        text = re.sub(r"`[^`\n]*`", "", text)
+        for target in link_re.findall(text):
+            if target.startswith(("http://", "https://", "mailto:")):
+                continue
+            if not (md.parent / target).exists():
+                errors.append(f"broken link: {md.name} -> {target}")
+    # release manifest (when present) must match the payload
+    mp = root / "release" / "MANIFEST.json"
+    if mp.is_file():
+        try:
+            manifest = json.loads(mp.read_text(encoding="utf-8"))
+            files = manifest.get("files", [])
+            if not files:
+                errors.append("release/MANIFEST.json has no files[]")
+            for entry in files:
+                rel = entry.get("path", "")
+                p = root / rel
+                if not rel or rel.startswith(("/", "../")) or "/../" in rel:
+                    errors.append(f"manifest unsafe path: {rel!r}")
+                    continue
+                if not p.is_file():
+                    errors.append(f"manifest file missing: {rel}")
+                    continue
+                if hashlib.sha256(p.read_bytes()).hexdigest() != entry.get("sha256"):
+                    errors.append(f"manifest sha256 mismatch: {rel}")
+        except (OSError, ValueError) as e:
+            errors.append(f"release/MANIFEST.json unparseable: {e}")
+    # canonical checker copy (A4.4.1) must be byte-identical when present
+    copy = root / "tests" / "assert_artifacts.py"
+    canonical = pay / "scripts" / "assert_artifacts.py"
+    if copy.is_file() and canonical.is_file() and copy.read_bytes() != canonical.read_bytes():
+        errors.append("tests/assert_artifacts.py is not byte-identical to the canonical scripts/ copy")
+    # trust fixtures are part of the release contract
+    for rel in ("tests/gate_trust/run.sh",
+                "tests/gate_trust/cache_invalidation.sh",
+                "tests/gate_trust/evidence_integrity/run.sh"):
+        if not (root / rel).is_file():
+            errors.append(f"trust fixture missing: {rel}")
+    return errors
+
+
 def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
     """Group 21 — repository hygiene / VCS budget (COV-9 preflight, A10.1).
 
@@ -1237,6 +1351,8 @@ def main():
                     help="COV-13 task class (§V11): DOC N/A's memory + service-lifecycle groups; CONFIG N/A's memory when the log carries `- memory: na (<why>)`. Default: auto-detect from the `- class: <X> — <basis>` first entry of the task block in tests/verification_log.md")
     ap.add_argument("--record-debt", action="store_true",
                     help="G3 ratchet: record today's existing-tree debt into tests/debt_baseline.json (shrink-only; new keys refused)")
+    ap.add_argument("--self-check", action="store_true",
+                    help="W0 Task 3: structural/bootstrap checks only (payload, links, manifest, fixtures) — no task block/baseline/working-note required")
     ap.add_argument("--final", action="store_true",
                     help="completion-time run (A4.4.1): additionally enforces group 19 — tests/working_note.md must be distilled+deleted (§A7.15). Mid-task / physical-gate runs omit this flag.")
     ap.add_argument("--json", action="store_true",
@@ -1248,6 +1364,21 @@ def main():
         print(msg, file=sys.stderr if args.json else sys.stdout)
 
     root = pathlib.Path(__file__).resolve().parent.parent
+
+    # W0 Task 3 — clean-clone bootstrap: structural checks only. Must run
+    # before the task-block gates (a fresh clone has no current task yet).
+    if args.self_check:
+        errs = self_check_files(root)
+        if args.json:
+            print(json.dumps({"ok": not errs, "self_check": True, "errors": errs, "passes": len(errs) == 0}, indent=2))
+            sys.exit(0 if not errs else 1)
+        if errs:
+            print("SELF-CHECK FAILED (%d):" % len(errs))
+            for e in errs:
+                print("  - " + e)
+            sys.exit(1)
+        print("SELF-CHECK OK")
+        sys.exit(0)
 
     # G3 ratchet: recording short-circuits the checks (it IS the bootstrap).
     if args.record_debt:
@@ -1902,6 +2033,11 @@ def main():
                   "verification_log.md current task block: ≥2 iterations / a FAIL without "
                   "`- working-note:` lifecycle lines (created → updated → distilled → deleted) "
                   "or a stated `- working-note: na (<why>)` (§A7.15 creation side)")
+
+    # 22) evidence integrity (W0 Task 2.5) — lock + append-only log + media
+    #     magic; class-independent (forgery is never "not applicable").
+    group("22")
+    evidence_lock_check(root, args.final)
 
     # 21) repository hygiene / VCS budget (COV-9 preflight, A10.1) — every
     #     class and every project kind; no profile can skip it.

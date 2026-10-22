@@ -1,0 +1,8 @@
+PASS  acceptance: BLOCKED
+PASS  gate-protected-acceptance: BLOCKED
+PASS  deleted-fail: BLOCKED
+PASS  profile: BLOCKED
+PASS  debt: BLOCKED
+PASS  fake-png: BLOCKED
+PASS  legacy-migration: PASS
+EVIDENCE-INTEGRITY OK 6/6

@@ -1,0 +1,13 @@
+STEP1 CLEAN CLEAN 1
+STEP2 CLEAN 2
+STEP3 CLEAN 3
+STEP4 BLOCK:GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED — this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet — verification evidence is missing or falsified:
+- tests/assert_artifacts.py digest 13ef3551dd73 != pinned 9f136c08ee2c — the checker was modified or is a stub. Repair: bash /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-cache-oBuvaM/home/scripts/repair_checker.sh .
+No structure warnings.
+assert_artifacts.py flag attempts: (checker-pin)
+This gate is re-checkable, not a dead stop: fix the artifacts, then your next write/edit re-runs it automatically. If the failure is legitimately out of scope, set VIBEWEAVER_GATE=off or escalate to the user.
+PASS  cache-hit: second identical mid-task run reuses the clean verdict
+PASS  mid-task -> final re-runs
+PASS  evidence change re-runs
+PASS  checker update invalidates the pin
+CACHE-INVALIDATION OK 4/4

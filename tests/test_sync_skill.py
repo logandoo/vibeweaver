@@ -40,6 +40,12 @@ def build(root):
     snap.mkdir(parents=True)
     (dev / "scripts" / "assert_artifacts.py").write_text("canon-assert\n", encoding="utf-8")
     (dev / "scripts" / "scan_secrets.py").write_text("canon-scan\n", encoding="utf-8")
+    # W0 Task 2/2.5/4 controlled files (pin + lock + repair + bootstrap)
+    for name in ("assert_artifacts.sha256", "evidence_lock.py", "repair_checker.sh", "state_sanitize.py", "contract_lint.py"):
+        (dev / "scripts" / name).write_text("canon-%s\n" % name, encoding="utf-8")
+        (installed / "scripts" / name).write_bytes((dev / "scripts" / name).read_bytes())
+    (dev / "bootstrap.md").write_text("# bootstrap\n", encoding="utf-8")
+    (installed / "bootstrap.md").write_bytes((dev / "bootstrap.md").read_bytes())
     for target in [
         dev / "tests" / "assert_artifacts.py",
         installed / "scripts" / "assert_artifacts.py",
@@ -72,6 +78,10 @@ def build_full(root):
     (repo / "vibeweaver").mkdir(parents=True)
     (repo / "tests").mkdir(parents=True)
     (repo / "vibeweaver" / "SKILL.md").write_text("payload sentinel\n", encoding="utf-8")
+    (repo / "vibeweaver" / "scripts").mkdir(parents=True)
+    for name in ("assert_artifacts.sha256", "evidence_lock.py", "repair_checker.sh", "state_sanitize.py", "contract_lint.py"):
+        (repo / "vibeweaver" / "scripts" / name).write_bytes((dev / "scripts" / name).read_bytes())
+    (repo / "vibeweaver" / "bootstrap.md").write_bytes((dev / "bootstrap.md").read_bytes())
     for name in ("plugin_compat_test.mjs", "sync_skill.py", "test_sync_skill.py"):
         (repo / "tests" / name).write_bytes((dev / "tests" / name).read_bytes())
     for d in sync_skill.EVIDENCE_DIRS:

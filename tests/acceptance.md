@@ -40,3 +40,15 @@ Source: user approved approach B — a dedicated mini gate that actually runs th
 1. 在含 `vw_check.py` 的 mini 项目里，write/edit 后真实运行 checker：失败时以修复包阻断，成功时输出 `ALL CHECKS PASS`；v1 与 v2 适配器行为一致。
 2. session idle 时若模型声称完成而 checker 未绿，追加纠正提示（≤2 次/会话）；checker 绿、非 mini 项目、完整版项目不打扰；`VIBEWEAVER_MINI_GATE=off` 可关闭。
 3. `install.sh` / `.bat` + `setup_project.sh` / `.bat` 安装 skill、脚本与插件；`verify_skill` 10/10、CI 运行新 harness；文档与路径一致。
+
+# Acceptance — W0 P0 trust floor (2026-10-22)
+
+Source: `docs/PLAN_comprehensive_hardening_20261022.md` (P0).
+
+1. `python3 scripts/verify_release.py` → `MANIFEST OK N/N`; one-byte tamper → exit 1.
+2. `bash tests/gate_trust/run.sh` → 5/5 and `cache_invalidation.sh` → 4/4.
+3. clean clone `bash tests/self_check.sh` → `SELF-CHECK OK`; `tests/assert_artifacts.py --self-check` exit 0.
+4. `python3 scripts/contract_lint.py` → `0 conflicts`; `SKILL.md` has one COV-0 and no line-176 contradiction.
+5. `bash tests/gate_trust/evidence_integrity/run.sh` → 6/6.
+6. `python3 scripts/state_sanitize.py --check .vibeweaver/` → 0 (when state exists); state has no plaintext secret; `tests/state_bounds_test.mjs` 4/4.
+7. `node tests/bootstrap_test.mjs` 7/7 (v1/v2/no-hook).

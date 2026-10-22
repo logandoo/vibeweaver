@@ -28,11 +28,19 @@ full procedural text and are read IN FULL at their Read Contract triggers.
 **Truncation self-heal:** if this file looks truncated (Reference Files section
 missing), Read it to the end before acting.
 
+**Weak-model bootstrap:** [bootstrap.md](bootstrap.md) — the 1 KB pointer
+injected at session start (PLAN W0 Task 4).
+
 ## §1 OPERATING COVENANT — read first, never violate ★ NON-NEGOTIABLE
 
 **HARD GATES** + **SELF-STARTING TRIGGERS** of this skill (authoritative
 text: §A4 / Part A). **A weak-model failure mode is to remember only
 §A4.1+§ZERO** — comply with each before declaring done.
+
+`COV-0. Delivery contract` — artifacts live on disk under `tests/`; the
+final answer gives natural-language results + an evidence summary. Attach a
+gate line ONLY when the task class/profile declares `final_gate_line: yes`.
+Precedence: COV-0 > the artifacts pointer below > COV-9.
 
 `COV-1. NO TEST, NO DONE` — every code change MUST be followed by actually
 executed tests producing on-disk evidence (log files and/or screenshots —
@@ -103,10 +111,10 @@ NON-SKIPPABLE. Lane L default: TWO adversarial fresh-context reviewers
 (VERIFICATION_UPGRADES §V4). Full protocol: §A4.9.
 
 `COV-9. Baseline-GREEN before any change (Modify-Existing)` — for every
-Modify-Existing task, your narration MUST include these
-literal tokens IN ORDER, each on its own line after you survey the project:
-Preflight (A10.1/21) before backup: `.gitignore`, no tracked vendor,
-budgets; RED = stop.
+Modify-Existing task, record these literal tokens IN ORDER, each on its own
+line, in `tests/verification_log.md` (default); attach them to the final
+answer only when the profile declares `final_gate_line: yes`: Preflight
+(A10.1/21) before backup: `.gitignore`, no tracked vendor, budgets; RED = stop.
 ```
 git add -u && git add <explicit new paths> && git commit -m "chore: carry-over <previous wave> work"  # ① 前任工作先归档
 git add -u && git commit --allow-empty -m "backup: before changes"   # ② 字面兜底，不得删除
@@ -154,26 +162,16 @@ table. Class-E hard stops fire in BOTH modes (full contract: R9). Declare `Lane:
 (§3.0).
 
 `COV-13. Class before any action — proportional path` — in ZERO classify
-from the PLANNED change set's file kinds (intent file list — the wave diff
-does not exist yet; never self-recollection), cross-checked against the wave
-`git diff --stat` at completion (assert/audit C1): `Class: CODE` (logic-bearing source — control flow/
-state/validation/transform, incl. behavior-asserting tests) > `Class: CONFIG`
-(config/scripts/markup/CI — no control flow) > `Class: DOC` (prose
-md/txt/rst · README · CHANGELOG · docs/ · memory/ · office assets). First
-match wins; uncertain → HIGHER class. Run ONLY that class's path card —
-§V11.3 is AUTHORITATIVE (e.g. DOC: `na (reason)` on tests/loop/baseline/
-8-col table, keep acceptance.md + log + `[Coverage]` + gate
-line; CONFIG keeps smoke + COV-9 baseline). A gate with no named risk
-is process inflation. DOC: §V11.8 caps Lane-L additions + COV-8 file-count
-leg; office assets take the §V11.9 render gate (**NO RENDER, NO DONE**;
-declared `Doc-skill: readme|docx|xlsx|pptx|none`) — risk-tier/schema/API/
-behavior legs fire in EVERY class. Escalate UP on scope growth or evidence
-of a higher class's risk — NEVER de-escalate. Declare
-`Class: DOC|CONFIG|CODE` with the Mode/Lane line and in the gate line;
-misreporting is a violation.
+from the planned file kinds (never self-recollection; cross-check the wave
+`git diff --stat` at completion): CODE > CONFIG > DOC; first match wins,
+uncertain → HIGHER. Run ONLY that class's path card (§V11.3 is
+AUTHORITATIVE); office assets take the §V11.9 render gate. Escalate UP on
+scope growth or evidence, NEVER down. Declare the class with Mode/Lane and
+in the gate line; misreporting is a violation.
 
 `MANDATORY OUTPUT ARTIFACTS — every task MUST produce the following on disk
-and in your final answer (Class-scaled per COV-13 / §V11.3):`
+(Class-scaled per COV-13 / §V11.3; the final answer carries results + evidence
+summary, not automatically the gate line — COV-0):`
 
 - `tests/acceptance.md` — first line **verbatim** `> cap=5  stall=3×`, one
   numbered criterion per line (user-owned stop condition).

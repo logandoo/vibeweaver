@@ -1,0 +1,77 @@
+name: Release bundle
+
+# PLAN W0 Task 1: immutable `w*` tags only. Every action is pinned to a commit
+# SHA (OpenSSF Pinned-Dependencies); the job has the minimum permissions needed
+# to attest the manifest and create the release.
+
+on:
+  push:
+    tags:
+      - "w*"
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify payload coherence
+        run: |
+          python3 verify_skill.py
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          python3 tests/test_check_doc_counts.py
+          node tests/plugin_compat_test.mjs
+
+      - name: Build manifest
+        run: |
+          python3 scripts/make_release_manifest.py \
+            --root . \
+            --tag "${GITHUB_REF_NAME}" \
+            --commit "${GITHUB_SHA}"
+          python3 scripts/verify_release.py --root . --tag "${GITHUB_REF_NAME}"
+
+      - name: Attest manifest provenance
+        uses: actions/attest-build-provenance@92c65d2898f1f53cfdc910b962cecff86e7f8fcc # v1
+        with:
+          subject-path: release/MANIFEST.json
+
+      - name: Upload manifest + evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ github.ref_name }}
+          path: |
+            release/MANIFEST.json
+            release/MANIFEST.sha256
+          if-no-files-found: error
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            release/MANIFEST.json \
+            release/MANIFEST.sha256 \
+            --verify-tag \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file docs/RELEASE.md
+
+      - name: Verify consumer commands
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum -c release/MANIFEST.sha256
+          python3 scripts/verify_release.py --root . --tag "${GITHUB_REF_NAME}"
+          gh attestation verify release/MANIFEST.json --owner "${GITHUB_REPOSITORY_OWNER}"

@@ -1,0 +1,97 @@
+PASS  A1-gate: exactly one default export — exports=[default]
+PASS  A2-gate: default = {id:string, server:fn, setup:fn} — id=vibeweaver-gate
+PASS  A1-audit: exactly one default export — exports=[default]
+PASS  A2-audit: default = {id:string, server:fn, setup:fn} — id=vibeweaver-audit
+PASS  B1-gate: v1 loader (readV1Plugin detect + resolvePluginId) accepts module — via=detect hooks=1
+PASS  B1-audit: v1 loader accepts module — via=detect hooks=1
+PASS  B2-gate: v2 PluginModule schema decodes default export — kind=promise
+PASS  B2-audit: v2 PluginModule schema decodes default export — kind=promise
+PASS  B3-gate: single registration under v1 (no double fire) — hooks=1
+PASS  B3-audit: single registration under v1 (no double fire) — hooks=1
+PASS  C1-gate-v1: RED project write is GATE-BLOCKED (throws) — threw
+PASS  C2-gate-v1: tests/ evidence path is exempt — clean
+PASS  C3-gate-v1: GREEN project passes + stall observation appended after 3 same-file ops — ok
+[GATE-WARNING (vibeweaver-stall)] STALL observed (machine
+PASS  C4-gate-v1: VIBEWEAVER_GATE=off disables the gate — clean
+PASS  C5-gate-v1: trigger-matched path surfaces vibeweaver-cue note — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_auth_trap.md (❌) match
+PASS  C5b-gate-v1: non-matching path gets no cue note — ok
+PASS  C5c-gate-v1: editing memory/ itself never self-cues — ok
+PASS  C5d-gate-v1: inline-list triggers form also fires — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/refere
+PASS  C5e-gate-v1: RED gate block message still carries the cue note — [GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_auth_
+PASS  C5f-gate-v1: tests/-path write still surfaces the cue — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/projec
+PASS  C5g-gate-v1: >2 `**` groups rejected (no cue, no wedge) — elapsed=1ms
+PASS  C5h-gate-v1: scalar + zero-indent + trailing-comment trigger forms all fire — [GATE-WARNING (vibeweaver-cue)] memor | [GATE-WARNING (vibeweaver-cue)] memor | [GATE-WARNING (vibeweaver-cue)] memor
+PASS  C5i-gate-v1: CRLF+BOM topic file still cues — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_cr
+PASS  C5j-gate-v1: unquoted inline-list triggers also fire — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/refere
+PASS  C5k-gate-v1: cue fires recorded in .vibeweaver/cue-stats.json — {"reference_scalar.md":1,"reference_zeroindent.md":1,"reference_comment.md":1,"r
+PASS  C6-gate-v1: stall warning fires ONCE across 5 same-file edits (latch, no flood) — fires=1
+PASS  C6b-gate-v1: a new PASS re-arms the stall observer — ok
+[GATE-WARNING (vibeweaver-stall)] STALL observed (machine
+PASS  D0-gate-v2: setup(ctx) registers execute.after hook — after=1
+PASS  D0b-gate-v2: setup returns a cleanup function — function
+PASS  D1-gate-v2: RED project completed write is GATE-BLOCKED (throws) — threw
+PASS  D2-gate-v2: GREEN project passes + stall note appended to result — ok
+[GATE-WARNING (vibeweaver-stall)] STALL observed (machine
+PASS  D2b-gate-v2: cue note delivered through the v2 result channel — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_v2
+PASS  D2c-gate-v2: fully-frozen event/result/metadata — hook never throws — no throw
+PASS  D3-gate-v2: error-status executions are not gated (v1 parity: after fires only on success) — clean
+PASS  D4-gate-v2: VIBEWEAVER_GATE=off disables the gate — clean
+PASS  E1-audit-v1: RED latch blocks the latching session's non-test write — threw
+PASS  E2-audit-v1: test-dir write stays writable under RED latch — clean
+PASS  E3-audit-v1: D3 — a foreign write releases nothing and is blocked (subagent bypass closed) — blocked (D3)
+PASS  E3b-audit-v1: the latch survives the foreign write (no release recorded) — latched=s-other
+PASS  F0-audit-v2: setup(ctx) registers execute.before hook + cleanup — before=1 cleanup=function
+PASS  F1-audit-v2: RED latch blocks the latching session's non-test write — threw
+PASS  F2-audit-v2: test-dir write stays writable under RED latch — clean
+[vibeweaver-audit] warn: Audit RED (BAD=11 UNCERTAIN=14)
+PASS  F3-audit-v2: v2 events feed observation; idle runs audit and writes tests/gate_audit.md — report=5141B
+PASS  F4-audit-v2: RED final audit latches the project (session-scoped) — latched
+[vibeweaver-audit] warn: Audit RED (BAD=11 UNCERTAIN=14)
+PASS  F4b-audit-v2: subscription survives a malformed event; later idle still audits — audit ran
+PASS  F5-audit-v2: VIBEWEAVER_AUDIT=off disables the latch block — clean
+PASS  G1-loopguard-v1: integer echo 1..16 triggers abort + corrective prompt — abort=1 prompt=1
+PASS  G2-loopguard-v1: letter echo a..n triggers interrupt — abort=1
+PASS  G3-loopguard-v1: 4x repeated code block triggers interrupt — abort=1
+PASS  G3b-loopguard-v1: 3x repeated 5-line stanza triggers interrupt (any period) — abort=1
+PASS  G4b-loopguard-v1: separator x3 + code line x3 clean; code line x4 triggers — sep=0 x3=0 x4=1
+PASS  G4-loopguard-v1: numbered list with content does not interrupt — abort=0
+PASS  G5-loopguard-v1: block repeated only 2x does not interrupt — abort=0
+PASS  G6-loopguard-v1: budget caps interventions at 2 (3rd is log-only) — abort=2 prompt=2
+PASS  G7-loopguard-v1: VIBEWEAVER_LOOPGUARD=off disables the loop-guard — abort=0
+[vibeweaver-loopguard] warn: degenerate generation detected (sequence: 1…12) — interrupting and posting a corrective prompt (1/2/text)
+PASS  G8-loopguard-v2: integer echo via text.delta triggers interrupt(continue:false) + corrective prompt — interrupt=1 prompt=1
+PASS  G9-loopguard-v1: no-newline x3 clean, x4 fires, short-token super-period fires, JSX x3 + punctuation clean — x3=0 x4=1 very=1 div=0 punct=0
+PASS  G10-loopguard-v1: 300-line block x3 triggers interrupt — abort=1
+PASS  G10b-loopguard-v1: 640-line block x3 triggers interrupt — abort=1
+PASS  D1-gate-v1: compacting pushes working-note bundle into output.context — n=1
+PASS  D2-gate-v1: missing note delivers create-instruction bundle — VIBEWEAVER COMPACT-RESUME (machine-delivered by vibeweaver-g
+PASS  D3a-gate-v1: system transform before compacted event injects bootstrap only (no resume) — n=2
+PASS  D3b-gate-v1: different session does not consume the pending resume — n=2
+PASS  D3c-gate-v1: compacted session's next system transform gets the resume bundle — n=3
+PASS  D3d-gate-v1: second call does not re-inject (fire ledger consumed after delivery) — n=1
+PASS  D3e-gate-v1: v1 `properties` envelope arms the resume — n=3
+PASS  D4a-gate-v1: first write carries one-line resume cue — (§3.3 re-entry); the gate re-delivers it at every compaction boundary.
+PASS  D4b-gate-v1: same-session second write has no cue (one-shot) — write ok
+PASS  D4c-gate-v1: a new session gets its own cue —  gate re-delivers it at every compaction boundary.
+PASS  D5-gate-v1: inactive project delivers nothing — n=0
+PASS  D6-gate-v1: memoryDeliveries telemetry recorded — {"compactContext":1,"compactResume":2,"sessionCue":2}
+PASS  D8-gate-v1: delivery survives source deletion via harness snapshot — VIBEWEAVER WORKING-STATE (harness snapshot — the source tests/working_note.md is
+PASS  D9-gate-v1: host args.path shape — tests/ write is never gated — clean
+PASS  D9b-gate-v1: host args.path shape — src write on a RED project still BLOCKS — blocked
+PASS  D9c-gate-v2: host args.path shape — tests/ writable, src still BLOCKS — tests=clean src=blocked
+PASS  D10-gate-v1: no-seal root → `evidence seal: none yet` surfaced, NOT GATE-BLOCKED — assert.ok=true note=true
+PASS  D10b-gate-v1: seal present + code changed after seal → GATE-BLOCKED with STALE — blocked (STALE)
+PASS  D11-gate-v1: doc↔impl agree that tests/ writes are never gated except protected evidence (gate + audit plugins) — doc=true gate=true protected=true audit=true
+PASS  D10c-gate-v1: bootstrap window (stale seal, no green PASS) → advisory STALE note, NOT GATE-BLOCKED — ok
+[GATE-WARNING (vibeweaver)] non-blocking: checker pin unavailable (/Users/logan/.config
+PASS  D12-audit-v1: host args.path shape — tests/ write stays writable under the RED latch — clean
+PASS  D12b-audit-v1: host args.path shape — the latching session's src write still BLOCKS — blocked
+PASS  D12c-audit-v2: args.path shape — tests/ writable, src still BLOCKS — tests=clean src=blocked
+
+=== COMPAT HARNESS: 82/82 passed, 0 failed ===

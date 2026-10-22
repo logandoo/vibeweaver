@@ -1,0 +1,6 @@
+PASS  fake-checker: BLOCKED
+PASS  canonical: PASS (no checker block)
+PASS  tampered: BLOCKED
+PASS  protected-checker-write: BLOCKED
+PASS  evidence-write: CLEAN
+CHECKER-PIN OK 5/5

@@ -159,6 +159,23 @@ function depFingerprint(root) {
   addSecretStats(root, 0)
   add(path.join(root, ".git", "HEAD"))
   add(path.join(root, ".git", "index"))
+  // Content hashes for the verdict inputs: size@mtime can collide on a
+  // same-size rewrite within one mtime tick, and cache invalidation is a
+  // security boundary (W0 Task 2.5/2 step 6).
+  for (const rel of ["tests/verification_log.md", "tests/acceptance.md",
+    "tests/project_profile.json", "tests/working_note.md", "tests/.evidence.lock",
+    "tests/gate_result.json", "tests/debt_baseline.json"]) {
+    const p = path.join(root, rel)
+    try {
+      parts.push(`sha:${rel}:${createHash("sha256").update(readFileSync(p)).digest("hex")}`)
+    } catch {
+      parts.push(`sha:${rel}:-`)
+    }
+  }
+  parts.push(`checker:${checkerDigest(root)}`)
+  // --final and mid-task verdicts are different contracts: a lenient mid-task
+  // pass must never satisfy the completion gate (W0 Task 2 step 6).
+  parts.push(`mode:${process.env.VIBEWEAVER_GATE_FINAL === "1" ? "final" : "mid"}`)
   return parts.join("|") + "\n" + gitDigest(root)
 }
 
@@ -281,6 +298,159 @@ function safeRead(p, cap = READ_CAP) {
   }
 }
 
+// ---------- checker pin (PLAN W0 Task 2) ----------
+// The project copy of tests/assert_artifacts.py is the judge; without a pin an
+// agent can replace it with a three-line stub that prints the success shape.
+// The canonical digest ships with the skill (`scripts/assert_artifacts.sha256`)
+// and is also covered by release/MANIFEST.json. Missing pin = one-release
+// warning (legacy projects); mismatch = fail closed. The override is for the
+// human host only and is forbidden in CI.
+const CHECKER_DIGEST_FILE = "assert_artifacts.sha256"
+
+function sha256File(p) {
+  try {
+    return createHash("sha256").update(readFileSync(p)).digest("hex")
+  } catch {
+    return ""
+  }
+}
+
+function canonicalHome() {
+  if (process.env.VIBEWEAVER_HOME) return process.env.VIBEWEAVER_HOME
+  const home = process.env.HOME || process.env.USERPROFILE || ""
+  return path.join(home, ".config", "opencode", "skills", "vibeweaver")
+}
+
+function canonicalChecker() {
+  const p = path.join(canonicalHome(), "scripts", "assert_artifacts.py")
+  return existsSync(p) ? p : null
+}
+
+function readCheckerPin() {
+  const p = path.join(canonicalHome(), "scripts", CHECKER_DIGEST_FILE)
+  const raw = safeRead(p).trim()
+  const m = raw.match(/\b([0-9a-f]{64})\b/i)
+  return { path: p, digest: m ? m[1].toLowerCase() : "" }
+}
+
+function checkerDigest(root) {
+  return sha256File(path.join(root, "tests", "assert_artifacts.py"))
+}
+
+function verifyChecker(root) {
+  const project = path.join(root, "tests", "assert_artifacts.py")
+  if (!existsSync(project)) return { ok: true, warning: "", digest: "", canonical: canonicalChecker() }
+  const digest = checkerDigest(root)
+  const pin = readCheckerPin()
+  const canonical = canonicalChecker()
+  if (!pin.digest) {
+    return {
+      ok: true,
+      warning: `checker pin unavailable (${pin.path}) — the project checker runs unverified; install a release bundle or run scripts/repair_checker.sh (w18.3 will block)`,
+      digest,
+      canonical,
+      expected: "",
+    }
+  }
+  if (digest === pin.digest) return { ok: true, warning: "", digest, canonical, expected: pin.digest }
+  if (process.env.VIBEWEAVER_ALLOW_CUSTOM_CHECKER === "1") {
+    if (process.env.CI) {
+      return {
+        ok: false,
+        reason: `checker pin mismatch and VIBEWEAVER_ALLOW_CUSTOM_CHECKER is forbidden in CI: ${digest.slice(0, 12)} != ${pin.digest.slice(0, 12)}`,
+        digest,
+        canonical,
+        expected: pin.digest,
+      }
+    }
+    return {
+      ok: true,
+      warning: `custom checker allowed by VIBEWEAVER_ALLOW_CUSTOM_CHECKER=1 (expected ${pin.digest.slice(0, 12)}, got ${digest.slice(0, 12)})`,
+      digest,
+      canonical,
+      expected: pin.digest,
+    }
+  }
+  return {
+    ok: false,
+    reason: `tests/assert_artifacts.py digest ${digest.slice(0, 12) || "(missing)"} != pinned ${pin.digest.slice(0, 12)} — the checker was modified or is a stub. Repair: bash ${path.join(canonicalHome(), "scripts", "repair_checker.sh")} .`,
+    digest,
+    canonical,
+    expected: pin.digest,
+  }
+}
+
+// ---------- evidence lock (PLAN W0 Task 2.5) ----------
+const PROTECTED_EVIDENCE = new Set([
+  "tests/acceptance.md",
+  "tests/project_profile.json",
+  "tests/debt_baseline.json",
+  "tests/.evidence.lock",
+])
+
+function relativeUnderRoot(root, filePath) {
+  if (typeof filePath !== "string" || !filePath) return ""
+  const normRoot = resolveWritePath(root)
+  const normFile = resolveWritePath(filePath)
+  const rel = path.relative(normRoot, normFile)
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return ""
+  return rel.split(path.sep).join("/")
+}
+
+function protectedEvidencePath(root, filePath) {
+  return PROTECTED_EVIDENCE.has(relativeUnderRoot(root, filePath))
+}
+
+function evidenceLockScript(root) {
+  const cands = [
+    path.join(canonicalHome(), "scripts", "evidence_lock.py"),
+    path.join(root, "scripts", "evidence_lock.py"),
+    path.join(root, "tests", "evidence_lock.py"),
+  ]
+  for (const c of cands) if (existsSync(c)) return c
+  return null
+}
+
+function runEvidenceLock(script, root, args) {
+  return new Promise((resolve) => {
+    execFile(resolvePython(), [script, "--root", root, ...args], {
+      cwd: root,
+      encoding: "utf8",
+      timeout: assertTimeoutMs(),
+      maxBuffer: 2 << 20,
+    }, (err, stdout, stderr) => {
+      resolve({ code: err ? (typeof err.code === "number" ? err.code : 1) : 0, out: `${stdout}${stderr}`.trim() })
+    })
+  })
+}
+
+async function checkProtectedEvidence(root, filePath) {
+  const rel = relativeUnderRoot(root, filePath)
+  if (rel === "tests/.evidence.lock") {
+    return {
+      block: "GATE-BLOCKED (vibeweaver evidence lock): tests/.evidence.lock is written ONLY by scripts/evidence_lock.py — direct edits are a forgery path. Use `--init` / `--update-acceptance --reason <why> --approved` / `--seal-log`.",
+    }
+  }
+  const script = evidenceLockScript(root)
+  if (!script) {
+    return { notes: ["[GATE-WARNING (vibeweaver)] evidence lock script not installed — protected evidence unchecked (legacy layout); install the release bundle"] }
+  }
+  const lockPath = path.join(root, "tests", ".evidence.lock")
+  if (!existsSync(lockPath)) {
+    const init = await runEvidenceLock(script, root, ["--init"])
+    if (init.code !== 0) {
+      return { block: `GATE-BLOCKED (vibeweaver evidence lock): could not initialize ${lockPath}\n${init.out}` }
+    }
+  }
+  const r = await runEvidenceLock(script, root, ["--check", "--rebase-new-task"])
+  if (r.code !== 0) {
+    return {
+      block: `GATE-BLOCKED (vibeweaver evidence lock): protected evidence changed without a licensed update.\n${r.out}\nFix: python3 ${script} --root . --update-acceptance --reason "<why>" --approved (Class-E) for acceptance; restore the file for profile/debt; --seal-log after appending the log.`,
+    }
+  }
+  return null
+}
+
 function findProjectRoot(startDirs) {
   for (const start of startDirs) {
     if (!start) continue
@@ -346,18 +516,25 @@ function parseAssertJson(stdout) {
 }
 
 async function runAssert(root) {
-  const script = path.join(root, "tests", "assert_artifacts.py")
+  const pin = verifyChecker(root)
+  const project = path.join(root, "tests", "assert_artifacts.py")
+  // Prefer the read-only canonical checker; a project copy is only executed
+  // when its digest matches the pin (W0 Task 2 step 4).
+  const canonical = pin.canonical
+  const canonicalOk = canonical && sha256File(canonical) === (pin.expected || pin.digest)
+  const script = canonicalOk ? canonical : project
   const attempts = []
   let jsonSupported = true
-  for (const flags of FLAG_COMBOS) {
+  const final = process.env.VIBEWEAVER_GATE_FINAL === "1"
+  for (const combo of FLAG_COMBOS) {
+    const flags = final ? ["--final", ...combo] : combo
     const argv = jsonSupported ? ["--json", ...flags] : flags
     const { err, stdout, stderr } = await runPython(script, argv, root)
     const out = `${stdout}${stderr ? "\n" + stderr : ""}`.trim()
-    // the transport flag (--json) is NOT a leniency flag: label attempts by
-    // the real flag combo so a strict pass reads "(none)" and never triggers
-    // the "passed only under …" note (W18 noise audit — the note fired on
-    // every new root's first clean run).
-    const label = argv.filter((a) => a !== "--json").join(" ") || "(none)"
+    // the transport flag (--json) and the gate mode (--final) are NOT
+    // leniency flags: label attempts by the real flag combo so a strict pass
+    // reads "(none)" and never triggers the "passed only under …" note.
+    const label = flags.filter((a) => a !== "--json" && a !== "--final").join(" ") || "(none)"
     if (/unrecognized arguments/.test(out)) {
       // A copy without --json (BL-3) falls back to prose mode ONCE — still
       // fail-closed on its output. A copy that rejects the OTHER canonical
@@ -504,9 +681,18 @@ function inlineCheck(root) {
 async function checkGate(root) {
   const assertsPath = path.join(root, "tests", "assert_artifacts.py")
   if (existsSync(assertsPath)) {
+    const pin = verifyChecker(root)
+    const pinWarnings = pin.warning ? [pin.warning] : []
+    if (!pin.ok) {
+      return { blocking: [pin.reason], warnings: pinWarnings, attempts: ["(checker-pin)"] }
+    }
     const key = depFingerprint(root)
     const lossy = LOSSY_DIGEST.has(root) || LOSSY_FINGERPRINT.has(root)
-    if (!lossy && RESULT_CACHE.has(key)) return RESULT_CACHE.get(key) // may be null = cached PASS
+    if (!lossy && RESULT_CACHE.has(key)) {
+      const cached = RESULT_CACHE.get(key) // may be null = cached PASS
+      if (cached === null && pinWarnings.length) return { blocking: [], warnings: pinWarnings }
+      return cached
+    }
     const r = await runAssert(root)
     let result
     if (r.ok) {
@@ -514,7 +700,7 @@ async function checkGate(root) {
         if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
         RESULT_CACHE.set(key, null) // cache the CLEAN verdict (the note is out-of-band)
       }
-      const notes = []
+      const notes = [...pinWarnings]
       for (const w of assertWarnings([r.output, ...(r.attempts || []).map((a) => a.output)])) {
         // once per (root, message) — a repeated advisory is alarm flood and
         // trains warning-blindness (same latch rule as the stall note)
@@ -538,7 +724,7 @@ async function checkGate(root) {
     }
     {
       const { blocking, warnings } = collectMessages(r.attempts)
-      result = { blocking, warnings, attempts: r.attempts.map((a) => `[${a.flags}]`) }
+      result = { blocking, warnings: [...pinWarnings, ...warnings], attempts: r.attempts.map((a) => `[${a.flags}]`) }
     }
     if (!lossy) {
       if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
@@ -658,7 +844,17 @@ function isEvidencePath(root, filePath) {
   // `Memory/` a false exemption on case-sensitive filesystems — fail closed
   // (a mis-cased evidence dir gets gated = noise, never a hole).
   const seg = rel.split(path.sep)[0]
-  return seg === "test" || seg === "tests" || seg === "memory"
+  if (seg !== "test" && seg !== "tests" && seg !== "memory") return false
+  // Protected evidence (W0 Task 2 step 3 / Task 2.5 step 3): the checker,
+  // pin tables and lock files are NOT evidence — they are the measuring
+  // instrument and must stay gated. tests/acceptance.md, project_profile and
+  // debt_baseline join this list in Task 2.5.
+  const posix = rel.split(path.sep).join("/")
+  const base = path.posix.basename(posix)
+  if (posix === "tests/assert_artifacts.py") return false
+  if (base.endsWith(".sha256") || base.endsWith(".lock")) return false
+  if (posix === "tests/gate_result.json") return false
+  return true
 }
 
 // Shared with vibeweaver-audit.js (D3): new write targets may not exist, so
@@ -893,6 +1089,57 @@ const MEMORY_STATE_CAP = 500
 const SESSION_MEM = {
   pendingResume: new Set(), // sessionIDs: a compaction happened, inject on that session's next system transform
   firstCue: new Set(), // `${root}:${sessionID}`: session-start pointer already delivered
+  bootstrapped: new Set(), // sessionIDs: the 1 KB bootstrap pointer was injected
+}
+
+// ---------- bootstrap injection (PLAN W0 Task 4) ----------
+// A weak model that never opens the 49 KB contract cannot follow it. Inject a
+// 1-2 KB pointer at session start (and again after compaction); never stack it
+// on top of an already-forced full contract, and never inject into subagent
+// sessions. VIBEWEAVER_BOOTSTRAP=off disables the injection.
+const BOOTSTRAP_VERSION = "1"
+const BOOTSTRAP_MARK = "using-vibeweaver (bootstrap v" + BOOTSTRAP_VERSION + ")"
+const FULL_CONTRACT_MARK = "§1 OPERATING COVENANT"
+let _bootstrapText = null
+
+function bootstrapText() {
+  if (_bootstrapText !== null) return _bootstrapText
+  const p = path.join(canonicalHome(), "bootstrap.md")
+  const raw = safeRead(p).trim()
+  _bootstrapText = raw || [
+    BOOTSTRAP_MARK,
+    "A coding task is active. Read SKILL.md §1 (covenants), then",
+    "TESTING_PROTOCOLS.md §A4.1/§A4.8; evidence goes to tests/.",
+  ].join("\n")
+  return _bootstrapText
+}
+
+function isChildSession(input) {
+  if (!input || typeof input !== "object") return false
+  if (input.parentID || input.parentId || input.parentSessionID) return true
+  const s = input.session
+  return !!(s && typeof s === "object" && (s.parentID || s.parentId))
+}
+
+function injectBootstrap(input, output) {
+  if (process.env.VIBEWEAVER_BOOTSTRAP === "off") return null
+  if (!output || typeof output !== "object") return null
+  if (isChildSession(input)) return null
+  const sid = input && (input.sessionID || (input.session && input.session.id))
+  if (!sid || typeof sid !== "string") return null
+  if (!Array.isArray(output.system)) output.system = []
+  const joined = output.system.join("\n")
+  if (joined.includes(FULL_CONTRACT_MARK)) return null // host already force-injected full
+  if (joined.includes(BOOTSTRAP_MARK)) {
+    SESSION_MEM.bootstrapped.add(sid)
+    capBounded(SESSION_MEM.bootstrapped)
+    return null
+  }
+  if (SESSION_MEM.bootstrapped.has(sid)) return null
+  output.system.push(BOOTSTRAP_MARK + "\n\n" + bootstrapText())
+  SESSION_MEM.bootstrapped.add(sid)
+  capBounded(SESSION_MEM.bootstrapped)
+  return BOOTSTRAP_MARK
 }
 
 function capBounded(set) {
@@ -1033,6 +1280,16 @@ function gateCheckWrite(directory, filePath) {
   // first write, empty log) is exactly when "read it before editing" must
   // arrive — delivery must never depend on the gate being green.
   const cues = cueNotes(root, filePath)
+  // Protected evidence (W0 Task 2.5): acceptance/profile/debt/lock are NOT
+  // ordinary evidence — they are the rules of the game. A write runs the
+  // evidence lock check; a mismatch blocks completion.
+  if (protectedEvidencePath(root, filePath)) {
+    return checkProtectedEvidence(root, filePath).then((r) => {
+      if (r && r.block) return { block: r.block }
+      const notes = [...cues, ...((r && r.notes) || [])]
+      return notes.length ? { notes } : null
+    })
+  }
   // evidence-fix path must never be gated (same rule as the audit
   // plugin): writes under tests/ or memory/ ARE the evidence repair
   // itself — gating them creates the first-log catch-22 deadlock.
@@ -1181,6 +1438,11 @@ async function server({ client, directory }) {
     },
     "experimental.chat.system.transform": async (input, output) => {
       if (process.env.VIBEWEAVER_GATE === "off") return
+      try {
+        injectBootstrap(input, output)
+      } catch {
+        /* bootstrap must never break a request */
+      }
       const sid = input && typeof input.sessionID === "string" ? input.sessionID : null
       if (!sid || !SESSION_MEM.pendingResume.has(sid)) return
       const root = findProjectRoot([directory])
@@ -1201,6 +1463,7 @@ async function server({ client, directory }) {
         const payload = (event.data || event.properties) || {}
         const sid = typeof payload.sessionID === "string" ? payload.sessionID : null
         if (sid) {
+          SESSION_MEM.bootstrapped.delete(sid) // compaction may drop the pointer
           SESSION_MEM.pendingResume.add(sid)
           capBounded(SESSION_MEM.pendingResume)
         }
@@ -1249,6 +1512,26 @@ async function setup(ctx) {
     if (cue) appendNotesToV2Result(event, [cue])
   })
   registrations.push(registration)
+  // v2 bootstrap (PLAN W0 Task 4): use the session context hook when the host
+  // exposes it. The shipped 1.18.35 v2 context has no session domain, so this
+  // block is feature-detected and stays a no-op there (bootstrap.md is the
+  // documented fallback). Do not ship guessed shapes — wave21 r1.
+  if (ctx.session && typeof ctx.session.hook === "function") {
+    try {
+      const reg = await ctx.session.hook("context", async (event, output) => {
+        try {
+          const input = output ? event : (event && event.input) || event || {}
+          const out = output || (event && event.output) || event
+          injectBootstrap(input, out)
+        } catch {
+          /* one bad context hook must not break the request */
+        }
+      })
+      if (reg) registrations.push(reg)
+    } catch {
+      console.warn("[vibeweaver-gate] v2 session.hook('context') unavailable — bootstrap falls back to bootstrap.md")
+    }
+  }
   // v2 memory delivery: intentionally NOT registered here. The shipped
   // @opencode-ai/plugin v2 context has no session domain (verified
   // 1.18.35), and 1.18.x's hybrid loader delivers through the v1 hooks
@@ -1263,6 +1546,7 @@ async function setup(ctx) {
             const payload = (event.data || event.properties) || {}
             const sid2 = typeof payload.sessionID === "string" ? payload.sessionID : null
             if (sid2) {
+              SESSION_MEM.bootstrapped.delete(sid2)
               SESSION_MEM.pendingResume.add(sid2)
               capBounded(SESSION_MEM.pendingResume)
             }

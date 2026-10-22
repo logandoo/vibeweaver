@@ -17,6 +17,21 @@ Saying "strictly follow vibeweaver" at the start of the request makes triggering
 essentially certain. For the plugins, the optional extras, and the Windows path,
 see [Install](#install).
 
+## Verify this release (w18.2)
+
+Tags are immutable. From a clone at the tag:
+
+```bash
+python3 scripts/verify_release.py --root .   # MANIFEST OK N/N
+sha256sum -c release/MANIFEST.sha256         # corruption only, not replacement
+gh attestation verify release/MANIFEST.json --owner logandoo
+```
+
+`release/MANIFEST.json` binds every payload file by SHA-256 and
+`vibeweaver/install.sh` verifies it before copying. Effect claims stay
+`unverified`/`directional` until the preregistered G3 evaluation lands; no
+single-run headline is published as a reliability claim.
+
 ## Why it exists
 
 Give the human brain free rein and it runs on cognitive bias and

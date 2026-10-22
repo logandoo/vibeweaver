@@ -63,6 +63,109 @@ const IN_CAP = 400
 const OUT_CAP = 300
 const RED_TTL_HOURS_DEFAULT = 24
 const RELEASES_CAP = 5
+// W0 Task 1.5 — state is a credential sink: commands are persisted verbatim.
+// Redact before every write; bound the file; expire old sessions.
+const MAX_STATE_BYTES_DEFAULT = 5 * 1024 * 1024
+const RETENTION_DAYS_DEFAULT = 14
+const SECRET_RULES = [
+  [/AKIA[0-9A-Z]{16}/g, "aws-access-key-id"],
+  [/gh[pousr]_[A-Za-z0-9]{36,}/g, "github-token"],
+  [/xox[baprs]-[A-Za-z0-9-]{10,}/g, "slack-token"],
+  [/(?<![A-Za-z0-9])sk-(?:proj-|svcacct-|admin-|ant-api\d{2}-|ant-admin\d{2}-|ant-oat\d{2}-|ant-)[A-Za-z0-9_-]{16,}/g, "openai-anthropic-key"],
+  [/(?<![A-Za-z0-9])sk-[A-Za-z0-9]{20,}/g, "openai-anthropic-key"],
+  [/AIza[0-9A-Za-z_-]{35}/g, "google-api-key"],
+  [/eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, "jwt"],
+  [/-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY[\s\S]*?-----END (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/g, "private-key-block"],
+]
+const GENERIC_SECRET_RE = /(?<![A-Za-z0-9])(?:[A-Za-z0-9]{1,32}[_-]){0,4}(?:api[_-]?key|apikey|secret|password|passwd|pwd|token|credential|private[_-]?key|access[_-]?key)(?:[_-][A-Za-z0-9]{1,32}){0,4}\s*[=:]\s*(["']?)([A-Za-z0-9+/_.-]{12,})\1/gi
+const SSHPASS_RE = /(sshpass\s+-p\s+)(\S+)/g
+const BEARER_RE = /(authorization:\s*bearer\s+)(\S{12,})/gi
+const SECRET_ALLOW_RE = /(example|placeholder|dummy|sample|redacted|changeme|your[_-]|xxxx|test[_-]?key|fake)/i
+
+function redactString(s) {
+  if (typeof s !== "string" || !s) return s
+  let out = s
+  for (const [rx, kind] of SECRET_RULES) {
+    out = out.replace(rx, (m) => `[REDACTED:${kind}:${m.length}]`)
+  }
+  out = out.replace(GENERIC_SECRET_RE, (m, _q, val) => {
+    if (SECRET_ALLOW_RE.test(m) || SECRET_ALLOW_RE.test(val) || val.startsWith("[REDACTED:")) return m
+    const at = m.lastIndexOf(val)
+    return m.slice(0, at) + `[REDACTED:generic-credential:${val.length}]` + m.slice(at + val.length)
+  })
+  out = out.replace(SSHPASS_RE, (m, head, val) =>
+    val.startsWith("[REDACTED:") ? m : head + `[REDACTED:sshpass:${val.length}]`)
+  out = out.replace(BEARER_RE, (m, head, val) =>
+    val.startsWith("[REDACTED:") ? m : head + `[REDACTED:bearer:${val.length}]`)
+  return out
+}
+
+function redactDeep(value, depth = 0) {
+  if (typeof value === "string") return redactString(value)
+  if (depth > 8 || value === null || typeof value !== "object") return value
+  if (Array.isArray(value)) return value.slice(0, 500).map((v) => redactDeep(v, depth + 1))
+  const out = {}
+  for (const [k, v] of Object.entries(value)) out[k] = redactDeep(v, depth + 1)
+  return out
+}
+
+function stateMaxBytes() {
+  const n = Number(process.env.VIBEWEAVER_MAX_STATE_BYTES)
+  return Number.isFinite(n) && n > 0 ? n : MAX_STATE_BYTES_DEFAULT
+}
+
+function retentionDays() {
+  const n = Number(process.env.VIBEWEAVER_RETENTION_DAYS)
+  return Number.isFinite(n) && n >= 0 ? n : RETENTION_DAYS_DEFAULT
+}
+
+function jsonBytes(o) {
+  try {
+    return Buffer.byteLength(JSON.stringify(o))
+  } catch {
+    return Number.MAX_SAFE_INTEGER
+  }
+}
+
+// Bound the persisted state: retention first, then oldest sessions, then
+// per-session text/tool payloads, then a minimal shell. Never unbounded.
+function boundState(input) {
+  let st = redactDeep(input)
+  const cap = stateMaxBytes()
+  const cutoff = Date.now() - retentionDays() * 86400000
+  for (const [sid, s] of Object.entries(st.sessions || {})) {
+    if (s && Number.isFinite(s.updatedAt) && s.updatedAt < cutoff) delete st.sessions[sid]
+  }
+  if (jsonBytes(st) <= cap) return st
+  const ids = Object.keys(st.sessions || {}).sort(
+    (a, b) => (st.sessions[a].updatedAt || 0) - (st.sessions[b].updatedAt || 0))
+  while (ids.length > 2 && jsonBytes(st) > cap) {
+    delete st.sessions[ids.shift()]
+  }
+  for (const s of Object.values(st.sessions || {})) {
+    if (typeof s.text === "string") s.text = s.text.slice(0, 2048)
+    if (s.textParts && typeof s.textParts === "object") {
+      for (const k of Object.keys(s.textParts)) s.textParts[k] = String(s.textParts[k] || "").slice(0, 2048)
+    }
+    if (Array.isArray(s.tools)) s.tools = s.tools.slice(-50)
+    if (Array.isArray(s.turnWritePaths)) s.turnWritePaths = s.turnWritePaths.slice(-50)
+  }
+  if (jsonBytes(st) > cap) {
+    for (const s of Object.values(st.sessions || {})) {
+      delete s.text
+      delete s.textParts
+      delete s.roles
+      delete s.partMsg
+      delete s.msgAt
+      delete s.msgSeqAt
+      delete s.partSeqAt
+      delete s.gateSeqAt
+      delete s.gateCountAt
+      s.tools = Array.isArray(s.tools) ? s.tools.slice(-10) : []
+    }
+  }
+  return st
+}
 
 // Bounded input-size estimate for tool arguments (SIGTRAP hardening round 3,
 // 2026-10-17): `canonicalJson(inp)` deep-copies and stringifies the FULL
@@ -704,6 +807,9 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const keep = new Set(ids.slice(-20))
         for (const id of ids) if (!keep.has(id)) delete state.sessions[id]
       }
+      // W0 Task 1.5: redact credentials + enforce retention/size BEFORE the
+      // bytes reach disk. A secret that never lands needs no rotation.
+      state = boundState(state)
       if (!existsSync(path.join(directory, STATE_DIR))) mkdirSync(path.join(directory, STATE_DIR), { recursive: true })
       const tmp = statePath + ".tmp"
       writeFileSync(tmp, JSON.stringify(state))
@@ -716,6 +822,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const touchSession = (sessionID) => {
     if (!state.sessions[sessionID]) state.sessions[sessionID] = { text: "", textParts: {}, tools: [], skillLoaded: false }
     const s = state.sessions[sessionID]
+    s.updatedAt = Date.now() // W0 Task 1.5 retention key
     if (!s.roles) s.roles = {} // messageID → role (stop-guard, bounded)
     if (!s.partMsg) s.partMsg = {} // text-partID → messageID (stop-guard, bounded)
     if (!s.msgAt) s.msgAt = {} // messageID → first observation time (W10 turn scope, bounded)

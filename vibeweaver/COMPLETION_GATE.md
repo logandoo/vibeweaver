@@ -274,10 +274,8 @@ final-run check examine the resulting tree regardless of how it was edited.
 - Escape hatch: `VIBEWEAVER_GATE=off` disables the plugin.
 - If `tests/assert_artifacts.py` does not exist yet, the plugin runs an
   inline evidence check and the GATE-BLOCKED message points to §A4.4.1.
-- **Trust model (named boundary):** the gate defends against laziness and
-  drift, not a hostile agent — a fake `{"ok":true}` script passes by design;
-  `tests/` writes are never gated (evidence-fix path). Tamper = the seal's
-  job (C3/C3b).
+- **Trust model:** laziness/drift, not hostile root — fake checker → pin
+  (T2); protected evidence → lock (T2.5). `tests/` exempt.
 - **Seal three-state (G1, W18)** — `tests/evidence_manifest.json` +
   `tests/test_baseline.json`, written ONLY by `scripts/evidence_seal.py`
   (SLSA/in-toto verdicts — "missing" is never rendered as "stale"):
@@ -301,7 +299,8 @@ final-run check examine the resulting tree regardless of how it was edited.
   the target as `args.path` (canonical) or `args.filePath` (adapter); the
   exemption resolves both (symlink-safe normalize, EXACT first segment
   `tests/` · `test/` · `memory/`; nested `src/tests/` is not evidence).
-  Tampering is detected afterwards by the seal (C3/C3b).
+  **Protected evidence (T2.5):** checker/acceptance/profile/debt/lock/
+  gate_result are gated; the lock is written only by `scripts/evidence_lock.py`.
 
 The GATE-BLOCKED message means **keep working — fix the evidence, then the
 next write/edit re-checks automatically**. It is a completion gate, not an

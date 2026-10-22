@@ -1,0 +1,10 @@
+PASS  v1 session start injects exactly once — first=1 second=1
+PASS  bootstrap payload is the 1-2 KB pointer — len=1505
+PASS  v1 compaction re-injects the pointer — n=1
+PASS  v1 subagent session gets no bootstrap — n=0
+PASS  v1 full contract already injected -> no double stack — n=0
+PASS  v2 session context hook injects once — n=1
+[vibeweaver-gate] v2 setup: ctx.tool.hook/ctx.event.subscribe unavailable in this host — v2 adapter inactive for this instance
+PASS  no-hook fallback: setup is inert and bootstrap.md exists — setup=undefined file=true
+
+BOOTSTRAP 7/7 passed
