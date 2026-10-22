@@ -176,7 +176,12 @@ def main(argv=None):
     payload = json.dumps(manifest, indent=2, sort_keys=True) + "\n"
     out.write_text(payload, encoding="utf-8")
     digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-    sha_line = "%s  %s\n" % (digest, out.name)
+    import os as _os
+    try:
+        rel_out = _os.path.relpath(out, root)
+    except ValueError:
+        rel_out = out.name
+    sha_line = "%s  %s\n" % (digest, rel_out.replace("\\", "/"))
     (out.parent / "MANIFEST.sha256").write_text(sha_line, encoding="utf-8")
     print("MANIFEST WROTE %d files -> %s (sha256=%s)" % (len(manifest["files"]), out, digest))
     return 0
