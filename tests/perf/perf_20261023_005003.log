@@ -1,0 +1,7 @@
+scan_1k    p95=0.031s cap=2.0s OK
+assert     p95=0.019s cap=10.0s OK
+install    p95=999.000s cap=6.0s OVER
+core  tokens=  1169 cap=  4000 OK
+full  tokens= 84727 cap= 90000 OK
+mini  tokens=   567 cap=  2000 OK
+TOKEN-BUDGET OK

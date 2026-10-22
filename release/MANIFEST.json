@@ -1,5 +1,5 @@
 {
-  "commit": "3df143f5b1e1c11ea1f243e10eddd464443c5379",
+  "commit": "4a1fa4a32757284cb423002e1d889c2558e461b4",
   "files": [
     {
       "bytes": 44419,
@@ -142,9 +142,9 @@
       "sha256": "64be81e8d915cace91ef9290a3f407a2dd2cbbead45b807676a5a5c3903312b1"
     },
     {
-      "bytes": 4049,
+      "bytes": 4183,
       "path": "vibeweaver/scripts/perf_budget.py",
-      "sha256": "4da3a6e206e1369daaa486796736113ad195683ffd6f127b2e9d97f73c7daeb5"
+      "sha256": "35ce564f8aa3aa428b4ddc888c0720d213334383a5ef462591daba8fad97314f"
     },
     {
       "bytes": 1755,
@@ -198,5 +198,5 @@
     }
   ],
   "schema_version": 1,
-  "tag": "w18.3.3"
+  "tag": "w18.3.4"
 }

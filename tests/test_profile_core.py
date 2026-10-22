@@ -32,8 +32,9 @@ class CoreProfileTest(unittest.TestCase):
         home = tmp / "home"
         home.mkdir()
         env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / ".config"))
-        r = subprocess.run(["bash", str(PAY / "install.sh"), "--profile", "core"],
-                           capture_output=True, text=True, timeout=60, env=env)
+        cmd = ([sys.executable, str(PAY / "scripts" / "install.py"), "--profile", "core"]
+               if sys.platform == "win32" else ["bash", str(PAY / "install.sh"), "--profile", "core"])
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60, env=env)
         self.assertEqual(r.returncode, 0, r.stderr)
         skill = home / ".config" / "opencode" / "skills" / "vibeweaver"
         installed = (skill / "SKILL.md").read_text(encoding="utf-8")

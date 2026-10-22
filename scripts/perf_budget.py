@@ -61,7 +61,9 @@ def install_time():
     home.mkdir()
     env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(home / ".config"))
     t0 = time.perf_counter()
-    r = subprocess.run(["bash", str(PAY / "install.sh"), "--profile", "full"],
+    cmd = ([sys.executable, str(PAY / "scripts" / "install.py"), "--profile", "full"]
+           if sys.platform == "win32" else ["bash", str(PAY / "install.sh"), "--profile", "full"])
+    r = subprocess.run(cmd,
                        cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
     dt = time.perf_counter() - t0
     shutil.rmtree(tmp, ignore_errors=True)
