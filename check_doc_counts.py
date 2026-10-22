@@ -1,25 +1,29 @@
 #!/usr/bin/env python3
-"""check_doc_counts.py — bind README test-count claims to a real run.
+"""check_doc_counts.py — bind README/CHANGELOG test-count claims to a real run.
 
-W18 audit (2026-10-22) found the published README/CHANGELOG stating counts no
-in-tree run could reproduce ("plugin compat 82/82" over a tree that ran 70/71 —
-audit findings F1/F6). Numbers in prose drift; runs do not. This checker makes
-the docs' claims executable:
+W18 audit (2026-10-22) found the published docs stating counts no in-tree run
+could reproduce ("plugin compat 82/82" over a tree that ran 70/71 — audit
+findings F1/F6). Numbers in prose drift; runs do not. This checker makes the
+docs' claims executable:
 
-  1. run each suite and parse its SUMMARY count(s)
-  2. extract every count claim the READMEs state ON THE LINE THAT NAMES THE
-     SUITE'S COMMAND (a claim is bound to the command that reproduces it;
-     historical prose counts — wave notes, benchmark tables — are not claims)
-  3. fail on any mismatch, on a red suite (failures must be 0 for claims to
-     bind), on a suite the docs never quantify, and on any leftover CI
-     quarantine flag (`--allow-known`: the W18 audit's F2 — a green CI over a
+  1. run each suite and parse its SUMMARY count(s) — a non-zero exit or a red
+     run binds nothing
+  2. extract count claims the READMEs state ON THE LINE THAT NAMES THE SUITE'S
+     COMMAND, plus the name-anchored claims in the NEWEST changelog entry
+     (the "plugin compat N/N" form the W18 claim actually used)
+  3. fail on any mismatch, on a suite the docs never quantify, and on any
+     leftover CI quarantine flag (`--allow-known`: audit F2 — green CI over a
      live failure)
 
-Usage:
-  python3 check_doc_counts.py            # run suites + check README claims
-  python3 check_doc_counts.py --skip-run # doc shapes only (no suite execution)
+Historical prose counts (wave notes, benchmark tables, older changelog
+entries) are history, not claims — only command/name-anchored lines bind.
 
-Exit 0 = every stated count equals what this tree prints. Stdlib only.
+Usage:
+  python3 check_doc_counts.py      # run suites + check doc claims
+
+Exit 0 = every stated count equals what this tree prints. Stdlib only;
+all file/process text is read as UTF-8 so the Windows matrix legs decode the
+CJK/emoji suite output deterministically (review C1).
 """
 import re
 import subprocess
@@ -28,8 +32,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 
-# claim = the regex that captures the claim ON an anchor line;
-# run   = the SUMMARY regex of an executed suite (group 1..n).
+# claim = regex capturing the claim on an anchored line;
+# run   = SUMMARY regex of an executed suite.
 SUITES = {
     "selftest": {
         "cmd": ["node", "vibeweaver/scripts/audit_selftest.mjs"],
@@ -57,16 +61,24 @@ SUITES = {
     },
 }
 
+# The newest changelog entry binds by NAME ("plugin compat 82/82" — the exact
+# shape of the falsified W18 claim). Values are (a, b): selftest/mutation read
+# as (total, failures), compat/mini as (passed, total).
+CHANGELOG_CLAIM = {
+    "selftest": re.compile(r"audit_selftest\s+(\d+)\s*/\s*(\d+)"),
+    "mutation": re.compile(r"mutation[_ ]sweep\s+(\d+)\s*/\s*(\d+)"),
+    "compat": re.compile(r"plugin compat\s+(\d+)\s*/\s*(\d+)"),
+    "mini": re.compile(r"mini[ _]gate\s+(\d+)\s*/\s*(\d+)"),
+}
+
 QUARANTINE = re.compile(r"allow[-_]?known|allowKnown|E3/G9 allowed")
 QUARANTINE_FILES = (".github/workflows/verify.yml", "tests/plugin_compat_test.mjs")
 DOCS = ("README.md", "README_zh.md")
+CHANGELOGS = ("CHANGELOG.md", "CHANGELOG_zh.md")
 
 
-def _to_value(key, groups):
-    """Claim/run groups → the canonical value for a suite."""
-    if key in ("selftest", "mutation"):
-        return int(groups[0])
-    return (int(groups[0]), int(groups[1]))
+def _read(path):
+    return path.read_text(encoding="utf-8", errors="replace")
 
 
 def fmt(value):
@@ -74,20 +86,40 @@ def fmt(value):
 
 
 def extract_claims(text):
-    """{suite: [claimed values]} — only lines that name the suite's command.
-
-    Prose that merely mentions a number (wave notes, benchmark tables) never
-    names the command and is therefore never a claim."""
+    """{suite: [distinct claimed values]} — only lines naming the suite's
+    command. Prose that merely mentions a number (wave notes, benchmark
+    tables) never names the command and is therefore never a claim."""
     claims = {}
     for line in text.splitlines():
         for key, spec in SUITES.items():
             if spec["anchor"] not in line:
                 continue
             for m in spec["claim"].finditer(line):
-                value = _to_value(key, m.groups())
+                value = int(m.group(1))
+                if key in ("compat", "mini"):
+                    value = (int(m.group(1)), int(m.group(2)))
                 seen = claims.setdefault(key, [])
-                if value not in seen:  # distinct claims only — same value twice
-                    seen.append(value)  # (command line + files row) is one claim
+                if value not in seen:
+                    seen.append(value)
+    return claims
+
+
+def extract_changelog_claims(text):
+    """{suite: [distinct claims]} from the NEWEST changelog entry only.
+
+    Older entries are dated history — their counts were true of their tree.
+    The newest entry describes THIS tree and must reproduce here."""
+    parts = re.split(r"(?m)^## ", text)
+    section = parts[1] if len(parts) > 1 else ""
+    claims = {}
+    for key, pattern in CHANGELOG_CLAIM.items():
+        seen = []
+        for m in pattern.finditer(section):
+            value = (int(m.group(1)), int(m.group(2)))
+            if value not in seen:
+                seen.append(value)
+        if seen:
+            claims[key] = seen
     return claims
 
 
@@ -101,7 +133,17 @@ def parse_run(key, text):
     return (int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
 
-def compare_counts(runs, claims):
+def _matches(key, claim, run):
+    """README claims may state the total alone ("571 fixture checks") or
+    total/failures ("571/0"); changelog claims state a/b per suite."""
+    if key in ("selftest", "mutation"):
+        if isinstance(claim, int):
+            return claim == run[0]
+        return claim == (run[0], run[1])
+    return claim == (run[0], run[1])
+
+
+def compare_counts(runs, claims, where="docs"):
     """Every stated claim must equal the run; a red run binds nothing."""
     errors = []
     for key in SUITES:
@@ -109,29 +151,34 @@ def compare_counts(runs, claims):
         if run is None:
             errors.append(f"{key}: run output unparseable — cannot bind claims")
             continue
-        failed = run[-1]
-        if failed:
-            errors.append(f"{key}: suite red ({failed} failed) — claims cannot bind a red run")
+        if run[-1]:
+            errors.append(f"{key}: suite red ({run[-1]} failed) — "
+                          f"claims cannot bind a red run")
             continue
-        runval = _to_value(key, run)
         got = claims.get(key)
         if not got:
-            errors.append(f"{key}: no count claim found in the docs "
-                          f"(state {fmt(runval)} next to the command)")
+            errors.append(f"{key}: no count claim found in {where} "
+                          f"(state {fmt(_claim_repr(key, run))} next to the name)")
             continue
         for claim in got:
-            if claim != runval:
-                errors.append(f"{key}: claim {fmt(claim)} != run {fmt(runval)}")
+            if not _matches(key, claim, run):
+                errors.append(f"{key}: claim {fmt(claim)} != run "
+                              f"{fmt(_claim_repr(key, run))}")
     return errors
+
+
+def _claim_repr(key, run):
+    return (run[0], run[1]) if key in ("selftest", "mutation") else (run[0], run[1])
 
 
 def scan_quarantine_text(text):
     """True when a quarantine escape hatch is present (CI/harness files).
 
-    Full-line comments are not code: a historical note that documents the
-    quarantine's REMOVAL (tests/plugin_compat_test.mjs W18 D-W18-2 comment)
-    must not trip the ban — an in-effect handler or a CI flag always sits on
-    an executable line."""
+    Full-line comments are not code: a historical note documenting the
+    quarantine's REMOVAL must not trip the ban — an in-effect handler or a CI
+    flag always sits on an executable line. KNOWN BOUNDARY (review I3): this
+    is a signature scan — a renamed flag in an unlisted file escapes it; the
+    red-run binding is the second line of defense."""
     for line in text.splitlines():
         stripped = line.strip()
         if stripped.startswith("//") or stripped.startswith("#"):
@@ -141,47 +188,67 @@ def scan_quarantine_text(text):
     return False
 
 
-def scan_quarantine(root=ROOT):
+def scan_quarantine(root=None):
+    root = root or ROOT
     errors = []
     for rel in QUARANTINE_FILES:
         path = root / rel
-        if path.is_file() and scan_quarantine_text(path.read_text(errors="replace")):
-            errors.append(f"{rel}: quarantine flag present — CI must run without --allow-known")
+        if path.is_file() and scan_quarantine_text(_read(path)):
+            errors.append(f"{rel}: quarantine flag present — "
+                          f"CI must run without --allow-known")
     return errors
+
+
+def evaluate_proc(key, proc_text, returncode):
+    """Test seam (review I2/M2): a suite binds only when it exited 0 AND its
+    SUMMARY parsed — a red exit with a green-looking SUMMARY binds nothing."""
+    if returncode != 0:
+        return None, f"{key}: suite exited {returncode} — claims cannot bind a red run"
+    value = parse_run(key, proc_text)
+    if value is None:
+        return None, f"{key}: run output unparseable — cannot bind claims"
+    return value, None
 
 
 def run_suite(key):
     spec = SUITES[key]
     try:
         proc = subprocess.run(spec["cmd"], cwd=str(ROOT), text=True,
+                              encoding="utf-8", errors="replace",
                               capture_output=True, timeout=900)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return None, f"{key}: run failed to execute ({exc})"
-    return parse_run(key, proc.stdout + proc.stderr), None
+    return evaluate_proc(key, proc.stdout + proc.stderr, proc.returncode)
 
 
-def main(argv=None):
+def main(argv=None, root=None, run=run_suite):
     argv = argv if argv is not None else sys.argv[1:]
-    skip_run = "--skip-run" in argv
+    root = root or ROOT
     errors, runs = [], {}
     for key in SUITES:
-        if skip_run:
-            continue
-        value, err = run_suite(key)
+        value, err = run(key)
         runs[key] = value
         if err:
             errors.append(err)
     for rel in DOCS:
-        path = ROOT / rel
+        path = root / rel
         if not path.is_file():
             errors.append(f"{rel}: missing — the counts live here")
             continue
-        claims = extract_claims(path.read_text(errors="replace"))
-        errors.extend(f"{rel}: {e}" for e in compare_counts(runs, claims))
-    errors.extend(scan_quarantine(ROOT))
+        claims = extract_claims(_read(path))
+        errors.extend(f"{rel}: {e}" for e in compare_counts(runs, claims, rel))
+    for rel in CHANGELOGS:
+        path = root / rel
+        if not path.is_file():
+            continue
+        claims = extract_changelog_claims(_read(path))
+        if claims:
+            errors.extend(f"{rel} (newest entry): {e}"
+                          for e in compare_counts(runs, claims, f"{rel} newest entry"))
+    errors.extend(scan_quarantine(root))
     for key in SUITES:
-        print(f"{'SKIP' if skip_run else 'RUN '} {key:9s} "
-              f"{fmt(_to_value(key, runs[key])) if runs.get(key) else '(not run)'}")
+        print(f"RUN  {key:9s} "
+              f"{fmt(runs[key][:2]) if runs.get(key) else '(unbound)'}")
     for err in errors:
         print(f"FAIL {err}")
     if errors:
@@ -192,4 +259,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

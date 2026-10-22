@@ -1013,6 +1013,9 @@ const payloadFile = (rel) => {
   return existsSync(local) ? local : path.join(REPO_ROOT, "vibeweaver", rel)
 }
 const payloadScript = (name) => payloadFile(path.join("scripts", name))
+// Cross-platform interpreter (review C1): windows-latest resolves `python`,
+// macOS runners ship `python3`; PYTHON env overrides both.
+const PY = process.env.PYTHON || (process.platform === "win32" ? "python" : "python3")
 
 // A project scaffold whose assert_artifacts.py run is GREEN and which has NO
 // evidence seal (tests/evidence_manifest.json / tests/test_baseline.json) —
@@ -1046,7 +1049,7 @@ function assertGreenProject(name) {
 }
 
 function runAssertJson(root) {
-  const out = execFileSync("python3", ["tests/assert_artifacts.py", "--existing", "--json"], { cwd: root, encoding: "utf8" })
+  const out = execFileSync(PY, ["tests/assert_artifacts.py", "--existing", "--json"], { cwd: root, encoding: "utf8" })
   return JSON.parse(out.slice(out.indexOf("{")))
 }
 
@@ -1125,7 +1128,7 @@ function runAssertJson(root) {
   // G1 three-state (gate side): seal exists + wave code changed after the
   // seal → the stale state BLOCKS and the message keeps its STALE wording.
   const root = assertGreenProject("gate-stale-v1")
-  execFileSync("python3", [payloadScript("evidence_seal.py")], { cwd: root, encoding: "utf8" })
+  execFileSync(PY, [payloadScript("evidence_seal.py")], { cwd: root, encoding: "utf8" })
   mkdirSync(path.join(root, "src"), { recursive: true })
   writeFileSync(path.join(root, "src", "late.js"), "export const x = 1\n")
   const loaded = await loadAsV1(gateMod, { client: { app: { log: async () => {} } }, directory: root }, "vibeweaver-gate")
@@ -1156,7 +1159,7 @@ function runAssertJson(root) {
   // green `- iter N PASS` in the task block is advisory (note), not a block.
   const root = assertGreenProject("gate-stale-bootstrap-v1")
   writeFileSync(path.join(root, "tests", "verification_log.md"), "## Task: w18-bootstrap\n- Baseline verified GREEN\n- iter 1 FAIL: criterion #1 | diagnosis: the validator ran before state hydration | changed: app/a.py\n- working-note: created (fixture)\n")
-  execFileSync("python3", [payloadScript("evidence_seal.py")], { cwd: root, encoding: "utf8" })
+  execFileSync(PY, [payloadScript("evidence_seal.py")], { cwd: root, encoding: "utf8" })
   mkdirSync(path.join(root, "src"), { recursive: true })
   writeFileSync(path.join(root, "src", "late.js"), "export const x = 1\n")
   const loaded = await loadAsV1(gateMod, { client: { app: { log: async () => {} } }, directory: root }, "vibeweaver-gate")

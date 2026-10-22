@@ -1,0 +1,5 @@
+RUN  selftest  571
+RUN  mutation  44
+RUN  compat    82/82
+RUN  mini      62/62
+check_doc_counts.py: every stated count equals this tree's runs (exit 0)

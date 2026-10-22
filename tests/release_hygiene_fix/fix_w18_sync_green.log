@@ -1,0 +1,17 @@
+PASS  SS1 clean miniature tree → no drift
+PASS  SS2 tampered eval snapshot → fail closed — assert_artifacts.py: eval snapshot DRIFT — expected 4a4c1f234825 got 92e78d0b0329 (/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vwsync-jjtuosjq/eval/configs
+PASS  SS3 --fix restores the snapshot
+PASS  SS4 stale canonical_assert_sha → fail closed — task compliance_pricing_tier: canonical_assert_sha DRIFT — pin 000000000000 != file 4a4c1f234825
+PASS  SS5 --fix repins task.json
+PASS  SS6 --fix does not invent an absent eval tree — exists=False skipped=5
+PASS  SS7 --allow-missing-eval covers task canonicals
+PASS  SS8 --fix does not populate an incomplete eval tree — configs=False skipped=5
+PASS  SS9 clean tree incl. repo harness + evidence → no drift
+PASS  SS10 stale repo harness → fail closed — plugin_compat_test.mjs: repo DRIFT — expected b6bd5f5a0edd got 998cc710faf1 (/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vwsync-jjtuosjq/repo-wave/repo/tes
+PASS  SS11 --fix restores the repo harness
+PASS  SS12 evidence set mismatch (missing + extra) → fail closed — evidence w18: repo copy missing: w18-a.log; evidence w18: extra file in repo copy: w18-extra.log
+PASS  SS13 --fix restores the evidence set
+PASS  SS14 --allow-missing-repo skips, never invents the repo tree — errors=0 exists=False skipped=3
+PASS  SS15 tampered evidence file → fail closed — evidence w18sync: DRIFT — w18sync-b.log expected ef79d374f454 got 92e78d0b0329
+
+=== 15/15 pass ===

@@ -1,0 +1,6 @@
+=== dev tree suite 2026-10-22 (W18 release-hygiene fix) ===
+
+=== 75/75 pass ===
+=== 15/15 pass ===
+sync_skill.py: clean — every copy and pin agrees (exit 0)
+=== COMPAT HARNESS: 82/82 passed, 0 failed ===

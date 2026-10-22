@@ -1,0 +1,26 @@
+PASS  CDC1 EN claim shapes extracted — {'selftest': [571], 'mutation': [44], 'compat': [(82, 82)], 'mini': [(62, 62)]}
+PASS  CDC2 ZH claim shapes extracted (same values) — {'selftest': [571], 'mutation': [44], 'compat': [(82, 82)], 'mini': [(62, 62)]}
+PASS  CDC3 historical prose counts are not claims (no command anchor) — {}
+PASS  CDC4 run parsers read SUMMARY lines — {'selftest': (571, 0), 'mutation': (44, 0), 'compat': (82, 82, 0), 'mini': (62, 62, 0)}
+PASS  CDC5 matching claims pass silently — []
+PASS  CDC6 mismatched claim FAILS (falsifiable anchor: 70/71 vs 82/82) — ['compat: claim 70/71 != run 82/82']
+PASS  CDC7 suite with no claim is a named error — ['mini: no count claim found in docs (state 62/62 next to the name)']
+PASS  CDC8 a red suite cannot bind claims (failures must be 0) — ['compat: suite red (1 failed) — claims cannot bind a red run']
+PASS  CDC9 quarantine ban flags --allow-known in CI/harness
+PASS  CDC10 historical comment documenting removal is not quarantine
+PASS  CDC11 newest changelog entry binds by name (70/71 fails) + old entry exempt — ['compat: claim 70/71 != run 82/82']
+RUN  selftest  571/0
+RUN  mutation  44/0
+RUN  compat    82/82
+RUN  mini      62/62
+check_doc_counts.py: every stated count equals this tree's runs (exit 0)
+RUN  selftest  571/0
+RUN  mutation  44/0
+RUN  compat    82/82
+RUN  mini      62/62
+FAIL README_zh.md: compat: claim 70/71 != run 82/82
+check_doc_counts.py: 1 claim mismatch(es) — FAIL (exit 1)
+PASS  CDC12 main() seam: doc wiring reaches the exit code (ok→0, drift→1) — ok=0 bad=1
+PASS  CDC13 non-zero exit cannot bind claims — value=None err=compat: suite exited 1 — claims cannot bind a red run
+
+=== 13/13 pass ===

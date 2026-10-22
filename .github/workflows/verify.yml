@@ -49,7 +49,12 @@ jobs:
         run: node tests/mini_gate_test.mjs
 
       - name: Doc claims parity (README counts vs harness runs)
-        run: python3 check_doc_counts.py
+        run: python check_doc_counts.py
+
+      - name: Claim-binder + sync-control vectors
+        run: |
+          python tests/test_check_doc_counts.py
+          python tests/test_sync_skill.py
 
       - name: Mini installers (Windows)
         if: runner.os == 'Windows'

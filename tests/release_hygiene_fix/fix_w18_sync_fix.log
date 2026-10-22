@@ -1,0 +1,25 @@
+FIX  plugin_compat_test.mjs: repo <- /Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/plugin_compat_test.mjs
+FIX  sync_skill.py: repo <- /Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/sync_skill.py
+FIX  test_sync_skill.py: repo <- /Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/test_sync_skill.py
+OK   canonical assert_artifacts.py 8f7d371db3df
+OK   project copy       8f7d371db3df
+OK   installed          8f7d371db3df
+OK   eval snapshot      8f7d371db3df
+OK   task compliance_pricing_tier 8f7d371db3df
+OK   task compliance_refund_flow 8f7d371db3df
+OK   task compliance_password_reset 8f7d371db3df
+OK   canonical scan_secrets.py 85412844f44d
+OK   installed          85412844f44d
+OK   eval snapshot      85412844f44d
+OK   canonical plugin_compat_test.mjs a2be25e45fd1
+OK   repo               a2be25e45fd1
+OK   canonical sync_skill.py 118ad4d0fe1f
+OK   repo               118ad4d0fe1f
+OK   canonical test_sync_skill.py f99cc702b3ec
+OK   repo               f99cc702b3ec
+OK   evidence w18      17 file(s) match
+OK   evidence w18sync  12 file(s) match
+OK   pin compliance_pricing_tier    8f7d371db3df
+OK   pin compliance_refund_flow     8f7d371db3df
+OK   pin compliance_password_reset  8f7d371db3df
+sync_skill.py: clean — every copy and pin agrees (exit 0)

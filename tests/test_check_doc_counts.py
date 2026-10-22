@@ -112,6 +112,49 @@ def main():
             "const allowKnown = process.argv.includes(\"--allow-known\")\n"),
         "")
 
+    # CDC11 (review A-I2): the falsified W18 claim lived in the CHANGELOG
+    # ("plugin compat 82/82") — the newest entry binds by name now.
+    CHANGELOG = ("# Changelog\n\n## 2026-10-22: fix\n\n**Verification.** "
+                 "audit_selftest 571/0 (1 skipped) · mutation_sweep 44/0 · "
+                 "plugin compat 70/71 (E3 known) · mini gate 62/62\n\n"
+                 "## 2026-10-21: older wave\n\n**Verification.** "
+                 "plugin compat 71/71 · audit_selftest 568/0\n")
+    cl = cdc.extract_changelog_claims(CHANGELOG)
+    errs = cdc.compare_counts(runs, cl, "changelog newest entry")
+    rec("CDC11 newest changelog entry binds by name (70/71 fails) + old entry exempt",
+        cl.get("compat") == [(70, 71)] and cl.get("selftest") == [(571, 0)]
+        and any("compat" in e for e in errs) and not any("568" in e or "71/71" in e
+                                                        for e in errs),
+        str(errs)[:160])
+
+    # CDC12 (review I2): the main() seam is pinned — docs wiring + compare
+    # results must reach the exit code.
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="cdc-main-") as td:
+        tdp = pathlib.Path(td)
+        doc_en = ("node vibeweaver/scripts/audit_selftest.mjs  # 571 fixture checks\n"
+                  "node vibeweaver/scripts/mutation_sweep.mjs  # 44 mutations\n"
+                  "node tests/plugin_compat_test.mjs  # 82/82 dual loader compat\n"
+                  "node tests/mini_gate_test.mjs  # 62/62 mini checker gate\n")
+        doc_zh = ("node vibeweaver/scripts/audit_selftest.mjs  # 571 项 fixture 检查\n"
+                  "node vibeweaver/scripts/mutation_sweep.mjs  # 44 项变异\n"
+                  "node tests/plugin_compat_test.mjs  # 82/82 双 loader 兼容\n"
+                  "node tests/mini_gate_test.mjs  # 62/62 mini checker gate\n")
+        (tdp / "README.md").write_text(doc_en)
+        (tdp / "README_zh.md").write_text(doc_zh)
+        fake = lambda key: (runs[key], None)  # noqa: E731
+        rc_ok = cdc.main([], root=tdp, run=fake)
+        (tdp / "README_zh.md").write_text(doc_zh.replace("82/82", "70/71"))
+        rc_bad = cdc.main([], root=tdp, run=fake)
+    rec("CDC12 main() seam: doc wiring reaches the exit code (ok→0, drift→1)",
+        rc_ok == 0 and rc_bad == 1, f"ok={rc_ok} bad={rc_bad}")
+
+    # CDC13 (review M2): a non-zero exit with a green-looking SUMMARY binds
+    # nothing.
+    value, err = cdc.evaluate_proc("compat", COMPAT_RUN, 1)
+    rec("CDC13 non-zero exit cannot bind claims", value is None
+        and "exited 1" in (err or ""), f"value={value} err={err}")
+
     fails = [n for n, ok, _ in RESULTS if not ok]
     print(f"\n=== {len(RESULTS) - len(fails)}/{len(RESULTS)} pass" +
           (f" — FAILED: {', '.join(fails)}" if fails else " ==="))

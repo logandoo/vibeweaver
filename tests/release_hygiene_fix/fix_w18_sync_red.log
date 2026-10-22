@@ -1,0 +1,16 @@
+PASS  SS1 clean miniature tree → no drift
+PASS  SS2 tampered eval snapshot → fail closed — assert_artifacts.py: eval snapshot DRIFT — expected 4a4c1f234825 got 92e78d0b0329 (/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vwsync-sriucc3v/eval/configs
+PASS  SS3 --fix restores the snapshot
+PASS  SS4 stale canonical_assert_sha → fail closed — task compliance_pricing_tier: canonical_assert_sha DRIFT — pin 000000000000 != file 4a4c1f234825
+PASS  SS5 --fix repins task.json
+PASS  SS6 --fix does not invent an absent eval tree — exists=False skipped=5
+PASS  SS7 --allow-missing-eval covers task canonicals
+PASS  SS8 --fix does not populate an incomplete eval tree — configs=False skipped=5
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/test_sync_skill.py", line 192, in <module>
+    sys.exit(main())
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/test_sync_skill.py", line 137, in main
+    dev2, installed2, evald2, repo2 = build_full(root)
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/test_sync_skill.py", line 64, in build_full
+    for d in sync_skill.EVIDENCE_DIRS:
+AttributeError: module 'sync_skill' has no attribute 'EVIDENCE_DIRS'

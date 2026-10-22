@@ -8,7 +8,7 @@
 
 **机制。** 兼容 harness（82 例，E3 按 D3 规格重定 + E3b 存活断言）同步进本树——`tests/sync_skill.py` 现在字节钉住它与 `tests/w18`、`tests/w18sync` 证据目录，副本过期或证据滞留 dev 树一律 fail-closed。CI 不再有任何豁免开关，并新增 `check_doc_counts.py` 步骤把 README 的每个计数绑定到真实套件实跑（红跑不绑定；宣称不符即 CI 失败）。W18 证据与其验证日志归档随宣称同提交入库，发布从 `w18` 起带 tag。
 
-**验证。** 本树 plugin compat 82/82、exit 0、无豁免代码路径 · audit_selftest 571/0（1 skip）· mutation_sweep 44/0 · mini gate 62/62 · unittest 56 OK · verify_skill 10 OK · `check_doc_counts.py` 10/10 向量 + 真实树绑定绿 · `tests/test_sync_skill.py` 15/15（SS9-SS15 钉住 harness 过期与证据漂移，missing/extra/DRIFT 全 fail-closed）· 双对抗全新上下文复审。
+**验证。** 本树 plugin compat 82/82、exit 0、无豁免代码路径 · audit_selftest 571/0（1 skip）· mutation_sweep 44/0 · mini gate 62/62 · unittest 56 OK · verify_skill 10 OK · `check_doc_counts.py` 13/13 向量 + 真实树绑定绿（README 计数与本条目的具名计数都绑定实跑）· `tests/test_sync_skill.py` 15/15（SS9-SS15 钉住 harness 过期与证据漂移，missing/extra/DRIFT 全 fail-closed）· 双对抗全新上下文复审（`tests/release_hygiene_fix/review_verdicts.md`，两份裁定已逐条处置）。
 
 ## 2026-10-21：W18 残余销项 — 棘轮跨历史、ack 绑定声明
 

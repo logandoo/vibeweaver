@@ -8,7 +8,7 @@ Waves of design history, newest first. Entries are moved verbatim from the READM
 
 **The mechanism.** The compat harness (82 cases, E3 re-anchored to the D3 spec + E3b latch-survival) is synchronized into this tree — `tests/sync_skill.py` now byte-pins it and the `tests/w18`/`tests/w18sync` evidence dirs, so a stale copy or evidence stranded in the dev tree fails closed. CI runs without any quarantine flag, and a new `check_doc_counts.py` step binds every README count to a real suite run (a red run binds nothing; a mismatched claim fails CI). The W18 evidence and its archived verification log are committed here with the claims they support, and releases carry tags from `w18` on.
 
-**Verification.** plugin compat 82/82 on THIS tree, exit 0, no quarantine code path · audit_selftest 571/0 (1 skipped) · mutation_sweep 44/0 · mini gate 62/62 · unittest 56 OK · verify_skill 10 OK · `check_doc_counts.py` 10/10 vectors + real-tree binding green · `tests/test_sync_skill.py` 15/15 (SS9-SS15 pin stale-harness and evidence drift, missing/extra/DRIFT all fail-closed) · dual adversarial fresh-context review.
+**Verification.** plugin compat 82/82 on THIS tree, exit 0, no quarantine code path · audit_selftest 571/0 (1 skipped) · mutation_sweep 44/0 · mini gate 62/62 · unittest 56 OK · verify_skill 10 OK · `check_doc_counts.py` 13/13 vectors + real-tree binding green (README counts and this entry's name-anchored counts both bind to runs) · `tests/test_sync_skill.py` 15/15 (SS9-SS15 pin stale-harness and evidence drift, missing/extra/DRIFT all fail-closed) · dual adversarial fresh-context review (`tests/release_hygiene_fix/review_verdicts.md`, both verdicts adjudicated).
 
 ## 2026-10-21: W18 residual closures — the ratchet spans history, acks bind to claims
 

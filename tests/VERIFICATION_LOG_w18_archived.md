@@ -1,11 +1,14 @@
 # W18 verification log — archived from the dev tree
 
 > Provenance (2026-10-22, release-hygiene fix): these are the verbatim W18 task
-> blocks (2026-10-21, three waves) of the dev tree's `tests/verification_log.md`
-> — the executed evidence behind the W18 changelog claims. They were produced in
+> blocks (2026-10-21 — the plan wave plus the three implementation waves) of the
+> dev tree's `tests/verification_log.md` — the executed evidence behind the W18
+> changelog claims. They were produced in
 > the dev tree while the published repo carried none of them (audit finding F4);
 > archived here so the claims and their anchor live in the same tree. The
-> evidence logs they cite are in `tests/w18/` and `tests/w18sync/`.
+> evidence logs they cite are in `tests/w18/` and `tests/w18sync/`. Excluded
+> with this marker: the 9 lines that follow these blocks in the dev log belong
+> to a separate 10-21 task (bilingual README dedup), not to W18.
 
 ---
 
