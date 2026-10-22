@@ -13,7 +13,7 @@ bash vibeweaver/vibeweaver/install.sh   # 幂等，可重复执行
 
 重启 opencode，然后直接提需求就行，skill 会自动触发。当然，如果需求最开始加一句「严格遵守 vibeweaver」会更好，基本能确保百分百触发。插件、可选配件和 Windows 安装方式见[安装](#安装)。
 
-## 验证本版本（w18.3.2——默认 profile：core）
+## 验证本版本（w18.3.3——默认 profile：core）
 
 tag 不可变。在对应 tag 的 clone 中执行：
 

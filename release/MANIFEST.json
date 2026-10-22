@@ -1,5 +1,5 @@
 {
-  "commit": "bad764bc16f3f336ed9208a3ba82f8fedbbee374",
+  "commit": "3df143f5b1e1c11ea1f243e10eddd464443c5379",
   "files": [
     {
       "bytes": 44419,
@@ -62,9 +62,9 @@
       "sha256": "f2c2453137e458738d9729628011bd412fcffafb509a3c894be045475cc7edf4"
     },
     {
-      "bytes": 247,
+      "bytes": 397,
       "path": "vibeweaver/install.sh",
-      "sha256": "1a93d18eb6d8532fc871b3dcc65f410dc541d57ea9817b9e3b4b339074a8096f"
+      "sha256": "82b3cf92afa1db0ccde2a48e0b3ac243c016543230d587d4bde47baf3b4bdc08"
     },
     {
       "bytes": 4722,
@@ -198,5 +198,5 @@
     }
   ],
   "schema_version": 1,
-  "tag": "w18.3.2"
+  "tag": "w18.3.3"
 }
