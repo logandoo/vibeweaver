@@ -1,5 +1,5 @@
 {
-  "commit": "862948dafb9f39ad2281388a2f65e856aee99f49",
+  "commit": "28eac65a30f98bfc3994702f24b0ed72b3144260",
   "files": [
     {
       "bytes": 44419,
@@ -97,9 +97,9 @@
       "sha256": "e9fd3b5bb676ecedfef17704cc1f8eee5c01ebaed6941c64a595fa44b79c6b5b"
     },
     {
-      "bytes": 15158,
+      "bytes": 15470,
       "path": "vibeweaver/scripts/evidence_lock.py",
-      "sha256": "7532069f09bb512a54ab1a0498fb0d55091b45b8021c1ca24a9efb6a74b0b1be"
+      "sha256": "c5a549a8a8325c11f08ee7c921dab2c1d4f02394d7cc8f5d905f357aeaf004bd"
     },
     {
       "bytes": 12632,
@@ -173,5 +173,5 @@
     }
   ],
   "schema_version": 1,
-  "tag": "w18.2.3"
+  "tag": "w18.2.4"
 }

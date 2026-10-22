@@ -84,6 +84,13 @@ python3 "$LOCK" --root "$P" --init >/dev/null
 printf '\n# Task B\n> cap=5  stall=3×\n1. criterion B\n' >> "$P/tests/acceptance.md"
 python3 "$LOCK" --root "$P" --check --rebase-new-task >/dev/null 2>&1; expect no-final-run-escape "$?"
 
+# 9b) UNSEALED forged final-run -> still refuse rebase
+P="$T/forged"; mkproj "$P"
+python3 "$LOCK" --root "$P" --init >/dev/null
+printf -- '- final-run: --final — pass=1/fail=0\n' >> "$P/tests/verification_log.md"
+printf '\n# Task B\n> cap=5  stall=3x\n1. criterion B\n' >> "$P/tests/acceptance.md"
+python3 "$LOCK" --root "$P" --check --rebase-new-task >/dev/null 2>&1; expect unsealed-final-run-escape "$?"
+
 # 9) lock deleted after evidence exists -> gate refuses silent re-init
 P="$T/missing"; mkproj "$P"
 python3 "$LOCK" --root "$P" --init >/dev/null
@@ -93,4 +100,4 @@ OUT="$(VIBEWEAVER_HOME="$(dirname "$(dirname "$LOCK")")" node "$DRIVE" "$P" "$P/
 if [[ "$OUT" == *"missing AFTER task evidence"* ]]; then echo "PASS  missing-lock-after-evidence: BLOCKED"; else echo "FAIL  missing-lock-after-evidence: $OUT"; fail=1; fi
 
 if [[ "$fail" -ne 0 ]]; then echo "EVIDENCE-INTEGRITY FAIL"; exit 1; fi
-echo "EVIDENCE-INTEGRITY OK 6/6 (+ new-task 3/3)"
+echo "EVIDENCE-INTEGRITY OK 6/6 (+ new-task 4/4)"

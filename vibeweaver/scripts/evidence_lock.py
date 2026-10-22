@@ -229,7 +229,10 @@ def verify(root, final=False, rebase_new_task=False):
         old = section_slice(acc_text, locked_heading) if locked_heading else ""
         old_sha = sha_bytes(norm_section(old).encode("utf-8")) if old else ""
         if locked_heading and locked_heading in acc_text and old_sha == locked.get("sha256"):
-            log_has_final = bool(re.search(r"(?m)^- final-run:\s*--final\s*[—-]\s*pass=\d+/fail=0", log_text))
+            _final_m = re.search(r"(?m)^- final-run:\s*--final\s*[—-]\s*pass=\d+/fail=0", log_text)
+            _sealed_lines = int(lock.get("log", {}).get("baseline_lines", 0)) + len(lock.get("log", {}).get("chain", []) or [])
+            _final_line = (log_text[:_final_m.start()].count("\n") + 1) if _final_m else 0
+            log_has_final = bool(_final_m) and _final_line <= _sealed_lines
             if rebase_new_task and log_has_final:
                 data = build_lock(root, lock)
                 _write_lock(root, data)
@@ -336,8 +339,8 @@ def update_acceptance(root, reason, approved):
     lock["acceptance"] = {
         "heading": heading,
         "start_line": start,
-        "sha256": sha_bytes(sec.encode("utf-8")),
-        "bytes": len(sec.encode("utf-8")),
+        "sha256": sha_bytes(norm_section(sec).encode("utf-8")),
+        "bytes": len(norm_section(sec).encode("utf-8")),
     }
     lock.setdefault("history", []).append({
         "at": __import__("datetime").datetime.now().isoformat(timespec="seconds"),
