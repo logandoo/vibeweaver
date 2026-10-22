@@ -364,7 +364,7 @@ python3 verify_skill.py                     # 包完整性：payload、链接、
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
 node vibeweaver/scripts/audit_selftest.mjs  # 571 项 fixture 检查（无校准数据时 T6 SKIP）
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 项变异，每项都必须被抓到
-node tests/plugin_compat_test.mjs           # 70/71 双 loader 兼容（E3 已知）
+node tests/plugin_compat_test.mjs           # 82/82 双 loader 兼容（无豁免）
 node tests/mini_gate_test.mjs               # 62/62 mini checker gate：v1/v2 write + idle + 安装器
 ```
 

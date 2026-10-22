@@ -2,6 +2,14 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-22：发布卫生 — 宣称绑定实跑，证据随发布同行
+
+**缺口。** 2026-10-22 对发布树的外部审计（dev 树 `docs/AUDIT_20261022_w18_release_claims.md`）发现：W18 变更记录宣称 `plugin compat 82/82（E3/G9 已修 — 豁免已删）`，而它所发布的那棵树跑的是 W18 之前的 71 例旧 harness——其 E3 断言把**已封堵**的 subagent 旁路当期望值（「外会话写自动放闩」），实跑 70/71，CI 用 `--allow-known` 把活失败洗绿，README 又是第三种口径（70/71，E3 已知），W18 证据日志只留在 dev 树。
+
+**机制。** 兼容 harness（82 例，E3 按 D3 规格重定 + E3b 存活断言）同步进本树——`tests/sync_skill.py` 现在字节钉住它与 `tests/w18`、`tests/w18sync` 证据目录，副本过期或证据滞留 dev 树一律 fail-closed。CI 不再有任何豁免开关，并新增 `check_doc_counts.py` 步骤把 README 的每个计数绑定到真实套件实跑（红跑不绑定；宣称不符即 CI 失败）。W18 证据与其验证日志归档随宣称同提交入库，发布从 `w18` 起带 tag。
+
+**验证。** 本树 plugin compat 82/82、exit 0、无豁免代码路径 · audit_selftest 571/0（1 skip）· mutation_sweep 44/0 · mini gate 62/62 · unittest 56 OK · verify_skill 10 OK · `check_doc_counts.py` 10/10 向量 + 真实树绑定绿 · `tests/test_sync_skill.py` 15/15（SS9-SS15 钉住 harness 过期与证据漂移，missing/extra/DRIFT 全 fail-closed）· 双对抗全新上下文复审。
+
 ## 2026-10-21：W18 残余销项 — 棘轮跨历史、ack 绑定声明
 
 **缺口。** 批 2/3 复审后仍余两处：提交级抬高债基线后可通过（只对 HEAD 比较，且 50 修订 churn 窗口可驱逐低锚）；`- claim-ack:` 行号漂移后会静默改挂到别的声明行。

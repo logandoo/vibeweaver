@@ -1,0 +1,3 @@
+profile: library — service lifecycle N/A (group 5 skipped); UI N/A
+class: CODE — log: - class: CODE — basis: 计划文件集含 vibeweaver-gate.js / scripts/assert_artifacts.
+assert_artifacts.py: all 29 checks pass (exit 0)

@@ -1,0 +1,35 @@
+== STEP 1: clean tree (forced capture; STOP until clean) ==
+guard: REJECTED — dirty tree detected, capture before any rewrite
+guard: tree clean after capture
+48063ff chore: carry-over previous work before history rewrite
+522e0f1 c2: update app
+5a8d6b6 c1: add app + vendor db
+== STEP 2: mirror backup ==
+backup: 2 commits at ../w18-drill-backup.git
+== STEP 3: filter-repo ==
+BEFORE: commits=3 pack=0 bytes
+BEFORE largest blobs:
+48063ff0f2f87de9b648e2e0ec950b8bcb300eef commit 233
+b7f1f882873aaf18ecf6104b88fd1a7bfee58d7b blob 3145728
+Completely finished after 0.11 seconds.
+== STEP 4: verify the surgery (before/after对照) ==
+AFTER: commits=3 pack=1.98 KiB
+AFTER largest blobs:
+7cbfe7375e80f82a6160bbd1e48beaddae60cb2f commit 193
+c8b600791c39dbb76b3bc8b4869d798a261aeea0 commit 233
+offender paths reachable: 0
+== STEP 5: hash remap (copy from commit-map, never retype) ==
+old                                      new
+48063ff0f2f87de9b648e2e0ec950b8bcb300eef c8b600791c39dbb76b3bc8b4869d798a261aeea0
+522e0f1bccf09f979ced0588ecdc415556f00020 7cbfe7375e80f82a6160bbd1e48beaddae60cb2f
+5a8d6b6f20228d785e76c9aed4648970d91fd0ae dd75767c10bc1cd68b9003bd312eacb0d161d609
+remap: commit: 48063ff0f2f8 -> commit: c8b600791c39
+remap: commit: 522e0f1bccf0 -> commit: 7cbfe7375e80
+remap: commit: 5a8d6b6f2022 -> commit: dd75767c10bc
+remap artifact: .git/filter-repo/commit-map with 3 pair(s)
+== STEP 6: post-cleanup ==
+no refs/original
+git log walkable:
+c8b6007 chore: carry-over previous work before history rewrite
+7cbfe73 c2: update app
+dd75767 c1: add app + vendor db

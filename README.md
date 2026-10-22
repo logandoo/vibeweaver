@@ -858,7 +858,7 @@ python3 verify_skill.py                     # package integrity: payload, links,
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
 node vibeweaver/scripts/audit_selftest.mjs  # 571 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 44 mutations, each must be caught
-node tests/plugin_compat_test.mjs           # 70/71 dual loader compat (E3 known)
+node tests/plugin_compat_test.mjs           # 82/82 dual loader compat (no quarantine)
 node tests/mini_gate_test.mjs               # 62/62 mini checker gate: v1/v2 write + idle + installers
 ```
 

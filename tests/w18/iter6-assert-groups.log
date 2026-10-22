@@ -1,0 +1,58 @@
+PASS  S1 clean fixture exit 0 (groups 1-13 regression) — assert_artifacts.py: all 23 checks pass (exit 0)
+PASS  S2 secret on added line → exit 1 + 'secret scan' — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S2b secret in untracked file → exit 1 — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S3 placeholder-marked secret → exit 0 — assert_artifacts.py: all 23 checks pass (exit 0)
+PASS  S4 assertion removal → exit 1; justified → exit 0 — blocked=True after-justification-rc=0
+PASS  S5 risk-tier auth path → exit 1; review_package.md → exit 0 — blocked=True after-package-rc=0
+PASS  S5b risk-tier untracked path → exit 1 — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S6 secret in .md → exit 0 + WARN printed — rc=0 warn=True
+PASS  S7 deleted test+auth files → exit 1 both guards; justified+packaged → exit 0 — blocked=True after-rc=0
+PASS  S8 reference values (env/config/self) → exit 0 — assert_artifacts.py: all 23 checks pass (exit 0)
+PASS  S9 JSON-form + sk-proj/sk-ant/github_pat → exit 1 — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S10 library profile → group 5 skipped, others enforced — profiled-rc=0 weakened-rc=1
+PASS  S10b no profile + missing scripts → still exit 1 (strict default) — class: CONFIG — derived from wave diff: 4 file(s) kinds .sh
+PASS  S11 vw-approved w/o path-scoped pairing → exit 1; with pairing → exit 0; prose mention = no-op — blocked=True after-pairing-rc=0
+PASS  S11b path-scoped pairing (a/c unapproved; b properly approved) → exit 1 — class: CODE — derived from wave diff: 3 file(s) kinds .py
+PASS  S12 profile hardening: non-bool/non-dict named-fail; unknown name warns+strict — bool=True dict=True unknown=True
+PASS  S13 COV-9 tracked-only backup: untracked .env never enters a commit (W3 PoC) — tracked='' env_in_history=False anchor='backup: before changes'
+PASS  S14 COV-9 per-block: old-block never licenses; CODE-unlabeled skip fails (C1-derived); DOC skip passes — old-block=True doc-unlabeled=True code-unlabeled=True doc=True red-baseline=True red-no-disposition=True
+PASS  S15 group-14 detail is redacted (no secret material in output) — redacted
+PASS  S16 C1 derived-class cross-check: a+b→a-b under class:DOC FAILS; honest class:CODE passes — mislabeled=True honest=True
+PASS  S17 C2 media magic: 1-byte fake PNG FAILS; magic-clean PNG passes — fake=True real=True
+PASS  S18 C2 script syntax: 0-byte FAILS; broken shell FAILS; CRLF shell FAILS (SC1017) — empty=True broken=True crlf=True
+PASS  S19 C3 manifest: seal passes; tampered sealed evidence FAILS — sealed=True tamper=True
+PASS  S20 C3 freshness: code change after seal FAILS (先造证据后改代码) — stale
+PASS  S21 C3b: skip marker without reason FAILS; reasoned + re-sealed passes — blocked=True after-rc=0
+PASS  S22 C3b/BL-13: first seal + baseline deletion cannot silently re-baseline — first-refused=True del-refused=True licensed-seal=True
+PASS  S23 repo-hygiene: tracked node_modules FAILS — class: CODE — derived from wave diff: 1 file(s) kinds .js
+PASS  S24 repo-hygiene: missing .gitignore FAILS — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S25 repo-hygiene: >2,000 untracked files FAILS fast (no full scan) — elapsed=0.3s rc=1
+PASS  S26 repo-hygiene: global excludesFile does not satisfy committed .gitignore — class: CONFIG — derived from wave diff: 1 file(s) kinds .json
+PASS  S27 repo-hygiene: nested tracked frontend/.gitignore covers its manifest — assert_artifacts.py: all 24 checks pass (exit 0)
+PASS  S28 repo-hygiene: untracked .gitignore FAILS (must be committed) — class: CONFIG — derived from wave diff: 1 file(s) kinds .json
+PASS  S29 repo-hygiene: --final rejects a 41 MiB tracked blob — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S30 group 14 scans an ignored .env (not just untracked files) — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S31 group 14 generic rule catches prefixed credential names — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S32 group 14 named-rule parity (Google key + JWT) — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S33 repo-hygiene: staged-only .gitignore FAILS (HEAD must carry it) — class: CONFIG — derived from wave diff: 1 file(s) kinds .json
+PASS  S34 path-level `- secret-approved: .env` licenses an ignored secret file — assert_artifacts.py: all 11 checks pass (exit 0)
+PASS  S35 non-git group 14 fallback catches a source credential — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S36 repo-hygiene: uncommitted .gitignore pattern FAILS — class: CONFIG — derived from wave diff: 1 file(s) kinds .json
+PASS  S37 group 14: PWD path / ALPHABET / safe refs / approval metadata pass — assert_artifacts.py: all 23 checks pass (exit 0)
+PASS  S38 group 14: quoted real-looking password literal fails — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S39 group 14: dotted prefixed key (SG.…) still fails — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S40 group 14: db_pwd still detected — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S41 group 14: named secret on approval line still fails — class: DOC — derived from wave diff: 1 file(s) kinds .txt; group 4 N/A (no lesson / docs-only wave); group 5 N/A (no ser
+PASS  S42 group 14: api_key path-like value still fails — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S43 group 14: non-numeric len + dotted literal fail — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S44 group 14: path-typed key (/run/secrets) passes — assert_artifacts.py: all 23 checks pass (exit 0)
+PASS  S45 G1 no-seal root → WARN `evidence seal: none yet`, exit 0 — rc=0 warn=True
+PASS  S46 G1 bootstrap (no green PASS yet): stale seal is WARN, not FAIL — rc=0 fail=False warn=True
+PASS  S47 G1 seal-live stale seal → FAIL, message contains STALE — rc=1 msg=True
+PASS  S48 G1 no-seal + cited media at --final → FAIL (media rule keeps teeth) — rc=1 msg=True
+PASS  S49 G1 partial seal (baseline survives, manifest deleted) → FAIL (C3) — rc=1 msg=True
+PASS  S50 G1 bootstrap + media at --final → still FAIL (completion always enforces) — rc=1 failline=True
+PASS  S51 G1 bootstrap + stale seal at --final → FAIL STALE (completion always enforces) — rc=1 failline=True
+PASS  S52 G1 colon-less `- iter 1 PASS` still arms the seal obligation — rc=1 failline=True
+
+=== 56/56 pass ===

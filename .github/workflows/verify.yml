@@ -42,11 +42,14 @@ jobs:
           node vibeweaver/scripts/audit_selftest.mjs
           node vibeweaver/scripts/mutation_sweep.mjs
 
-      - name: Plugin compat harness (node, known E3/G9 allowed)
-        run: node tests/plugin_compat_test.mjs --allow-known
+      - name: Plugin compat harness (node, no quarantine)
+        run: node tests/plugin_compat_test.mjs
 
       - name: Mini checker gate harness
         run: node tests/mini_gate_test.mjs
+
+      - name: Doc claims parity (README counts vs harness runs)
+        run: python3 check_doc_counts.py
 
       - name: Mini installers (Windows)
         if: runner.os == 'Windows'

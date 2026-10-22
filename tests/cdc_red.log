@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/tests/test_check_doc_counts.py", line 17, in <module>
+    spec.loader.exec_module(cdc)
+  File "<frozen importlib._bootstrap_external>", line 846, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 982, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1039, in get_data
+FileNotFoundError: [Errno 2] No such file or directory: '/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/check_doc_counts.py'

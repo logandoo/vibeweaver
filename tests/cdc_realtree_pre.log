@@ -1,0 +1,7 @@
+RUN  selftest  571
+RUN  mutation  44
+RUN  compat    (not run)
+RUN  mini      62/62
+FAIL README.md: compat: run output unparseable — cannot bind claims
+FAIL README_zh.md: compat: run output unparseable — cannot bind claims
+check_doc_counts.py: 2 claim mismatch(es) — FAIL (exit 1)

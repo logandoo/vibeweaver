@@ -1,0 +1,1 @@
+scan_secrets.py: clean (named check: aws/github/slack/ai-keys/pem/jwt/generic-credential)

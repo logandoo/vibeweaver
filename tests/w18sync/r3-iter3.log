@@ -1,0 +1,834 @@
+PASS  T1 clean pass — BAD=0 UNCERTAIN=0 escalate=false
+PASS  T1 no BAD checks — none
+PASS  T2 B-group markers BAD — B-BAD=11 totalBAD=11
+PASS  T2 red (blocks writes) — red=true
+PASS  T3 contradictory claims BAD — BAD among C1-C6: C1,C2,C3,C4,C5
+PASS  T3 red — red=true
+PASS  T4 zero BAD — BAD=0
+PASS  T4 UNCERTAIN present — UNCERTAIN=5
+PASS  T4 escalate on UNCERTAIN — reasons=UNCERTAIN
+PASS  T5 forbidden raw command BAD — BAD
+PASS  T5 fresh-run violation BAD — BAD — code changed after last verification_log write: src/code.ts
+PASS  T5 isForbiddenCommand unit
+PASS  T5 hashSession deterministic
+SKIP  T6 event replay → gate_audit.md written — calibration session not found at /tmp/vibeweaver-audit-calib/ses_fe8cc60c4fferlxQcjoA1mYGUf.json — pass --calib <dir> with the exported session JSON for the full replay; not a code regression
+PASS  T7 RED blocks write (before hook) — GATE-BLOCKED thrown
+PASS  T7 tests/ stays writable while RED — evidence fix path open
+PASS  T8 forbidden command → BAD in report — C8 flagged
+PASS  T9 mid-task idle → no block — write passed
+PASS  T9 mid-task report written — report exists
+PASS  T10 project audit.json ignored → escalation still fires — AUDIT: BAD=10 UNCERTAIN=13 escalate=true reasons=[BAD,UNCERTAIN,SAMPLING] BLOCKING=yes
+PASS  T11 gate-line template ↔ audit field coupling — all audit field regexes match the current SKILL.md template
+PASS  T11 SKILL.md stays under cap — 48970B
+PASS  T12 doc-only post-run commit NOT a violation — C6=OK C16=OK
+PASS  T13 skill-absent code write -> C17 escalate — AUDIT: BAD=0 UNCERTAIN=1 escalate=true reasons=[SKILL-ABSENT]
+PASS  T14 na without reason -> UNCERTAIN — UNCERTAIN — na without a stated reason line (documentation-only/config-only/no lesson/...)
+PASS  T14 na WITH reason -> OK — OK
+PASS  T15 red state blocks write — blocked
+PASS  T15 fix + rerun -> unblocked — writes allowed again
+PASS  T21 first forbidden command flags BAD — BAD red=true
+PASS  T21 newlyFlagged returned for persistence — n=1
+PASS  T21 same history does NOT re-flag (self-clearable) — OK bad=0 red=false
+PASS  T21 a different forbidden command still flags — BAD new=1
+PASS  T22 fresh forbidden command latches RED — latched bad=1
+PASS  T22 latch self-clears on the next GREEN audit (no env-off, no state surgery) — cleared; c8Flagged=1
+PASS  T23 mid-phase warns but neither latches nor persists dedup — red=undefined flagged=0
+PASS  T23 the final audit still latches the mid-task forbidden command — red={"sessionID":"ses_t23","ts":1792582044798,"bad":1} flagged=1
+PASS  T16 latching session stays blocked (in-session teeth) — A blocked
+PASS  T16 different session write does NOT release latch (D3: stale-session release removed) — takeover blocked — lock survives foreign writes
+PASS  T17 code write blocked while self-RED — blocked
+PASS  T17 nested dev/tests/ golden file stays writable while RED — evidence fix path open
+PASS  T18 TTL-expired latch auto-releases without human action — 48h-old latch cleared
+PASS  T19 release recorded in state (redReleases) — releases=1 last=ttl-expiry
+PASS  T19 release trail surfaced in report footer — footer present
+PASS  T20 legacy boolean red:true self-heals on first session write (journal: legacy-state) — red=null reason=legacy-state
+PASS  T24a 4 consecutive literal echoes -> noop-bash finding — kind=noop-bash
+PASS  T24a 3 consecutive echoes -> no finding — null
+PASS  T24b literal echo/printf/true/: classified no-op — all 16 correct
+PASS  T24b redirect/pipe/subst/chain/escape-quote/non-echo classified real — all 16 correct
+PASS  T24c real command interleaved resets run (4 dispersed echoes -> null) — null
+PASS  T24c non-bash tool interleaved resets run — null
+PASS  T24d same part id re-observed 4x -> no finding (dedup) — null
+PASS  T24d 2 distinct calls + re-observations -> no finding — null
+PASS  T24d 4 distinct part ids -> finding — kind=noop-bash
+PASS  T24e 4 echoes through adapter -> exactly one intervention (abort+prompt) — abort=1 prompts=1
+PASS  T24e corrective text: echo narration is not an action + demands real tool call or completion output — [loop-guard] Your last tool calls degenerated into no-op echo/printf narration (4 consecutive no-op bash calls (literal echo/printf/true/:))
+PASS  T24e corrective text mandates the stall declaration (F7 contract) — [loop-guard] Your last tool calls degenerated into no-op echo/printf narration (4 consecutive no-op bash calls (literal echo/printf/true/:))
+PASS  T24e continued degeneration -> no thrash (still 1 intervention) — abort=1
+PASS  T24e re-arms on real action -> 2nd intervention (budget 2) — abort=2
+PASS  T24e 3rd episode beyond budget -> log-only, no abort — abort=2 budgetLog=true
+PASS  T24f same part re-observed 4x through adapter -> no intervention — abort=0 prompts=0
+PASS  T24f 4 distinct parts through adapter -> intervention fires — abort=1
+PASS  T24g VIBEWEAVER_LOOPGUARD=off -> guard silent — abort=0
+PASS  T24h text channel still fires after refactor (regression) — abort=1
+PASS  T24h text budget 2nd episode fires — abort=2
+PASS  T24h text 3rd episode -> log-only (budget 2/channel) — abort=2 log=true
+PASS  T24h tool channel not starved by text budget (per-channel) — abort=3
+PASS  T24i unknown trailing observation does not mask the run — abort=1
+PASS  T24j truncated commands never count as no-op — abort=0
+PASS  T24j unit: truncated flag breaks the run — null expected
+PASS  T24k single-line runaway ending in \n -> intervention (G1 tail-noise) — abort=1
+PASS  T24k single-line runaway ending in extra space -> intervention (G1 tail-noise) — abort=1
+PASS  T24k runaway ending in blank line -> intervention (G1 tail-noise) — abort=1
+PASS  T24k prose + 450-char inline runaway + newline -> intervention (G2 gate) — abort=1
+PASS  T24k prose + inline runaway + trailing BLANK line -> intervention (review C1 gate/trim) — abort=1
+PASS  T24k prose + inline runaway + whitespace-only last line -> intervention (review C1) — abort=1
+PASS  T24k runaway ending in \r\n -> intervention (review M2 trim class) — abort=1
+PASS  T24k runaway ending in NBSP -> intervention (review M2 trim class) — abort=1
+PASS  T24k 252-char inline run below the 256 context gate -> stays clean (review I3 pin) — abort=0
+PASS  T24k 261-char inline run at/above the 256 context gate -> intervention (review I3 pin) — abort=1
+PASS  T24k 255-char last line below the 256 gate -> clean (review N5 exact pin) — abort=0
+PASS  T24k 256-char last line at the 256 gate -> intervention (review N5 exact pin) — abort=1
+PASS  T24k runaway truncated mid-unit -> intervention (pin) — abort=1
+PASS  T24k repeated JSX line x3 stays clean (FP bar) — abort=0
+PASS  T24k 2x line repetition stays clean (below bar) — abort=0
+PASS  T24k short-unit inline run below x4-of-32 floor stays clean — abort=0
+PASS  T24k wall in turn m1 -> 1 intervention — abort=1
+PASS  T24k same-turn continuation never re-fires (no-thrash) — abort=1
+PASS  T24k wall recurring in NEW turn m2 -> 2nd intervention (G3) — abort=2
+PASS  T24k 3rd turn beyond budget -> log-only (budget 2/channel) — abort=2 budgetLog=true
+PASS  T24k runaway ending in ZWSP -> intervention (review M2 trim class) — abort=1
+PASS  T24k cross-channel: text fire(m1) then tool fire(m2) both intervene — abort=2
+PASS  T24k cross-channel turn re-arm not masked by tool-channel fire (review I1 fireMsgID) — abort=3
+PASS  T24k markdown hard-break wall (uniform trailing spaces x60) -> intervention (review N1 line-align pin) — abort=1
+PASS  T24k padded log wall (uniform trailing spaces x50) -> intervention (review N1 line-align pin) — abort=1
+PASS  T24k blank-terminated block x3 -> intervention (multi-line >=3x bar, review N1 pin) — abort=1
+PASS  T24k dup setup: wall fires once — abort=1
+PASS  T24k duplicate re-emission with flipped messageID never re-fires (review C2 unchanged-state) — abort=1
+PASS  T24l reasoning-channel wall -> intervention (P0-a, hermes #97630 shape) — abort=1
+PASS  T24l reasoning budget independent of text channel (per-channel 2/session) — abort=2
+PASS  T24l unit+counter wall x200 -> intervention (P0-b, SpecRA 46% class) — abort=1
+PASS  T24l counter wall + trailing status line -> intervention (review I1 trailing-tolerance) — abort=2
+PASS  T24l same-shape counter run x15 stays clean (LOOP_SHAPE_MIN boundary) — abort=0
+PASS  T24l same-shape counter run x16 -> intervention (LOOP_SHAPE_MIN boundary) — abort=1
+PASS  T24l timestamp log x30 stays clean (only last field ticks — strict +1 FP bar) — abort=0
+PASS  T24l page N of M x30 stays clean (M constant breaks strict +1) — abort=0
+PASS  T24l short same-shape index list x5 stays clean (below LOOP_SHAPE_MIN) — abort=0
+PASS  T24l 80KB non-degenerate visible turn output stays clean (W10 ceiling is 256KB) — abort=0
+PASS  T24l >256KB non-degenerate visible turn output -> runaway intervention — abort=1
+PASS  T24l runaway corrective prompt names the 256KB ceiling — [loop-guard] OUTPUT CEILING: turn output exceeded 262144 bytes (visible text only; hidden reasoning has its own higher b
+PASS  T24l 80KB reasoning-only volume does NOT trip the visible-output ceiling — abort=0
+PASS  T24l 80KB visible text stays clean (W10 ceiling raised) — abort=0
+PASS  T24l >1MB non-periodic reasoning hits the high reasoning backstop — abort=1
+PASS  T24l 45KB non-degenerate turn output stays clean (below 256KB ceiling) — abort=0
+PASS  T24l two sub-ceiling turns stay clean (review M3 — kills session-total mutant) — abort=0
+PASS  T24l >600KB visible text with per-chunk messageID churn -> ceiling fires — abort=1 logs=1
+PASS  T24l >2MB reasoning with per-chunk messageID churn -> reasoning backstop fires — abort=1 logs=1
+PASS  T24l loopGuardTurnCeilingBytes=65536 lowers the visible ceiling (80KB fires) — abort=1
+PASS  T24l id-less host resets the ceiling at a user turn — abort=0
+PASS  T24l runaway WITHOUT messageIDs -> intervention (review Critical id-less dead ceiling) — abort=1
+PASS  T24l setup: organic wall fires once in turn m1 — abort=1
+PASS  T24l same turn exceeds ceiling after an organic fire -> runaway still intervenes (review I2a latch bypass) — abort=2
+PASS  T24l latched wall re-run past the ceiling -> runaway rescue (re-review N1) — abort=2
+PASS  T24l punctuation wall '!'x4000 -> intervention (P2, claude-code char-spam class) — abort=1
+PASS  T24l 2.1KB punct wall alone -> intervention (LOOP_PUNCT_WALL_MIN boundary) — abort=2
+PASS  T24l punctuation wall '!!! 'x800 -> intervention (P2) — abort=1
+PASS  T24l big doc + 128-char punct burst stays clean (review I4 — wall-size not tail-size bar) — abort=0
+PASS  T24l short punct separator x3 stays clean (below LOOP_PUNCT_WALL_MIN) — abort=0
+PASS  T24l exact 2048-char punct wall -> intervention (LOOP_PUNCT_WALL_MIN exact pin, re-review N6) — abort=1
+PASS  T24m dual-path reasoning ingestion counts once (review C1) — 45KB stays clean — abort=0
+[vibeweaver-loopguard] warn: degenerate generation detected (repeat: Stop it. Stop it. Stop it. Stop it.) — interrupting and posting a corrective prompt (1/2/reasoning)
+PASS  T24m sanity: the v2 reasoning-delta channel is actually wired (wall -> intervention) — abort=1
+PASS  T29a pre-latch acceptance does NOT release (in-session teeth intact) — blocked
+PASS  T29b post-latch acceptance rewrite releases the latch in-session (journal: new-task) — released, journaled by ses_t29
+PASS  T29c a FOREIGN acceptance write never arms the owner's new-task release (D3 bypass closed) — still blocked
+PASS  T29d a hook-less (bash-style) acceptance touch never arms the release — still blocked
+PASS  T30a same-sig idle final audit does not refresh a live latch's ts (TTL not starved) — ts preserved
+PASS  T30b same-sig idle final audit does not resurrect a released latch (treadmill dead) — release stayed durable
+PASS  T31 wave1 latch blocks the next wave's source write — blocked
+PASS  T31 wave2 new-task key opens the source-write path in-session — DOC->CODE unblocked without takeover
+PASS  T31 wave2 final audit re-latches on a CHANGED bad signature (teeth return) — re-latched on new signature
+PASS  T32a a DIFFERENT session's same-signature fresh RED re-latches (no cross-session amnesty) — latched for ses_t32_b
+PASS  T32b new-task release re-arms the teeth at the NEXT completion claim (same signature) — re-armed at new claim
+PASS  T33a prior-render release line survives the state cap (union) — n=3
+PASS  T33b duplicate line is rendered once (dedupe) — n=3
+PASS  T33c union sorted by timestamp (oldest → newest) — 2026-10-09 2026-10-12 2026-10-13
+PASS  T33d non-release sections never leak into the journal — n=2
+PASS  T33f packet-quoted section header does not shadow the real section — n=3
+PASS  T33e integration: after a real release cycle the prior render's line is still in gate_audit.md — preserved once + state line present
+
+(no calibration dir — pass --calib <dir>)
+PASS  T25a Class DOC lite path accepted (B-group clean) — B-BAD=[]
+PASS  T25b filled Class field OK — OK — DOC
+PASS  T25c Class DOC + prose-only change set → C18 OK — OK
+PASS  T25d lite table WITHOUT Class DOC → B7 BAD — BAD
+PASS  T25e memory_gate: na WITHOUT Class DOC and WITHOUT reason → B10 BAD — BAD
+PASS  T25f template-unfilled Class field → B11 BAD — BAD — missing or template left unfilled (COV-13)
+PASS  T25g Class DOC + code write → C18 BAD (misreport) — BAD — delivered /x/src/sneaky.ts under a `Class: DOC` claim — misreported class (COV-13: escalate, never de-escalate)
+PASS  T25h1 misfiring token "Class: DOCS" → B11 BAD — BAD
+PASS  T25h2 misfiring token "Class: DOC/CONFIG" → B11 BAD — BAD
+PASS  T25h3 misfiring token "Class: DOC | CONFIG | CODE" → B11 BAD — BAD
+PASS  T25i Class DOC + untimed tests/conftest.py → C18 BAD — BAD
+PASS  T25j Class CONFIG + .toml write → C18 OK — OK
+PASS  T25k Class CONFIG + logic-source write → C18 BAD — BAD
+PASS  T25l gate Class DOC vs log `- class: CODE` → B11 BAD (mismatch) — BAD — class mismatch: gate line DOC vs log CODE — one class per task (COV-13)
+PASS  T25m unfilled template + intact na-prose → B11 BAD (no prose fallback) — BAD
+PASS  T25m2 na-prose mention is not a license → B10 BAD (reason-line required) — BAD
+PASS  T25n Class CODE + `memory_gate: na (no lesson …)` → B10 OK (documented form) — OK — na (stated reason line)
+PASS  T25o checklist-echo + bare HARD-GATE-1=na (Class CODE) → C14 UNCERTAIN — UNCERTAIN — na without a stated reason line (documentation-only/config-only/no lesson/...)
+PASS  T25p current block without class line ≠ old DOC block → B11 OK on Class CODE — OK — CODE
+PASS  T25q Class DOC + report.docx WITHOUT render evidence → C18 BAD (NO RENDER, NO DONE) — BAD — delivered /x/output/report.docx without bound render evidence — NO RENDER, NO DONE (§V11.9; add `render: <asset> — <existing page images>` or `render: <asset> — N/A (<missing tool>)` to this task's log/answer)
+PASS  T25t fabricated page-image path (not on disk) → C18 BAD — BAD — delivered /x/output/report.docx without bound render evidence — NO RENDER, NO DONE (§V11.9; add `render: <asset> — <existing page images>` or `render: <asset> — N/A (<missing tool>)` to this task's log/answer)
+PASS  T25t2 probe_vision.png cited as render evidence → C18 BAD — BAD
+PASS  T25t3 prior-block citation only → C18 BAD (current block must bind) — BAD
+PASS  T25r per-asset render line + existing page image → C18 OK — OK — change set within the class's file kinds + per-asset render evidence bound (§V11.9)
+PASS  T25s toolchain-named `render: N/A` → C18 OK — OK — change set within the class's file kinds + per-asset render evidence bound (§V11.9)
+PASS  T25u bare `N/A (fine, checked)` ≠ reason → C18 BAD — BAD
+PASS  T25u2 placeholder `<missing toolchain>` copied literally → C18 BAD — BAD
+PASS  T25v Class CONFIG + unrendered report.docx → render-gate BAD (not misreport) — BAD — delivered /x/output/report.docx without bound render evidence — NO RENDER, NO DONE (§V11.9; add `render: <asset> — <existing page images>` or `render: <asset> — N/A (<missing tool>)` to this task's log/answer)
+PASS  T25v2 Class CONFIG + rendered asset → C18 OK (escalation path not deadlocked) — OK
+PASS  T25y Class CODE wave shipping report.docx + bound render → C18 OK — OK — change set within the class's file kinds + per-asset render evidence bound (§V11.9)
+PASS  T25y2 Class CODE wave shipping UNrendered report.docx → render-gate BAD — BAD
+PASS  T25z two assets, one render line → C18 BAD (per-asset binding) — BAD — delivered /x/output/appendix.pdf without bound render evidence — NO RENDER, NO DONE (§V11.9; add `render: <asset> — <existing page images>` or `render: <asset> — N/A (<missing tool>)` to this task's log/answer)
+PASS  T25w post-log .docx write + render evidence → C16 NOT code-ordering BAD — OK — Class DOC — no code writes expected
+PASS  T25x deleted-only .docx → render gate silent (not a delivery) — OK — change set within the class's file kinds
+PASS  T26a completion claim WITHOUT final-run line → B12 BAD — BAD
+PASS  T26b final-run line in current block → B12 OK — OK
+PASS  T26b2 typed final-run without assert output → B12 BAD — BAD
+PASS  T26b3 `- seal:` without a valid manifest → B12 BAD — BAD
+PASS  T26b4 one-line final-run + assert text → B12 BAD (forged shape) — BAD
+PASS  T26b5 `all 0 checks pass` is not evidence → B12 BAD — BAD
+PASS  T26b6 final-run bound to a fresh assert log → B12 OK — OK
+PASS  T26b7 final-run bound to a directory → B12 BAD — BAD
+PASS  T26b8 later failing final-run wins over an earlier bound one → B12 BAD — BAD
+PASS  T26b9 artifact older than the session → B12 BAD — BAD
+PASS  T26b10 manifest with unverifiable hashes → B12 BAD — BAD
+PASS  T26c final-run only in prior block → B12 BAD (current block must bind) — BAD
+PASS  T26d mid-phase without gate line → B12 silent (no mid-task interference) — absent
+PASS  T27a1 zh claim 上下文快耗尽 → hit — match=上下文快耗尽
+PASS  T27a2 zh claim 上下文已耗尽 → hit — match=上下文已耗尽
+PASS  T27a3 en claim running out of context → hit — match=running out of context
+PASS  T27a4 en claim window almost full → hit — match=context window is almost full
+PASS  T27a5 en claim hit the context limit → hit — match=hit the context limit
+PASS  T27b1 normal work narration → miss — null
+PASS  T27b2 'context' without exhaustion → miss — null
+PASS  T27b3 'out of context' idiom → miss — null
+PASS  T27b4 'full of' idiom → miss — null
+PASS  T27b5 meta-discussion multi-hit → miss (review F2) — null
+PASS  T27b6 quoted claim → miss (review F2) — null
+PASS  T27b7 mid-text single mention, no cessation, far from end → miss (review F2) — null
+PASS  T27a6 zh 满了 → hit — match=上下文满了
+PASS  T27a7 en % full + terminal → hit — match=context is 95% full
+PASS  T27b8 'wrap up the component' is work, not cessation → miss (review N1) — null
+PASS  T27b9 label-colon prefixed terminal mention → miss (review N2) — null
+PASS  T27c1 no trigger → ignore — action=ignore why=no-trigger
+PASS  T27c2 no active task → ignore — action=ignore why=no-active-task
+PASS  T27c3 paused_state whitelist → ignore — action=ignore why=whitelisted:paused-state
+PASS  T27c4 Class-E whitelist → ignore — action=ignore why=whitelisted:class-e
+PASS  T27c5 gate-marker whitelist → ignore — action=ignore why=whitelisted:gate-marker
+PASS  T27c6 user-stop whitelist → ignore — action=ignore why=whitelisted:user-stop
+PASS  T27c7 tail-question whitelist → ignore — action=ignore why=whitelisted:tail-question
+PASS  T27c8 clean trigger on v1 → prompt — action=prompt why=undefined
+PASS  T27c9 clean trigger on v2 (no telemetry) → debt, never prompt — action=debt why=v2-no-telemetry
+PASS  T27c10 truncation trigger → prompt — action=prompt why=undefined
+PASS  T27c11 on-disk incomplete, no euphemism → prompt — action=prompt why=undefined
+PASS  T27c12 on-disk incomplete on v2 → debt, never prompt — action=debt why=v2-positive-unverified
+PASS  T27c13 on-disk incomplete + paused_state → ignore — action=ignore why=whitelisted:paused-state
+PASS  T27c14 on-disk incomplete + gate marker → ignore — action=ignore why=whitelisted:gate-marker
+PASS  T27c15 currentLogBlock picks the last iter-bearing block (trailing heading safe) — ## Task: x
+- iter 1 PASS: x
+- final-run: --final — pass=1/fail=0
+
+PASS  T27c16 currentLogBlock prefers a new Task block over the old final-run — ## Task: new
+- Baseline verified GREEN
+
+PASS  T27c17 newer non-Task iter block beats an older completed Task — ## Verification Log — new wave
+- iter 2 PASS: y
+
+PASS  T27c17b mid-block final-run survives a trailing Notes heading — - assert-run: assert_artifacts.py: all 3 checks pass
+- final-run: --final — pass=3/fail=0
+
+PASS  T27c17c a later Task block displaces the earlier completed one — ## Task: two
+- iter 1 FAIL: x | diagnosis: d
+
+PASS  T27c17d a trailing Notes final-run is NOT completion evidence for a Task block — ## Task: t
+- class: CODE — logic
+- iter 1 PASS: x
+
+PASS  T27c17e a Notes final-run cannot complete a Task block with only assert-run — ## Task: t
+- assert-run: assert_artifacts.py: all 3 checks pass
+
+PASS  T27c18 read-only task + positive → ignore — action=ignore why=whitelisted:read-only-task
+PASS  T27c19 awaiting-user turn + positive → ignore — action=ignore why=whitelisted:awaiting-user
+PASS  T27c20 CODE positive still prompts — action=prompt why=undefined
+PASS  T27c21 awaiting detector: trailing question — true
+PASS  T27c22 awaiting detector: period-terminated approval request — true
+PASS  T27c23 awaiting detector: let-me-know phrase — true
+PASS  T27c24 awaiting detector: normal work narration stays false — false
+PASS  T27c25 read-only detector: 仅评估，不修改 — true
+PASS  T27c26 read-only detector: audit only — true
+PASS  T27c27 read-only detector: implement the fix stays false — false
+PASS  T27c28 read-only detector: 'do not change the tests' is not read-only — false
+PASS  T27c29 read-only detector: 'read-only mode' feature is not a read-only task — false
+PASS  T27c30 read-only detector: 'no changes in behavior' is not read-only — false
+PASS  T27c31 read-only detector: 请勿修改任何代码 is read-only — true
+PASS  T27c32 read-only detector: review only + don't touch code is read-only — true
+PASS  T27c39 read-only detector: bare 只读任务 is read-only — true
+PASS  T27c40 read-only detector: bare 请勿修改 is read-only — true
+PASS  T27c41 read-only detector: quoted historical read-only does not exempt an implement turn — false
+PASS  T27c42 read-only detector: long brief with read-only first sentence still exempts — long-brief
+PASS  T27c43 read-only detector: review-then-implement is not read-only — false
+PASS  T27c44 awaiting detector: bare 'Done. Continue?' is not awaiting — false
+PASS  T27c45 awaiting detector: 'Should I proceed?' is awaiting — true
+PASS  T27c46 awaiting detector: narrative question without a request cue is not awaiting — false
+PASS  T27c47 awaiting detector: 'Would you like me to continue?' is awaiting — true
+PASS  T27c48 awaiting detector: '需要我继续吗？' is awaiting — true
+PASS  T27c49 awaiting detector: quoted question is not a request — false
+PASS  T27c50 awaiting detector: 'Ready to proceed?' is awaiting — true
+PASS  T27c51 awaiting detector: bare 'Proceed?' is awaiting — true
+PASS  T27c52 awaiting detector: '可以继续吗？' is awaiting — true
+PASS  T27c53 awaiting detector: 'Done. 继续吗？' is a nudge, not a pause — false
+PASS  T27c54 read-only detector: 'afterwards rewrite the parser' overrides read-only — false
+PASS  T27c55 read-only detector: 'Fix nothing.' stays read-only — true
+PASS  T27c56 read-only detector: 修复不在范围内 stays read-only — true
+PASS  T27c57 read-only detector: adding findings to a report is not implementation — true
+PASS  T27c58 read-only detector: modal 'you should implement' overrides read-only — false
+PASS  T27c59 read-only detector: long brief beyond 8KB still exempts — long-brief-10k
+PASS  T27c60 read-only detector: a later affirmative verb defeats a negated first match — false
+PASS  T27c61 read-only detector: negated 'do not add code' stays read-only — true
+PASS  T27c62 read-only detector: 'update the report' is a document action — true
+PASS  T27c63 read-only detector: 'afterwards apply the patch' overrides — false
+PASS  T27c64 read-only detector: 不要修改现有代码 is read-only — true
+PASS  T27c65 awaiting detector: single-quoted question is not a request — false
+PASS  T27c66 awaiting detector: 'All done. Continue?' is a nudge — false
+PASS  T27c67 awaiting detector: 'The work is complete. Proceed?' is a nudge — false
+PASS  T27c68 awaiting detector: 工作完成。继续吗？ is a nudge — false
+PASS  T27c69 awaiting detector: 'Proceed with the fix?' is not a bare request — false
+PASS  T27c70 awaiting detector: 'Can we proceed?' is awaiting — true
+PASS  T27c71 read-only detector: 'Do not modify the code.' is read-only — true
+PASS  T27c72 read-only detector: 'update the file' is a document action — true
+PASS  T27c73 read-only detector: 'build a report table' is a document action — true
+PASS  T27c74 awaiting detector: "It's done. Continue?" is a nudge — false
+PASS  T27c75 awaiting detector: '"Done." Continue?' is a nudge — false
+PASS  T27c76 awaiting detector: 'Can we do better?' is not a proceed request — false
+PASS  T27c77 read-only detector: 'Do not touch the code.' is read-only — true
+PASS  T27c78 read-only detector: 'Do not modify files.' is read-only — true
+PASS  T27c79 read-only detector: 'build the project' is a verification action — true
+PASS  T27c80 awaiting detector: 'It is done. Continue?' is a nudge — false
+PASS  T27c81 awaiting detector: mid-sentence quoted Done is a nudge — false
+PASS  T27c82 awaiting detector: 'Could we proceed?' is awaiting — true
+PASS  T27c83 awaiting detector: 'The test will proceed?' is narrative — false
+PASS  T27c84 awaiting detector: 'I cannot proceed?' is narrative — false
+PASS  T27c85 awaiting detector: 'This should proceed?' is narrative — false
+PASS  T27c86 awaiting detector: 'The build will continue?' is narrative — false
+PASS  T27c87 read-only detector: 'Do not alter the code.' is read-only — true
+PASS  T27c88 awaiting detector: '这个流程可以继续吗？' is awaiting — true
+PASS  T27c89 read-only detector: 'Do not update the code.' is read-only — true
+PASS  T27c90 paused packet: schema-valid packet is valid — fixture
+PASS  T27c91 paused packet: missing state is invalid — missing-state
+PASS  T27c92 paused packet: one option is invalid — one-option
+PASS  T27c93 paused declaration: [PAUSED] is visible — visible
+PASS  T27c94 paused declaration: bare file text is not a declaration — hidden
+PASS  T27c95 Class-E record: approved line is valid — approved
+PASS  T27c96 Class-E record: 'unapproved' line is invalid — unapproved
+PASS  T27c97 Class-E user approval: 批准 Class-E is accepted — approved-text
+PASS  T27c98 Class-E user approval: 不同意 is rejected — denied
+PASS  T27c99 Class-E user approval: 'approved plan' mention is not a grant — mention
+PASS  T27c100 Class-E user approval: 'I approve' is a grant — grant
+PASS  T27c101 Class-E declaration: 'not approved' is rejected — negated
+PASS  T27c102 paused packet: documented one-liner is valid — one-liner
+PASS  T27c103 paused declaration: negated [PAUSED] is not a declaration — negated
+PASS  T27c104 Class-E user approval: 'I will not approve Class-E' is rejected — denied
+PASS  T27c105 Class-E user approval: generic 'I approve the plan' is rejected — generic
+PASS  T27c106 Class-E user approval: 'go ahead and implement' is rejected — generic
+PASS  T27c107 Class-E user approval: '我批准 Class-E 部署' is accepted — cn-approve
+PASS  T27c108 Class-E user approval: 'I approved the Class-E deployment' is accepted — en-past
+PASS  T27c109 Class-E user approval: bare '批准' without Class-E mention is NOT accepted — bare-no-context
+PASS  T27c110 Class-E declaration: 'No Class-E action taken' is rejected — negated
+PASS  T27c111 paused one-liner: a single option is invalid — one-option
+PASS  T27c112 Class-E user approval: "I haven't approved Class-E" is rejected — denied
+PASS  T27c113 Class-E user approval: 'I would not approve Class-E' is rejected — denied
+PASS  T27c114 Class-E record: 不允许 is invalid — denied-record
+PASS  T27c115 Class-E declaration: 'Class-E approved; nothing pending' is valid — positive-nothing
+PASS  T27c116 Class-E declaration: 'Class-E approved; unblocked' is valid — positive-unblocked
+PASS  T27c33 awaiting detector: 'let me know' sign-off is not awaiting — false
+PASS  T27c34 awaiting detector: 'which path' narrative is not awaiting — false
+PASS  T27c35 awaiting detector: waiting on your decision is awaiting — true
+PASS  T27c36 awaiting detector: 麻烦确认 is awaiting — true
+PASS  T27c37 DOC euphemism is still a false stop → prompt — action=prompt why=undefined
+PASS  T27c38 awaiting euphemism is still a false stop → prompt — action=prompt why=undefined
+PASS  T27c117 v2 explicit trigger + promptable → prompt — action=prompt why=undefined
+PASS  T27c118 v2 explicit trigger + model-authored gate still prompts — action=prompt why=undefined
+PASS  T27c119 v2 positive silent stop → debt (not ignore) — action=debt why=v2-positive-unverified
+PASS  T27c120 v2 positive + readOnly still journals debt — action=debt why=v2-positive-unverified
+PASS  T27c121 v2 positive + gate marker still journals debt — action=debt why=v2-positive-unverified
+PASS  T27d1 prompt names the four legal stops — [stop-guard] Your last message declared context exhaustion and stopped mid-task. Measured context fill ≈ 15% (harness te
+PASS  T27d2 prompt quotes measured fill when known — [stop-guard] Your last message declared context exhaustion and stopped mid-task. Measured context fill ≈ 15% (harness te
+PASS  T27d3 prompt without telemetry never fabricates a fill number — [stop-guard] Your last message declared context exhaustion and stopped mid-task. That is NOT a legal stop. Legal stops a
+PASS  T27d4 prompt points at working_note for resume
+PASS  T27d5 truncation prompt names output-limit truncation ≠ complete — [stop-guard] Your last turn ended with finish:"length" (output-limit truncation) — a truncated turn is NOT a completed t
+PASS  T27d6 incomplete prompt names on-disk final-run gap — [stop-guard] This is a STATE CHECK, not an accusation: tests/acceptance.md exists and the current task block has no TRUSTED `- final-run: --
+PASS  T27d7 incomplete prompt never carries an exhaustion fill accusation — [stop-guard] This is a STATE CHECK, not an accusation: tests/acceptance.md exists and the current task block has no TRUSTED `- final-run: --
+PASS  T27d8 incomplete prompt offers an already-complete exit (gate line, no fabrication) — [stop-guard] This is a STATE CHECK, not an accusation: tests/acceptance.md exists and the current task block has no TRUSTED `- final-run: --final … pass≥1/fail=0` yet (a typed final-run without `assert_artifacts.py: all 
+PASS  T27e1 euphemism + incomplete + idle → exactly one corrective prompt (no abort) — prompts=1 abort=0
+PASS  T27e2 prompt contains four legal stops + working_note — [stop-guard] Your last message declared context exhaustion and stopped mid-task. That is NOT a legal stop. Legal stops a
+PASS  T27e3 same tail second idle → no thrash (episode disarmed) — prompts=1
+PASS  T27e4 plugin-prompt echo must NOT self-whitelist → 2nd intervention (budget 2, review F1) — prompts=2
+PASS  T27e5 3rd episode beyond budget → log-only + debt journaled — prompts=2 budgetLog=true
+PASS  T27e6 stop-debt persisted in state (cap-bounded) — [{"ts":1792582048028,"sessionID":"ses_t27","kind":"euphemism","match":"上下文耗尽","why":"budget-exhausted"}]
+PASS  T27e7 debt dedup: distinct episode +1, repeat idle +0 — len=2
+PASS  T27e8 debt replayed into gate_audit.md stop-debt section — ## Stop-debt (§V12 false-stop journal — advisory, Tier-2 adjudicates) | - 2026-10-21T11:27:28.028Z stop-debt: euphemism "上下文耗尽" — budget-exh
+PASS  T27e9 silent stop + on-disk incomplete → positive corrective prompt — prompts=1 [stop-guard] This is a STATE CHECK, not an accusation: tests/acceptance.md exists and the current task block has no TRUSTED `- final-run: --
+PASS  T27e10 user Q&A after a write is not auto-resumed (turn-scoped) — prompts=1
+PASS  T27e11 host error fences BOTH euphemism and positive triggers (no auto-resume) — prompts=1
+PASS  T27e12 Class DOC + report write + stop → no prompt — prompts=0
+PASS  T27e12b Class DOC + README.html write → no prompt — prompts=0
+PASS  T27e13 read-only user instruction + report write → no prompt — prompts=0
+PASS  T27e13b read-only instruction invalidated by a code write → prompt — prompts=1
+PASS  T27e14 period-terminated approval request → no prompt — prompts=0
+PASS  T27e15 gate marker BEFORE a later task-file write does NOT whitelist the turn — prompts=1
+PASS  T27e16 pass=0/fail=0 final-run is NOT completion → positive prompt — prompts=1
+PASS  T27e17 CODE task-file write + silent Stop → positive prompt — prompts=1
+PASS  T27e18 pending→completed write is still task-write evidence — prompts=1
+PASS  T27e19 re-emitted user message does not move the turn boundary — prompts=1
+PASS  T27e20 previous session's Class DOC cannot exempt a new CODE task — prompts=1
+PASS  T27e22 forged final-run without assert output → positive prompt — prompts=1
+PASS  T27e23 final-run + adjacent assert output → no prompt — prompts=0
+PASS  T27e24 stale final-run + new user + code write → positive prompt — prompts=1
+PASS  T27e25 forged Class DOC + current-turn code write → positive prompt — prompts=1
+PASS  T27e28 Class DOC + status-only write is not treated as code → no prompt — prompts=0
+PASS  T27e26 gate marker AFTER the last task write → no prompt — prompts=0
+PASS  T27e27 cumulative update after write does not resurrect an early gate → prompt — prompts=1
+PASS  T27e29 status-only completed write (no input) → positive prompt — prompts=1
+PASS  T27e34 bash redirect write + silent stop → positive prompt — prompts=1
+PASS  T27e35 code write + 55 prose writes still trips the DOC cross-check — prompts=1
+PASS  T27e36 shorter log rewrite does not resurrect the old final-run → prompt — prompts=1
+PASS  T27e38 prior same-turn Task final-run does not exempt a later Task → prompt — prompts=1
+PASS  T27e39 class comes from the LAST task block (DOC→CODE) → prompt — prompts=1
+PASS  T27e40 awk comparison is not a bash write → no prompt — prompts=0
+PASS  T27e41 cp to /tmp is not a project write → no prompt — prompts=0
+PASS  T27e42 DOC claim + src/app.html write → prompt — prompts=1
+PASS  T27e43 read-only audit + csv report → no prompt — prompts=0
+PASS  T27e47 an unrelated delta after the write does not re-stamp the early gate — prompts=1
+PASS  T27e48 a later class line in the SAME block cannot relicense CODE — prompts=1
+PASS  T27e49 DOC claim + src/config.json → prompt — prompts=1
+PASS  T27e50 DOC claim + db/migrate.sql → prompt — prompts=1
+PASS  T27e51 read-only audit + findings.json report → no prompt — prompts=0
+PASS  T27e52 redirect AFTER the heredoc marker is observed — prompts=1
+PASS  T27e53 no-space redirect is observed — prompts=1
+PASS  T27e54 DOC + output/report.html → no prompt — prompts=0
+PASS  T27e55 multi-source cp to /tmp is not a project write — prompts=0
+PASS  T27e57 DOC claim + output/app.ts → prompt (report path does not hide code) — prompts=1
+PASS  T27e58 DOC claim + reports/parser.py → prompt — prompts=1
+PASS  T27e59 read-only instruction + output/app.ts → prompt — prompts=1
+PASS  T27e60 read-only audit + data.json report → no prompt — prompts=0
+PASS  T27e61 cp -t directory target is outside the project → no prompt — prompts=0
+PASS  T27e30 quoted historical read-only does not exempt a current implement turn — prompts=1
+PASS  T27e31 'Done. Continue?' does not whitelist an incomplete CODE turn — prompts=1
+PASS  T27e32 'Should I proceed?' whitelists an awaiting-user turn — prompts=0
+PASS  T27e62 no-user host: early gate + write → prompt — prompts=1
+PASS  T27e63 no-user host: gate after the write (last message) → no prompt — prompts=0
+PASS  T27e64 no-user host: gate after the write, then a final Done message → no prompt — prompts=0
+PASS  T27e65 DOC claim + output/app.html → prompt — prompts=1
+PASS  T27e66 DOC claim + output/config.json → prompt — prompts=1
+PASS  T27e67 DOC claim + reports/schema.json → prompt — prompts=1
+PASS  T27e68 DOC claim + src/data.json → prompt — prompts=1
+PASS  T27e69 cp --target-directory space form is outside the project → no prompt — prompts=0
+PASS  T27e70 cp -rt directory target is outside the project → no prompt — prompts=0
+PASS  T27e71 DOC claim + src/report.json → prompt (report name inside code dir) — prompts=1
+PASS  T27e72 DOC claim + Makefile → prompt — prompts=1
+PASS  T27e73 DOC claim + Dockerfile → prompt — prompts=1
+PASS  T27e74 read-only audit + table.json report → no prompt — prompts=0
+PASS  T27e75 cp attached -t target is outside the project → no prompt — prompts=0
+PASS  T27e76 hidden paused file (no [PAUSED] declaration) → prompt — prompts=1
+PASS  T27e77 valid paused packet + visible [PAUSED] → no prompt — prompts=0
+PASS  T27e78 malformed paused packet → prompt — prompts=1
+PASS  T27e79 Class-E file without user approval text → prompt — prompts=1
+PASS  T27e80 Class-E file + user approval + assistant declaration → no prompt — prompts=0
+PASS  T27e81 Class-E record + user denial → prompt — prompts=1
+PASS  T27e82 'approved plan' mention is not a Class-E grant → prompt — prompts=1
+PASS  T27e83 historical Class-E line + unrelated append is not current approval → prompt — prompts=1
+PASS  T27e84 quoted << does not blind the later real write → prompt — prompts=1
+PASS  T27e85 DOC + reports/index.html → no prompt — prompts=0
+PASS  T27e86 DOC + output/app.yaml → prompt — prompts=1
+PASS  T27e87 DOC + output/docker-compose.yml → prompt — prompts=1
+PASS  T27e88 DOC + scripts/report.json → prompt — prompts=1
+PASS  T27e89 comment << does not blind a later write → prompt — prompts=1
+PASS  T27e90 <<- tab terminator does not blind a later write → prompt — prompts=1
+PASS  T27e91 DOC + output/index.html → prompt — prompts=1
+PASS  T27e92 DOC + output/deployment.yaml → prompt — prompts=1
+PASS  T27e93 read-only audit + output/appendix.json report → no prompt — prompts=0
+PASS  T27e101 read-only audit + output/notes.json report → no prompt — prompts=0
+PASS  T27e102 DOC + outputs/index.html report → no prompt — prompts=0
+PASS  T27e103 DOC + output/appendix.html report → no prompt — prompts=0
+PASS  T27e94 natural Chinese Class-E approval → no prompt — prompts=0
+PASS  T27e95 English Class-E denial → prompt — prompts=1
+PASS  T27e96 generic 'I approve the plan' is not a Class-E grant → prompt — prompts=1
+PASS  T27e97 generic 'go ahead' is not a Class-E grant → prompt — prompts=1
+PASS  T27e98 "haven't approved" is a denial → prompt — prompts=1
+PASS  T27e99 approval in a different clause is not a Class-E grant → prompt — prompts=1
+PASS  T27e100 'nothing pending' does not negate a Class-E declaration → no prompt — prompts=0
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+PASS  T27e21 v2 positive leg journals incomplete stop-debt (no prompt) — debt=[{"ts":1792582048390,"sessionID":"ses_v2stop","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"} prompts=0
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+PASS  T27e33 v2 blocked/failed write does NOT journal task-write debt — debt=[]
+[vibeweaver-audit] warn: Audit RED (BAD=10 UNCERTAIN=14)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+PASS  T27e37 v2 gate-only completion journals debt (positive is always debt-only) — debt=[{"ts":1792582048575,"sessionID":"ses_v2gate","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}
+[vibeweaver-audit] warn: Audit RED (BAD=1 UNCERTAIN=0)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+PASS  T27e44 v2 old completed block does not exempt a new task → debt — debt=[{"ts":1792582048640,"sessionID":"ses_v2old","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}]
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+PASS  T27e45 v2 bash redirect write → debt — debt=[{"ts":1792582048724,"sessionID":"ses_v2bash","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}
+[vibeweaver-audit] warn: Audit RED (BAD=9 UNCERTAIN=16)
+[vibeweaver-audit] warn: Audit RED (BAD=9 UNCERTAIN=16)
+[vibeweaver-stopguard] warn: false-stop detected (euphemism: 上下文快耗尽) — posting corrective prompt (1/2/stop)
+PASS  T27e46 old v2 gate does not suppress a later euphemism prompt — prompts=1
+[vibeweaver-audit] warn: Audit RED (BAD=10 UNCERTAIN=14)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+PASS  T27e56 v2 gate + Done journals debt (positive is always debt-only) — debt=[{"ts":1792582048990,"sessionID":"ses_v2gatedone","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverifi
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+PASS  T27e104 v2 positive + DOC claim journals debt (never silently ignores) — debt=[{"ts":1792582049054,"sessionID":"ses_v2doc","kind":"incomplete","match":"no-final-run","why":"v2-positive-unverified"}]
+[vibeweaver-audit] warn: Audit RED (BAD=10 UNCERTAIN=14)
+[vibeweaver-stopguard] warn: false-stop detected (euphemism: 上下文快耗尽) — posting corrective prompt (1/2/stop)
+PASS  T27e105 v2 explicit euphemism + model-authored gate still prompts — prompts=1
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+[vibeweaver-stopguard] warn: false-stop detected (euphemism: 上下文快耗尽) — posting corrective prompt (1/2/stop)
+[vibeweaver-stopguard] warn: stop-guard prompt failed — intervention not counted, debt journaled
+PASS  T27e106 v2 prompt rejection journals debt instead of burning budget — debt=[{"ts":1792582049221,"sessionID":"ses_v2pfail","kind":"euphemism","match":"上下文快耗尽","why":"prompt-failed"}]
+PASS  T27f user stop directive before claim → whitelisted, no prompt — prompts=0
+PASS  T27g finish:length + incomplete → corrective prompt (truncation ≠ complete) — prompts=1 [stop-guard] Your last turn ended with finish:"length" (output-limit truncation) — a truncated turn 
+PASS  T27h fill 15% quoted in corrective (input 1000 + cache.read 500 / 10000) — prompts=1 [stop-guard] Your last message declared context exhaustion and stopped mid-task. Measured context fill ≈ 15% (harness telemetry, one turn stale) — an exhaustion
+PASS  T27i1 negated 'don't stop' is NOT a stop directive → prompt fires (review F6) — prompts=1
+PASS  T27i2 'cancel button' non-directive → prompt fires (review F6) — prompts=1
+PASS  T27i2b 'quit the dev server' process instruction → prompt fires (review N3) — prompts=1
+PASS  T27i3 explicit 'stop here please' → whitelisted, no prompt — prompts=0
+PASS  T27i4 wave completed on disk (final-run) → taskActive false, no prompt (R1#3) — prompts=0
+PASS  T27i5 gate marker in an OLDER message does NOT whitelist the new wave (review F4) — prompts=1
+PASS  T27i6 VIBEWEAVER_STOPGUARD=off → fully silent (R1#10) — prompts=0
+PASS  T27i7 fill 95% → softened phrasing, no 'has no basis' accusation (R1#8) — [stop-guard] Your last message declared context exhaustion and stopped mid-task. Measured context fill ≈ 95% (harness telemetry, one turn stale) — near the limi
+PASS  T34a 4 consecutive identical MCP calls (distinct pids) -> identical-tool-run finding — kind=identical-tool-run pattern=4 consecutive identical tool calls (e.g. weave-connector_ssh_shell_open keys=3 argsLen=48)
+PASS  T34a pattern names tool + count + values-free args shape (keyCount + length, NO names/values) — 4 consecutive identical tool calls (e.g. weave-connector_ssh_shell_open keys=3 argsLen=48)
+PASS  T34a 3 identical calls -> no finding (threshold 4) — null
+PASS  T34b different tool interleaved -> no finding — null expected
+PASS  T34b different args breaks the run -> no finding — null expected
+PASS  T34c same pid re-observed 4x -> no finding (dedup) — null expected
+PASS  T34c 2 distinct calls + re-observations -> no finding — null expected
+PASS  T34d unknown-args entry cannot mask the run (skipped, 4 counted) — finding expected
+PASS  T34d unknown-args entries can never start a run — null expected
+PASS  T34d different tool with unobserved args BREAKS the run (no false finding) — null expected
+PASS  T34d malformed observation (non-string tool) BREAKS the run conservatively — null expected
+PASS  T34d malformed re-observation (dup pid) can NEVER be masked by dedup — null expected
+PASS  T34d foreign tool with unobserved args at the TAIL breaks the run — null expected
+PASS  T34d unknown-args SAME-tool tail still cannot mask the run (R1#4) — finding expected
+PASS  T34d pattern reports the FULL run length (6 calls -> '6 consecutive', not minRun floor) — 6 consecutive identical tool calls (e.g. weave-connector_ssh
+PASS  T34e truncated observations break the run — null expected
+PASS  T34f toolIdentity canonicalizes key order (deep key-sort) — idA=weave-connector_ssh_shell_open {"a":1,"b":2} idB=weave-connector_ssh_shell_open {"a":1,"b":2}
+PASS  T34f mixed key-order args are ONE identity -> finding — finding expected
+PASS  T34g legacy {tool,name} fallback x4 -> finding — finding expected
+PASS  T34g bash {command} fallback x4 real command -> finding (noop-bash stays silent) — kind=identical-tool-run
+PASS  T34h minRun=2 fires on 2 identical calls — finding expected
+PASS  T34h default threshold constant >= 4 (polling FP bar) — null expected
+PASS  T34i 4 identical MCP calls through adapter -> exactly one intervention — abort=1 prompts=1
+PASS  T34i corrective text names the loop kind + demands varied args/diagnosis or progress — [loop-guard] Your last tool calls degenerated into an identical-call loop (4 consecutive identical tool calls (e.g. weave-connector_ssh_shell_open keys=3 argsLe
+PASS  T34i corrective text carries the legal exits (vary · next step · completion-if-all-pass) — [loop-guard] Your last tool calls degenerated into an identical-call loop (4 consecutive identical tool calls (e.g. weave-connector_ssh_shell_open keys=3 argsLen=48)) — re-issuing the SAME tool call w
+PASS  T34i continued identical calls -> no thrash (still 1 intervention) — abort=1
+PASS  T34i status-only re-obs + real call leave budget/latch state sane — abort=1
+PASS  T34j noop-bash episode consumes shared tool-channel budget slot 1 — abort=1
+PASS  T34j identical-tool-run episode shares the budget (2nd intervention) — abort=2
+PASS  T34j episode 3 beyond shared budget -> log-only, no abort — abort=2 budgetLog=true
+PASS  T34k VIBEWEAVER_LOOPGUARD=off -> identical-tool-run silent — abort=0
+PASS  T34l canonicalJson keeps __proto__ as an own key (distinct identities) — proto={"__proto__":{"i":1},"cmd":"a"} plain={"cmd":"a"}
+PASS  T34l __proto__ vs plain input interleave breaks the run (no false finding) — null expected
+PASS  T34l 4 identical __proto__-bearing calls still fire (identity intact) — finding expected
+[vibeweaver-loopguard] warn: degenerate generation detected (identical-tool-run: 4 consecutive identical tool calls (e.g. weave-connector_ssh_shell_open keys=3 argsLen=48)) — interrupting and posting a corrective prompt (1/2/tool)
+PASS  T34m v2 execute.before path -> identical run fires (args+pid recorded) — interrupt=1 prompts=1
+PASS  T34m calls observed WITHOUT input never fabricate identity (no finding) — interrupt=1
+PASS  T34m different tool with no input breaks the v2 run — interrupt=1
+PASS  T34m over-cap args marked truncated break the run (F10, no finding) — interrupt=1
+[vibeweaver-loopguard] warn: degenerate generation detected (identical-tool-run: 4 consecutive identical tool calls (e.g. weave-connector_ssh_shell_open keys=0 argsLen=2)) — interrupting and posting a corrective prompt (1/2/tool)
+PASS  T34m zero-arg identical calls (input {} observed) DO fire (incident class) — interrupt=2
+PASS  T35a 20 same-tool varied-args calls (distinct pids) -> tool-frequency finding — kind=tool-frequency pattern=20 consecutive read calls (args vary or repeat — consolidate or change tool)
+PASS  T35a pattern values-free (tool + count only) — 20 consecutive read calls (args vary or repeat — consolidate or change tool)
+PASS  T35a 19 same-tool calls -> no finding (threshold 20) — null expected
+PASS  T35b foreign tool interleaved (22 reads) -> no finding (skip-mutant would fire) — null expected
+PASS  T35b same-pid re-observations never inflate the storm — null expected
+PASS  T35c minRun parameter respected (4 varied reads) — finding expected
+PASS  T35d 25 varied reads with no config -> NO intervention (opt-in default off) — abort=0 prompts=0
+PASS  T35d3 130 varied reads default -> warn-only (no abort, no prompt) — abort=0 prompts=0 warnings=1
+PASS  T35d4 warning is once per SESSION, not once per user turn — warnings=1
+PASS  T35d2 opt-in loopGuardToolFrequencyMin=20 -> 45-call incident shape gets one intervention — abort=1 prompts=1
+PASS  T35d2 corrective text: stall declaration + consolidate/switch/next/completion exits — [loop-guard] Your last tool calls degenerated into a single-tool storm (20 consecutive read calls (args vary or repeat — consolidate or change tool)) — hammering ONE tool is not progress by itself. ST
+PASS  T35d2 continued storm -> no thrash (still 1 intervention) — abort=1
+PASS  T35e identical run of 20 -> identical-tool-run wins (not tool-frequency) — [loop-guard] Your last tool calls degenerated into an identical-call loop (4 con
+PASS  T35e varied echo no-op storm -> noop-bash wins (not tool-frequency) — [loop-guard] Your last tool calls degenerated into no-op echo/printf narration (
+PASS  T35f loopGuardToolFrequencyMin=4 -> storm fires at 4 varied reads — abort=1
+PASS  T36a corrective prompts captured for 4 finding kinds — prompts=4 abort=4
+PASS  T36b noop-bash prompt carries NO completion-marker literal — [loop-guard] Your last tool calls degenerated into no-op echo/printf narration (4 consecutive no-op bash calls (literal 
+PASS  T36b noop-bash prompt still demands the completion output — [loop-guard] Your last tool calls degenerated into no-op echo/printf narration (4 consecutive no-op bash calls (literal 
+PASS  T36b identical-tool-run prompt carries NO completion-marker literal — [loop-guard] Your last tool calls degenerated into an identical-call loop (4 consecutive identical tool calls (e.g. read
+PASS  T36b identical-tool-run prompt still demands the completion output — [loop-guard] Your last tool calls degenerated into an identical-call loop (4 consecutive identical tool calls (e.g. read
+PASS  T36b tool-frequency prompt carries NO completion-marker literal — [loop-guard] Your last tool calls degenerated into a single-tool storm (20 consecutive read calls (args vary or repeat —
+PASS  T36b tool-frequency prompt still demands the completion output — [loop-guard] Your last tool calls degenerated into a single-tool storm (20 consecutive read calls (args vary or repeat —
+PASS  T36b default/sequence prompt carries NO completion-marker literal — [loop-guard] Your output degenerated into meaningless repetition (sequence: 102…113). STOP repeating. Reply with (1) the
+PASS  T36b default/sequence prompt still demands the completion output — [loop-guard] Your output degenerated into meaningless repetition (sequence: 102…113). STOP repeating. Reply with (1) the
+PASS  T36c runaway prompt captured and marker-free — prompts=5 head=[loop-guard] OUTPUT CEILING: turn output exceeded 262144 bytes (visible text onl
+PASS  T36c runaway prompt still demands the completion output — [loop-guard] OUTPUT CEILING: turn output exceeded 262144 bytes (visible text only; hidden reasoning has its own higher b
+PASS  T36d user-fed gate-line text does NOT trigger the completion audit (no latch) — red=undefined
+PASS  T36e plugin-injected [loop-guard] marker text does NOT trigger the completion audit — red=undefined
+PASS  T36f genuine assistant gate-line STILL triggers the completion audit (control) — red={"sessionID":"ses_t36h","ts":1792582049446,"bad":9}
+PASS  T37a tests/../src/a.js escape write is BLOCKED under RED (PoC) — traversal blocked
+PASS  T37b new-file write under tests/ stays allowed (evidence path, PoC-safe) — evidence path open
+PASS  T37c symlinked tests/ dir pointing at src/ is NOT an evidence path — symlink escape blocked
+PASS  T37d symlinked FILE tests/app.js -> src/app.js is NOT an evidence path — file-symlink escape blocked
+PASS  T37e dangling symlink tests/dangle.js -> src/notyet.js is NOT an evidence path — dangling-symlink escape blocked
+PASS  T38a ordinary dir (no acceptance.md, no skill) -> loop-guard silent — abort=0 prompts=0
+PASS  T38a ordinary dir -> no .vibeweaver/ state written (zero behavior) — no writes
+PASS  T38b skill-activated session (no acceptance.md yet) -> guard fires — abort=1
+PASS  T38c user-role message with repeated lines -> NO finding (user corpus excluded) — abort=0
+PASS  T38d assistant code fence with repeated lines -> NO finding (fences stripped) — abort=0
+PASS  T38e assistant plain repeated lines -> finding fires (control) — abort=1
+PASS  T38f identical args but DIFFERENT results -> NO finding (polling is progress) — abort=0
+PASS  T38g identical args and identical results -> finding fires (true loop) — abort=1
+PASS  T38h known-A, unknown, known-B, unknown -> NO finding (no bridge across unknowns) — abort=1
+PASS  T38i budget 2 spent -> 3rd episode log-only — abort=2 log=true
+PASS  T38i genuine user input decays the budget (next episode fires again) — abort=3
+PASS  T39 vibeweaver-audit.js contains no control characters (rg-searchable) — clean
+PASS  T39 vibeweaver-gate.js contains no control characters (rg-searchable) — clean
+PASS  T39 scripts/vibeweaver-audit-core.js contains no control characters (rg-searchable) — clean
+PASS  T39 COMPLETION_GATE.md within the 45000B companion budget — 44989B
+PASS  T39 TESTING_PROTOCOLS.md within the 45000B companion budget — 45000B
+PASS  T39 VERIFICATION_UPGRADES.md within the 45000B companion budget — 44941B
+PASS  T39 APPENDIX.md within the 45000B companion budget — 44419B
+PASS  T39 REFERENCE.md within the 45000B companion budget — 32773B
+PASS  T39 WORKFLOWS_EXTENDED.md within the 45000B companion budget — 23866B
+PASS  T39 MEMORY_RULES.md within the 45000B companion budget — 28958B
+PASS  T39 MEMORY_TEMPLATES.md within the 45000B companion budget — 10393B
+PASS  T39 ENGINEERING_STD.md within the 45000B companion budget — 16311B
+PASS  T39 CODING_PRINCIPLES.md within the 45000B companion budget — 4096B
+PASS  T39 SKILL.md within the 49000B budget (T11 parity) — 48970B
+PASS  T39 gate-line template exists exactly once (SKILL.md §A4.4 single source) — copies=1 at SKILL.md×1
+PASS  T39 §A7 is uniquely the memory family (no §A7 heading in ENG/APPENDIX/SKILL) — eng=false appendix=false skillA7=true
+PASS  T39 §A8 is uniquely communication; APPENDIX old shadow headings are gone — eng=true shadows=none
+PASS  T39 plan template hangs under C3 (no bare §A7 template heading) — ## C3 Plan Template — Large-Task Implementation Plan
+PASS  T39 completion output order is unique (D1: one normative position) — order-in=SKILL.md,COMPLETION_GATE.md second=none
+PASS  T40 identical oversized-args storm -> identical-tool-run fires — abort=1
+PASS  T40 differing oversized args -> no identical-run at 4 — abort=1
+PASS  T41 head-anchor gate line survives corpus bounding — no audit line (B1 not BAD)
+PASS  T42 delta stream accumulates (no substring-eating) and runaway ceiling fires — abort=1 (expect >=1 above 256KB of unique chunks)
+PASS  T43 >=2GB file refused by size before any string constructor — got="" ms=0 (expect "" fast)
+PASS  T43 bounded read still returns content under the cap — got="hello-bounded-read"
+
+=== SUMMARY ===
+fixture checks: 571, failures: 0, skipped: 1
+PASS  A1-no-iters -> BAD=[A1,B12,C1,C2,C5,C13]
+PASS  A2-no-cap -> BAD=[A2,B12,C6]
+PASS  A3-missing-png -> BAD=[A3,B12,C3]
+PASS  B1-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B2-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B3-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B4-marker-removed -> BAD=[B4,B12]
+PASS  B5-marker-removed -> BAD=[B5,B12]
+PASS  B6-marker-removed -> BAD=[B6,B12]
+PASS  B7-marker-removed -> BAD=[B7,B12]
+PASS  B8-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B9-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B10-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B11-marker-removed -> BAD=[B1,B2,B3,B8,B9,B10,B11]
+PASS  B7-lite-table-unlicensed -> BAD=[B7,B12]
+PASS  B10-memory-na-unlicensed -> BAD=[B7,B10,B12]
+PASS  B11-template-unfilled -> BAD=[B11,B12]
+PASS  C18-doc-class-code-write -> BAD=[B12,C18]
+PASS  lite-doc-clean -> BAD=[] assert_artifacts(class DOC)=exit 0
+PASS  W11-doc-output-html -> C18 BAD
+PASS  W11-doc-src-report-json -> C18 BAD
+PASS  W11-doc-makefile -> C18 BAD
+PASS  config-memory-na-reasoned -> exit 0 with reason, exit 1 without
+PASS  exec-check-row+doc-lesson -> noExec=FAIL withExec=PASS memMissing=FAIL
+PASS  C1-loop-yes-no-iters -> BAD=[A1,B12,C1,C2,C5,C13]
+PASS  C2-iters-overclaim -> BAD=[B12,C2,C5,C13]
+PASS  C3-media-overclaim -> BAD=[B12,C3]
+PASS  C4-e2e-no-trace -> BAD=[B12,C4]
+PASS  C5-tdd-no-fail -> BAD=[B12,C5,C13]
+PASS  C7-na-no-reason -> BAD=[B12,C6,C7]
+PASS  C8-raw-command -> BAD=[C8,B12]
+PASS  C13-no-baseline -> BAD=[B12,C2,C5,C13]
+PASS  C14-bad-hard1 -> BAD=[B12,C14]
+PASS  C14-na-no-reason-uncertain -> C14=UNCERTAIN
+PASS  C15-na-no-reason-uncertain -> C15=UNCERTAIN
+PASS  C14-na-licensed-by-class -> OK
+PASS  C18-doc-tests-hidden-write -> BAD=[B12,C18]
+PASS  C18-doc-asset-no-render -> BAD=[B12,C18]
+PASS  C18-doc-asset-rendered-or-flagged -> OK/OK, bare=BAD(render-branch)
+PASS  C18-config-logic-write -> BAD=[B12,C18]
+PASS  B11-class-mismatch -> BAD=[B11,B12,C18]
+PASS  C15-bad-hard2 -> BAD=[B12,C15]
+PASS  C16-code-after-log -> BAD=[B12,C16]
+PASS  C6-commit-after -> BAD=[B12,C6]
+
+=== MUTATION SWEEP: 44 passed, 0 failed ===
+PASS  A1-gate: exactly one default export — exports=[default]
+PASS  A2-gate: default = {id:string, server:fn, setup:fn} — id=vibeweaver-gate
+PASS  A1-audit: exactly one default export — exports=[default]
+PASS  A2-audit: default = {id:string, server:fn, setup:fn} — id=vibeweaver-audit
+PASS  B1-gate: v1 loader (readV1Plugin detect + resolvePluginId) accepts module — via=detect hooks=1
+PASS  B1-audit: v1 loader accepts module — via=detect hooks=1
+PASS  B2-gate: v2 PluginModule schema decodes default export — kind=promise
+PASS  B2-audit: v2 PluginModule schema decodes default export — kind=promise
+PASS  B3-gate: single registration under v1 (no double fire) — hooks=1
+PASS  B3-audit: single registration under v1 (no double fire) — hooks=1
+PASS  C1-gate-v1: RED project write is GATE-BLOCKED (throws) — threw
+PASS  C2-gate-v1: tests/ evidence path is exempt — clean
+PASS  C3-gate-v1: GREEN project passes + stall observation appended after 3 same-file ops — ok
+[GATE-WARNING (vibeweaver-stall)] STALL observed (machine
+PASS  C4-gate-v1: VIBEWEAVER_GATE=off disables the gate — clean
+PASS  C5-gate-v1: trigger-matched path surfaces vibeweaver-cue note — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_auth_trap.md (❌) match
+PASS  C5b-gate-v1: non-matching path gets no cue note — ok
+PASS  C5c-gate-v1: editing memory/ itself never self-cues — ok
+PASS  C5d-gate-v1: inline-list triggers form also fires — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/refere
+PASS  C5e-gate-v1: RED gate block message still carries the cue note — [GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_auth_
+PASS  C5f-gate-v1: tests/-path write still surfaces the cue — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/projec
+PASS  C5g-gate-v1: >2 `**` groups rejected (no cue, no wedge) — elapsed=1ms
+PASS  C5h-gate-v1: scalar + zero-indent + trailing-comment trigger forms all fire — [GATE-WARNING (vibeweaver-cue)] memor | [GATE-WARNING (vibeweaver-cue)] memor | [GATE-WARNING (vibeweaver-cue)] memor
+PASS  C5i-gate-v1: CRLF+BOM topic file still cues — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_cr
+PASS  C5j-gate-v1: unquoted inline-list triggers also fire — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/refere
+PASS  C5k-gate-v1: cue fires recorded in .vibeweaver/cue-stats.json — {"reference_scalar.md":1,"reference_zeroindent.md":1,"reference_comment.md":1,"r
+PASS  C6-gate-v1: stall warning fires ONCE across 5 same-file edits (latch, no flood) — fires=1
+PASS  C6b-gate-v1: a new PASS re-arms the stall observer — ok
+[GATE-WARNING (vibeweaver-stall)] STALL observed (machine
+PASS  D0-gate-v2: setup(ctx) registers execute.after hook — after=1
+PASS  D0b-gate-v2: setup returns a cleanup function — function
+PASS  D1-gate-v2: RED project completed write is GATE-BLOCKED (throws) — threw
+PASS  D2-gate-v2: GREEN project passes + stall note appended to result — ok
+[GATE-WARNING (vibeweaver-stall)] STALL observed (machine
+PASS  D2b-gate-v2: cue note delivered through the v2 result channel — ok
+[GATE-WARNING (vibeweaver-cue)] memory cue: memory/fix_v2
+PASS  D2c-gate-v2: fully-frozen event/result/metadata — hook never throws — no throw
+PASS  D3-gate-v2: error-status executions are not gated (v1 parity: after fires only on success) — clean
+PASS  D4-gate-v2: VIBEWEAVER_GATE=off disables the gate — clean
+PASS  E1-audit-v1: RED latch blocks the latching session's non-test write — threw
+PASS  E2-audit-v1: test-dir write stays writable under RED latch — clean
+PASS  E3-audit-v1: D3 — a foreign write releases nothing and is blocked (subagent bypass closed) — blocked (D3)
+PASS  E3b-audit-v1: the latch survives the foreign write (no release recorded) — latched=s-other
+PASS  F0-audit-v2: setup(ctx) registers execute.before hook + cleanup — before=1 cleanup=function
+PASS  F1-audit-v2: RED latch blocks the latching session's non-test write — threw
+PASS  F2-audit-v2: test-dir write stays writable under RED latch — clean
+[vibeweaver-audit] warn: Audit RED (BAD=11 UNCERTAIN=14)
+PASS  F3-audit-v2: v2 events feed observation; idle runs audit and writes tests/gate_audit.md — report=5141B
+PASS  F4-audit-v2: RED final audit latches the project (session-scoped) — latched
+[vibeweaver-audit] warn: Audit RED (BAD=11 UNCERTAIN=14)
+PASS  F4b-audit-v2: subscription survives a malformed event; later idle still audits — audit ran
+PASS  F5-audit-v2: VIBEWEAVER_AUDIT=off disables the latch block — clean
+PASS  G1-loopguard-v1: integer echo 1..16 triggers abort + corrective prompt — abort=1 prompt=1
+PASS  G2-loopguard-v1: letter echo a..n triggers interrupt — abort=1
+PASS  G3-loopguard-v1: 4x repeated code block triggers interrupt — abort=1
+PASS  G3b-loopguard-v1: 3x repeated 5-line stanza triggers interrupt (any period) — abort=1
+PASS  G4b-loopguard-v1: separator x3 + code line x3 clean; code line x4 triggers — sep=0 x3=0 x4=1
+PASS  G4-loopguard-v1: numbered list with content does not interrupt — abort=0
+PASS  G5-loopguard-v1: block repeated only 2x does not interrupt — abort=0
+PASS  G6-loopguard-v1: budget caps interventions at 2 (3rd is log-only) — abort=2 prompt=2
+PASS  G7-loopguard-v1: VIBEWEAVER_LOOPGUARD=off disables the loop-guard — abort=0
+[vibeweaver-loopguard] warn: degenerate generation detected (sequence: 1…12) — interrupting and posting a corrective prompt (1/2/text)
+PASS  G8-loopguard-v2: integer echo via text.delta triggers interrupt(continue:false) + corrective prompt — interrupt=1 prompt=1
+PASS  G9-loopguard-v1: no-newline x3 clean, x4 fires, short-token super-period fires, JSX x3 + punctuation clean — x3=0 x4=1 very=1 div=0 punct=0
+PASS  G10-loopguard-v1: 300-line block x3 triggers interrupt — abort=1
+PASS  G10b-loopguard-v1: 640-line block x3 triggers interrupt — abort=1
+PASS  D1-gate-v1: compacting pushes working-note bundle into output.context — n=1
+PASS  D2-gate-v1: missing note delivers create-instruction bundle — VIBEWEAVER COMPACT-RESUME (machine-delivered by vibeweaver-g
+PASS  D3a-gate-v1: system transform before compacted event injects nothing — n=1
+PASS  D3b-gate-v1: different session does not consume the pending resume — n=1
+PASS  D3c-gate-v1: compacted session's next system transform gets the resume bundle — n=2
+PASS  D3d-gate-v1: second call does not re-inject (fire ledger consumed after delivery) — n=1
+PASS  D3e-gate-v1: v1 `properties` envelope arms the resume — n=2
+PASS  D4a-gate-v1: first write carries one-line resume cue — (§3.3 re-entry); the gate re-delivers it at every compaction boundary.
+PASS  D4b-gate-v1: same-session second write has no cue (one-shot) — write ok
+PASS  D4c-gate-v1: a new session gets its own cue —  gate re-delivers it at every compaction boundary.
+PASS  D5-gate-v1: inactive project delivers nothing — n=0
+PASS  D6-gate-v1: memoryDeliveries telemetry recorded — {"compactContext":1,"compactResume":2,"sessionCue":2}
+PASS  D8-gate-v1: delivery survives source deletion via harness snapshot — VIBEWEAVER WORKING-STATE (harness snapshot — the source tests/working_note.md is
+PASS  D9-gate-v1: host args.path shape — tests/ write is never gated — clean
+PASS  D9b-gate-v1: host args.path shape — src write on a RED project still BLOCKS — blocked
+PASS  D9c-gate-v2: host args.path shape — tests/ writable, src still BLOCKS — tests=clean src=blocked
+PASS  D10-gate-v1: no-seal root → `evidence seal: none yet` surfaced, NOT GATE-BLOCKED — assert.ok=true note=true
+PASS  D10b-gate-v1: seal present + code changed after seal → GATE-BLOCKED with STALE — blocked (STALE)
+PASS  D11-gate-v1: doc↔impl agree that tests/ writes are never gated (gate + audit plugins) — doc=true gate=true audit=true
+PASS  D10c-gate-v1: bootstrap window (stale seal, no green PASS) → advisory STALE note, NOT GATE-BLOCKED — ok
+[GATE-WARNING (vibeweaver)] non-blocking: sealed evidence is STALE (C3 freshness) - wav
+PASS  D12-audit-v1: host args.path shape — tests/ write stays writable under the RED latch — clean
+PASS  D12b-audit-v1: host args.path shape — the latching session's src write still BLOCKS — blocked
+PASS  D12c-audit-v2: args.path shape — tests/ writable, src still BLOCKS — tests=clean src=blocked
+
+=== COMPAT HARNESS: 82/82 passed, 0 failed ===
+PASS  S1 clean fixture exit 0 (groups 1-13 regression) — assert_artifacts.py: all 24 checks pass (exit 0)
+PASS  S2 secret on added line → exit 1 + 'secret scan' — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S2b secret in untracked file → exit 1 — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S3 placeholder-marked secret → exit 0 — assert_artifacts.py: all 24 checks pass (exit 0)
+PASS  S4 assertion removal → exit 1; justified → exit 0 — blocked=True after-justification-rc=0
+PASS  S5 risk-tier auth path → exit 1; review_package.md → exit 0 — blocked=True after-package-rc=0
+PASS  S5b risk-tier untracked path → exit 1 — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S6 secret in .md → exit 0 + WARN printed — rc=0 warn=True
+PASS  S7 deleted test+auth files → exit 1 both guards; justified+packaged → exit 0 — blocked=True after-rc=0
+PASS  S8 reference values (env/config/self) → exit 0 — assert_artifacts.py: all 24 checks pass (exit 0)
+PASS  S9 JSON-form + sk-proj/sk-ant/github_pat → exit 1 — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S10 library profile → group 5 skipped, others enforced — profiled-rc=0 weakened-rc=1
+PASS  S10b no profile + missing scripts → still exit 1 (strict default) — class: CONFIG — derived from wave diff: 4 file(s) kinds .sh
+PASS  S11 vw-approved w/o path-scoped pairing → exit 1; with pairing → exit 0; prose mention = no-op — blocked=True after-pairing-rc=0
+PASS  S11b path-scoped pairing (a/c unapproved; b properly approved) → exit 1 — class: CODE — derived from wave diff: 3 file(s) kinds .py
+PASS  S12 profile hardening: non-bool/non-dict named-fail; unknown name warns+strict — bool=True dict=True unknown=True
+PASS  S13 COV-9 tracked-only backup: untracked .env never enters a commit (W3 PoC) — tracked='' env_in_history=False anchor='backup: before changes'
+PASS  S14 COV-9 per-block: old-block never licenses; CODE-unlabeled skip fails (C1-derived); DOC skip passes — old-block=True doc-unlabeled=True code-unlabeled=True doc=True red-baseline=True red-no-disposition=True
+PASS  S15 group-14 detail is redacted (no secret material in output) — redacted
+PASS  S16 C1 derived-class cross-check: a+b→a-b under class:DOC FAILS; honest class:CODE passes — mislabeled=True honest=True
+PASS  S17 C2 media magic: 1-byte fake PNG FAILS; magic-clean PNG passes — fake=True real=True
+PASS  S18 C2 script syntax: 0-byte FAILS; broken shell FAILS; CRLF shell FAILS (SC1017) — empty=True broken=True crlf=True
+PASS  S19 C3 manifest: seal passes; tampered sealed evidence FAILS — sealed=True tamper=True
+PASS  S20 C3 freshness: code change after seal FAILS (先造证据后改代码) — stale
+PASS  S21 C3b: skip marker without reason FAILS; reasoned + re-sealed passes — blocked=True after-rc=0
+PASS  S22 C3b/BL-13: first seal + baseline deletion cannot silently re-baseline — first-refused=True del-refused=True licensed-seal=True
+PASS  S23 repo-hygiene: tracked node_modules FAILS — class: CODE — derived from wave diff: 1 file(s) kinds .js
+PASS  S24 repo-hygiene: missing .gitignore FAILS — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S25 repo-hygiene: >2,000 untracked files FAILS fast (no full scan) — elapsed=0.4s rc=1
+PASS  S26 repo-hygiene: global excludesFile does not satisfy committed .gitignore — class: CONFIG — derived from wave diff: 1 file(s) kinds .json
+PASS  S27 repo-hygiene: nested tracked frontend/.gitignore covers its manifest — assert_artifacts.py: all 25 checks pass (exit 0)
+PASS  S28 repo-hygiene: untracked .gitignore FAILS (must be committed) — class: CONFIG — derived from wave diff: 1 file(s) kinds .json
+PASS  S29 repo-hygiene: --final rejects a 41 MiB tracked blob — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S30 group 14 scans an ignored .env (not just untracked files) — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S31 group 14 generic rule catches prefixed credential names — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S32 group 14 named-rule parity (Google key + JWT) — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S33 repo-hygiene: staged-only .gitignore FAILS (HEAD must carry it) — class: CONFIG — derived from wave diff: 1 file(s) kinds .json
+PASS  S34 path-level `- secret-approved: .env` licenses an ignored secret file — assert_artifacts.py: all 12 checks pass (exit 0)
+PASS  S35 non-git group 14 fallback catches a source credential — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S36 repo-hygiene: uncommitted .gitignore pattern FAILS — class: CONFIG — derived from wave diff: 1 file(s) kinds .json
+PASS  S37 group 14: PWD path / ALPHABET / safe refs / approval metadata pass — assert_artifacts.py: all 24 checks pass (exit 0)
+PASS  S38 group 14: quoted real-looking password literal fails — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S39 group 14: dotted prefixed key (SG.…) still fails — WARN evidence seal: none yet — run scripts/evidence_seal.py after the first green test run
+PASS  S40 group 14: db_pwd still detected — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S41 group 14: named secret on approval line still fails — class: DOC — derived from wave diff: 1 file(s) kinds .txt; group 4 N/A (no lesson / docs-only wave); group 5 N/A (no ser
+PASS  S42 group 14: api_key path-like value still fails — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S43 group 14: non-numeric len + dotted literal fail — class: CODE — derived from wave diff: 1 file(s) kinds .py
+PASS  S44 group 14: path-typed key (/run/secrets) passes — assert_artifacts.py: all 24 checks pass (exit 0)
+PASS  S45 G1 no-seal root → WARN `evidence seal: none yet`, exit 0 — rc=0 warn=True
+PASS  S46 G1 bootstrap (no green PASS yet): stale seal is WARN, not FAIL — rc=0 fail=False warn=True
+PASS  S47 G1 seal-live stale seal → FAIL, message contains STALE — rc=1 msg=True
+PASS  S48 G1 no-seal + cited media at --final → FAIL (media rule keeps teeth) — rc=1 msg=True
+PASS  S49 G1 partial seal (baseline survives, manifest deleted) → FAIL (C3) — rc=1 msg=True
+PASS  S50 G1 bootstrap + media at --final → still FAIL (completion always enforces) — rc=1 failline=True
+PASS  S51 G1 bootstrap + stale seal at --final → FAIL STALE (completion always enforces) — rc=1 failline=True
+PASS  S52 G1 colon-less `- iter 1 PASS` still arms the seal obligation — rc=1 failline=True
+PASS  S53 G3 unrecorded 41 MiB blob at --final → FAIL naming --record-debt — rc=1 hint=True
+PASS  S54 G3 --record-debt → WARN `held at baseline`, exit 0 — rec_rc=0 rc=0 held=True fails=[]
+PASS  S55 G3 growth beyond recorded debt → FAIL (shrink-only ratchet) — rc=1 grew=True
+PASS  S56 G4 `- iter 4 PARTIAL: verified …` (progress state) not flagged — rc=1 flagged=False
+PASS  S57 G4 `- iter 1 PASS: verified …` without coverage → flagged — rc=1 flagged=True
+PASS  S58 G4 `- claim-ack:` with reason suppresses; bare ack does not — reasoned=True bare=True
+PASS  S59 G4 historical block's bare claim is out of scope (current block only) — rc=0 flagged=False
+PASS  S60 G6 `- wave-base:` task anchor → doc wave derives DOC (no C1 false positive) — rc=0 c1=False
+PASS  S60b G6 without `- wave-base:` the C1 failure names the escape hatch — rc=1 hint=True
+PASS  S61 R3 pure-deletion wave never trips wave-too-large — rc=0 too_large=False
+PASS  S62 T2 _ignored failure carries the `git add -f` hint — rc=1 hint=True
+PASS  S63 G5 63-hex hand-typed sha WARNs; 64-hex is clean — short63=True ok64=True
+PASS  S64 G5 cli/library seal binds tests/*.log; tamper fails --check — bound=True clean_check=True tamper=True
+PASS  S65 G5 record_evidence.sh captures machine sha (64 hex, lint-clean) — rec_rc=0 line=True lint_clean=True
+PASS  S66 G3 hand-raised debt baseline → FAIL (committed anchor is the truth) — rc=1 raised=True
+PASS  S67 G3 committed raise of `recorded` → FAIL (ratchet spans git history) — rc=1 caught=True
+PASS  S68 G4 drifted claim-ack suppresses nothing + flags stale (content binding) — rc=1 claim_flagged=True stale=True
+
+=== 73/73 pass ===

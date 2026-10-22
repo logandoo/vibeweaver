@@ -15,7 +15,7 @@
 // Exit 0 only when every check passes.
 
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import { pathToFileURL } from "node:url"
 import path from "node:path"
@@ -598,7 +598,24 @@ async function newAuditV1(root) {
   } catch (e) {
     blockedOther = e
   }
-  rec("E3-audit-v1: stale (other-session) latch auto-releases on write", !blockedOther, blockedOther ? "blocked" : "clean")
+  // W18 D-W18-2 re-spec — spec-test-conflict flag (VERIFICATION_UPGRADES §V2
+  // rule 2/3, ADR D-W18-3): this case asserted the PRE-D3 behavior ("a
+  // foreign session's write auto-releases the stale latch"). D3 (2026-10-15
+  // adversarial-review PoC: one subagent/task-tool write bypassed the whole
+  // gate) and ADR D-p0-1 deliberately REMOVED that release path; the spec
+  // (releaseStale's rule list + the foreign-block message) is the source of
+  // truth for code behavior, so the assertion is TIGHTENED to it: a foreign
+  // write releases nothing and is itself blocked. Reverting the assertion to
+  // the old expectation would re-open the documented bypass.
+  rec("E3-audit-v1: D3 — a foreign write releases nothing and is blocked (subagent bypass closed)", !!blockedOther && /still pending/.test(String(blockedOther && blockedOther.message)), blockedOther ? "blocked (D3)" : "UNEXPECTEDLY clean — foreign write released the latch")
+  let latchAfter = null
+  try {
+    const st3 = JSON.parse(readFileSync(path.join(root2, ".vibeweaver", "audit-state.json"), "utf8"))
+    latchAfter = (st3.roots && st3.roots[root2] && st3.roots[root2].red) || null
+  } catch {
+    latchAfter = null
+  }
+  rec("E3b-audit-v1: the latch survives the foreign write (no release recorded)", !!latchAfter && latchAfter.sessionID === "s-other", latchAfter ? `latched=${latchAfter.sessionID}` : "latch gone")
 }
 
 if (auditV2def) {
@@ -986,8 +1003,219 @@ const BLOCK = "function foo() {\n  return computeValue(x)\n}\n"
   )
 }
 
+// ---------- W18 batch1: G1 three-state seal + G2 write-path shape ----------
+const REPO_ROOT = path.resolve(import.meta.dirname, "..")
+// Dual-layout payload resolution (W18 release-hygiene fix, 2026-10-22): the
+// dev tree keeps the payload at the root, the published repo tree nests it
+// under vibeweaver/ — same fallback contract as the plugin loaders.
+const payloadFile = (rel) => {
+  const local = path.join(REPO_ROOT, rel)
+  return existsSync(local) ? local : path.join(REPO_ROOT, "vibeweaver", rel)
+}
+const payloadScript = (name) => payloadFile(path.join("scripts", name))
+
+// A project scaffold whose assert_artifacts.py run is GREEN and which has NO
+// evidence seal (tests/evidence_manifest.json / tests/test_baseline.json) —
+// the W12 "first write of a wave" state. Self-checked below (fixture-drift
+// guard: a scaffold that stopped passing must fail loudly, not silently).
+function assertGreenProject(name) {
+  const root = path.join(TMP, name)
+  rmrf(root)
+  for (const d of ["tests", "memory", "script/linux"]) mkdirSync(path.join(root, d), { recursive: true })
+  writeFileSync(path.join(root, ".gitignore"), ".DS_Store\n__pycache__/\n.venv/\nnode_modules/\n.pnpm-store/\n.env\n")
+  writeFileSync(path.join(root, "tests", "acceptance.md"), "> cap=5  stall=3×\n\n# Acceptance\n1. ok\n")
+  writeFileSync(
+    path.join(root, "tests", "verification_log.md"),
+    "## Task: fixture | 2026-10-21\n- Baseline verified GREEN\n- iter 1 PASS: all criteria (evidence: scaffold, 1/1)\n- working-note: created → distilled → deleted\n"
+  )
+  writeFileSync(path.join(root, "memory", "MEMORY.md"), "# Project Memory Index\n- [T](topic.md)\n")
+  writeFileSync(path.join(root, "memory", "topic.md"), "# t\n")
+  for (const s of ["start.sh", "stop.sh", "restart.sh", "project_build.sh"]) {
+    const p = path.join(root, "script", "linux", s)
+    writeFileSync(p, "#!/bin/sh\nexit 0\n")
+    chmodSync(p, 0o755)
+  }
+  writeFileSync(path.join(root, "tests", "assert_artifacts.py"), readFileSync(payloadScript("assert_artifacts.py"), "utf8"))
+  execFileSync("git", ["init", "-q"], { cwd: root })
+  execFileSync("git", ["config", "user.email", "compat@test"], { cwd: root })
+  execFileSync("git", ["config", "user.name", "compat"], { cwd: root })
+  execFileSync("git", ["add", "-A"], { cwd: root })
+  execFileSync("git", ["commit", "-qm", "baseline"], { cwd: root })
+  execFileSync("git", ["commit", "-qm", "backup: before changes", "--allow-empty"], { cwd: root })
+  return root
+}
+
+function runAssertJson(root) {
+  const out = execFileSync("python3", ["tests/assert_artifacts.py", "--existing", "--json"], { cwd: root, encoding: "utf8" })
+  return JSON.parse(out.slice(out.indexOf("{")))
+}
+
+{
+  // G2 — the REAL host write/edit tools carry the target as `args.path`
+  // (opencode write {path, content} / edit {path, oldString, newString}); the
+  // gate read only `args.filePath`, so its tests/-evidence exemption
+  // (COMPLETION_GATE §A4.4.2 "tests/ writes are never gated") never engaged
+  // and every evidence write was GATE-BLOCKED (W12: 30+ false blocks; W18
+  // reproduced live on this repo's first write of the wave). Args-shape parity.
+  const root = redProject("gate-argspath-red")
+  const loaded = await loadAsV1(gateMod, { client: { app: { log: async () => {} } }, directory: root }, "vibeweaver-gate")
+  const h = loaded.hooks[0]
+  let blockedTests = null
+  try {
+    await h["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "ap1", args: { path: path.join(root, "tests", "acceptance.md"), content: "x" } }, { output: "ok" })
+  } catch (e) {
+    blockedTests = e
+  }
+  rec("D9-gate-v1: host args.path shape — tests/ write is never gated", !blockedTests, blockedTests ? "BLOCKED (args.path unseen)" : "clean")
+  let blockedSrc = null
+  try {
+    await h["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "ap2", args: { path: path.join(root, "src", "x.js"), content: "x" } }, { output: "ok" })
+  } catch (e) {
+    blockedSrc = e
+  }
+  rec("D9b-gate-v1: host args.path shape — src write on a RED project still BLOCKS", !!blockedSrc && /GATE-BLOCKED/.test(String((blockedSrc && blockedSrc.message) || "")), blockedSrc ? "blocked" : "UNEXPECTEDLY clean")
+  if (gateV2def) {
+    const root2 = redProject("gate-argspath-red-v2")
+    const { ctx, toolHooks } = makeV2Ctx(root2)
+    await gateV2def.value.setup(ctx)
+    let b1 = null
+    try {
+      await toolHooks.after[0]({ tool: "write", sessionID: "s1", agent: "a", messageID: "m1", id: "ap3", input: { path: path.join(root2, "tests", "verification_log.md"), content: "x" }, status: "completed", result: { content: "ok" } })
+    } catch (e) {
+      b1 = e
+    }
+    let b2 = null
+    try {
+      await toolHooks.after[0]({ tool: "write", sessionID: "s1", agent: "a", messageID: "m1", id: "ap4", input: { path: path.join(root2, "src", "y.js"), content: "x" }, status: "completed", result: { content: "ok" } })
+    } catch (e) {
+      b2 = e
+    }
+    rec("D9c-gate-v2: host args.path shape — tests/ writable, src still BLOCKS", !b1 && !!b2, `tests=${b1 ? "blocked" : "clean"} src=${b2 ? "blocked" : "clean"}`)
+  }
+}
+
+{
+  // G1 three-state (gate side): NO seal at all is a bootstrap state — the
+  // gate surfaces `evidence seal: none yet` as a non-blocking note and does
+  // NOT GATE-BLOCKED (missing != violation; OWASP first-run-baseline).
+  const root = assertGreenProject("gate-noseal-v1")
+  let j = null
+  try {
+    j = runAssertJson(root)
+  } catch (e) {
+    j = { ok: false, fails: [{ detail: "assert run crashed: " + String(e).slice(0, 160) }] }
+  }
+  const loaded = await loadAsV1(gateMod, { client: { app: { log: async () => {} } }, directory: root }, "vibeweaver-gate")
+  let blocked = null
+  let out = ""
+  try {
+    const o = { output: "ok" }
+    await loaded.hooks[0]["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "ns1", args: { path: path.join(root, "src", "a.js") } }, o)
+    out = String(o.output)
+  } catch (e) {
+    blocked = e
+    out = String((e && e.message) || "")
+  }
+  const noSealNote = /evidence seal: none yet/.test(out)
+  const assertDetail = j && !j.ok ? JSON.stringify(j.fails).slice(0, 160) : ""
+  rec("D10-gate-v1: no-seal root → `evidence seal: none yet` surfaced, NOT GATE-BLOCKED", !!(j && j.ok) && !blocked && noSealNote, blocked ? "BLOCKED: " + out.slice(0, 90) : `assert.ok=${!!(j && j.ok)} note=${noSealNote}${assertDetail ? " fails=" + assertDetail : ""}`)
+}
+
+{
+  // G1 three-state (gate side): seal exists + wave code changed after the
+  // seal → the stale state BLOCKS and the message keeps its STALE wording.
+  const root = assertGreenProject("gate-stale-v1")
+  execFileSync("python3", [payloadScript("evidence_seal.py")], { cwd: root, encoding: "utf8" })
+  mkdirSync(path.join(root, "src"), { recursive: true })
+  writeFileSync(path.join(root, "src", "late.js"), "export const x = 1\n")
+  const loaded = await loadAsV1(gateMod, { client: { app: { log: async () => {} } }, directory: root }, "vibeweaver-gate")
+  let blocked = null
+  try {
+    await loaded.hooks[0]["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "st1", args: { path: path.join(root, "src", "a.js") } }, { output: "ok" })
+  } catch (e) {
+    blocked = e
+  }
+  rec("D10b-gate-v1: seal present + code changed after seal → GATE-BLOCKED with STALE", !!blocked && /STALE/.test(String((blocked && blocked.message) || "")), blocked ? "blocked (STALE)" : "UNEXPECTEDLY clean")
+}
+
+{
+  // G2 doc↔impl consistency: the trust-model sentence and the implementation
+  // must agree — either both exempt tests/ writes or neither does (no gray
+  // zone; the W12 drift was exactly this gray zone).
+  const gateSrc = readFileSync(GATE_MODULE, "utf8")
+  const auditSrc = readFileSync(AUDIT_MODULE, "utf8")
+  const cgSrc = readFileSync(payloadFile("COMPLETION_GATE.md"), "utf8")
+  const docSaysNeverGated = /tests\/`? writes are never gated/.test(cgSrc)
+  const implExemptsTests = /isEvidencePath/.test(gateSrc) && /seg === "tests"/.test(gateSrc)
+  const auditExemptsTests = /writePathFromArgs/.test(auditSrc) && /isTestDirPath/.test(auditSrc)
+  rec("D11-gate-v1: doc↔impl agree that tests/ writes are never gated (gate + audit plugins)", docSaysNeverGated && implExemptsTests && auditExemptsTests, `doc=${docSaysNeverGated} gate=${implExemptsTests} audit=${auditExemptsTests}`)
+}
+
+{
+  // G1 three-state (gate side): bootstrap window — a stale seal BEFORE any
+  // green `- iter N PASS` in the task block is advisory (note), not a block.
+  const root = assertGreenProject("gate-stale-bootstrap-v1")
+  writeFileSync(path.join(root, "tests", "verification_log.md"), "## Task: w18-bootstrap\n- Baseline verified GREEN\n- iter 1 FAIL: criterion #1 | diagnosis: the validator ran before state hydration | changed: app/a.py\n- working-note: created (fixture)\n")
+  execFileSync("python3", [payloadScript("evidence_seal.py")], { cwd: root, encoding: "utf8" })
+  mkdirSync(path.join(root, "src"), { recursive: true })
+  writeFileSync(path.join(root, "src", "late.js"), "export const x = 1\n")
+  const loaded = await loadAsV1(gateMod, { client: { app: { log: async () => {} } }, directory: root }, "vibeweaver-gate")
+  let blocked = null
+  let out = ""
+  try {
+    const o = { output: "ok" }
+    await loaded.hooks[0]["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "sb1", args: { path: path.join(root, "src", "a.js") } }, o)
+    out = String(o.output)
+  } catch (e) {
+    blocked = e
+    out = String((e && e.message) || "")
+  }
+  rec("D10c-gate-v1: bootstrap window (stale seal, no green PASS) → advisory STALE note, NOT GATE-BLOCKED", !blocked && /STALE/.test(out) && /advisory/.test(out), blocked ? "BLOCKED: " + out.slice(0, 90) : out.slice(0, 90))
+}
+
+{
+  // G2 parity — the SECOND write-gating plugin (review A Critical #2): the
+  // audit plugin's RED-latch evidence-fix exemption must also honor the real
+  // host arg shape, or a latched session cannot write tests/acceptance.md
+  // despite the block message promising exactly that.
+  const root = auditLatchedProject("audit-argspath", "s-red")
+  const hooks = await newAuditV1(root)
+  let blockedTests = null
+  try {
+    await hooks["tool.execute.before"]({ tool: "write", sessionID: "s-red", callID: "at1" }, { args: { path: path.join(root, "tests", "acceptance.md"), content: "x" } })
+  } catch (e) {
+    blockedTests = e
+  }
+  rec("D12-audit-v1: host args.path shape — tests/ write stays writable under the RED latch", !blockedTests, blockedTests ? "BLOCKED (args.path unseen)" : "clean")
+  let blockedSrc = null
+  try {
+    await hooks["tool.execute.before"]({ tool: "write", sessionID: "s-red", callID: "at2" }, { args: { path: path.join(root, "src", "x.js"), content: "x" } })
+  } catch (e) {
+    blockedSrc = e
+  }
+  rec("D12b-audit-v1: host args.path shape — the latching session's src write still BLOCKS", !!blockedSrc && /GATE-BLOCKED \(vibeweaver-audit\)/.test(String((blockedSrc && blockedSrc.message) || "")), blockedSrc ? "blocked" : "UNEXPECTEDLY clean")
+  if (auditV2def) {
+    const root2 = auditLatchedProject("audit-argspath-v2", "s-red")
+    const { ctx, toolHooks } = makeV2Ctx(root2)
+    await auditV2def.value.setup(ctx)
+    let b1 = null
+    try {
+      await toolHooks.before[0]({ tool: "write", sessionID: "s-red", agent: "a", messageID: "m1", id: "at3", input: { path: path.join(root2, "tests", "verification_log.md"), content: "x" } })
+    } catch (e) {
+      b1 = e
+    }
+    let b2 = null
+    try {
+      await toolHooks.before[0]({ tool: "write", sessionID: "s-red", agent: "a", messageID: "m1", id: "at4", input: { path: path.join(root2, "src", "y.js"), content: "x" } })
+    } catch (e) {
+      b2 = e
+    }
+    rec("D12c-audit-v2: args.path shape — tests/ writable, src still BLOCKS", !b1 && !!b2, `tests=${b1 ? "blocked" : "clean"} src=${b2 ? "blocked" : "clean"}`)
+  }
+}
+
 console.log(`\n=== COMPAT HARNESS: ${count - failures}/${count} passed, ${failures} failed ===`)
-const allowKnown = process.argv.includes("--allow-known")
-const known = ["E3-audit-v1:", "G9-loopguard-v1:"]
-const onlyKnown = failedNames.every((n) => known.some((k) => n.startsWith(k)))
-process.exit(failures ? (allowKnown && onlyKnown ? 0 : 1) : 0)
+// W18 D-W18-2: the known-failure quarantine (--allow-known / E3/G9) is
+// REMOVED — both regressions are fixed in this wave, and a permanently
+// quarantined failure is exactly the blind spot the quarantine created.
+process.exit(failures ? 1 : 0)

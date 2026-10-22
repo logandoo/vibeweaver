@@ -1,0 +1,5 @@
+FAIL  S49 G1 partial seal (baseline survives, manifest deleted) → FAIL (C3) — rc=0 msg=False
+FAIL  S50 G1 bootstrap + media at --final → still FAIL (completion always enforces) — rc=0 failline=False
+FAIL  S51 G1 bootstrap + stale seal at --final → FAIL STALE (completion always enforces) — rc=0 failline=False
+FAIL  S52 G1 colon-less `- iter 1 PASS` still arms the seal obligation — rc=0 failline=False
+=== 52/56 pass — FAILED: S49 G1 partial seal (baseline survives, manifest deleted) → FAIL (C3), S50 G1 bootstrap + media at --final → still FAIL (completion always enforces), S51 G1 bootstrap + stale seal at --final → FAIL STALE (completion always enforces), S52 G1 colon-less `- iter 1 PASS` still arms the seal obligation

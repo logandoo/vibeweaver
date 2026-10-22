@@ -1,0 +1,11 @@
+PASS  CDC1 EN claim shapes extracted — {'selftest': [571], 'mutation': [44], 'compat': [(82, 82)], 'mini': [(62, 62)]}
+PASS  CDC2 ZH claim shapes extracted (same values) — {'selftest': [571], 'mutation': [44], 'compat': [(82, 82)], 'mini': [(62, 62)]}
+PASS  CDC3 historical prose counts are not claims (no command anchor) — {}
+PASS  CDC4 run parsers read SUMMARY lines — {'selftest': (571, 0), 'mutation': (44, 0), 'compat': (82, 82, 0), 'mini': (62, 62, 0)}
+PASS  CDC5 matching claims pass silently — []
+PASS  CDC6 mismatched claim FAILS (falsifiable anchor: 70/71 vs 82/82) — ['compat: claim 70/71 != run 82/82']
+PASS  CDC7 suite with no claim is a named error — ['mini: no count claim found in the docs (state 62/62 next to the command)']
+PASS  CDC8 a red suite cannot bind claims (failures must be 0) — ['compat: suite red (1 failed) — claims cannot bind a red run']
+PASS  CDC9 quarantine ban flags --allow-known in CI/harness
+
+=== 9/9 pass ===
