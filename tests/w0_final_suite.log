@@ -1,0 +1,76 @@
+== verify_skill
+verify_skill.py: package coherent (763 lines in SKILL.md, 10 checks OK)
+RC=0
+== unittest
+...................................................................................
+----------------------------------------------------------------------
+Ran 83 tests in 10.065s
+
+OK
+RC=0
+== selftest
+[vibeweaver-loopguard] warn: degenerate generation detected (repeat: Stop it. Stop it. Stop it. Stop it.) — interrupting and posting a corrective prompt (1/2/reasoning)
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+[vibeweaver-audit] warn: Audit RED (BAD=10 UNCERTAIN=14)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+[vibeweaver-audit] warn: Audit RED (BAD=1 UNCERTAIN=0)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+[vibeweaver-audit] warn: Audit RED (BAD=9 UNCERTAIN=16)
+[vibeweaver-audit] warn: Audit RED (BAD=9 UNCERTAIN=16)
+[vibeweaver-stopguard] warn: false-stop detected (euphemism: 上下文快耗尽) — posting corrective prompt (1/2/stop)
+[vibeweaver-audit] warn: Audit RED (BAD=10 UNCERTAIN=14)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+[vibeweaver-stopguard] info: false-stop episode (incomplete: no-final-run) — intervention budget exhausted (2/session/stop) or no prompt channel — journaled as stop-debt (v2-positive-unverified)
+[vibeweaver-audit] warn: Audit RED (BAD=10 UNCERTAIN=14)
+[vibeweaver-stopguard] warn: false-stop detected (euphemism: 上下文快耗尽) — posting corrective prompt (1/2/stop)
+[vibeweaver-audit] debug: Audit GREEN (BAD=0 UNCERTAIN=0)
+[vibeweaver-stopguard] warn: false-stop detected (euphemism: 上下文快耗尽) — posting corrective prompt (1/2/stop)
+[vibeweaver-stopguard] warn: stop-guard prompt failed — intervention not counted, debt journaled
+[vibeweaver-loopguard] warn: degenerate generation detected (identical-tool-run: 4 consecutive identical tool calls (e.g. weave-connector_ssh_shell_open keys=3 argsLen=48)) — interrupting and posting a corrective prompt (1/2/tool)
+[vibeweaver-loopguard] warn: degenerate generation detected (identical-tool-run: 4 consecutive identical tool calls (e.g. weave-connector_ssh_shell_open keys=0 argsLen=2)) — interrupting and posting a corrective prompt (1/2/tool)
+
+=== SUMMARY ===
+fixture checks: 571, failures: 0, skipped: 1
+RC=
+== mutation
+
+=== MUTATION SWEEP: 44 passed, 0 failed ===
+RC=
+== compat
+[vibeweaver-audit] warn: Audit RED (BAD=11 UNCERTAIN=14)
+[vibeweaver-audit] warn: Audit RED (BAD=11 UNCERTAIN=14)
+[vibeweaver-loopguard] warn: degenerate generation detected (sequence: 1…12) — interrupting and posting a corrective prompt (1/2/text)
+
+=== COMPAT HARNESS: 82/82 passed, 0 failed ===
+RC=
+== doc counts
+check_doc_counts.py: every stated count equals this tree's runs (exit 0)
+RC=
+== self-check
+0 conflicts
+SELF-CHECK OK
+RC=
+== gate trust
+CHECKER-PIN OK 5/5
+RC=
+== cache
+CACHE-INVALIDATION OK 4/4
+RC=
+== evidence
+EVIDENCE-INTEGRITY OK 6/6
+RC=
+== bootstrap
+[vibeweaver-gate] v2 setup: ctx.tool.hook/ctx.event.subscribe unavailable in this host — v2 adapter inactive for this instance
+BOOTSTRAP 7/7 passed
+RC=
+== state
+STATE-BOUNDS 4/4 passed
+RC=
+== manifest
+MANIFEST OK 34/34
+RC=0
