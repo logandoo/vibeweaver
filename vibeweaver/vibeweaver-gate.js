@@ -1393,7 +1393,7 @@ function riskCommandBlock(root, command) {
   return null
 }
 
-const DESTRUCTIVE_ALLOW = /(^|\/)(node_modules|\.venv|venv|dist|build|target|coverage|\.next|\.pytest_cache|__pycache__)(\/|$)|^(\$TMPDIR|\/tmp)(\/|$)/
+const DESTRUCTIVE_ALLOW = /(^|\/)(node_modules|\.venv|venv|dist|build|target|coverage|\.next|\.pytest_cache|__pycache__)(\/|$)|^(\$[A-Za-z0-9_]*(\/|$)|\/tmp(\/|$))/
 
 function destructiveApproved(root, command) {
   const text = approvalsText(root)
@@ -1415,7 +1415,7 @@ function destructiveBlock(root, command) {
   if (/git\s+clean\s+-[a-z]*[fd][a-z]*/.test(c)) return "GATE-BLOCKED (destructive guard): `git clean -fdx` deletes untracked files. Add a Class-E decision line first."
   if (/git\s+(?:checkout|restore)\s+--\s+\./.test(c)) return "GATE-BLOCKED (destructive guard): `git checkout/restore -- .` discards the whole worktree. Add a Class-E decision line first."
   if (/\btruncate\s+/.test(c)) return "GATE-BLOCKED (destructive guard): `truncate` destroys file content. Add a Class-E decision line first."
-  const m = c.match(/(?:^|[;&|]\s*)(?:sudo\s+)?rm\s+(?:-[^\s]+\s+)+([^;&|]+)/)
+  const m = c.match(/(?:^|[;&|]\s*)(?:sudo\s+)?rm\s+(?:-[a-zA-Z]*r[a-zA-Z]*\s+)+([^;&|]+)/)
   if (m) {
     const targets = m[1].split(/\s+/).map((x) => x.replace(/^['"]|['"]$/g, "")).filter(Boolean)
     const bad = targets.filter((target) => !DESTRUCTIVE_ALLOW.test(target))

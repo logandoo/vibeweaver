@@ -241,6 +241,15 @@ Agent runs Playwright / automated tests
 
 **≥3 failures on same problem → escalate all failed methods to a ⛔ Forbidden topic file.**
 
+### A7.7.1 Unattended / Headless Degradation (no human to confirm)
+
+In unattended contexts (CI, batch runs, eval harnesses, overnight automation) **never stop work or end the session waiting for confirmation**. The ⏳ → ✅ promotion still happens ONLY on user confirmation (never self-promote), but the wait becomes bookkeeping:
+
+- Record what needs confirming as `- awaiting decision: <what + how to verify>` in the fix entry; keep `status: ⏳`.
+- Continue and complete every remaining piece of work; list the pending items in the final output (they block nothing).
+- The session must NOT end with a question or a conditional offer ("say so and I'll …"). Final output ends with the completion table, not with a request.
+- Interactive sessions are unchanged: asking a clarifying question mid-task is still fine when a human is present.
+
 ---
 
 ## A7.8 Pre-Change Guardrails
