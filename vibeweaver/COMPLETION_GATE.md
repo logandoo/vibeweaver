@@ -653,10 +653,5 @@ Before declaring any task complete, explicitly list and confirm:
       claim carries its §V9 budget basis
 - [ ] (New project only) README.html / dependencies files updated / final git
       commit
-- [ ] ★ **Headless close (A7.7.1)** — when no interactive user is available
-      (CI / batch / eval harness), pending confirmations are logged as
-      `- awaiting decision:` entries (status stays ⏳) and the final output
-      ends with the completion table, never with a question or a conditional
-      offer ("say so and I'll …")
 
 **If any item is unchecked, return to fix it. Do NOT output "done".**
