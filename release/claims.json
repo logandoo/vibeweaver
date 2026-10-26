@@ -715,6 +715,126 @@
       "n": null,
       "seeds": null,
       "ci": null
+    },
+    {
+      "token": "0/9",
+      "claim": "bare arm (no skill, no plugins) pass rate on G3 compliance tasks",
+      "command": "python3 scripts/eval_pilot.py --phase report --label v2fix --out-root tests/eval/g3/v2fix",
+      "expected_regex": "0/9",
+      "platform": "macOS (local runs)",
+      "evidence": "tests/eval/g3/v2fix_summary.json",
+      "generation": "G3 compliance tasks, live model runs (biklimax/qwen3.8_27b)",
+      "n": 9,
+      "seeds": 3,
+      "ci": "Wilson 95% CI [0.00, 0.30]; directional"
+    },
+    {
+      "token": "3/9",
+      "claim": "full_forced arm (text-only, prompt-injected) pass rate on G3 compliance tasks",
+      "command": "python3 scripts/eval_pilot.py --phase report --label v2fix --out-root tests/eval/g3/v2fix",
+      "expected_regex": "3/9",
+      "platform": "macOS (local runs)",
+      "evidence": "tests/eval/g3/v2fix_summary.json",
+      "generation": "G3 compliance tasks, live model runs (biklimax/qwen3.8_27b)",
+      "n": 9,
+      "seeds": 3,
+      "ci": "Wilson 95% CI [0.12, 0.65]; directional"
+    },
+    {
+      "token": "9/9",
+      "claim": "full_deployed arm (text + gate/audit plugins) pass rate on G3 compliance tasks",
+      "command": "python3 scripts/eval_pilot.py --phase report --label v2fix --out-root tests/eval/g3/v2fix",
+      "expected_regex": "9/9",
+      "platform": "macOS (local runs)",
+      "evidence": "tests/eval/g3/v2fix_summary.json",
+      "generation": "G3 compliance tasks, live model runs (biklimax/qwen3.8_27b)",
+      "n": 9,
+      "seeds": 3,
+      "ci": "Wilson 95% CI [0.70, 1.00]; directional"
+    },
+    {
+      "token": "95%",
+      "claim": "full_deployed arm Wilson 95% CI upper bound",
+      "command": "python3 scripts/eval_pilot.py --phase report --label v2fix --out-root tests/eval/g3/v2fix",
+      "expected_regex": "95%",
+      "platform": "macOS (local runs)",
+      "evidence": "tests/eval/g3/v2fix_summary.json",
+      "generation": "G3 compliance tasks, live model runs (biklimax/qwen3.8_27b)",
+      "n": 9,
+      "seeds": 3,
+      "ci": "Wilson 95% CI [0.70, 1.00]; directional"
+    },
+    {
+      "token": "2/9",
+      "claim": "core arm pass rate (text-only, self-triggered) on G3 compliance tasks",
+      "command": "eval_pilot report",
+      "expected_regex": "2/9",
+      "platform": "macOS",
+      "evidence": "docs/EVAL_G3_PILOT_REPORT.md §7",
+      "generation": "G3 compliance, live runs",
+      "n": 9,
+      "seeds": 3,
+      "ci": "directional"
+    },
+    {
+      "token": "36/36",
+      "claim": "assert_artifacts --final checks pass",
+      "command": "python3 tests/assert_artifacts.py --final",
+      "expected_regex": "36/36",
+      "platform": "macOS",
+      "evidence": "tests/assert_artifacts.py output",
+      "generation": "W2 eval wave",
+      "n": 36,
+      "seeds": 1,
+      "ci": "count, not effect"
+    },
+    {
+      "token": "75/75",
+      "claim": "project_build.sh checks pass",
+      "command": "bash script/linux/project_build.sh",
+      "expected_regex": "75/75",
+      "platform": "macOS",
+      "evidence": "tests/v2fix_baseline.log",
+      "generation": "W2 eval wave",
+      "n": 75,
+      "seeds": 1,
+      "ci": "count, not effect"
+    },
+    {
+      "token": "95/95",
+      "claim": "unittest discover checks pass",
+      "command": "python3 -m unittest discover -s tests -p 'test_*.py'",
+      "expected_regex": "95/95",
+      "platform": "macOS",
+      "evidence": "tests/v2fix_final_tests.log",
+      "generation": "W2 eval wave",
+      "n": 95,
+      "seeds": 1,
+      "ci": "count, not effect"
+    },
+    {
+      "token": "1/9",
+      "claim": "full_deployed F7 headless incident rate (1 out of 9 runs)",
+      "command": "eval_pilot report",
+      "expected_regex": "1/9",
+      "platform": "macOS",
+      "evidence": "tests/eval/g3/v2_summary.json",
+      "generation": "G3 compliance, live runs",
+      "n": 9,
+      "seeds": 3,
+      "ci": "count, not effect"
+    },
+    {
+      "token": "18/18",
+      "claim": "selfcheck tasks valid",
+      "command": "python3 tests/eval/lab/selfcheck.py",
+      "expected_regex": "18/18",
+      "platform": "macOS",
+      "evidence": "selfcheck output",
+      "generation": "W2 eval wave",
+      "n": 18,
+      "seeds": 1,
+      "ci": "count, not effect"
     }
   ]
 }
