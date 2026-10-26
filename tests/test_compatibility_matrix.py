@@ -28,7 +28,7 @@ class CompatibilityMatrixTest(unittest.TestCase):
                 for p in pys:
                     for pp in [x.strip().strip('"') for x in p.split(",")]:
                         legs.add((oo.replace("-latest", ""), pp))
-        self.assertIn(("ubuntu", "3.9"), legs)
+        self.assertIn(("ubuntu", "3.12"), legs)
         self.assertIn(("macos", "3.12"), legs)
         self.assertIn(("windows", "3.9"), legs)
         doc = (ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")

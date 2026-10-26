@@ -1,5 +1,5 @@
 {
-  "commit": "92c93c28e3380b633cd0fe5555bafab30f4a75e8",
+  "commit": "07008cb6da0e86cef408a1c1b0835bc6c9fbd995",
   "files": [
     {
       "bytes": 44419,
@@ -12,9 +12,9 @@
       "sha256": "50a21fd64484aaa14f762f95160ca8b4aede4fd4f7a8c7ef7b4df0808b225a6f"
     },
     {
-      "bytes": 45329,
+      "bytes": 44988,
       "path": "vibeweaver/COMPLETION_GATE.md",
-      "sha256": "42ce2a6b8186ca9b0c67775ade46936b3793d2c57503e602f95c3cce1deb03aa"
+      "sha256": "55ae5573d697f60f8ba816eef5259fff215db9f53b1789220609d0ac43bd3d77"
     },
     {
       "bytes": 16311,
