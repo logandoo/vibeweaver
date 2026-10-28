@@ -1,0 +1,10 @@
+{
+  "task": "g3_hunt_globmatch",
+  "arm": "bare",
+  "seed": 2,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 561.4,
+  "stdout_tail": "EVAL g3_hunt_globmatch: pass -> tests/eval/g3/huntbare/g3_hunt_globmatch__bare__s2\n",
+  "stderr_tail": ""
+}

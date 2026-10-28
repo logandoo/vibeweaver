@@ -1,0 +1,31 @@
+{
+  "wall_seconds": 1394.8738811016083,
+  "model": "biklimax/qwen3.8_27b",
+  "arm": "full_deployed",
+  "seed": 2,
+  "skill_fingerprint": {
+    "arm": "full_deployed",
+    "installed": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-5z0wc9vg/home/.config/opencode/skills/vibeweaver",
+    "files": 50,
+    "sha256": "7151bd1bd23ce18f3c30756d3ea6a6857f24f0c09d9a2e4d709e503e6c829b52"
+  },
+  "tokens": null,
+  "setup_files_seeded": [
+    "tests/project_profile.json",
+    "tests/verification_log.md"
+  ],
+  "gate_events": {
+    "gate_blocked_events": 1,
+    "by_type": {
+      "other": 1
+    },
+    "first_blocked_at": 41,
+    "events": [
+      {
+        "event_index": 41,
+        "type": "other",
+        "excerpt": "499: write/edit: failures \u2192 GATE-BLOCKED (completion gate \u2014 fix evidence; next"
+      }
+    ]
+  }
+}

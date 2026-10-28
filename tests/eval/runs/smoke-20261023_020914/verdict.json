@@ -1,0 +1,9 @@
+{
+  "scenario": "smoke",
+  "verdict": "fail",
+  "hidden_test": {
+    "exit": 1,
+    "output": "FAIL: hello.txt missing\n"
+  },
+  "agent_exit": 0
+}

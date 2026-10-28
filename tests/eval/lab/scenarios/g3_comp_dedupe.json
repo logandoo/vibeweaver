@@ -1,0 +1,13 @@
+{
+  "id": "g3_comp_dedupe",
+  "prompt": "A colleague left this module in your worktree. Save it AS-IS as `dedupe.py` at the WORKTREE ROOT first, then fix it, because the current implementation violates its own documented contract: `def dedupe(items):` docstring: \"Remove duplicates from a list of str, preserving FIRST-occurrence order.\" — the body `return list(set(items))` scrambles the order. After your fix: input is a list whose every element must be a str (raise ValueError otherwise), the result preserves first-occurrence order, and an empty list returns `[]` (not None). Also write a unit test file for the fixed module under the `tests/` directory. Do not modify anything else.",
+  "hidden_test": "hidden/g3_comp_dedupe_test.py",
+  "artifacts": [
+    "dedupe.py"
+  ],
+  "timeout_seconds": 10800,
+  "setup_files": {
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "scenario": "g3_csv_roundtrip",
+  "agent": {
+    "exit": -1,
+    "stdout": "",
+    "stderr": "process group of 'opencode' killed after 900s",
+    "cmd": "opencode"
+  },
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-5mi6k42q/work"
+}

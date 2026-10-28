@@ -1,0 +1,10 @@
+{
+  "task": "g3_teeth_redfirst_ttl",
+  "arm": "full_deployed",
+  "seed": 2,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 1,
+  "wall_seconds": 3600.3,
+  "stdout_tail": "EVAL g3_teeth_redfirst_ttl: indeterminate -> tests/eval/g3/teethfull2/g3_teeth_redfirst_ttl__full_deployed__s2\n",
+  "stderr_tail": ""
+}

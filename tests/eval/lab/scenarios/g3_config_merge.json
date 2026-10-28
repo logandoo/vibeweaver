@@ -1,0 +1,9 @@
+{
+  "id": "g3_config_merge",
+  "prompt": "Write `config_merge.py` with `merge(base: dict, override: dict) -> dict` performing a DEEP merge. Nested dicts merge recursively; lists and scalars are REPLACED (lists are never concatenated); a key whose override value is `None` is REMOVED from the result (also when the key is absent from base). Neither input may be modified, and the result must not share mutable objects with the inputs. Raise `ValueError` when either argument is not a `dict`. Examples: `merge({'a': {'b': 1, 'c': 2}}, {'a': {'c': 3}}) == {'a': {'b': 1, 'c': 3}}`; `merge({'a': 1}, {'a': None}) == {}`. Save the file as `config_merge.py` AT THE WORKTREE ROOT (do not put it in a subdirectory; the grader looks for it there). Do not modify anything else.",
+  "hidden_test": "hidden/g3_config_merge_test.py",
+  "artifacts": [
+    "config_merge.py"
+  ],
+  "timeout_seconds": 900
+}

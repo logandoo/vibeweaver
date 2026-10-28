@@ -143,7 +143,7 @@ python3 harness/run_eval.py --arm with_skill --force-skill --concurrency 3
 
 ## 关键发现
 
-1. **SWE-bench 饱和**：deepseek-v4-flash 裸模型就 6/6 全解（含 27B 从未解出的 flask-4045、pytest-6116），skill 在此测不出区分度（天花板效应）。
+1. **SWE-bench 饱和**：deepseek-v4-flash 裸模型就 6/6 全解（含 qwen3.6 bare/full 臂从未解出的 flask-4045、pytest-6116；pytest-6116 曾被 qwen3.6 的 mini 三臂解出，见第二轮发现 3 与附录 A），skill 在此测不出区分度（天花板效应）。
 2. **触发率规律跨模型复现**：71KB 完整版在 deepseek 上同样 **0/16** 不触发；2.2KB mini 触发 75%。"模型越强越会加载大 skill"的假设不成立。
 3. **效果反转**：在能真正执行完整工作流时（13/16 次创建 acceptance.md），完整版强制 = **87.5%，全场最高**——大模型吃下了完整版的额外机制（验收清单、测试先行、验证循环）并转化为收益（bowling 19/31→31/31、simple_linked_list 17/20→20/20）。
 4. **mini 在大模型上"平"**：其核心规则（先测试、验证再收工）对 deepseek 是原生行为，无增益（68.8% = baseline）。
@@ -235,7 +235,7 @@ python3 harness/run_eval.py --arm with_skill --force-skill --concurrency 3
 
 ## 关键发现
 
-1. **裸模型能力飞跃**：baseline 从 7/16 (44%) → 13/16 (81%)（+37.5pp）。SWE-bench 从 3/6 → **6/6 全解**，其中 flask-4045、pytest-6116 是 qwen3.6 从未解出的题；qwen3.8 裸模型已达 deepseek-v4-flash 的 SWE-bench 天花板。polyglot 4/10 → 7/10。
+1. **裸模型能力飞跃**：baseline 从 7/16 (44%) → 13/16 (81%)（+37.5pp）。SWE-bench 从 3/6 → **6/6 全解**，其中 flask-4045 是 qwen3.6 从未解出的题（pytest-6116 曾被 qwen3.6 的 mini 三臂解出，见第二轮发现 3）；qwen3.8 裸模型已达 deepseek-v4-flash 的 SWE-bench 天花板。polyglot 4/10 → 7/10。
 2. **触发率大反转（最反直觉）**：71KB 完整版（q38_v2）在 qwen3.8 上 **12/16 (75%) 自主触发**——qwen3.6 时代仅 12.5%、deepseek-v4-flash 为 0%。此前"体积是触发率决定性变量、模型越强越不会加载大 skill"的结论被推翻：qwen3.8 主动加载完整版并产出全场最高分。
 3. **v2 完整版自主触发 = 历史最高成绩**：15/16 (94%) 超越此前所有臂（含 ds_full_forced 87.5%）。完整版工作流（acceptance.md、验证循环、测试先行）在 qwen3.8 上被真实执行并转化为收益（phone_number 21/21、grade_school 20/20、bowling 31/31）。
 4. **mini 相对价值下降**：q38_mini_v2 12/16 < baseline 13/16（-1 题，噪声内）。mini 的核心纪律（先测后写、验证再收工）对 qwen3.8 接近原生行为——与 deepseek 上"mini 无增益"的结论一致，27B 时代 mini 的优势来自补足弱模型缺失的纪律。
@@ -450,3 +450,39 @@ EVAL_MODEL=local/qwen3.8-27b python3 harness/run_eval.py --arm q38_v2 --force-sk
 ```
 
 原始数据: `workspace/iteration-1/runs/result_*__q38_v2_forced.json` + `workspace/iteration-1/graded/grade_*__q38_v2_forced.json`（16 次运行全部落盘，零超时）。
+
+---
+
+# 附录 A：跨模型 × 逐题成败矩阵 + 共同失败分解（2026-10-28 补）
+
+> 2026-10-28 审计（`docs/AUDIT_2026-10-28_eval_discrimination.md` F-C）指出台报缺
+> 「失败性质分解」。本附录由 graded 原始数据聚合生成，回答「饱和是天花板还是共同失败」：
+> **全部模型裸臂挂 = 共同失败（题集难点）· 成败不同 = 判别题（模型差异真实存在）·
+> 全部裸臂过 = 天花板。** ref = 该模型最优配置（各轮结论）。
+
+| task | qwen3.6-27b bare / ref | deepseek-v4-flash bare / ref | qwen3.8-27b bare / ref | qwen3.6-35b-a3b bare / ref | class |
+|---|---|---|---|
+| polyglot_bowling | ❌ / ❌ | ❌ / ✅ | ✅ / ✅ | ❌ / ❌ | discriminative |
+| polyglot_grade_school | ✅ / ❌ | ❌ / ✅ | ❌ / ✅ | ❌ / ❌ | discriminative |
+| polyglot_list_ops | ❌ / ✅ | ✅ / ❌ | ❌ / ❌ | ❌ / ❌ | discriminative |
+| polyglot_phone_number | ❌ / ❌ | ❌ / ❌ | ❌ / ✅ | ❌ / ❌ | common-fail |
+| polyglot_simple_linked_list | ❌ / ❌ | ❌ / ✅ | ✅ / ✅ | ❌ / ❌ | discriminative |
+| polyglot_pig_latin | ❌ / ✅ | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | discriminative |
+| polyglot_robot_name | ❌ / ✅ | ❌ / ✅ | ✅ / ✅ | ❌ / ❌ | discriminative |
+| polyglot_transpose | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | ✅ / ❌ | common-pass |
+| polyglot_two_bucket | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | ❌ / ✅ | discriminative |
+| polyglot_variable_length_quantity | ✅ / ❌ | ✅ / ✅ | ✅ / ✅ | ❌ / ❌ | discriminative |
+| swebench_pallets_flask_4045 | ❌ / ❌ | ✅ / ✅ | ✅ / ✅ | ✅ / ❌ | discriminative |
+| swebench_pallets_flask_4992 | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | common-pass |
+| swebench_psf_requests_3362 | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | common-pass |
+| swebench_pytest_dev_pytest_6116 | ❌ / ✅ | ✅ / ✅ | ✅ / ✅ | ❌ / ✅ | discriminative |
+| swebench_pytest_dev_pytest_9359 | ❌ / ✅ | ✅ / ✅ | ✅ / ✅ | ❌ / ❌ | discriminative |
+| swebench_sympy_sympy_21627 | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | ✅ / ✅ | common-pass |
+
+## 共同失败分解（bare 臂）
+
+- **共同失败（全部模型裸臂挂 —— 题集共同难点，非模型差异）** (1): phone_number
+- **判别题（裸臂成败不同 —— 模型差异真实存在的位置）** (11): bowling, grade_school, list_ops, simple_linked_list, pig_latin, robot_name, two_bucket, variable_length_quantity, pallets_flask_4045, pytest_dev_pytest_6116, pytest_dev_pytest_9359
+- **共同成功（全部模型裸臂过 —— 天花板）** (4): transpose, pallets_flask_4992, psf_requests_3362, sympy_sympy_21627
+
+_生成：`python3 harness/cross_model_matrix.py`（数据源 workspace/iteration-1/graded/）_

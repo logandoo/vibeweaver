@@ -1,0 +1,13 @@
+{
+  "wall_seconds": 186.5143597126007,
+  "model": "biklimax/qwen3.8_27b",
+  "arm": "core",
+  "seed": 2,
+  "skill_fingerprint": {
+    "arm": "core",
+    "installed": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-j3pp5b7w/home/.config/opencode/skills/vibeweaver",
+    "files": 1,
+    "sha256": "2f116895bfb5c4a7b7a68f3a923a147abbfa48b974721b60339e2f605f4f034a"
+  },
+  "tokens": null
+}

@@ -1,0 +1,10 @@
+{
+  "task": "g3_teeth_redfirst",
+  "arm": "bare",
+  "seed": 1,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 1,
+  "wall_seconds": 366.2,
+  "stdout_tail": "EVAL g3_teeth_redfirst: fail -> tests/eval/g3/teeth2/g3_teeth_redfirst__bare__s1\n",
+  "stderr_tail": ""
+}

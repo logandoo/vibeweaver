@@ -1,0 +1,46 @@
+{
+  "wall_seconds": 1289.9891109466553,
+  "model": "biklimax/qwen3.8_27b",
+  "arm": "full_deployed",
+  "seed": 2,
+  "skill_fingerprint": {
+    "arm": "full_deployed",
+    "installed": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-_w50t48i/home/.config/opencode/skills/vibeweaver",
+    "files": 50,
+    "sha256": "7151bd1bd23ce18f3c30756d3ea6a6857f24f0c09d9a2e4d709e503e6c829b52"
+  },
+  "tokens": null,
+  "setup_files_seeded": [
+    "tests/project_profile.json",
+    "tests/verification_log.md"
+  ],
+  "gate_events": {
+    "gate_blocked_events": 4,
+    "by_type": {
+      "completion": 4
+    },
+    "first_blocked_at": 33,
+    "events": [
+      {
+        "event_index": 33,
+        "type": "completion",
+        "excerpt": "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED \u2014 this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet \u2014 verifica"
+      },
+      {
+        "event_index": 48,
+        "type": "completion",
+        "excerpt": "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED \u2014 this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet \u2014 verifica"
+      },
+      {
+        "event_index": 60,
+        "type": "completion",
+        "excerpt": "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED \u2014 this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet \u2014 verifica"
+      },
+      {
+        "event_index": 72,
+        "type": "completion",
+        "excerpt": "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED \u2014 this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet \u2014 verifica"
+      }
+    ]
+  }
+}

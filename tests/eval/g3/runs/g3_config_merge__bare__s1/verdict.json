@@ -1,0 +1,21 @@
+{
+  "scenario": "g3_config_merge",
+  "verdict": "indeterminate",
+  "hidden_test": {
+    "exit": 0,
+    "output": "PASS: g3_config_merge\n",
+    "completion_marker": "PASS: g3_config_merge",
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": [
+    "host-repo write outside sandbox: stat tests/eval/g3/runs/g3_config_merge__core__s0/cost.json 395 1792775047443155312",
+    "host-repo write outside sandbox: stat tests/eval/g3/runs/g3_config_merge__core__s0/isolation.json 9609 1792775047442935396",
+    "host-repo write outside sandbox: stat tests/eval/g3/runs/g3_config_merge__core__s0/trajectory.json 22809 1792775047443073896",
+    "host-repo write outside sandbox: stat tests/eval/g3/runs/g3_config_merge__core__s0/verdict.json 2972 1792775047443236062",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/runs/g3_config_merge__core__s0/cost.json",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/runs/g3_config_merge__core__s0/isolation.json",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/runs/g3_config_merge__core__s0/trajectory.json",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/runs/g3_config_merge__core__s0/verdict.json"
+  ]
+}

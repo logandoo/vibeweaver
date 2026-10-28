@@ -1,0 +1,11 @@
+{
+  "scenario": "smoke",
+  "agent": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "\u001b[91m\u001b[1mError: \u001b[0mModel unavailable: deepseek/deepseek-flash\n",
+    "cmd": "opencode run --standalone -m deepseek/deepseek-flash --format default --auto Create a file named hello.txt in the current directory containing exactly the word hello and a newline. Do not modify anything else.",
+    "seconds": 1.4782969951629639
+  },
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-us8136_t/work"
+}

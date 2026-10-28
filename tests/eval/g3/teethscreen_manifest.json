@@ -1,0 +1,29 @@
+{
+  "model": "biklimax/qwen3.8_27b",
+  "phase": "pilot",
+  "tasks": [
+    "g3_teeth_specvstest",
+    "g3_teeth_multisymptom",
+    "g3_teeth_stateleak"
+  ],
+  "arms": [
+    "bare"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "planned": 9,
+  "runs": [
+    "g3_teeth_multisymptom__bare__s0",
+    "g3_teeth_multisymptom__bare__s1",
+    "g3_teeth_multisymptom__bare__s2",
+    "g3_teeth_specvstest__bare__s0",
+    "g3_teeth_specvstest__bare__s1",
+    "g3_teeth_specvstest__bare__s2",
+    "g3_teeth_stateleak__bare__s0",
+    "g3_teeth_stateleak__bare__s1",
+    "g3_teeth_stateleak__bare__s2"
+  ]
+}

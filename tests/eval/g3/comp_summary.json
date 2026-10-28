@@ -1,0 +1,102 @@
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 3,
+  "tasks": [
+    "g3_comp_dedupe",
+    "g3_comp_paginate",
+    "g3_comp_scope"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "bare": {
+      "runs": 9,
+      "pass": 0,
+      "fail": 9,
+      "indeterminate": 0,
+      "n_effective": 9,
+      "pass_rate": 0.0,
+      "ci95": [
+        0.0,
+        0.2991
+      ],
+      "mean_wall_seconds": 174.8
+    },
+    "core": {
+      "runs": 9,
+      "pass": 2,
+      "fail": 7,
+      "indeterminate": 0,
+      "n_effective": 9,
+      "pass_rate": 0.2222,
+      "ci95": [
+        0.0632,
+        0.5474
+      ],
+      "mean_wall_seconds": 316.5
+    },
+    "full_forced": {
+      "runs": 9,
+      "pass": 3,
+      "fail": 6,
+      "indeterminate": 0,
+      "n_effective": 9,
+      "pass_rate": 0.3333,
+      "ci95": [
+        0.1206,
+        0.6458
+      ],
+      "mean_wall_seconds": 2411.8
+    },
+    "mini_forced": {
+      "runs": 9,
+      "pass": 0,
+      "fail": 9,
+      "indeterminate": 0,
+      "n_effective": 9,
+      "pass_rate": 0.0,
+      "ci95": [
+        0.0,
+        0.2991
+      ],
+      "mean_wall_seconds": 227.5
+    }
+  },
+  "paired_vs_bare": {
+    "core": {
+      "paired_n": 9,
+      "mean_diff_vs_bare": 0.2222,
+      "wins": 2,
+      "losses": 0,
+      "indeterminate_excluded": true
+    },
+    "full_forced": {
+      "paired_n": 9,
+      "mean_diff_vs_bare": 0.3333,
+      "wins": 3,
+      "losses": 0,
+      "indeterminate_excluded": true
+    },
+    "mini_forced": {
+      "paired_n": 9,
+      "mean_diff_vs_bare": 0.0,
+      "wins": 0,
+      "losses": 0,
+      "indeterminate_excluded": true
+    }
+  },
+  "mde": 0.6603,
+  "planned_runs": 36,
+  "observed_runs": 36,
+  "cost": {
+    "total_wall_seconds": 28176.2
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": "g3_comp_",
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集"
+}

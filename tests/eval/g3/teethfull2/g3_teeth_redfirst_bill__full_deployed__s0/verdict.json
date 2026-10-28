@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_teeth_redfirst_bill",
+  "verdict": "pass",
+  "hidden_test": {
+    "exit": 0,
+    "output": "PASS: g3_teeth_redfirst_bill\n",
+    "completion_marker": "PASS: g3_teeth_redfirst_bill",
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

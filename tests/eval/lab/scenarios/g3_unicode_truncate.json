@@ -1,0 +1,9 @@
+{
+  "id": "g3_unicode_truncate",
+  "prompt": "Write `unicode_truncate.py` with `truncate(text: str, max_width: int) -> str` returning the longest PREFIX of `text` whose display width is `<= max_width`. Display width per code point: East Asian Wide/Fullwidth counts 2 (`unicodedata.east_asian_width(ch) in ('W','F')`), a combining mark (`unicodedata.combining(ch) != 0`) counts 0 and must stay attached to its base character (never orphan it), everything else counts 1. Raise `ValueError` when `text` is not a `str`, or `max_width` is not an `int` (a `bool` is NOT accepted), or `max_width < 0`. Examples: `truncate(\"你好世界\", 5) == \"你好\"`; `truncate(\"a你b\", 3) == \"a你\"`; `truncate(\"a你b\", 2) == \"a\"`; `truncate(\"a\\u0301b\", 1) == \"a\\u0301\"`. Save the file as `unicode_truncate.py` AT THE WORKTREE ROOT (do not put it in a subdirectory; the grader looks for it there). Do not modify anything else.",
+  "hidden_test": "hidden/g3_unicode_truncate_test.py",
+  "artifacts": [
+    "unicode_truncate.py"
+  ],
+  "timeout_seconds": 900
+}

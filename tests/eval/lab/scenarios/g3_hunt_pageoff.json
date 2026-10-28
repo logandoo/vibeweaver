@@ -1,0 +1,13 @@
+{
+  "id": "g3_hunt_pageoff",
+  "prompt": "Implement `pager.py` at the worktree root — pagination helpers (`page_count`, `slice_page`, `iter_pages`). The module's full contract is in `docs/spec.md` at the worktree root; that document defines the behavior the module must implement. A test file covering the happy paths is in `tests/`. Standard library only.",
+  "hidden_test": "hidden/g3_hunt_pageoff_test.py",
+  "artifacts": [
+    "pager.py"
+  ],
+  "timeout_seconds": 1800,
+  "setup_files": {
+    "docs/spec.md": "# pager — module contract (authoritative)\n\n`pager.py` at the worktree root: pagination helpers over plain lists.\n\n## `page_count(total, size) -> int`\n\n- `total` must be an `int` >= 0 and not a `bool`; `size` must be an `int` >= 1 and not\n  a `bool` (otherwise `ValueError`).\n- Returns `ceil(total / size)`, **except** `page_count(0, size) == 1` — a documented\n  legacy rule: an empty collection still has exactly one (empty) page. Downstream\n  tooling depends on this.\n\n## `slice_page(items, page, size) -> list`\n\n- `items` must be a `list` (else `TypeError`); `page` must be an `int` >= 0 and not a\n  `bool`; `size` as above (otherwise `ValueError`).\n- Pages are 0-based: page `p` is `items[p*size:(p+1)*size]`. The final page may be\n  partial. A page beyond the end returns `[]` — that is **not** an error.\n\n## `iter_pages(items, size) -> list[list]`\n\n- `items` must be a `list` (else `TypeError`); `size` as above.\n- Returns the list of all pages in order: exactly `page_count(len(items), size)` pages,\n  each a list. For empty `items` that is `[[]]` — one empty page (same legacy rule as\n  `page_count`).\n\n## General\n\nStandard library only. This document is the authoritative statement of the module's\nbehavior.\n",
+    "tests/test_pager.py": "from pager import iter_pages, page_count, slice_page\n\n\ndef test_page_count_basic():\n    assert page_count(10, 5) == 2\n    assert page_count(11, 5) == 3\n\n\ndef test_slice_basic():\n    items = list(range(11))\n    assert slice_page(items, 0, 5) == [0, 1, 2, 3, 4]\n    assert slice_page(items, 2, 5) == [10]\n\n\ndef test_iter_pages_basic():\n    assert iter_pages([1, 2, 3], 2) == [[1, 2], [3]]\n"
+  }
+}

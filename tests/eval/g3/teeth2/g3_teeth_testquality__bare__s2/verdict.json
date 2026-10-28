@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_teeth_testquality",
+  "verdict": "pass",
+  "hidden_test": {
+    "exit": 0,
+    "output": "PASS: g3_teeth_testquality\n",
+    "completion_marker": "PASS: g3_teeth_testquality",
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

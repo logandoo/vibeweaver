@@ -1,0 +1,13 @@
+{
+  "id": "g3_teeth_redfirst_bill",
+  "prompt": "Billing users report split shares summing to more than the bill. A colleague left this module in your worktree. Save it AS-IS as `splitbill.py` at the WORKTREE ROOT first, then fix it. Contract: `split_bill(total_cents, n)` returns n int shares differing by at most 1 cent, larger shares first, summing to total_cents exactly; ValueError for non-int, n < 1, or negative totals. Follow the vibeweaver evidence contract throughout: acceptance criteria first, a RED iteration (`- iter 1 FAIL:` with a diagnosis) before the green one, and a unit test under `tests/`.\n\n```python\n\"\"\"Split a bill into integer-cent shares.\"\"\"\n\n\ndef split_bill(total_cents, n):\n    \"\"\"Split total_cents into n shares that differ by at most 1 cent, with the\n    larger shares first. The shares must sum to total_cents exactly.\n\n    Raise ValueError for non-int values, for n < 1, or for negative totals.\n    \"\"\"\n    if not isinstance(total_cents, int) or not isinstance(n, int):\n        raise ValueError(\"ints only\")\n    if n < 1:\n        raise ValueError(\"n must be >= 1\")\n    if total_cents < 0:\n        raise ValueError(\"total must be >= 0\")\n    base = total_cents // n\n    extra = total_cents % n\n    return [base + (1 if i <= extra else 0) for i in range(n)]\n```",
+  "hidden_test": "hidden/g3_teeth_redfirst_bill_test.py",
+  "artifacts": [
+    "splitbill.py"
+  ],
+  "timeout_seconds": 3600,
+  "setup_files": {
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

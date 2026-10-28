@@ -1,0 +1,9 @@
+{
+  "id": "g3_transfer_invariant",
+  "prompt": "Write `transfer.py` with `transfer(state: dict, src: str, dst: str, amount: int) -> dict`. `state` maps account name -> integer balance. The function returns a NEW dict with `amount` moved from `src` to `dst`; the input dict must NOT be modified. Raise `ValueError` (changing nothing) when: `amount` is not an `int`, or is a `bool`, or `amount <= 0`; `src` or `dst` is not a key of `state`; or `src != dst` and `state[src] < amount` (insufficient funds). When `src == dst` the result is a new dict equal to the input. All balances are ints. Save the file as `transfer.py` AT THE WORKTREE ROOT (do not put it in a subdirectory; the grader looks for it there). Do not modify anything else.",
+  "hidden_test": "hidden/g3_transfer_invariant_test.py",
+  "artifacts": [
+    "transfer.py"
+  ],
+  "timeout_seconds": 900
+}

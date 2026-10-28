@@ -1,0 +1,9 @@
+{
+  "id": "g3_idempotent_journal",
+  "prompt": "Write `idempotent_journal.py` defining class `Journal` with `apply(self, entry_id: str, value: int) -> bool`, `total(self) -> int` and `count(self) -> int`. `apply` records an entry AT MOST ONCE: when `entry_id` has already been applied it returns `False` and has NO effect (total and count stay unchanged); otherwise it stores it and returns `True`. `total` is the sum of the accepted values, `count` the number of accepted entries. Raise `ValueError` when `entry_id` is not a non-empty (and non-whitespace) `str`, or `value` is not an `int` (a `bool` is NOT accepted). Save the file as `idempotent_journal.py` AT THE WORKTREE ROOT (do not put it in a subdirectory; the grader looks for it there). Do not modify anything else.",
+  "hidden_test": "hidden/g3_idempotent_journal_test.py",
+  "artifacts": [
+    "idempotent_journal.py"
+  ],
+  "timeout_seconds": 900
+}

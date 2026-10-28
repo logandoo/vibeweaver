@@ -1,0 +1,106 @@
+{
+  "status": "incomplete",
+  "model": null,
+  "n_tasks": 8,
+  "tasks": [
+    "g3_config_merge",
+    "g3_csv_roundtrip",
+    "g3_idempotent_journal",
+    "g3_money_rounding",
+    "g3_semver_order",
+    "g3_token_bucket",
+    "g3_transfer_invariant",
+    "g3_unicode_truncate"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "bare": {
+      "runs": 18,
+      "pass": 17,
+      "fail": 0,
+      "indeterminate": 1,
+      "n_effective": 17,
+      "pass_rate": 1.0,
+      "ci95": [
+        0.8157,
+        1.0
+      ],
+      "mean_wall_seconds": 278.6
+    },
+    "core": {
+      "runs": 15,
+      "pass": 13,
+      "fail": 0,
+      "indeterminate": 2,
+      "n_effective": 13,
+      "pass_rate": 1.0,
+      "ci95": [
+        0.7719,
+        1.0
+      ],
+      "mean_wall_seconds": 365.2
+    },
+    "full_forced": {
+      "runs": 13,
+      "pass": 0,
+      "fail": 0,
+      "indeterminate": 13,
+      "n_effective": 0,
+      "pass_rate": null,
+      "ci95": [
+        null,
+        null
+      ],
+      "mean_wall_seconds": null
+    },
+    "mini_forced": {
+      "runs": 12,
+      "pass": 11,
+      "fail": 0,
+      "indeterminate": 1,
+      "n_effective": 11,
+      "pass_rate": 1.0,
+      "ci95": [
+        0.7412,
+        1.0
+      ],
+      "mean_wall_seconds": 272.6
+    }
+  },
+  "paired_vs_bare": {
+    "core": {
+      "paired_n": 12,
+      "mean_diff_vs_bare": 0.0,
+      "wins": 0,
+      "losses": 0,
+      "indeterminate_excluded": true
+    },
+    "full_forced": {
+      "paired_n": 0,
+      "mean_diff_vs_bare": null,
+      "wins": 0,
+      "losses": 0,
+      "indeterminate_excluded": true
+    },
+    "mini_forced": {
+      "paired_n": 10,
+      "mean_diff_vs_bare": 0.0,
+      "wins": 0,
+      "losses": 0,
+      "indeterminate_excluded": true
+    }
+  },
+  "mde": 0.4044,
+  "planned_runs": 96,
+  "observed_runs": 58,
+  "cost": {
+    "total_wall_seconds": 13398.9
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集"
+}

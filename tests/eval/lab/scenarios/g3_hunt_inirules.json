@@ -1,0 +1,13 @@
+{
+  "id": "g3_hunt_inirules",
+  "prompt": "Implement `inirules.py` at the worktree root — `parse(text)`, a small INI-style config parser. The module's full contract is in `docs/spec.md` at the worktree root; that document defines the behavior the module must implement (the dialect is project-specific — follow the document, not your memory of other INI parsers). A test file covering the happy paths is in `tests/`. Standard library only.",
+  "hidden_test": "hidden/g3_hunt_inirules_test.py",
+  "artifacts": [
+    "inirules.py"
+  ],
+  "timeout_seconds": 1800,
+  "setup_files": {
+    "docs/spec.md": "# inirules — module contract (authoritative)\n\n`inirules.py` at the worktree root: `parse(text) -> dict` parses a project-specific\nINI dialect into `{section: {key: value}}`. Keys before any section header belong to\nthe root section `\"\"`.\n\n## Lines\n\n- Blank lines are ignored. **Comments start with `#` at the very beginning of a line\n  only** — a `#` inside a value is ordinary text, never a comment.\n- Section header: `[name]` on its own line; `name` must be non-empty; a malformed\n  header raises `ValueError`.\n- Key/value: `key = value`. The key must be non-empty (else `ValueError`). A line that\n  is none of these raises `ValueError`.\n- A `key =` with nothing after `=` gives the empty string `\"\"`.\n\n## Values\n\n- Surrounding whitespace of an unquoted value is stripped; a **quoted** value\n  (`\"...\"`) keeps its inner whitespace exactly and may contain `=`. Inside quotes the\n  only escapes are `\\\"` (a quote) and `\\\\` (a backslash); any other backslash is a\n  literal backslash. Quotes are only recognized when the value both starts and ends\n  with `\"`.\n\n## Continuation\n\n- A value (or a quoted value's opening segment) that ends with `\\` continues on the\n  next line. The backslash markers are removed, the segments (each stripped of\n  surrounding whitespace) are joined with a **single space**, and quoting is applied to\n  the joined result.\n\n## Duplicates\n\n- Duplicate keys within a section: **last wins**. A repeated section header re-opens\n  the section (its keys merge).\n\n## General\n\n- Non-`str` input raises `TypeError`. Standard library only. This document is the\n  authoritative statement of the module's behavior.\n",
+    "tests/test_inirules.py": "from inirules import parse\n\n\ndef test_sections_and_keys():\n    got = parse(\"[a]\\nx = 1\\ny = 2\\n\")\n    assert got == {\"\": {}, \"a\": {\"x\": \"1\", \"y\": \"2\"}}\n\n\ndef test_root_keys():\n    got = parse(\"k = v\\n[s]\\na = b\\n\")\n    assert got == {\"\": {\"k\": \"v\"}, \"s\": {\"a\": \"b\"}}\n\n\ndef test_simple_values():\n    got = parse(\"k =   v   \\ne =\\n\")\n    assert got == {\"\": {\"k\": \"v\", \"e\": \"\"}}\n"
+  }
+}

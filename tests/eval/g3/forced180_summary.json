@@ -1,0 +1,104 @@
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 5,
+  "tasks": [
+    "g3_comp_dedupe",
+    "g3_comp_paginate",
+    "g3_comp_scope",
+    "g3_config_merge",
+    "g3_csv_roundtrip"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "bare": {
+      "runs": 15,
+      "pass": 6,
+      "fail": 9,
+      "indeterminate": 0,
+      "n_effective": 15,
+      "pass_rate": 0.4,
+      "ci95": [
+        0.1982,
+        0.6425
+      ],
+      "mean_wall_seconds": 252.2
+    },
+    "core": {
+      "runs": 15,
+      "pass": 7,
+      "fail": 7,
+      "indeterminate": 1,
+      "n_effective": 14,
+      "pass_rate": 0.5,
+      "ci95": [
+        0.268,
+        0.732
+      ],
+      "mean_wall_seconds": 330.5
+    },
+    "full_forced": {
+      "runs": 15,
+      "pass": 3,
+      "fail": 5,
+      "indeterminate": 7,
+      "n_effective": 8,
+      "pass_rate": 0.375,
+      "ci95": [
+        0.1368,
+        0.6943
+      ],
+      "mean_wall_seconds": 2459.3
+    },
+    "mini_forced": {
+      "runs": 14,
+      "pass": 4,
+      "fail": 10,
+      "indeterminate": 0,
+      "n_effective": 14,
+      "pass_rate": 0.2857,
+      "ci95": [
+        0.1172,
+        0.5465
+      ],
+      "mean_wall_seconds": 225.6
+    }
+  },
+  "paired_vs_bare": {
+    "core": {
+      "paired_n": 14,
+      "mean_diff_vs_bare": 0.1429,
+      "wins": 2,
+      "losses": 0,
+      "indeterminate_excluded": true
+    },
+    "full_forced": {
+      "paired_n": 8,
+      "mean_diff_vs_bare": 0.375,
+      "wins": 3,
+      "losses": 0,
+      "indeterminate_excluded": true
+    },
+    "mini_forced": {
+      "paired_n": 14,
+      "mean_diff_vs_bare": -0.0714,
+      "wins": 0,
+      "losses": 1,
+      "indeterminate_excluded": true
+    }
+  },
+  "mde": 0.5115,
+  "planned_runs": 9,
+  "observed_runs": 59,
+  "cost": {
+    "total_wall_seconds": 33701.2
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": null,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集"
+}

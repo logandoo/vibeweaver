@@ -1,0 +1,10 @@
+{
+  "task": "g3_teeth_multisymptom",
+  "arm": "bare",
+  "seed": 2,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 104.1,
+  "stdout_tail": "EVAL g3_teeth_multisymptom: pass -> tests/eval/g3/teeth/g3_teeth_multisymptom__bare__s2\n",
+  "stderr_tail": ""
+}

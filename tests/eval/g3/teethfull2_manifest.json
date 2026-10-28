@@ -1,0 +1,29 @@
+{
+  "model": "biklimax/qwen3.8_27b",
+  "phase": "pilot",
+  "tasks": [
+    "g3_teeth_redfirst",
+    "g3_teeth_redfirst_ttl",
+    "g3_teeth_redfirst_bill"
+  ],
+  "arms": [
+    "full_deployed"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "planned": 9,
+  "runs": [
+    "g3_teeth_redfirst__full_deployed__s0",
+    "g3_teeth_redfirst__full_deployed__s1",
+    "g3_teeth_redfirst__full_deployed__s2",
+    "g3_teeth_redfirst_bill__full_deployed__s0",
+    "g3_teeth_redfirst_bill__full_deployed__s1",
+    "g3_teeth_redfirst_bill__full_deployed__s2",
+    "g3_teeth_redfirst_ttl__full_deployed__s0",
+    "g3_teeth_redfirst_ttl__full_deployed__s1",
+    "g3_teeth_redfirst_ttl__full_deployed__s2"
+  ]
+}

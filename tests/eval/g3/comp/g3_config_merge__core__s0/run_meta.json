@@ -1,0 +1,10 @@
+{
+  "task": "g3_config_merge",
+  "arm": "core",
+  "seed": 0,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 192.0,
+  "stdout_tail": "EVAL g3_config_merge: pass -> tests/eval/g3/comp/g3_config_merge__core__s0\n",
+  "stderr_tail": ""
+}

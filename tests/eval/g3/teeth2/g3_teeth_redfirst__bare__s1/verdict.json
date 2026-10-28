@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_teeth_redfirst",
+  "verdict": "fail",
+  "hidden_test": {
+    "exit": 1,
+    "output": "FAIL: no RED iteration: need '- iter 1 FAIL: \u2026 | diagnosis: \u2026' before the green one\n",
+    "completion_marker": null,
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

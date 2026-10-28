@@ -1,0 +1,25 @@
+{
+  "model": "biklimax/qwen3.8_27b",
+  "phase": "pilot",
+  "tasks": [
+    "g3_teeth_testquality",
+    "g3_teeth_redfirst"
+  ],
+  "arms": [
+    "bare"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "planned": 6,
+  "runs": [
+    "g3_teeth_redfirst__bare__s0",
+    "g3_teeth_redfirst__bare__s1",
+    "g3_teeth_redfirst__bare__s2",
+    "g3_teeth_testquality__bare__s0",
+    "g3_teeth_testquality__bare__s1",
+    "g3_teeth_testquality__bare__s2"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "task": "g3_hunt_moneyfmt",
+  "arm": "bare",
+  "seed": 0,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 1,
+  "wall_seconds": 2366.5,
+  "stdout_tail": "EVAL g3_hunt_moneyfmt: fail -> tests/eval/g3/huntbare/g3_hunt_moneyfmt__bare__s0\n",
+  "stderr_tail": ""
+}

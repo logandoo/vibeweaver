@@ -1,0 +1,10 @@
+{
+  "task": "g3_teeth_stateleak",
+  "arm": "bare",
+  "seed": 2,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 84.2,
+  "stdout_tail": "EVAL g3_teeth_stateleak: pass -> tests/eval/g3/teeth/g3_teeth_stateleak__bare__s2\n",
+  "stderr_tail": ""
+}

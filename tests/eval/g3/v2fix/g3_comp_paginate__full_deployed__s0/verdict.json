@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_comp_paginate",
+  "verdict": "pass",
+  "hidden_test": {
+    "exit": 0,
+    "output": "PASS: g3_comp_paginate\n",
+    "completion_marker": "PASS: g3_comp_paginate",
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

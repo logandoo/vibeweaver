@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_hunt_bucketrate",
+  "verdict": "pass",
+  "hidden_test": {
+    "exit": 0,
+    "output": "PASS: g3_hunt_bucketrate\n",
+    "completion_marker": "PASS: g3_hunt_bucketrate",
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

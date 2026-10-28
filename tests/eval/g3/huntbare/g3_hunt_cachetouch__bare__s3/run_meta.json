@@ -1,0 +1,10 @@
+{
+  "task": "g3_hunt_cachetouch",
+  "arm": "bare",
+  "seed": 3,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 1,
+  "wall_seconds": 1614.7,
+  "stdout_tail": "EVAL g3_hunt_cachetouch: fail -> tests/eval/g3/huntbare/g3_hunt_cachetouch__bare__s3\n",
+  "stderr_tail": ""
+}

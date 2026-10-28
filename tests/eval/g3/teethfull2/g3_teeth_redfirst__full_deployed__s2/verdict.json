@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_teeth_redfirst",
+  "verdict": "fail",
+  "hidden_test": {
+    "exit": 1,
+    "output": "EVIDENCE-FAIL: tests/acceptance.md first line must be '> cap=5  stall=3x' (x or \u00d7)\n",
+    "completion_marker": null,
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

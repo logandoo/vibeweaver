@@ -1,0 +1,13 @@
+{
+  "wall_seconds": 235.07448816299438,
+  "model": "biklimax/qwen3.8_27b",
+  "arm": "mini_forced",
+  "seed": 2,
+  "skill_fingerprint": {
+    "arm": "mini_forced",
+    "installed": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-sa_jft19/home/.config/opencode/skills/vibeweaver-mini",
+    "files": 3,
+    "sha256": "57d2cffb09adaf1f84969dd15580772cfb674f0e8a7a682fff231d599cef951d"
+  },
+  "tokens": null
+}

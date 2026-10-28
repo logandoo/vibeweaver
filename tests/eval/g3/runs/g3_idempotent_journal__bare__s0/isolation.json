@@ -1,0 +1,24 @@
+{
+  "sandbox": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-87as3r07",
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-87as3r07/work",
+  "work_files": [
+    "idempotent_journal.py"
+  ],
+  "sandbox_outside_work": [
+    "home/.cache/opencode/models.json",
+    "home/.config/opencode/opencode.jsonc",
+    "home/.local/share/opencode/auth.json",
+    "home/.local/share/opencode/log/opencode.log",
+    "home/.local/share/opencode/opencode.db",
+    "home/.local/share/opencode/opencode.db-shm",
+    "home/.local/share/opencode/opencode.db-wal",
+    "home/.local/share/opencode/shell/143e2d7e3a014a3d76b3487401260cdab98f2c7f/sh_169a2462b001WKlVfTObjc5GcS.out"
+  ],
+  "sandbox_symlink_escapes": [],
+  "host_repo_delta": [],
+  "host_repo_monitored": true,
+  "artifacts": [
+    "idempotent_journal.py"
+  ],
+  "violations": []
+}

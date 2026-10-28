@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_token_bucket",
+  "verdict": "pass",
+  "hidden_test": {
+    "exit": 0,
+    "output": "PASS: g3_token_bucket\n",
+    "completion_marker": "PASS: g3_token_bucket",
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

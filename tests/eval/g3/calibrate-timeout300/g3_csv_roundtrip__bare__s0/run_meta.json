@@ -1,0 +1,10 @@
+{
+  "task": "g3_csv_roundtrip",
+  "arm": "bare",
+  "seed": 0,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 1,
+  "wall_seconds": 300.1,
+  "stdout_tail": "EVAL g3_csv_roundtrip: indeterminate -> /Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/eval/g3/runs/g3_csv_roundtrip__bare__s0\n",
+  "stderr_tail": ""
+}

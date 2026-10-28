@@ -1,0 +1,45 @@
+{
+  "sandbox": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-m6qc85tz",
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-m6qc85tz/work",
+  "work_files": [
+    "scheduler.py",
+    "tests/project_profile.json",
+    "tests/verification_log.md"
+  ],
+  "sandbox_outside_work": [
+    "home/.cache/opencode/models.json",
+    "home/.config/opencode/opencode.jsonc",
+    "home/.local/share/opencode/auth.json",
+    "home/.local/share/opencode/log/opencode.log",
+    "home/.local/share/opencode/opencode.db",
+    "home/.local/share/opencode/opencode.db-shm",
+    "home/.local/share/opencode/opencode.db-wal",
+    "home/.local/share/opencode/shell/70c1e5e2e4bc9453147c7818952b507c45579b7e/sh_173163e34001Y9Pe7J6xtPee0x.out",
+    "home/.local/share/opencode/shell/70c1e5e2e4bc9453147c7818952b507c45579b7e/sh_173164ae400123mYHqKuDbedgX.out",
+    "home/.local/share/opencode/shell/70c1e5e2e4bc9453147c7818952b507c45579b7e/sh_1731705c2001RyP1ltPMTT88j4.out",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/_bootlocale.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/_collections_abc.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/_sitebuiltins.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/abc.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/codecs.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/__init__.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/aliases.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/cp437.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/latin_1.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/utf_8.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/genericpath.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/io.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/os.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/posixpath.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/stat.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/private/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-m6qc85tz/work/scheduler.cpython-39.pyc"
+  ],
+  "sandbox_symlink_escapes": [],
+  "host_repo_delta": [],
+  "host_repo_monitored": true,
+  "artifacts": [
+    "scheduler.py"
+  ],
+  "violations": []
+}

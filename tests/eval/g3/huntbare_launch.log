@@ -1,0 +1,47 @@
+eval_pilot: 5 runs planned (5 tasks x 1 arms x 1 seeds) model=biklimax/qwen3.8_27b label=huntbare
+[1/5] g3_hunt_weekdate__bare__s3 -> pass (ok)
+[2/5] g3_hunt_moneyfmt__bare__s3 -> pass (ok)
+[3/5] g3_hunt_globmatch__bare__s3 -> pass (ok)
+[4/5] g3_hunt_wraptext__bare__s3 -> pass (ok)
+[5/5] g3_hunt_cachetouch__bare__s3 -> fail (nonzero-exit)
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 5,
+  "tasks": [
+    "g3_hunt_cachetouch",
+    "g3_hunt_globmatch",
+    "g3_hunt_moneyfmt",
+    "g3_hunt_weekdate",
+    "g3_hunt_wraptext"
+  ],
+  "seeds": [
+    3
+  ],
+  "arms": {
+    "bare": {
+      "runs": 5,
+      "pass": 4,
+      "fail": 1,
+      "indeterminate": 0,
+      "n_effective": 5,
+      "pass_rate": 0.8,
+      "ci95": [
+        0.3755,
+        0.9638
+      ],
+      "mean_wall_seconds": 728.7
+    }
+  },
+  "paired_vs_bare": {},
+  "mde": 0.5115,
+  "planned_runs": 5,
+  "observed_runs": 5,
+  "cost": {
+    "total_wall_seconds": 3643.5
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": null,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集"
+}

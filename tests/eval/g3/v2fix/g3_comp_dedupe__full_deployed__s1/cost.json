@@ -1,0 +1,42 @@
+{
+  "wall_seconds": 1320.4498238563538,
+  "model": "biklimax/qwen3.8_27b",
+  "arm": "full_deployed",
+  "seed": 1,
+  "skill_fingerprint": {
+    "arm": "full_deployed",
+    "installed": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-569c6t5f/home/.config/opencode/skills/vibeweaver",
+    "files": 50,
+    "sha256": "7151bd1bd23ce18f3c30756d3ea6a6857f24f0c09d9a2e4d709e503e6c829b52"
+  },
+  "tokens": null,
+  "setup_files_seeded": [
+    "tests/project_profile.json",
+    "tests/verification_log.md"
+  ],
+  "gate_events": {
+    "gate_blocked_events": 3,
+    "by_type": {
+      "other": 2,
+      "completion": 1
+    },
+    "first_blocked_at": 1,
+    "events": [
+      {
+        "event_index": 1,
+        "type": "other",
+        "excerpt": "write/edit: failures \u2192 GATE-BLOCKED (completion gate \u2014 fix evidence; next"
+      },
+      {
+        "event_index": 14,
+        "type": "other",
+        "excerpt": "367:   non-test `write`/`edit` throws GATE-BLOCKED (`tool.execute.before`)."
+      },
+      {
+        "event_index": 44,
+        "type": "completion",
+        "excerpt": "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED \u2014 this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet \u2014 verifica"
+      }
+    ]
+  }
+}

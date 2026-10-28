@@ -1,0 +1,13 @@
+{
+  "id": "g3_teeth_testquality",
+  "prompt": "`bsearch` has a reported defect: it misses some present targets. A colleague left this module in your worktree. Save it AS-IS as `bsearch.py` at the WORKTREE ROOT first, then fix the defect AND write a unit test file under `tests/` that genuinely covers it — the test must fail against the old buggy code and pass against your fix.\n\n```python\n\"\"\"Binary search over a sorted list.\"\"\"\n\n\ndef bsearch(items, target):\n    \"\"\"Return the index of target in the sorted list items, or -1 if absent.\"\"\"\n    lo, hi = 0, len(items) - 1\n    while lo < hi:\n        mid = (lo + hi) // 2\n        if items[mid] == target:\n            return mid\n        if items[mid] < target:\n            lo = mid + 1\n        else:\n            hi = mid - 1\n    return -1\n```",
+  "hidden_test": "hidden/g3_teeth_testquality_test.py",
+  "artifacts": [
+    "bsearch.py"
+  ],
+  "timeout_seconds": 3600,
+  "setup_files": {
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

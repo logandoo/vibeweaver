@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_unicode_truncate",
+  "verdict": "pass",
+  "hidden_test": {
+    "exit": 0,
+    "output": "PASS: g3_unicode_truncate\n",
+    "completion_marker": "PASS: g3_unicode_truncate",
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

@@ -1,0 +1,7 @@
+{
+  "id": "smoke",
+  "prompt": "Create a file named hello.txt in the current directory containing exactly the word hello and a newline. Do not modify anything else.",
+  "hidden_test": "hidden/smoke_test.py",
+  "artifacts": ["hello.txt"],
+  "timeout_seconds": 180
+}

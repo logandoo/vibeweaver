@@ -1,0 +1,10 @@
+{
+  "task": "g3_unicode_truncate",
+  "arm": "bare",
+  "seed": 0,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 197.7,
+  "stdout_tail": "EVAL g3_unicode_truncate: pass -> /Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/eval/g3/runs/g3_unicode_truncate__bare__s0\n",
+  "stderr_tail": ""
+}

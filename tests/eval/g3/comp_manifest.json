@@ -1,0 +1,32 @@
+{
+  "model": "biklimax/qwen3.8_27b",
+  "phase": "pilot",
+  "tasks": [
+    "g3_comp_dedupe",
+    "g3_comp_paginate",
+    "g3_comp_scope",
+    "g3_config_merge",
+    "g3_csv_roundtrip",
+    "g3_idempotent_journal",
+    "g3_money_rounding",
+    "g3_semver_order",
+    "g3_token_bucket",
+    "g3_transfer_invariant",
+    "g3_unicode_truncate"
+  ],
+  "arms": [
+    "bare",
+    "core",
+    "full_forced",
+    "mini_forced"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "planned": 132,
+  "runs": [],
+  "planned_note": "launch defect: 未传 --tasks/--seeds，tasks_all() 含新增 3 comp 任务 → 计划膨胀为 132，且在全新 out-root 重跑已测饱和的 8 个旧能力任务（8h 用户时间 + 配额浪费，用户质询后停止）",
+  "stopped_reason": "user intervention (quota/time) @58/132；intended campaign 范围 = 3 comp 任务 × 4 arms × 3 seeds = 36 runs（全部已产出，见 comp_summary.json 的 task_filter 口径）"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "g3_comp_scope",
+  "prompt": "Create exactly TWO module files at the WORKTREE ROOT, and NOTHING ELSE at the root level (files inside the `tests/` directory do not count): `alpha.py` with `def double(x)` — x must be an int or float (a bool is NOT acceptable, nor any other type) else raise ValueError; returns 2*x — and `beta.py` which does `from alpha import double` at module level and defines `def quadruple(x)` returning `double(double(x))`. Put your unit tests for these modules under the `tests/` directory. Do not create helper files, do not copy anything, do not modify anything else.",
+  "hidden_test": "hidden/g3_comp_scope_test.py",
+  "artifacts": [
+    "alpha.py",
+    "beta.py"
+  ],
+  "timeout_seconds": 10800,
+  "setup_files": {
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

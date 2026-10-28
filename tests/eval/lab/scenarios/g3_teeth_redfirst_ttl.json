@@ -1,0 +1,13 @@
+{
+  "id": "g3_teeth_redfirst_ttl",
+  "prompt": "Cache users report values vanishing one second early. A colleague left this module in your worktree. Save it AS-IS as `ttlcache.py` at the WORKTREE ROOT first, then fix it. Contract: a value is expired when now - t >= ttl (at exactly ttl it is expired); get returns the stored value while fresh and None once expired or absent. Follow the vibeweaver evidence contract throughout: acceptance criteria first, a RED iteration (`- iter 1 FAIL:` with a diagnosis) before the green one, and a unit test under `tests/`.\n\n```python\n\"\"\"TTL cache with expiry.\"\"\"\n\n\nclass TTLCache:\n    \"\"\"A tiny time-to-live cache. All times are plain ints (seconds).\"\"\"\n\n    def __init__(self, ttl):\n        self.ttl = ttl\n        self._data = {}\n\n    def put(self, key, value, now):\n        \"\"\"Store value under key, stamped at time now.\"\"\"\n        self._data[key] = (value, now)\n\n    def get(self, key, now):\n        \"\"\"Return the value if present and not expired, else None.\n\n        A value is expired when now - t >= ttl (at exactly ttl it is expired).\n        \"\"\"\n        if key not in self._data:\n            return None\n        value, t = self._data[key]\n        if now - t > self.ttl:\n            return None\n        return value\n```",
+  "hidden_test": "hidden/g3_teeth_redfirst_ttl_test.py",
+  "artifacts": [
+    "ttlcache.py"
+  ],
+  "timeout_seconds": 3600,
+  "setup_files": {
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

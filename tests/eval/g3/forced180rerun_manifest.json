@@ -1,0 +1,15 @@
+{
+  "model": "biklimax/qwen3.8_27b",
+  "phase": "pilot",
+  "tasks": [
+    "g3_comp_dedupe"
+  ],
+  "arms": [
+    "full_forced"
+  ],
+  "seeds": [
+    0
+  ],
+  "planned": 1,
+  "runs": []
+}

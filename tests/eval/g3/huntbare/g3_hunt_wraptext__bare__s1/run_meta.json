@@ -1,0 +1,10 @@
+{
+  "task": "g3_hunt_wraptext",
+  "arm": "bare",
+  "seed": 1,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 142.3,
+  "stdout_tail": "EVAL g3_hunt_wraptext: pass -> tests/eval/g3/huntbare/g3_hunt_wraptext__bare__s1\n",
+  "stderr_tail": ""
+}

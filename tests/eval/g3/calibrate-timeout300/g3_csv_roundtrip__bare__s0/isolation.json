@@ -1,0 +1,21 @@
+{
+  "sandbox": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-z4viyy7y",
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-z4viyy7y/work",
+  "work_files": [],
+  "sandbox_outside_work": [
+    "home/.cache/opencode/models.json",
+    "home/.config/opencode/opencode.jsonc",
+    "home/.local/share/opencode/auth.json",
+    "home/.local/share/opencode/log/opencode.log",
+    "home/.local/share/opencode/opencode.db",
+    "home/.local/share/opencode/opencode.db-shm",
+    "home/.local/share/opencode/opencode.db-wal"
+  ],
+  "sandbox_symlink_escapes": [],
+  "host_repo_delta": [],
+  "host_repo_monitored": true,
+  "artifacts": [
+    "csv_roundtrip.py"
+  ],
+  "violations": []
+}

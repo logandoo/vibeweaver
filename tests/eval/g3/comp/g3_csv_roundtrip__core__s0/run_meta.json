@@ -1,0 +1,10 @@
+{
+  "task": "g3_csv_roundtrip",
+  "arm": "core",
+  "seed": 0,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 553.6,
+  "stdout_tail": "EVAL g3_csv_roundtrip: pass -> tests/eval/g3/comp/g3_csv_roundtrip__core__s0\n",
+  "stderr_tail": ""
+}

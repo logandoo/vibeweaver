@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_comp_dedupe",
+  "verdict": "fail",
+  "hidden_test": {
+    "exit": 1,
+    "output": "EVIDENCE-FAIL: tests/acceptance.md must contain >=1 numbered criterion line ('1. \u2026')\n",
+    "completion_marker": null,
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

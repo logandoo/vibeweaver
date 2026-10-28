@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_hunt_inirules",
+  "verdict": "pass",
+  "hidden_test": {
+    "exit": 0,
+    "output": "PASS: g3_hunt_inirules\n",
+    "completion_marker": "PASS: g3_hunt_inirules",
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": []
+}

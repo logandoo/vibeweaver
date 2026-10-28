@@ -1,0 +1,13 @@
+{
+  "scenario": "smoke",
+  "agent": {
+    "exit": 0,
+    "stdout": "Created `hello.txt` in the working directory with the exact contents `hello\\n` (6 bytes, verified with `od`). Nothing else was modified.\n",
+    "stderr": "\u001b[0m\n> build \u00b7 deepseek-flash\n\u001b[0m\u2190 \u001b[0mWrite hello.txt\nCreated file successfully: hello.txt\n> build \u00b7 deepseek-flash\n\u001b[0m$ \u001b[0mod -c hello.txt\n0000000    h   e   l   l   o  \\n                                        \n0000006\n> build \u00b7 deepseek-flash\n",
+    "cmd": "opencode run --standalone -m deepseek/deepseek-flash --format default --auto /var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-atnuc4s9/work Create a file named hello.txt in the current directory containing exactly the word hello and a newline. Do not modify anything else.",
+    "seconds": 3.1535348892211914,
+    "cwd": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-atnuc4s9/work",
+    "home": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-atnuc4s9/home"
+  },
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-atnuc4s9/work"
+}

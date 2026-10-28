@@ -357,6 +357,17 @@ delivers today: 47.8 KB full skill and 2 KB mini. The 16-task rounds below
 are G1. Waves 6–7 are G2. Waves 11–13 ran during the G2 era; the October waves
 hardened what now ships as G3. **No 16-task round has been run on G3.**
 
+**How to read the tables.** They answer different questions, and neither of
+them answers "are the models identical?". The G1 table measures *model
+capability* — pass rate on 16 coding tasks, the skill as text, four models —
+and it is saturated for qwen3.8 (16/16 forced): a ceiling of the task set, not
+a ceiling of the model. The later tables measure *the deployed product* (text +
+plugins) on process-compliance tasks with one model. The per-task failure
+breakdown in `vibeweaver-eval/REPORT.md` (appendix A) shows where model
+differences really live: of the 16 tasks, 11 are passed and failed differently
+by the models' bare arms, only 1 is failed by every bare arm, and 4 are passed
+by every bare arm.
+
 ### The finding that survived: size drives triggering (G1, 16 tasks, Aug 2026)
 
 | Model | Bare | Full, available | Full, forced | mini, available | mini, forced |
@@ -446,7 +457,12 @@ The deployed form passed 9/9 with real gate interception in every run (28
 GATE-BLOCKED events, 9/9 runs intercepted) — the plugin caught non-compliant
 evidence shapes and drove corrections. Text-only injection scored 3/9 at 2× the
 wall-clock cost. Sample size is small; these are directional results, not
-significance claims. Full data: `docs/EVAL_G3_PILOT_REPORT.md` §8–9,
+significance claims. The statistical reason is worth stating: these 9 runs are
+3 tasks × 3 seeds, so run-level tests (Fisher p≈4.1e-5, McNemar p≈0.004 on the
+bare split) assume run independence while seeds are replicates of 3 tasks —
+taking the task as the unit gives 0/3 vs 3/3 (p=0.10). The effect is completely
+separated (Wilson intervals do not overlap); "directional" is the honest label
+at n=3 tasks. Full data: `docs/EVAL_G3_PILOT_REPORT.md` §8–9,
 `tests/eval/g3/v2fix_summary.json`.
 
 ### Honest caveats

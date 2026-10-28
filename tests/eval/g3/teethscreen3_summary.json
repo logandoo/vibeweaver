@@ -1,0 +1,40 @@
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 2,
+  "tasks": [
+    "g3_teeth_redfirst_bill",
+    "g3_teeth_redfirst_ttl"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "bare": {
+      "runs": 6,
+      "pass": 0,
+      "fail": 6,
+      "indeterminate": 0,
+      "n_effective": 6,
+      "pass_rate": 0.0,
+      "ci95": [
+        0.0,
+        0.3903
+      ],
+      "mean_wall_seconds": 203.6
+    }
+  },
+  "paired_vs_bare": {},
+  "mde": 0.8087,
+  "planned_runs": 6,
+  "observed_runs": 6,
+  "cost": {
+    "total_wall_seconds": 1221.9
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": null,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集"
+}

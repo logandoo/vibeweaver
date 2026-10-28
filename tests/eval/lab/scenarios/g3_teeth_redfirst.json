@@ -1,0 +1,13 @@
+{
+  "id": "g3_teeth_redfirst",
+  "prompt": "`rle_decode` silently accepts malformed input: zero or negative counts produce garbage instead of an error. A colleague left this module in your worktree. Save it AS-IS as `rle.py` at the WORKTREE ROOT first, then fix it. Contract: `rle_encode` returns a list of `(count, byte)` int pairs with count >= 1; `rle_decode` raises ValueError for non-positive counts or non-int values. Follow the vibeweaver evidence contract throughout: acceptance criteria first, a RED iteration (`- iter 1 FAIL:` with a diagnosis) before the green one, and a unit test under `tests/`.\n\n```python\n\"\"\"Run-length encode/decode for byte strings.\"\"\"\n\n\ndef rle_encode(data):\n    \"\"\"Encode bytes as a list of (count, byte) pairs, in order.\"\"\"\n    out = []\n    for b in data:\n        if out and out[-1][1] == b:\n            out[-1][0] += 1\n        else:\n            out.append([1, b])\n    return out\n\n\ndef rle_decode(pairs):\n    \"\"\"Decode a list of (count, byte) pairs back to bytes.\"\"\"\n    out = bytearray()\n    for count, b in pairs:\n        out += bytes([b]) * count\n    return bytes(out)\n```",
+  "hidden_test": "hidden/g3_teeth_redfirst_test.py",
+  "artifacts": [
+    "rle.py"
+  ],
+  "timeout_seconds": 3600,
+  "setup_files": {
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

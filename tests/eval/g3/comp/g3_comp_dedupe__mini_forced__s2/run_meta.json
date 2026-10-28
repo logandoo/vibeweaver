@@ -1,0 +1,10 @@
+{
+  "task": "g3_comp_dedupe",
+  "arm": "mini_forced",
+  "seed": 2,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 1,
+  "wall_seconds": 162.3,
+  "stdout_tail": "EVAL g3_comp_dedupe: fail -> tests/eval/g3/comp/g3_comp_dedupe__mini_forced__s2\n",
+  "stderr_tail": ""
+}

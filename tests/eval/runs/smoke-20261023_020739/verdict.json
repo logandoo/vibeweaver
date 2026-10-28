@@ -1,0 +1,9 @@
+{
+  "scenario": "smoke",
+  "verdict": "pass",
+  "hidden_test": {
+    "exit": 0,
+    "output": "PASS: hello.txt\n"
+  },
+  "agent_exit": 0
+}

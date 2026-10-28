@@ -1,0 +1,54 @@
+{
+  "model": "biklimax/qwen3.8_27b",
+  "phase": "pilot",
+  "tasks": [
+    "g3_hunt_conccounter",
+    "g3_hunt_inirules"
+  ],
+  "arms": [
+    "bare"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "planned": 6,
+  "runs": [
+    "g3_hunt_bucketrate__bare__s0",
+    "g3_hunt_bucketrate__bare__s1",
+    "g3_hunt_bucketrate__bare__s2",
+    "g3_hunt_cachetouch__bare__s0",
+    "g3_hunt_cachetouch__bare__s1",
+    "g3_hunt_cachetouch__bare__s2",
+    "g3_hunt_cachetouch__bare__s3",
+    "g3_hunt_closeacct__bare__s0",
+    "g3_hunt_closeacct__bare__s1",
+    "g3_hunt_closeacct__bare__s2",
+    "g3_hunt_conccounter__bare__s0",
+    "g3_hunt_conccounter__bare__s1",
+    "g3_hunt_conccounter__bare__s2",
+    "g3_hunt_globmatch__bare__s0",
+    "g3_hunt_globmatch__bare__s1",
+    "g3_hunt_globmatch__bare__s2",
+    "g3_hunt_globmatch__bare__s3",
+    "g3_hunt_inirules__bare__s0",
+    "g3_hunt_inirules__bare__s1",
+    "g3_hunt_inirules__bare__s2",
+    "g3_hunt_moneyfmt__bare__s0",
+    "g3_hunt_moneyfmt__bare__s1",
+    "g3_hunt_moneyfmt__bare__s2",
+    "g3_hunt_moneyfmt__bare__s3",
+    "g3_hunt_pageoff__bare__s0",
+    "g3_hunt_pageoff__bare__s1",
+    "g3_hunt_pageoff__bare__s2",
+    "g3_hunt_weekdate__bare__s0",
+    "g3_hunt_weekdate__bare__s1",
+    "g3_hunt_weekdate__bare__s2",
+    "g3_hunt_weekdate__bare__s3",
+    "g3_hunt_wraptext__bare__s0",
+    "g3_hunt_wraptext__bare__s1",
+    "g3_hunt_wraptext__bare__s2",
+    "g3_hunt_wraptext__bare__s3"
+  ]
+}

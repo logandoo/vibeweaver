@@ -1,0 +1,10 @@
+{
+  "scenario": "g3_money_rounding",
+  "verdict": "indeterminate",
+  "hidden_test": {
+    "exit": null,
+    "output": "agent failed/could not run"
+  },
+  "agent_exit": -1,
+  "isolation_violations": []
+}

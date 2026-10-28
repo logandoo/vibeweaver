@@ -1,0 +1,10 @@
+{
+  "task": "g3_hunt_weekdate",
+  "arm": "bare",
+  "seed": 3,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 443.7,
+  "stdout_tail": "EVAL g3_hunt_weekdate: pass -> tests/eval/g3/huntbare/g3_hunt_weekdate__bare__s3\n",
+  "stderr_tail": ""
+}

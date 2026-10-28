@@ -1,0 +1,10 @@
+{
+  "task": "g3_comp_dedupe",
+  "arm": "full_deployed",
+  "seed": 0,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 1040.4,
+  "stdout_tail": "EVAL g3_comp_dedupe: pass -> tests/eval/g3/v2/g3_comp_dedupe__full_deployed__s0\n",
+  "stderr_tail": ""
+}

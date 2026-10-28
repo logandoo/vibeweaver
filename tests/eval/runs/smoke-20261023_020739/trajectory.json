@@ -1,0 +1,10 @@
+{
+  "scenario": "smoke",
+  "agent": {
+    "exit": 0,
+    "stdout": "mock agent",
+    "stderr": "",
+    "cmd": "mock"
+  },
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-7t0lmadi/work"
+}

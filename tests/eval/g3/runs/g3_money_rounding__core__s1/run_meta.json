@@ -1,0 +1,10 @@
+{
+  "task": "g3_money_rounding",
+  "arm": "core",
+  "seed": 1,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 359.2,
+  "stdout_tail": "EVAL g3_money_rounding: pass -> /Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/eval/g3/runs/g3_money_rounding__core__s1\n",
+  "stderr_tail": ""
+}

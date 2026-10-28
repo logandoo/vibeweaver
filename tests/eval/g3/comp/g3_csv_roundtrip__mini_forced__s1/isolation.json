@@ -1,0 +1,26 @@
+{
+  "sandbox": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-dz4kdwo9",
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-dz4kdwo9/work",
+  "work_files": [],
+  "sandbox_outside_work": [
+    "home/.cache/opencode/models.json",
+    "home/.config/opencode/opencode.jsonc",
+    "home/.config/opencode/skills/vibeweaver-mini/SKILL.md",
+    "home/.config/opencode/skills/vibeweaver-mini/scripts/check.sh",
+    "home/.config/opencode/skills/vibeweaver-mini/scripts/vw_check.py",
+    "home/.local/share/opencode/auth.json",
+    "home/.local/share/opencode/log/opencode.log",
+    "home/.local/share/opencode/opencode.db",
+    "home/.local/share/opencode/opencode.db-shm",
+    "home/.local/share/opencode/opencode.db-wal",
+    "home/.local/share/opencode/shell/310a64536cbd52b898e990f7b2733b239f68c6ff/sh_16d6bb2e7001MJz5PEwcieMYOP.out",
+    "home/.local/share/opencode/shell/310a64536cbd52b898e990f7b2733b239f68c6ff/sh_16d6bf280001s1E3m4t7SizBWN.out"
+  ],
+  "sandbox_symlink_escapes": [],
+  "host_repo_delta": [],
+  "host_repo_monitored": true,
+  "artifacts": [
+    "csv_roundtrip.py"
+  ],
+  "violations": []
+}

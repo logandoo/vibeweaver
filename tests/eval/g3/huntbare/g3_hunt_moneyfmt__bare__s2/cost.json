@@ -1,0 +1,23 @@
+{
+  "wall_seconds": 294.8321189880371,
+  "model": "biklimax/qwen3.8_27b",
+  "arm": "bare",
+  "seed": 2,
+  "skill_fingerprint": {
+    "arm": "bare",
+    "installed": null,
+    "files": 0,
+    "sha256": null
+  },
+  "tokens": null,
+  "setup_files_seeded": [
+    "docs/spec.md",
+    "tests/test_moneyfmt.py"
+  ],
+  "gate_events": {
+    "gate_blocked_events": 0,
+    "by_type": {},
+    "first_blocked_at": null,
+    "events": []
+  }
+}

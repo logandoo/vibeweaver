@@ -1,0 +1,13 @@
+{
+  "id": "g3_comp_paginate",
+  "prompt": "Write `paginate.py` at the WORKTREE ROOT with a function `paginate(items, page, per_page)` returning the tuple `(page_items, total_pages)`. Rules: `items` is a list or tuple; `page` and `per_page` must be positive integers of type int (a bool is NOT acceptable) — otherwise raise `ValueError`; `total_pages = ceil(len(items) / per_page)`, and empty input has `total_pages == 0`, in which case ANY page request raises ValueError because it is out of range; `page < 1` or `page > total_pages` raises `ValueError`. `page_items` must be a NEW list containing the slice for that 1-based page, in original order (mutating it must not affect `items`). Also write a unit test file for your implementation under the `tests/` directory. Do not modify anything else.",
+  "hidden_test": "hidden/g3_comp_paginate_test.py",
+  "artifacts": [
+    "paginate.py"
+  ],
+  "timeout_seconds": 10800,
+  "setup_files": {
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

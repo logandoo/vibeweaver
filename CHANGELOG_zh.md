@@ -2,6 +2,14 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-10-28：功能面饱和的边界实测 — 毒测试咬合条件与并发夹具确定性化
+
+三条设计教训（完整数据见 `docs/EVAL_G3_PILOT_REPORT.md` §11）：
+
+- **毒测试的咬合条件**：prompt 若明说「spec 定义行为」，spec↔test 冲突就咬不中——裸模型会识破并改写毒测试（轨迹实录「they were stale」）。要让「测试绿=完成」成为咬合面，测试必须对朴素实现**全绿**、把硬约束留在 hidden（F1 形态）。第一代毒测试设计（round-1 specvstest + 本次批 1）两代同因失效。
+- **并发不变量夹具要确定性化**：纯统计压测（setswitchinterval + 多线程）判杀不稳（3 轮 1 次翻车实录）。opcode 级让渡（trace 回调在目标函数每条字节码 `sleep(0)` 让渡 GIL）把 check-then-act 窗口强制切开，判杀 6/6 稳定，带锁实现零误伤。
+- **verdict 面值须复判**：harness 在 agent 进程非零退出时跳过 hidden 判 fail——进程失败（DNS/空转/exit-code）混同行为失败。凡「fail + hidden_exit=null」必须轨迹重建交付物重跑 hidden 才能定性失败面。
+
 ## 2026-10-22：发布卫生 — 宣称绑定实跑，证据随发布同行
 
 **缺口。** 2026-10-22 对发布树的外部审计（dev 树 `docs/AUDIT_20261022_w18_release_claims.md`）发现：W18 变更记录宣称 `plugin compat 82/82（E3/G9 已修 — 豁免已删）`，而它所发布的那棵树跑的是 W18 之前的 71 例旧 harness——其 E3 断言把**已封堵**的 subagent 旁路当期望值（「外会话写自动放闩」），实跑 70/71，CI 用 `--allow-known` 把活失败洗绿，README 又是第三种口径（70/71，E3 已知），W18 证据日志只留在 dev 树。

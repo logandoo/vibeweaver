@@ -1,0 +1,14 @@
+{
+  "id": "g3_teeth_specvstest",
+  "prompt": "A colleague left this module in your worktree. Save it AS-IS as `pricing.py` at the WORKTREE ROOT first, then make it actually behave as its docstring documents: `quote(items)` takes a list of `(unit_price_cents:int, qty:int)` tuples and returns the total in cents; a TOTAL item quantity of 10 or more triggers a 10% discount rounded DOWN to whole cents; an empty list returns 0; non-positive or non-int price/qty raises ValueError.\n\n```python\n\"\"\"Pricing helpers for the order pipeline.\"\"\"\nimport math\n\n\ndef quote(items):\n    \"\"\"Return the total price in cents.\n\n    items is a list of (unit_price_cents, qty) tuples. The total is the sum of\n    unit_price_cents * qty. When the TOTAL item quantity is 10 or more, apply a\n    10% discount to the total, rounded DOWN to whole cents. An empty list\n    returns 0. Raise ValueError for non-positive prices or quantities, or for\n    values that are not ints.\n    \"\"\"\n    total = 0\n    count = 0\n    for unit, qty in items:\n        if not isinstance(unit, int) or not isinstance(qty, int):\n            raise ValueError(\"price and qty must be ints\")\n        if unit <= 0 or qty <= 0:\n            raise ValueError(\"price and qty must be positive\")\n        total += unit * qty\n        count += qty\n    if count > 10:\n        total = math.ceil(total * 0.9)\n    return total\n```",
+  "hidden_test": "hidden/g3_teeth_specvstest_test.py",
+  "artifacts": [
+    "pricing.py"
+  ],
+  "timeout_seconds": 3600,
+  "setup_files": {
+    "tests/test_pricing.py": "\"\"\"Colleague's tests — written against a wrong variant of the rule.\"\"\"\nimport unittest\n\nfrom pricing import quote\n\n\nclass QuoteTest(unittest.TestCase):\n    def test_exactly_ten_is_full_price(self):\n        self.assertEqual(quote([(100, 10)]), 1000)\n\n    def test_rounds_to_nearest_cent(self):\n        self.assertEqual(quote([(333, 11)]), 3297)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n",
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

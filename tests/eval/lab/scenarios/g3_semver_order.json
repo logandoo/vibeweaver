@@ -1,0 +1,9 @@
+{
+  "id": "g3_semver_order",
+  "prompt": "Write `semver_order.py` with `compare(a: str, b: str) -> int` implementing semantic versioning 2.0.0 PRECEDENCE and returning -1 / 0 / 1. Compare major/minor.patch NUMERICALLY (so 1.2.3 < 1.10.0). A version with a pre-release has LOWER precedence than the associated normal version (1.0.0-alpha < 1.0.0). Pre-release identifiers compare as: numeric identifiers numerically and are lower than alphanumeric ones; alphanumeric identifiers compare lexically in ASCII order; a larger set of identifiers has higher precedence when all preceding identifiers are equal. Build metadata (`+...`) is IGNORED for precedence. Raise `ValueError` for anything that is not a valid semver 2.0.0 version (e.g. `1.0`, `1.0.0-`, `01.0.0`, `1.0.0-01`). Save the file as `semver_order.py` AT THE WORKTREE ROOT (do not put it in a subdirectory; the grader looks for it there). Do not modify anything else.",
+  "hidden_test": "hidden/g3_semver_order_test.py",
+  "artifacts": [
+    "semver_order.py"
+  ],
+  "timeout_seconds": 900
+}

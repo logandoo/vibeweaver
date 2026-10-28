@@ -1,0 +1,10 @@
+{
+  "scenario": "g3_comp_dedupe",
+  "verdict": "fail",
+  "hidden_test": {
+    "exit": null,
+    "output": "agent failed/could not run"
+  },
+  "agent_exit": 130,
+  "isolation_violations": []
+}

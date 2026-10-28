@@ -1,0 +1,31 @@
+{
+  "wall_seconds": 1174.7843079566956,
+  "model": "biklimax/qwen3.8_27b",
+  "arm": "full_deployed",
+  "seed": 1,
+  "skill_fingerprint": {
+    "arm": "full_deployed",
+    "installed": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-rh4cn8uc/home/.config/opencode/skills/vibeweaver",
+    "files": 50,
+    "sha256": "7151bd1bd23ce18f3c30756d3ea6a6857f24f0c09d9a2e4d709e503e6c829b52"
+  },
+  "tokens": null,
+  "setup_files_seeded": [
+    "tests/project_profile.json",
+    "tests/verification_log.md"
+  ],
+  "gate_events": {
+    "gate_blocked_events": 1,
+    "by_type": {
+      "other": 1
+    },
+    "first_blocked_at": 15,
+    "events": [
+      {
+        "event_index": 15,
+        "type": "other",
+        "excerpt": "Line 367:   non-test `write`/`edit` throws GATE-BLOCKED (`tool.execute.before`)."
+      }
+    ]
+  }
+}

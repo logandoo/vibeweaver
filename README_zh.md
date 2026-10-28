@@ -159,6 +159,8 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 
 **安装包换过代，所以每张表都标代际。** G1 是 2026 年 8 月：71KB 完整版 + 2.2–5.7KB mini。G2 是 2026 年 9 月：41.8KB 完整版 + 1.7KB mini 套件。G3 是今天 `install.sh` 装的东西：47.8KB 完整版 + 2KB mini。下面的 16 题轮次全部是 G1；第六、七波是 G2；第十一至十三波跑在 G2 时期；10 月的加固波改的是现在作为 G3 发布的东西。**G3 还没有跑过 16 题轮次。**
 
+**怎么读这些表。** 它们回答的是不同问题，且都不能回答「模型都一样吗」。G1 表测的是**模型能力**——16 道编码题的通过率、文本层 skill、四个模型——它对 qwen3.8 已饱和（forced 16/16）：这是题集的天花板，不是模型的天花板。后面的表测的是**部署形态**（文本 + 插件）在一个模型上的过程契约合规。逐题失败分解在 `vibeweaver-eval/REPORT.md`（附录 A）：16 题中 11 题在各模型裸臂上成败不同（模型差异真实存在的位置），只有 1 题是所有裸臂全挂，4 题是所有裸臂全过。
+
 ### 活下来的结论：体积决定触发（G1，16 题，2026 年 8 月）
 
 | 模型 | 裸模型 | 完整版，仅挂载 | 完整版，强制注入 | mini，仅挂载 | mini，强制注入 |
@@ -199,7 +201,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 | full_forced（仅文本，提示词注入） | 3/9 | [0.12, 0.65] | ~41 分钟 |
 | **full_deployed（文本 + gate/audit 插件）** | **9/9** | **[0.70, 1.00]** | **~23 分钟** |
 
-部署形态 9/9 通过，每个 run 都有真实 gate 拦截（28 次 GATE-BLOCKED，9/9 run 被拦）——插件抓住了不合规的证据形状并驱动改正。纯文本注入 3/9，墙钟成本高 2 倍。样本量小；以上是方向性结果，不是显著性宣称。完整数据：`docs/EVAL_G3_PILOT_REPORT.md` §8–9，`tests/eval/g3/v2fix_summary.json`。
+部署形态 9/9 通过，每个 run 都有真实 gate 拦截（28 次 GATE-BLOCKED，9/9 run 被拦）——插件抓住了不合规的证据形状并驱动改正。纯文本注入 3/9，墙钟成本高 2 倍。样本量小；以上是方向性结果，不是显著性宣称。统计学理由值得写明：9 个 run = 3 题 × 3 seeds，run 级检验（bare 对比 Fisher p≈4.1e-5、McNemar p≈0.004）假设 run 独立，而 seeds 是 3 个题目的重复——以题目为单元则是 0/3 vs 3/3（p=0.10）。效应本身完全分离（Wilson 区间不重叠）；n=3 题时「方向性」是最诚实的标签。完整数据：`docs/EVAL_G3_PILOT_REPORT.md` §8–9，`tests/eval/g3/v2fix_summary.json`。
 
 ### 说句实话
 

@@ -1,0 +1,13 @@
+{
+  "id": "g3_hunt_conccounter",
+  "prompt": "Implement `counter.py` at the worktree root — `class Counter`, a rate/usage counter with a hard cap that is used from multiple threads. The module's full contract is in `docs/spec.md` at the worktree root; that document defines the behavior the module must implement. A test file covering the single-threaded behavior is in `tests/`. Standard library only.",
+  "hidden_test": "hidden/g3_hunt_conccounter_test.py",
+  "artifacts": [
+    "counter.py"
+  ],
+  "timeout_seconds": 1800,
+  "setup_files": {
+    "docs/spec.md": "# counter — module contract (authoritative)\n\n`counter.py` at the worktree root: `class Counter(cap)` — a usage counter with a hard\ncap, used concurrently from many threads.\n\n## Construction\n\n- `cap` must be an `int` >= 1 and not a `bool` (else `ValueError`). The counter starts\n  at 0.\n\n## `incr_if_below() -> int`\n\n- Atomically: **iff** the current count is strictly below `cap`, increments it and\n  returns the new count. Otherwise returns 0 and changes nothing.\n- **Hard invariant (the whole point of this module): under any number of concurrent\n  calls, the count must never exceed `cap`, and every successful call must return a\n  distinct value in `1..cap`.** The check and the increment are one indivisible step\n  with respect to other calls. This module is called from hot threads; relying on\n  \"it usually works\" is a defect.\n\n## `value() -> int`\n\n- The current count (an observation, not a synchronization point).\n\n## `remaining() -> int`\n\n- `cap - value()`.\n\n## General\n\nStandard library only. This document is the authoritative statement of the module's\nbehavior.\n",
+    "tests/test_counter.py": "from counter import Counter\n\n\ndef test_increments_until_cap():\n    c = Counter(3)\n    assert c.incr_if_below() == 1\n    assert c.incr_if_below() == 2\n    assert c.incr_if_below() == 3\n    assert c.incr_if_below() == 0\n    assert c.value() == 3\n    assert c.remaining() == 0\n\n\ndef test_starts_empty():\n    c = Counter(5)\n    assert c.value() == 0\n    assert c.remaining() == 5\n\n\ndef test_bad_cap():\n    for bad in (0, -1, True, 1.5):\n        try:\n            Counter(bad)\n        except ValueError:\n            continue\n        raise AssertionError(\"ValueError expected for %r\" % (bad,))\n"
+  }
+}

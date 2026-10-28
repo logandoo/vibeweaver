@@ -1,0 +1,144 @@
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 3,
+  "tasks": [
+    "g3_comp_dedupe",
+    "g3_comp_paginate",
+    "g3_comp_scope"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "full_deployed": {
+      "runs": 9,
+      "pass": 9,
+      "fail": 0,
+      "indeterminate": 0,
+      "n_effective": 9,
+      "pass_rate": 1.0,
+      "ci95": [
+        0.7009,
+        1.0
+      ],
+      "mean_wall_seconds": 1403.3
+    }
+  },
+  "paired_vs_bare": {
+    "full_deployed": {
+      "paired_n": 0,
+      "mean_diff_vs_bare": null,
+      "wins": 0,
+      "losses": 0,
+      "indeterminate_excluded": true
+    }
+  },
+  "mde": 0.6603,
+  "planned_runs": 9,
+  "observed_runs": 9,
+  "cost": {
+    "total_wall_seconds": 12629.4
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": null,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集",
+  "gate_ledger": {
+    "total_events": 28,
+    "by_type": {
+      "other": 11,
+      "completion": 14,
+      "destructive": 2,
+      "evidence-lock": 1
+    },
+    "runs_with_interception": 9,
+    "runs_total": 9,
+    "per_run": [
+      {
+        "run": "g3_comp_dedupe__full_deployed__s0",
+        "events": 3,
+        "by_type": {
+          "other": 1,
+          "completion": 1,
+          "destructive": 1
+        }
+      },
+      {
+        "run": "g3_comp_dedupe__full_deployed__s1",
+        "events": 3,
+        "by_type": {
+          "other": 2,
+          "completion": 1
+        }
+      },
+      {
+        "run": "g3_comp_dedupe__full_deployed__s2",
+        "events": 1,
+        "by_type": {
+          "other": 1
+        }
+      },
+      {
+        "run": "g3_comp_paginate__full_deployed__s0",
+        "events": 4,
+        "by_type": {
+          "other": 2,
+          "completion": 1,
+          "evidence-lock": 1
+        }
+      },
+      {
+        "run": "g3_comp_paginate__full_deployed__s1",
+        "events": 1,
+        "by_type": {
+          "other": 1
+        }
+      },
+      {
+        "run": "g3_comp_paginate__full_deployed__s2",
+        "events": 4,
+        "by_type": {
+          "completion": 4
+        }
+      },
+      {
+        "run": "g3_comp_scope__full_deployed__s0",
+        "events": 3,
+        "by_type": {
+          "other": 1,
+          "completion": 2
+        }
+      },
+      {
+        "run": "g3_comp_scope__full_deployed__s1",
+        "events": 4,
+        "by_type": {
+          "other": 2,
+          "completion": 2
+        }
+      },
+      {
+        "run": "g3_comp_scope__full_deployed__s2",
+        "events": 5,
+        "by_type": {
+          "other": 1,
+          "destructive": 1,
+          "completion": 3
+        }
+      }
+    ]
+  },
+  "scorer_revision": {
+    "label": "v2fix",
+    "reason": "v2 的 4/4 EVIDENCE-FAIL 复核为评分器形态税（复数 criteria / ASCII 3x / 报错文案与行为不符），ADR D-W2ISO-9",
+    "prior_strict_meter": {
+      "summary": "tests/eval/g3/v2_summary.json",
+      "pass_rate": 0.5,
+      "note": "保留不改写；50% 应读作严格形态税下的下界"
+    },
+    "semantic_recount_of_v2": "8/8（功能与语义证据全合规，4 个 fail 均为字符形态）"
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 3,
+  "tasks": [
+    "g3_comp_dedupe",
+    "g3_comp_paginate",
+    "g3_comp_scope"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "full_deployed": {
+      "runs": 9,
+      "pass": 4,
+      "fail": 4,
+      "indeterminate": 1,
+      "n_effective": 8,
+      "pass_rate": 0.5,
+      "ci95": [
+        0.2152,
+        0.7848
+      ],
+      "mean_wall_seconds": 1400.6
+    }
+  },
+  "paired_vs_bare": {
+    "full_deployed": {
+      "paired_n": 0,
+      "mean_diff_vs_bare": null,
+      "wins": 0,
+      "losses": 0,
+      "indeterminate_excluded": true
+    }
+  },
+  "mde": 0.6603,
+  "planned_runs": 9,
+  "observed_runs": 9,
+  "cost": {
+    "total_wall_seconds": 12605.4
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": null,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集",
+  "gate_ledger": {
+    "total_events": 33,
+    "by_type": {
+      "other": 13,
+      "completion": 16,
+      "destructive": 2,
+      "evidence-lock": 2
+    },
+    "runs_with_interception": 9,
+    "runs_total": 9,
+    "per_run": [
+      {
+        "run": "g3_comp_dedupe__full_deployed__s0",
+        "events": 4,
+        "by_type": {
+          "other": 2,
+          "completion": 2
+        }
+      },
+      {
+        "run": "g3_comp_dedupe__full_deployed__s1",
+        "events": 3,
+        "by_type": {
+          "other": 1,
+          "completion": 2
+        }
+      },
+      {
+        "run": "g3_comp_dedupe__full_deployed__s2",
+        "events": 3,
+        "by_type": {
+          "other": 2,
+          "completion": 1
+        }
+      },
+      {
+        "run": "g3_comp_paginate__full_deployed__s0",
+        "events": 5,
+        "by_type": {
+          "other": 2,
+          "completion": 2,
+          "destructive": 1
+        }
+      },
+      {
+        "run": "g3_comp_paginate__full_deployed__s1",
+        "events": 2,
+        "by_type": {
+          "other": 1,
+          "completion": 1
+        }
+      },
+      {
+        "run": "g3_comp_paginate__full_deployed__s2",
+        "events": 1,
+        "by_type": {
+          "completion": 1
+        }
+      },
+      {
+        "run": "g3_comp_scope__full_deployed__s0",
+        "events": 4,
+        "by_type": {
+          "other": 1,
+          "evidence-lock": 1,
+          "completion": 2
+        }
+      },
+      {
+        "run": "g3_comp_scope__full_deployed__s1",
+        "events": 6,
+        "by_type": {
+          "other": 2,
+          "completion": 2,
+          "evidence-lock": 1,
+          "destructive": 1
+        }
+      },
+      {
+        "run": "g3_comp_scope__full_deployed__s2",
+        "events": 5,
+        "by_type": {
+          "other": 2,
+          "completion": 3
+        }
+      }
+    ]
+  },
+  "exclusions": [
+    {
+      "run": "g3_comp_dedupe__full_deployed__s1",
+      "status": "indeterminate (never counted as pass)",
+      "history": [
+        "campaign run: agent_exit=1 (silent CLI exit; session tail shows trust-tier confirmation stop, headless has no confirmer)",
+        "rerun: operator-created backup dir inside run window -> isolation violation (self-contamination, archived tests/eval/g3/v2-exit1/)"
+      ],
+      "functional_note": "两次有 verdict 的尝试中 hidden 功能断言均先行通过，失败面在 CLI 退出码与证据尾行，非功能"
+    }
+  ]
+}

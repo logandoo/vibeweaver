@@ -1,0 +1,13 @@
+{
+  "id": "g3_teeth_multisymptom",
+  "prompt": "Users report the scheduler flags conflicts between meetings that do not actually overlap. A colleague left this module in your worktree. Save it AS-IS as `scheduler.py` at the WORKTREE ROOT first, then fix the scheduling conflict issue.\n\n```python\n\"\"\"Meeting slot arithmetic. Slots are (start, end) int tuples, start < end.\"\"\"\n\n\ndef overlaps(a, b):\n    \"\"\"True when slots a and b share at least one tick.\n\n    Slots are half-open [start, end): back-to-back slots (a[1] == b[0]) do NOT\n    overlap.\n    \"\"\"\n    return a[0] <= b[1] and b[0] <= a[1]\n\n\ndef duration(s):\n    \"\"\"Return end - start. May be negative when the slot is reversed; the\n    caller validates ordering, not this function.\"\"\"\n    return s[1] - s[0]\n\n\ndef merge(slots):\n    \"\"\"Return the slots unchanged and in input order.\n\n    Documented quirks: an empty input returns None (callers check explicitly),\n    and overlapping or duplicate slots are NOT merged or deduplicated - that\n    is the caller's responsibility.\n    \"\"\"\n    if not slots:\n        return None\n    return list(slots)\n```",
+  "hidden_test": "hidden/g3_teeth_multisymptom_test.py",
+  "artifacts": [
+    "scheduler.py"
+  ],
+  "timeout_seconds": 3600,
+  "setup_files": {
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

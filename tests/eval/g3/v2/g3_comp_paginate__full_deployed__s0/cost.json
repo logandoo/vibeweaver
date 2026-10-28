@@ -1,0 +1,53 @@
+{
+  "wall_seconds": 1573.3823170661926,
+  "model": "biklimax/qwen3.8_27b",
+  "arm": "full_deployed",
+  "seed": 0,
+  "skill_fingerprint": {
+    "arm": "full_deployed",
+    "installed": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-ygmurqkz/home/.config/opencode/skills/vibeweaver",
+    "files": 50,
+    "sha256": "7151bd1bd23ce18f3c30756d3ea6a6857f24f0c09d9a2e4d709e503e6c829b52"
+  },
+  "tokens": null,
+  "setup_files_seeded": [
+    "tests/project_profile.json",
+    "tests/verification_log.md"
+  ],
+  "gate_events": {
+    "gate_blocked_events": 5,
+    "by_type": {
+      "other": 2,
+      "completion": 2,
+      "destructive": 1
+    },
+    "first_blocked_at": 8,
+    "events": [
+      {
+        "event_index": 8,
+        "type": "other",
+        "excerpt": "499: write/edit: failures \u2192 GATE-BLOCKED (completion gate \u2014 fix evidence; next"
+      },
+      {
+        "event_index": 43,
+        "type": "completion",
+        "excerpt": "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED \u2014 this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet \u2014 verifica"
+      },
+      {
+        "event_index": 73,
+        "type": "completion",
+        "excerpt": "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED \u2014 this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet \u2014 verifica"
+      },
+      {
+        "event_index": 111,
+        "type": "destructive",
+        "excerpt": "GATE-BLOCKED (destructive guard): `git add -A` stages ignored/vendor trees (45k-path incident). Use `git add -u` + explicit paths, or add `- destructive-approve"
+      },
+      {
+        "event_index": 204,
+        "type": "other",
+        "excerpt": "367:   non-test `write`/`edit` throws GATE-BLOCKED (`tool.execute.before`)."
+      }
+    ]
+  }
+}

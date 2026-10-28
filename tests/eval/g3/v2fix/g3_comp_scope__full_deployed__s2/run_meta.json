@@ -1,0 +1,10 @@
+{
+  "task": "g3_comp_scope",
+  "arm": "full_deployed",
+  "seed": 2,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 1294.2,
+  "stdout_tail": "EVAL g3_comp_scope: pass -> tests/eval/g3/v2fix/g3_comp_scope__full_deployed__s2\n",
+  "stderr_tail": ""
+}

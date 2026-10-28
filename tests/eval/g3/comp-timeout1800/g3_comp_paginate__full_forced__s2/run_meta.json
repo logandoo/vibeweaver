@@ -1,0 +1,10 @@
+{
+  "task": "g3_comp_paginate",
+  "arm": "full_forced",
+  "seed": 2,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 1,
+  "wall_seconds": 1800.2,
+  "stdout_tail": "EVAL g3_comp_paginate: indeterminate -> tests/eval/g3/comp/g3_comp_paginate__full_forced__s2\n",
+  "stderr_tail": ""
+}

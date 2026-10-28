@@ -1,0 +1,19 @@
+{
+  "scenario": "g3_comp_dedupe",
+  "verdict": "indeterminate",
+  "hidden_test": {
+    "exit": 1,
+    "output": "EVIDENCE-FAIL: tests/verification_log.md must end with an '- iter N PASS: criterion #\u2026' line\n",
+    "completion_marker": null,
+    "grading_escape": []
+  },
+  "agent_exit": 0,
+  "isolation_violations": [
+    "host-repo write outside sandbox: stat tests/eval/g3/v2-exit1/dedupe_s1/cost.json 1283 1792884110300136221",
+    "host-repo write outside sandbox: stat tests/eval/g3/v2-exit1/dedupe_s1/run_meta.json 266 1792884110300416386",
+    "host-repo write outside sandbox: stat tests/eval/g3/v2-exit1/dedupe_s1/verdict.json 189 1792884110299806890",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/v2-exit1/dedupe_s1/cost.json",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/v2-exit1/dedupe_s1/run_meta.json",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/v2-exit1/dedupe_s1/verdict.json"
+  ]
+}

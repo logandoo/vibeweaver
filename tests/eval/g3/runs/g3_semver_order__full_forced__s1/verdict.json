@@ -1,0 +1,12 @@
+{
+  "scenario": "g3_semver_order",
+  "verdict": "indeterminate",
+  "hidden_test": {
+    "exit": null,
+    "output": "agent failed/could not run"
+  },
+  "agent_exit": -1,
+  "isolation_violations": [
+    "host-repo write outside sandbox: stat tests/eval/g3/pilot_manifest.json 2749 1792800611710846515"
+  ]
+}

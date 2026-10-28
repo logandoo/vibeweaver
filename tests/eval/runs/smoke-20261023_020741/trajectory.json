@@ -1,0 +1,11 @@
+{
+  "scenario": "smoke",
+  "agent": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "Error: Server process exited with code 1\nError: Managed service port 49374 on 127.0.0.1 is already in use by another process. Configure another port with `opencode service set port <port>` and start the service again.\n    at <anonymous> (/$bunfs/root/chunk-e30m2rq0.js:2:8920) {\n  [cause]: ServeError: \n      at M (/$bunfs/root/chunk-mckt5cwr.js:52:7707)\n      at applyHandlers (node:events:64:20)\n      at emitError (node:events:44:27)\n      at emitListenErrorNextTick (node:_http_server:166:12)\n      at processTicksAndRejections (native:7:39) {\n    [cause]: Error: Failed to start server. Is port 49374 in use?\n        at serve (unknown)\n        at <anonymous> (node:_http_server:438:35)\n        at <anonymous> (node:_http_server:410:33)\n        at <anonymous> (/$bunfs/root/chunk-mckt5cwr.js:52:7745)\n  }\n}\n    at map (native:1:11)\n    at reap (/$bunfs/root/chunk-ahmrcq2a.js:2:1203)\n    at <anonymous> (/$bunfs/root/chunk-ahmrcq2a.js:3:6711)\n    at service.ensure (/$bunfs/root/chunk-85ngdjcy.js:3:732)\n    at service.ensure (definition) (/$bunfs/root/chunk-ahmrcq2a.js:3:5523)\n    at cli.server-connection.resolve (/$bunfs/root/chunk-7v8a4eya.js:2:1061)\n    at cli.server-connection.resolve (definition) (/$bunfs/root/chunk-85ngdjcy.js:2:402)\n",
+    "cmd": "opencode run -m deepseek/deepseek-flash --format default --auto Create a file named hello.txt in the current directory containing exactly the word hello and a newline. Do not modify anything else.",
+    "seconds": 20.26230788230896
+  },
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-4v73odjw/work"
+}

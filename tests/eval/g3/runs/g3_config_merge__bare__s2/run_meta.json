@@ -1,0 +1,10 @@
+{
+  "task": "g3_config_merge",
+  "arm": "bare",
+  "seed": 2,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 169.2,
+  "stdout_tail": "EVAL g3_config_merge: pass -> /Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/eval/g3/runs/g3_config_merge__bare__s2\n",
+  "stderr_tail": ""
+}

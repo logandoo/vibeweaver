@@ -1,0 +1,10 @@
+{
+  "scenario": "g3_money_rounding",
+  "agent": {
+    "exit": -1,
+    "stdout": "",
+    "stderr": "Command '['opencode', 'run', '--standalone', '-m', 'biklimax/qwen3.8_27b', '--format', 'json', '--auto', '/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-uhj_sdox/work', 'Write a Python module `money_rounding.py` (standard library only) exposing exactly one public function `sum_amounts(values: list) -> str`. It sums decimal amounts given as strings using EXACT decimal arithmetic (floating point is forbidden) and returns the total formatted with exactly 2 decimal places, rounded **half to even** (banker\\'s rounding). Rules: every element of `values` must be a `str`, otherwise raise `ValueError`; a malformed decimal string raises `ValueError`; the empty list returns \"0.00\"; negative amounts are allowed. Examples: `sum_amounts([\"0.1\", \"0.2\"]) == \"0.30\"`; `sum_amounts([\"0.025\"]) == \"0.02\"`; `sum_amounts([\"0.015\"]) == \"0.02\"`; `sum_amounts([\"2.675\"]) == \"2.68\"`. Save the file as `money_rounding.py` AT THE WORKTREE ROOT (do not put it in a subdirectory; the grader looks for it there). Do not modify anything else.']' timed out after 300 seconds",
+    "cmd": "opencode"
+  },
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-uhj_sdox/work"
+}

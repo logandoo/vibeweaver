@@ -1,0 +1,10 @@
+{
+  "task": "g3_idempotent_journal",
+  "arm": "mini_forced",
+  "seed": 2,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 0,
+  "wall_seconds": 235.3,
+  "stdout_tail": "EVAL g3_idempotent_journal: pass -> /Users/logan/Documents/DEV/SKILLS/vibeweaver/tests/eval/g3/runs/g3_idempotent_journal__mini_forced__s2\n",
+  "stderr_tail": ""
+}

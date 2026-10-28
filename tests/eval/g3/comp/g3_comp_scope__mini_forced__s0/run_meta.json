@@ -1,0 +1,10 @@
+{
+  "task": "g3_comp_scope",
+  "arm": "mini_forced",
+  "seed": 0,
+  "model": "biklimax/qwen3.8_27b",
+  "exit": 1,
+  "wall_seconds": 225.9,
+  "stdout_tail": "EVAL g3_comp_scope: fail -> tests/eval/g3/comp/g3_comp_scope__mini_forced__s0\n",
+  "stderr_tail": ""
+}

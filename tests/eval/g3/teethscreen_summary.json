@@ -1,0 +1,41 @@
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 3,
+  "tasks": [
+    "g3_teeth_multisymptom",
+    "g3_teeth_specvstest",
+    "g3_teeth_stateleak"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "bare": {
+      "runs": 9,
+      "pass": 9,
+      "fail": 0,
+      "indeterminate": 0,
+      "n_effective": 9,
+      "pass_rate": 1.0,
+      "ci95": [
+        0.7009,
+        1.0
+      ],
+      "mean_wall_seconds": 124.4
+    }
+  },
+  "paired_vs_bare": {},
+  "mde": 0.6603,
+  "planned_runs": 9,
+  "observed_runs": 9,
+  "cost": {
+    "total_wall_seconds": 1119.2
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": null,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集"
+}

@@ -1,0 +1,65 @@
+{
+  "sandbox": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-mr6t_ha5",
+  "worktree": "/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-mr6t_ha5/work",
+  "work_files": [
+    "config_merge.py"
+  ],
+  "sandbox_outside_work": [
+    "home/.cache/opencode/models.json",
+    "home/.config/opencode/opencode.jsonc",
+    "home/.local/share/opencode/auth.json",
+    "home/.local/share/opencode/log/opencode.log",
+    "home/.local/share/opencode/opencode.db",
+    "home/.local/share/opencode/opencode.db-shm",
+    "home/.local/share/opencode/opencode.db-wal",
+    "home/.local/share/opencode/shell/b5c60df501d9bb4a7ecce7db005f7a8e1e69536d/sh_169b844d5001jC3rUkU3juXjg9.out",
+    "home/.local/share/opencode/shell/b5c60df501d9bb4a7ecce7db005f7a8e1e69536d/sh_169b8bac9001jGUQQ5giXfwxPI.out",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/_bootlocale.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/_collections_abc.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/_sitebuiltins.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/_weakrefset.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/abc.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/codecs.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/copy.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/copyreg.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/__init__.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/aliases.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/cp437.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/latin_1.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/encodings/utf_8.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/genericpath.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/io.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/os.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/posixpath.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/stat.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/types.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/weakref.cpython-39.pyc",
+    "home/Library/Caches/com.apple.python/private/var/folders/8z/h73xmj297g1995r1d9q6dc2r0000gn/T/vw-eval-mr6t_ha5/work/config_merge.cpython-39.pyc"
+  ],
+  "sandbox_symlink_escapes": [],
+  "host_repo_delta": [
+    "stat tests/eval/g3/runs/g3_config_merge__core__s0/cost.json 395 1792775047443155312",
+    "stat tests/eval/g3/runs/g3_config_merge__core__s0/isolation.json 9609 1792775047442935396",
+    "stat tests/eval/g3/runs/g3_config_merge__core__s0/trajectory.json 22809 1792775047443073896",
+    "stat tests/eval/g3/runs/g3_config_merge__core__s0/verdict.json 2972 1792775047443236062",
+    "status ?? tests/eval/g3/runs/g3_config_merge__core__s0/cost.json",
+    "status ?? tests/eval/g3/runs/g3_config_merge__core__s0/isolation.json",
+    "status ?? tests/eval/g3/runs/g3_config_merge__core__s0/trajectory.json",
+    "status ?? tests/eval/g3/runs/g3_config_merge__core__s0/verdict.json"
+  ],
+  "host_repo_monitored": true,
+  "artifacts": [
+    "config_merge.py"
+  ],
+  "violations": [
+    "host-repo write outside sandbox: stat tests/eval/g3/runs/g3_config_merge__core__s0/cost.json 395 1792775047443155312",
+    "host-repo write outside sandbox: stat tests/eval/g3/runs/g3_config_merge__core__s0/isolation.json 9609 1792775047442935396",
+    "host-repo write outside sandbox: stat tests/eval/g3/runs/g3_config_merge__core__s0/trajectory.json 22809 1792775047443073896",
+    "host-repo write outside sandbox: stat tests/eval/g3/runs/g3_config_merge__core__s0/verdict.json 2972 1792775047443236062",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/runs/g3_config_merge__core__s0/cost.json",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/runs/g3_config_merge__core__s0/isolation.json",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/runs/g3_config_merge__core__s0/trajectory.json",
+    "host-repo write outside sandbox: status ?? tests/eval/g3/runs/g3_config_merge__core__s0/verdict.json"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "wall_seconds": 149.52309489250183,
+  "model": "biklimax/qwen3.8_27b",
+  "arm": "bare",
+  "seed": 1,
+  "skill_fingerprint": {
+    "arm": "bare",
+    "installed": null,
+    "files": 0,
+    "sha256": null
+  },
+  "tokens": null
+}

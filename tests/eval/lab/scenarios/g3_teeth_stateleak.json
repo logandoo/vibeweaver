@@ -1,0 +1,13 @@
+{
+  "id": "g3_teeth_stateleak",
+  "prompt": "The import pipeline corrupts its source data: after `normalize(rows)` runs, the caller's own rows come back modified. A colleague left this module in your worktree. Save it AS-IS as `normalize.py` at the WORKTREE ROOT first, then fix it so the module behaves as its docstring documents: a NEW list of NEW dicts (name stripped+lowercased, score coerced to int), the input untouched, rows without a name skipped.\n\n```python\n\"\"\"Row normalization for the import pipeline.\"\"\"\n\n\ndef normalize(rows):\n    \"\"\"Return a NEW list of NEW dicts with the name field stripped and\n    lowercased and the score field coerced to int. The input list and its\n    dicts must NOT be modified. Rows without a name field are skipped.\"\"\"\n    out = []\n    for row in rows:\n        row[\"name\"] = row[\"name\"].strip().lower()\n        row[\"score\"] = int(row[\"score\"])\n        out.append(row)\n    return out\n```",
+  "hidden_test": "hidden/g3_teeth_stateleak_test.py",
+  "artifacts": [
+    "normalize.py"
+  ],
+  "timeout_seconds": 3600,
+  "setup_files": {
+    "tests/verification_log.md": "# Verification Log\n\n## Task\n- class: CODE\n- profile: library\n- ui: none\n- Baseline verified GREEN\n",
+    "tests/project_profile.json": "{\n  \"profile\": \"library\",\n  \"ui\": false,\n  \"no_service\": true,\n  \"no_new_project\": true\n}\n"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "g3_csv_roundtrip",
+  "prompt": "Write `csv_roundtrip.py` with `dump(rows: list) -> str` and `load(text: str) -> list` implementing RFC4180-style CSV. A field is quoted when it contains `,`, `\"`, `\\n` or `\\r`; an embedded `\"` is written as `\"\"`; rows are separated by `\\r\\n` and the last row ends with `\\r\\n`. `load(dump(rows)) == rows` must hold for any list of lists of `str` (including empty fields, embedded newlines and embedded quotes). `dump` raises `ValueError` when a row is not a list/tuple of `str`; `load` raises `ValueError` on malformed input (e.g. an unterminated quote). Examples: `dump([[\"a,b\"]]) == '\"a,b\"\\r\\n'`; `dump([[\"a\", \"b\"]]) == 'a,b\\r\\n'`. Save the file as `csv_roundtrip.py` AT THE WORKTREE ROOT (do not put it in a subdirectory; the grader looks for it there). Do not modify anything else.",
+  "hidden_test": "hidden/g3_csv_roundtrip_test.py",
+  "artifacts": [
+    "csv_roundtrip.py"
+  ],
+  "timeout_seconds": 900
+}

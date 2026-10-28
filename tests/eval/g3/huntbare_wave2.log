@@ -1,0 +1,72 @@
+eval_pilot: 24 runs planned (8 tasks x 1 arms x 3 seeds) model=biklimax/qwen3.8_27b label=huntbare
+[1/24] g3_hunt_weekdate__bare__s0 -> pass (ok)
+[2/24] g3_hunt_weekdate__bare__s1 -> pass (ok)
+[3/24] g3_hunt_weekdate__bare__s2 -> fail (nonzero-exit)
+[4/24] g3_hunt_moneyfmt__bare__s0 -> fail (nonzero-exit)
+[5/24] g3_hunt_moneyfmt__bare__s1 -> pass (ok)
+[6/24] g3_hunt_moneyfmt__bare__s2 -> pass (ok)
+[7/24] g3_hunt_globmatch__bare__s0 -> indeterminate (nonzero-exit)
+[8/24] g3_hunt_globmatch__bare__s1 -> pass (ok)
+[9/24] g3_hunt_globmatch__bare__s2 -> pass (ok)
+[10/24] g3_hunt_wraptext__bare__s0 -> pass (ok)
+[11/24] g3_hunt_wraptext__bare__s1 -> pass (ok)
+[12/24] g3_hunt_wraptext__bare__s2 -> pass (ok)
+[13/24] g3_hunt_cachetouch__bare__s0 -> pass (ok)
+[14/24] g3_hunt_cachetouch__bare__s1 -> pass (ok)
+[15/24] g3_hunt_cachetouch__bare__s2 -> pass (ok)
+[16/24] g3_hunt_closeacct__bare__s0 -> pass (ok)
+[17/24] g3_hunt_closeacct__bare__s1 -> pass (ok)
+[18/24] g3_hunt_closeacct__bare__s2 -> pass (ok)
+[19/24] g3_hunt_pageoff__bare__s0 -> pass (ok)
+[20/24] g3_hunt_pageoff__bare__s1 -> pass (ok)
+[21/24] g3_hunt_pageoff__bare__s2 -> pass (ok)
+[22/24] g3_hunt_bucketrate__bare__s0 -> pass (ok)
+[23/24] g3_hunt_bucketrate__bare__s1 -> pass (ok)
+[24/24] g3_hunt_bucketrate__bare__s2 -> pass (ok)
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 8,
+  "tasks": [
+    "g3_hunt_bucketrate",
+    "g3_hunt_cachetouch",
+    "g3_hunt_closeacct",
+    "g3_hunt_globmatch",
+    "g3_hunt_moneyfmt",
+    "g3_hunt_pageoff",
+    "g3_hunt_weekdate",
+    "g3_hunt_wraptext"
+  ],
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "arms": {
+    "bare": {
+      "runs": 29,
+      "pass": 25,
+      "fail": 3,
+      "indeterminate": 1,
+      "n_effective": 28,
+      "pass_rate": 0.8929,
+      "ci95": [
+        0.728,
+        0.9629
+      ],
+      "mean_wall_seconds": 542.4
+    }
+  },
+  "paired_vs_bare": {},
+  "mde": 0.4044,
+  "planned_runs": 24,
+  "observed_runs": 29,
+  "cost": {
+    "total_wall_seconds": 15185.9
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": null,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集"
+}

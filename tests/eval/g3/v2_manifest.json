@@ -1,0 +1,29 @@
+{
+  "model": "biklimax/qwen3.8_27b",
+  "phase": "pilot",
+  "tasks": [
+    "g3_comp_dedupe",
+    "g3_comp_paginate",
+    "g3_comp_scope"
+  ],
+  "arms": [
+    "full_deployed"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "planned": 9,
+  "runs": [
+    "g3_comp_dedupe__full_deployed__s0",
+    "g3_comp_dedupe__full_deployed__s1",
+    "g3_comp_dedupe__full_deployed__s2",
+    "g3_comp_paginate__full_deployed__s0",
+    "g3_comp_paginate__full_deployed__s1",
+    "g3_comp_paginate__full_deployed__s2",
+    "g3_comp_scope__full_deployed__s0",
+    "g3_comp_scope__full_deployed__s1",
+    "g3_comp_scope__full_deployed__s2"
+  ]
+}

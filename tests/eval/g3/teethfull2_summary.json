@@ -1,0 +1,49 @@
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 3,
+  "tasks": [
+    "g3_teeth_redfirst",
+    "g3_teeth_redfirst_bill",
+    "g3_teeth_redfirst_ttl"
+  ],
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "arms": {
+    "full_deployed": {
+      "runs": 9,
+      "pass": 7,
+      "fail": 1,
+      "indeterminate": 1,
+      "n_effective": 8,
+      "pass_rate": 0.875,
+      "ci95": [
+        0.5291,
+        0.9776
+      ],
+      "mean_wall_seconds": 1870.7
+    }
+  },
+  "paired_vs_bare": {
+    "full_deployed": {
+      "paired_n": 0,
+      "mean_diff_vs_bare": null,
+      "wins": 0,
+      "losses": 0,
+      "indeterminate_excluded": true
+    }
+  },
+  "mde": 0.6603,
+  "planned_runs": 9,
+  "observed_runs": 9,
+  "cost": {
+    "total_wall_seconds": 14965.9
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": null,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集"
+}

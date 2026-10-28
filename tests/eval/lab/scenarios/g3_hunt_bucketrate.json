@@ -1,0 +1,13 @@
+{
+  "id": "g3_hunt_bucketrate",
+  "prompt": "Implement `bucket.py` at the worktree root — `class TokenBucket`, a token bucket rate limiter driven by an injected clock. The module's full contract is in `docs/spec.md` at the worktree root; that document defines the behavior the module must implement. A test file covering the happy paths is in `tests/`. Standard library only.",
+  "hidden_test": "hidden/g3_hunt_bucketrate_test.py",
+  "artifacts": [
+    "bucket.py"
+  ],
+  "timeout_seconds": 1800,
+  "setup_files": {
+    "docs/spec.md": "# bucket — module contract (authoritative)\n\n`bucket.py` at the worktree root: `class TokenBucket(rate, capacity, clock)` — a token\nbucket rate limiter. `clock` is a **callable** returning the current time as a number\nof seconds (int or float); the bucket never reads the system clock itself.\n\n## Construction\n\n- `rate` must be a number > 0 and not a `bool`; `capacity` must be an `int` >= 1 and\n  not a `bool` (otherwise `ValueError`). `clock` must be callable (else `TypeError`).\n- The bucket starts **empty** (0 tokens) and the reference time is `clock()` at\n  construction.\n\n## Refill rule\n\n- On every operation the bucket accrues `elapsed * rate` tokens since the reference\n  time, capped at `capacity` (extra accrual is discarded), and the reference time\n  advances to now. Elapsed time is never negative (a clock that goes backwards behaves\n  as if time stood still).\n- **Partial tokens never grant a request, but an exactly-completed token does**: a\n  request for `n` is granted iff the accumulated amount is **>= n** (boundary\n  inclusive).\n\n## `take(n=1) -> bool`\n\n- `n` must be an `int` >= 1 and not a `bool` (otherwise `ValueError`).\n- If the accumulated amount is `>= n`, consumes `n` tokens and returns `True`.\n  Otherwise returns `False` and **consumes nothing**.\n\n## `tokens() -> float`\n\n- The currently available amount after applying the refill rule (float).\n\n## General\n\nStandard library only. This document is the authoritative statement of the module's\nbehavior.\n",
+    "tests/test_bucket.py": "from bucket import TokenBucket\n\n\nclass Clock:\n    def __init__(self):\n        self.t = 0.0\n\n    def __call__(self):\n        return self.t\n\n\ndef test_take_and_refill():\n    c = Clock()\n    b = TokenBucket(2, 4, c)\n    assert b.take(1) is False  # starts empty\n    c.t = 1.0                  # +2 tokens\n    assert b.take(1) is True\n    assert b.take(3) is False  # only 1 left\n\n\ndef test_tokens_accessor():\n    c = Clock()\n    b = TokenBucket(1, 10, c)\n    c.t = 3.0\n    assert b.tokens() == 3.0\n"
+  }
+}

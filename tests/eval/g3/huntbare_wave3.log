@@ -1,0 +1,56 @@
+eval_pilot: 6 runs planned (2 tasks x 1 arms x 3 seeds) model=biklimax/qwen3.8_27b label=huntbare
+[1/6] g3_hunt_conccounter__bare__s0 -> pass (ok)
+[2/6] g3_hunt_conccounter__bare__s1 -> pass (ok)
+[3/6] g3_hunt_conccounter__bare__s2 -> pass (ok)
+[4/6] g3_hunt_inirules__bare__s0 -> pass (ok)
+[5/6] g3_hunt_inirules__bare__s1 -> pass (ok)
+[6/6] g3_hunt_inirules__bare__s2 -> pass (ok)
+{
+  "status": "complete",
+  "model": "biklimax/qwen3.8_27b",
+  "n_tasks": 10,
+  "tasks": [
+    "g3_hunt_bucketrate",
+    "g3_hunt_cachetouch",
+    "g3_hunt_closeacct",
+    "g3_hunt_conccounter",
+    "g3_hunt_globmatch",
+    "g3_hunt_inirules",
+    "g3_hunt_moneyfmt",
+    "g3_hunt_pageoff",
+    "g3_hunt_weekdate",
+    "g3_hunt_wraptext"
+  ],
+  "seeds": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "arms": {
+    "bare": {
+      "runs": 35,
+      "pass": 31,
+      "fail": 3,
+      "indeterminate": 1,
+      "n_effective": 34,
+      "pass_rate": 0.9118,
+      "ci95": [
+        0.7704,
+        0.9695
+      ],
+      "mean_wall_seconds": 510.1
+    }
+  },
+  "paired_vs_bare": {},
+  "mde": 0.3617,
+  "planned_runs": 6,
+  "observed_runs": 35,
+  "cost": {
+    "total_wall_seconds": 17344.2
+  },
+  "indeterminate_excluded_from_pass": true,
+  "seeds_are_replicates": true,
+  "task_filter": null,
+  "notes": "arm 构造见 docs/EVAL_G3_ARMS.md（prereg 未规定）；G1 set 外部不可得 → private held-out 任务集"
+}

@@ -6,6 +6,28 @@
 
 ---
 
+## 2026-10-28 评测清偿：清零重狩猎三方向筛查（零存活）+ 审计修复
+
+### 评测（ADR D-W2ISO-10 裁决：清零重狩猎）
+
+- 判据 #74 原文重狩（hidden 只测功能、失败为功能面）：10 候选 × 3 个方向（毒测试冲突 / F1 硬陷阱 / 并发不变量+自定义方言），35 个 bare runs（biklimax/qwen3.8_27b）
+- 结果：32 个有效 run（hidden 实际执行）**全部功能通过**；4 个异常 run 逐 run 轨迹重建复判均非功能面（端点 DNS、会话空转、超时、exit-code 假 fail）→ **零功能失败、零存活题**；#74 池数量目标未达，三方向 stall 后停止，处置权交用户
+- F9 主发现：功能面饱和延伸到隐藏硬约束（边界含等/容量封顶/失败原子性）、并发不变量（check-then-act）、自定义方言状态机；裸模型主动识破并改写毒测试（轨迹实录在 §11）
+- 并发夹具按 F1 flakiness 政策硬化：纯统计压测改 **opcode 级让渡确定性交错**，判杀 6/6 稳定；selfcheck 三向门 28/28
+- 测量发现（UNFINISHED 候选）：harness 在 agent 进程非零退出时跳过 hidden 判 fail，进程失败混同行为失败（3/35）
+
+### 审计清偿（docs/AUDIT_2026-10-28_eval_discrimination.md）
+
+- 跨模型×逐题共同失败矩阵入 `vibeweaver-eval/REPORT.md` 附录 A：判别题 11/16、共同失败 1、天花板 4——「饱和」定性为题集天花板而非共同失败
+- `vibeweaver-eval/REPORT.md` pytest-6116 矛盾修正（qwen3.6 mini 三臂实为解出）；`comp_summary.json` 刷至 180min 重跑口径（full_forced 3/9）
+- README EN/ZH：统计口径脚注（run 独立假设 / 任务级 p=0.10 / 0/3 vs 3/3）+「怎么读这些表」代际导读
+- W2 证据链（`docs/EVAL_G3_PILOT_REPORT.md` + `tests/eval/`）发布上架，README「Full data」悬空指针消除
+
+### 验证
+
+- `tests/eval/lab/selfcheck.py` 28/28（三向门）· 判杀稳定性 6/6 连跑 · 批 1/2 复判 26/26 功能通过
+- `node scripts/audit_selftest.mjs` 571/1（T39 预算债既有）· `node scripts/mutation_sweep.mjs` 44/0 · `node tests/plugin_compat_test.mjs` 82/82
+
 ## 2026-10-26 发布：w19.0（W2 eval 出口 + 产品形态验证）
 
 ### 发布内容

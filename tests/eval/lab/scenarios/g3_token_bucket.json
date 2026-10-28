@@ -1,0 +1,9 @@
+{
+  "id": "g3_token_bucket",
+  "prompt": "Write `token_bucket.py` with `refilled(tokens: float, elapsed_seconds: float, rate_per_sec: float, capacity: float) -> float`. It returns the token count after `elapsed_seconds` of continuous refill at `rate_per_sec` tokens/second, clamped to `capacity` (never above it). Return a number (int or float). Raise `ValueError` when any argument is not an int/float (a `bool` is NOT accepted), or `tokens < 0`, or `elapsed_seconds < 0`, or `rate_per_sec < 0`, or `capacity <= 0`, or `tokens > capacity`. Examples: `refilled(10.0, 5.0, 2.0, 12.0) == 12.0`; `refilled(0.0, 2.5, 2.0, 10.0) == 5.0`. Save the file as `token_bucket.py` AT THE WORKTREE ROOT (do not put it in a subdirectory; the grader looks for it there). Do not modify anything else.",
+  "hidden_test": "hidden/g3_token_bucket_test.py",
+  "artifacts": [
+    "token_bucket.py"
+  ],
+  "timeout_seconds": 900
+}
