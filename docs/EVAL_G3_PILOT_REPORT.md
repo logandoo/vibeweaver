@@ -301,18 +301,24 @@ hidden 纯功能断言（零证据形状检查），prompt 中立。筛查与存
 ### ※ 异常 run 复判（三向门之外的逐 run 裁决，判据「失败为功能面」要求）
 
 verdict 面值不可直接用：harness 在 agent 进程非零退出时**跳过 hidden 直接判 fail**
-（`hidden_test: {exit: null, "agent failed/could not run"}`）。三个异常 run 经轨迹
-提取交付物重建 + hidden 重跑逐一定性：
+（`hidden_test: {exit: null, "agent failed/could not run"}`）。四个异常 run 按
+「轨迹提取交付物重建 + hidden 重跑」标准逐一定性——三个可定性，一个不可恢复：
 
 | run | run 面值 | 根因 | 交付物功能面 |
 |---|---|---|---|
-| moneyfmt-s0 | fail | 端点基建：`getaddrinfo ENOTFOUND biklimax.cn`（DNS 挂），零工具调用 | 无交付物 |
-| weekdate-s2 | fail | 会话空转：5 次 read 后 3778s 无产出，exit 1 | 无交付物 |
-| globmatch-s0 | indeterminate | 1800s 超时（agent_exit=-1，预算无效按 wave11 口径剔除） | 无交付物 |
+| moneyfmt-s0 | fail | 端点基建：`getaddrinfo ENOTFOUND biklimax.cn`（DNS 挂），零工具调用 | 无交付物（确无） |
+| weekdate-s2 | fail | 会话空转：5 次 read 后 3778s 无产出，exit 1 | 无交付物（确无） |
+| globmatch-s0 | indeterminate | 1800s 超时（agent_exit=-1，预算无效按 wave11 口径剔除） | **未判定**：`globmatch.py` 已落盘（isolation.json 实录）但内容未保留、沙箱已清理，不可重建复判 |
 | cachetouch-s3 | fail | `opencode` 进程 exit 1（F7 同类头摩擦）但会话完整收尾 | **重建 hidden exit=0（功能正确）** |
 
-**结论：32/32 个有效 run（hidden 实际执行）全部功能通过；四个异常 run 无一是功能面
-失败。bare 侧零功能失败 → 零存活题。**
+（M2 口径注：scenario 超时统一 1800s，但 kill 执行不对称——仅 globmatch-s0 被 kill，
+moneyfmt-s0/weekdate-s2 超预算未 kill；四个异常按**根因**而非时长分类，剔除口径
+统一为「预算/基建无效，不计行为率」。）
+
+**结论：31 个原位 hidden 全过 + 1 个重建全过（cachetouch-s3）；三个可定性异常 run
+均非功能面失败，globmatch-s0 功能面未判定（不可恢复）。零**已判定**功能失败 →
+零存活题（即便把 globmatch-s0 计为功能失败，globmatch 亦仅 1/4 挂，远低于 ≥2/3
+存活线——零存活结论稳健）。
 
 ### F9 功能面饱和的延伸（本节主发现）
 
