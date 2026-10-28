@@ -835,6 +835,90 @@
       "n": 18,
       "seeds": 1,
       "ci": "count, not effect"
+    },
+    {
+      "token": "0/3",
+      "claim": "Task-level pass rate, bare arm on G3 compliance tasks (0 of 3 tasks) — the 0/3 vs 3/3 task-granularity comparison (Fisher/McNemar p=0.10, directional)",
+      "command": "python3 scripts/eval_pilot.py --phase report --label v2fix --out-root tests/eval/g3/v2fix",
+      "expected_regex": "0/3",
+      "platform": "macOS (local runs; biklimax/qwen3.8_27b)",
+      "evidence": "docs/EVAL_G3_PILOT_REPORT.md §8-9; tests/eval/g3/v2fix_summary.json",
+      "generation": "G3 compliance tasks, live model runs (task-granularity tally)",
+      "n": 3,
+      "seeds": 3,
+      "ci": "task-level comparison 0/3 vs 3/3, Fisher/McNemar p=0.10 (directional; n=3 tasks)"
+    },
+    {
+      "token": "3/3",
+      "claim": "Task-level pass rate, full_deployed arm on G3 compliance tasks (3 of 3 tasks) — the 0/3 vs 3/3 task-granularity comparison (p=0.10, directional)",
+      "command": "python3 scripts/eval_pilot.py --phase report --label v2fix --out-root tests/eval/g3/v2fix",
+      "expected_regex": "3/3",
+      "platform": "macOS (local runs; biklimax/qwen3.8_27b)",
+      "evidence": "docs/EVAL_G3_PILOT_REPORT.md §8-9; tests/eval/g3/v2fix_summary.json",
+      "generation": "G3 compliance tasks, live model runs (task-granularity tally)",
+      "n": 3,
+      "seeds": 3,
+      "ci": "task-level comparison 0/3 vs 3/3, Fisher/McNemar p=0.10 (directional; n=3 tasks)"
+    },
+    {
+      "token": "3/35",
+      "claim": "Harness measurement finding (UNFINISHED candidate): agent nonzero-exit runs misclassified as behavior-fail (3 of 35 bare runs) — process failure conflated with behavior failure",
+      "command": "tests/eval harness exit-code vs behavior-fail measurement",
+      "expected_regex": "3/35",
+      "platform": "macOS (local runs; biklimax/qwen3.8_27b)",
+      "evidence": "CHANGELOG.md current entry (measurement finding); W2 bare-run tally (35 bare runs)",
+      "generation": "W2 eval wave measurement (harness exit-code conflation)",
+      "n": 35,
+      "seeds": 3,
+      "ci": "count, not effect (3 of 35 bare runs; measurement finding)"
+    },
+    {
+      "token": "1/2",
+      "claim": "Structural batch label 'batch 1/2' in current CHANGELOG entry ('批 1/2 复判 26/26 功能通过') — batch index marker (1 of 2), NOT a result/ratio claim",
+      "command": "n/a (prose structural marker)",
+      "expected_regex": "1/2",
+      "platform": "n/a",
+      "evidence": "CHANGELOG.md current entry ('批 1/2' = batch 1 of 2)",
+      "generation": "changelog structural label",
+      "n": null,
+      "seeds": null,
+      "ci": null
+    },
+    {
+      "token": "26/26",
+      "claim": "Batch 1/2 re-judgment functional-pass tally (26 of 26 cases functional pass)",
+      "command": "tests/eval/lab re-judgment (batch 1/2)",
+      "expected_regex": "26/26",
+      "platform": "macOS (local runs)",
+      "evidence": "CHANGELOG.md current entry verification line; batch re-judgment records",
+      "generation": "W2 eval wave re-judgment",
+      "n": 26,
+      "seeds": 1,
+      "ci": "count, not effect"
+    },
+    {
+      "token": "28/28",
+      "claim": "tests/eval/lab/selfcheck.py three-way-gate pass count (28 of 28)",
+      "command": "python3 tests/eval/lab/selfcheck.py",
+      "expected_regex": "28/28",
+      "platform": "macOS (local runs)",
+      "evidence": "selfcheck three-way-gate output (28/28)",
+      "generation": "W2 eval wave (three-way gate)",
+      "n": 28,
+      "seeds": 1,
+      "ci": "count, not effect"
+    },
+    {
+      "token": "571/1",
+      "claim": "node scripts/audit_selftest.mjs tally — 571 checks / 1 pre-existing failure (T39 companion-budget debt, isolated by D-lg-1)",
+      "command": "node scripts/audit_selftest.mjs",
+      "expected_regex": "571/1",
+      "platform": "macOS (local runs)",
+      "evidence": "audit_selftest.mjs output (571/1; the 1 = pre-existing T39 budget debt)",
+      "generation": "closeout wave audit_selftest run",
+      "n": 571,
+      "seeds": 1,
+      "ci": "count, not effect (1 pre-existing T39 failure)"
     }
   ]
 }
