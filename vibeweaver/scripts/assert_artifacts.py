@@ -2175,27 +2175,59 @@ def main():
     repo_hygiene_check(root, existing, args.final)
 
     # 23) dead-end re-validation (W20b M1/M4 — anti-钻牛角尖). A DECLARED stall
-    #     must carry EXTERNAL re-validation, not internal hammering: re-search +
-    #     >=2 alternatives (M4) and an EXTERNAL falsification test with a REAL
-    #     run log (M1). arXiv 2607.09510 (epistemic errors → earlier validation) +
-    #     2606.22936 (defer to external verifier). Event-driven (fires only on a
-    #     declared stall). Tolerant trigger (I3) + content-enforcing regexes (I1)
-    #     + run-file existence (I2) = anti-box-checking, not marker-checking.
+    #     must carry EXTERNAL re-validation AFTER it, not internal hammering:
+    #     re-search + >=2 alternatives (M4) and an EXTERNAL falsification test
+    #     with a REAL run log (M1). arXiv 2607.09510 + 2606.22936. Event-driven.
+    #     W20c hardening (review Minors): scans the WHOLE log (M1 — a fresh task
+    #     block can't defuse a prior unvalidated stall), requires the pair AFTER
+    #     each stall (M2 — pre-filled lines above don't count), fence-aware (M4),
+    #     content+existence (I1/I2) + tolerant trigger (I3).
     group("23")
-    if re.search(r"(?mi)^\s*(?:[-*]\s*)?\**\s*(?:root-)?stall\s*\**\s*:", cur_block):
-        _research = re.search(
-            r"(?mi)^\s*(?:[-*]\s*)?\**\s*deadend-research\s*\**\s*:[^\n]*?(?:→|->)\s*\S"
-            r"[^\n]*\balternatives:\s*\S+\s*,\s*\S+", cur_block)
-        _fm = re.search(
-            r"(?mi)^\s*(?:[-*]\s*)?\**\s*assumption-falsify\s*\**\s*:[^\n]*\btest:\s*\S"
-            r"[^\n]*\brun:\s*(tests/\S+)[^\n]*\bresult:\s*(?:holds|falsified|inconclusive)\b", cur_block)
-        _falsify_ok = bool(_fm) and (root / _fm.group(1)).exists()
-        check(bool(_research),
-              "dead-end declared (stall/root-stall) but no `- deadend-research: <query> → <finding> | alternatives: <a>, <b>` — "
-              "a non-empty finding AND >=2 comma-separated alternatives are required (M4; re-search, don't hammer the same direction)", "23")
-        check(_falsify_ok,
-              "dead-end declared (stall/root-stall) but no valid `- assumption-falsify: <assumption> | test: <t> | run: tests/<log EXISTS> | result: holds|falsified|inconclusive` — "
-              "run an EXTERNAL falsification test on the root assumption (M1; anti-box-checking needs a REAL run: tests/<log> that exists + an enum result)", "23")
+    _stall_re = r"(?mi)^\s*(?:[-*]\s*)?\**\s*(?:root-)?stall\s*\**\s*:"
+    _research_re = r"(?mi)^\s*(?:[-*]\s*)?\**\s*deadend-research\s*\**\s*:[^\n]*?(?:→|->)\s*\S[^\n]*\balternatives:\s*\S+\s*,\s*\S+"
+    _falsify_re = r"(?mi)^\s*(?:[-*]\s*)?\**\s*assumption-falsify\s*\**\s*:[^\n]*\btest:\s*\S[^\n]*\brun:\s*(tests/\S+)[^\n]*\bresult:\s*(?:holds|falsified|inconclusive)\b"
+    _lines, _in_fence = [], False
+    for _l in vl.splitlines():
+        if _l.strip().startswith("```"):
+            _in_fence = not _in_fence
+            continue
+        if not _in_fence:
+            _lines.append(_l)
+    def _research_after(a):
+        return any(re.search(_research_re, _lines[j]) for j in range(a + 1, len(_lines)))
+    def _falsify_after(a):
+        for j in range(a + 1, len(_lines)):
+            _m = re.search(_falsify_re, _lines[j])
+            if _m and (root / _m.group(1)).exists():
+                return True
+        return False
+    _stall_at = [i for i, _l in enumerate(_lines) if re.match(_stall_re, _l)]
+    if _stall_at:
+        check(all(_research_after(i) for i in _stall_at),
+              "dead-end (stall/root-stall) without a LATER `- deadend-research: <query> → <finding> | alternatives: <a>, <b>` — "
+              "re-search the failure + >=2 comma-separated alternatives AFTER each dead-end (M4); a fresh task block or a pre-filled line above does not count", "23")
+        check(all(_falsify_after(i) for i in _stall_at),
+              "dead-end (stall/root-stall) without a LATER `- assumption-falsify: <assumption> | test: <t> | run: tests/<log EXISTS> | result: holds|falsified|inconclusive` — "
+              "run an EXTERNAL falsification test AFTER each dead-end (M1; anti-box-checking needs a REAL run file + enum result)", "23")
+
+    # 24) Epistemic Guard advisory (W20c M5/M2) — the FUZZY halves of the
+    #     premature-commitment defense. M5: a working_note's hypothesis ledger
+    #     should record the core ASSUMPTION + its FALSIFIER (make the epistemic
+    #     state visible, 2607.09510). M2: a Lane-L wave (>=3 code files) should
+    #     carry an `- approach-review:` at the commitment point (2606.22936
+    #     defer-to-verifier). Both ADVISORY (free-text / fuzzy Lane detection) —
+    #     the HARD enforcement is group 23 at dead-ends. M3 (no-net-progress
+    #     detection) is inherently fuzzy; a declared `- root-stall:` already
+    #     triggers group 23, so the enforcement is the declaration + group 23.
+    group("24")
+    _wn = read(tests / "working_note.md")
+    if _wn and re.search(r"(?mi)^\s*(?:[-*]\s*)?\**\s*(?:root-)?stall\s*\**\s*:", vl):
+        if not (re.search(r"(?i)assumption", _wn) and re.search(r"(?i)falsif", _wn)):
+            warn("working_note hypothesis ledger should record the core ASSUMPTION + its FALSIFIER (M5; make the epistemic state visible)", "24")
+    _wave_paths = set(parse_diff(wave_diff_text(root)).keys()) | set(untracked_files(root))
+    _code_ext = re.compile(r"\.(?:py|js|mjs|ts|tsx|jsx|go|rs|java|c|cc|cpp|h|hpp|rb|php|cs|sh)$", re.I)
+    if len([p for p in _wave_paths if _code_ext.search(p)]) >= 3 and not re.search(r"(?mi)^\s*(?:[-*]\s*)?\**\s*approach-review\s*\**\s*:", vl):
+        warn("Lane-L wave (>=3 code files) without a `- approach-review: approach-sound|pivot-needed` — independent look at the DIRECTION at the commitment point (M2)", "24")
 
     if GIT_TIMEOUT:
         warn("groups 14-16/21: a git call timed out — content gates ran "

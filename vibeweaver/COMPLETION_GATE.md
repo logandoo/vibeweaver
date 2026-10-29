@@ -262,19 +262,18 @@ audit B12 examine the tree regardless of how it was edited.
   secret, pin/lock/risk, destructive) blocks per-edit (deny). A **completion
   condition** (new-project git/design-docs/requirements, seal FRESHNESS) is
   ADVISORY during execution, enforced at `--final` (warn→deny) — code changing
-  mid-wave is normal work, not a violation. `--final` always runs all 21 groups
-  STRICT (teeth never come off at completion).
+  mid-wave is normal work, not a violation. `--final` runs all groups STRICT.
 - **Fail-closed (D4):** a real violation blocks ("the check could not run" is
   itself a BLOCK — python3 missing, timeout, crash, placeholder/stub); only `WARN`
   + graded completion findings stay advisory during execution. A legacy prose-only
   copy fails closed (upgrade from `scripts/`). `--json` prints
   `{ok, passes, fails:[{code,severity,detail}]}`. Secret scan stays STRICT (every
   non-`.md` hit blocks) — the "dryrun pre-existing" grading was reverted (W19
-  review): `tracked`/anchor provenance is spoofable; noise is handled by the banner
-  de-dup latch + explicit `- secret-approved:`, not by downgrading real secrets.
+  review: `tracked`/anchor provenance is spoofable); noise is handled by the
+  de-dup latch + `- secret-approved:`, never by downgrading real secrets.
 - **Banner de-dup (W19):** an unchanged blocking list dumps IN FULL once, then a
   one-line summary points at `tests/gate_result.json` (details on disk) — never
-  re-flood the same 60+ lines per edit (alarm-flood control, same latch as warnings).
+  re-flood the same lines per edit (alarm-flood control, same latch as warnings).
 - `session.idle` with a RED gate writes a `warn` entry to the opencode log
   (tripwire when the agent stops on a red gate).
 - **Stall observer (stateful):** `.vibeweaver/state.json` (gitignore it)
@@ -282,8 +281,8 @@ audit B12 examine the tree regardless of how it was edited.
   with no new PASS gets a `[GATE-WARNING]` stall note (§A4.10). Warnings only
   — never blocks (COV-7, machine-counted).
 - Escape hatch: `VIBEWEAVER_GATE=off` disables the plugin.
-- If `tests/assert_artifacts.py` does not exist yet, the plugin runs an
-  inline evidence check and the GATE-BLOCKED message points to §A4.4.1.
+- If `tests/assert_artifacts.py` is missing, the plugin runs an inline evidence
+  check and the GATE-BLOCKED message points to §A4.4.1.
 - **Trust model:** laziness/drift, not hostile root — fake checker → pin
   (T2); protected evidence → lock (T2.5). `tests/` exempt.
 - **Seal three-state (G1, W18)** — `tests/evidence_manifest.json` +
