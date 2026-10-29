@@ -1226,7 +1226,7 @@ def evidence_lock_check(root: pathlib.Path, final: bool):
 
 
 PAYLOAD_MD = (
-    "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md",
+    "SKILL.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md",
     "ENGINEERING_STD.md", "REFERENCE.md", "APPENDIX.md",
     "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
     "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",

@@ -13,7 +13,7 @@ CAPS = {"core": 4000, "full": 90000, "mini": 2000}
 PROFILES = {
     "core": ("profiles/core/SKILL.md",),
     "full": ("SKILL.md",) + tuple(
-        n for n in ("COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
+        n for n in ("COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
                     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md",
                     "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
                     "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md")),

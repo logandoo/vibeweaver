@@ -1,10 +1,15 @@
 {
-  "commit": "22284a049412bc0519811dbc9fd638aebb014b53",
+  "commit": "07538b0d7d2f4fb2632f35ff84d036e010e95dc5",
   "files": [
     {
       "bytes": 44419,
       "path": "vibeweaver/APPENDIX.md",
       "sha256": "17d21ce3d5935dc7b47997351d94c2b77a48886fa05d2db3f97f5b1cf4020bcc"
+    },
+    {
+      "bytes": 11654,
+      "path": "vibeweaver/AUDIT_PLUGIN.md",
+      "sha256": "ad474fe3aea168cbe46771a8c1e61fecc4b51a9eefe66fdc62b5f327981b61c2"
     },
     {
       "bytes": 4096,
@@ -82,14 +87,14 @@
       "sha256": "76ca7518b3466ad613863e4c8140ae21ecddd0974aa5a9b108291f191003a84d"
     },
     {
-      "bytes": 114428,
+      "bytes": 114447,
       "path": "vibeweaver/scripts/assert_artifacts.py",
-      "sha256": "33c10765a5a1c14a0346566a9b9356a187ec54446b0b931917d8e50636076525"
+      "sha256": "5001f8165412ba1ec5110608c9afa0a3dcf8f15f6a953e83e2d9518806ac5fe3"
     },
     {
-      "bytes": 296964,
+      "bytes": 297002,
       "path": "vibeweaver/scripts/audit_selftest.mjs",
-      "sha256": "df06d3839240c72648a7581b28cda1f17ad604bbc3c029114f029f176f4a0d1d"
+      "sha256": "9e635c23429259747909cece39d58d2de8e34ce5f6fca1ed22202e76f1fbc5b6"
     },
     {
       "bytes": 4050,
@@ -102,9 +107,9 @@
       "sha256": "a202c2b1c39806a6230a20542821fde3ad842b2eb6d32c3d446bfce57d90f970"
     },
     {
-      "bytes": 5480,
+      "bytes": 5499,
       "path": "vibeweaver/scripts/contract_lint.py",
-      "sha256": "8b3e270ab7e603735e82f29ffc432f4a71bad269e2d182c407a30aaf5ad0be6b"
+      "sha256": "de525fa14bb4260b843d3b5d181aa560fe0580f3d80828bee2ef39845ebb4059"
     },
     {
       "bytes": 11198,
@@ -152,9 +157,9 @@
       "sha256": "a8b51a4fe2447811d52a98989757f547fd2ac2a7662f937d6898b516771f9ece"
     },
     {
-      "bytes": 5856,
+      "bytes": 5879,
       "path": "vibeweaver/scripts/make_release_manifest.py",
-      "sha256": "d65e3c66e815e05c07313d55d6244ba9e1d4f07ed27a0102c49270df9631a5bf"
+      "sha256": "366f8f61be6f92ddc8d238c5cbc66354b9cfaa010645346ef3253ed9ea9eb8ed"
     },
     {
       "bytes": 1290,
@@ -197,9 +202,9 @@
       "sha256": "30a2085896bad2e6b6f3de34dbc183d00ce9be823bb6e936144a1dbaa3ca34be"
     },
     {
-      "bytes": 2398,
+      "bytes": 2417,
       "path": "vibeweaver/scripts/token_budget.py",
-      "sha256": "eb43f338f5392057691d5efb594ca116ce68507dd809ac5ebd34e2ca2ed21ee4"
+      "sha256": "3170047df6cd786debc83512e38aa67041809bbe14742f103c3eb7ef2c731c8c"
     },
     {
       "bytes": 43568,

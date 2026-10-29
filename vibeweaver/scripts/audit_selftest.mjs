@@ -4070,7 +4070,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     rec(`T39 ${f} contains no control characters (rg-searchable)`, !bad, bad ? "control byte present" : "clean")
   }
   const root39 = path.resolve(import.meta.dirname, "..")
-  const companions = ["COMPLETION_GATE.md", "TESTING_PROTOCOLS.md", "VERIFICATION_UPGRADES.md", "APPENDIX.md", "REFERENCE.md", "WORKFLOWS_EXTENDED.md", "MEMORY_RULES.md", "MEMORY_TEMPLATES.md", "ENGINEERING_STD.md", "CODING_PRINCIPLES.md"]
+  const companions = ["COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "TESTING_PROTOCOLS.md", "VERIFICATION_UPGRADES.md", "APPENDIX.md", "REFERENCE.md", "WORKFLOWS_EXTENDED.md", "MEMORY_RULES.md", "MEMORY_TEMPLATES.md", "ENGINEERING_STD.md", "CODING_PRINCIPLES.md"]
   for (const f of companions) {
     const n = readFileSync(path.join(root39, f)).length
     rec(`T39 ${f} within the 45000B companion budget`, n <= 45000, `${n}B`)
@@ -4081,7 +4081,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   // SKILL.md §A4.4 exactly once across the payload — a second copy rots
   // silently (the COMPLETION_GATE one lost Lane/Class/Fresh-verify) and an
   // agent copying it emits a gate line the audit rejects.
-  const payloadMds = ["SKILL.md", "COMPLETION_GATE.md", "TESTING_PROTOCOLS.md", "VERIFICATION_UPGRADES.md", "REFERENCE.md", "APPENDIX.md", "WORKFLOWS_EXTENDED.md", "MEMORY_RULES.md", "MEMORY_TEMPLATES.md", "ENGINEERING_STD.md", "CODING_PRINCIPLES.md"]
+  const payloadMds = ["SKILL.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "TESTING_PROTOCOLS.md", "VERIFICATION_UPGRADES.md", "REFERENCE.md", "APPENDIX.md", "WORKFLOWS_EXTENDED.md", "MEMORY_RULES.md", "MEMORY_TEMPLATES.md", "ENGINEERING_STD.md", "CODING_PRINCIPLES.md"]
   const templateHead = /\[Verification Gate\] Verifier: mm-sensor/g
   let templateCopies = 0
   const copyWhere = []
