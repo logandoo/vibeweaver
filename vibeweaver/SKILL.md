@@ -94,7 +94,7 @@ ONCE → write test cases FROM the doc → run test→fix→test until ALL pass.
 `iteration cap = 5 per sub-problem` and `stall = same criterion fails 3×
 consecutive iterations`. On cap/stall: STOP retrying that direction,
 record the failed attempt in `memory/` as ❌, try a genuinely different
-direction (or fresh-brain retry / escalate to user). "context exhausted" is never a stop — legal stops: §V12. The string
+direction (or fresh-brain retry / escalate to user). root-stall (no net progress ≥3 iters) also counts; on any stall record `- deadend-research:` + `- assumption-falsify:` (group 23) before the next direction. "context exhausted" is never a stop — legal stops: §V12. The string
 `cap=5  stall=3×` MUST appear as the top-line of every `tests/acceptance.md`
 you write.
 

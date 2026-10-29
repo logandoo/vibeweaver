@@ -410,6 +410,17 @@ expensively reconstruct from the log tail.
 iteration or a first FAIL. Lane S single-pass tasks may skip (state the
 skip). Class DOC lesson-less tasks may skip.
 
+**Ledger fields (M5, W20b):** the hypothesis ledger MUST record the **core
+assumption + its falsifier** (the external test that would disprove it) next
+to current hypothesis / tried+result / next direction — make the epistemic
+state VISIBLE (2607.09510 "epistemic errors remain hidden"). At a dead-end the
+falsifier is RUN (group 23 `assumption-falsify`), not just stated. **M2
+approach-review:** for Lane L, record `- approach-review: approach-sound |
+pivot-needed | target: <方向>` at the approach-commitment point (right after
+decompose, before deep execution) — an independent look at whether the
+DIRECTION is right (defer-to-verifier when committed, 2606.22936); it overlaps
+A4.9 but fires EARLIER (at commitment, not completion).
+
 **Form (≤50 lines, REWRITTEN each update — it is state, not chronicle; git
 history is the audit trail):**
 

@@ -2174,6 +2174,29 @@ def main():
     group("21")
     repo_hygiene_check(root, existing, args.final)
 
+    # 23) dead-end re-validation (W20b M1/M4 — anti-钻牛角尖). A DECLARED stall
+    #     must carry EXTERNAL re-validation, not internal hammering: re-search +
+    #     >=2 alternatives (M4) and an EXTERNAL falsification test with a REAL
+    #     run log (M1). arXiv 2607.09510 (epistemic errors → earlier validation) +
+    #     2606.22936 (defer to external verifier). Event-driven (fires only on a
+    #     declared stall). Tolerant trigger (I3) + content-enforcing regexes (I1)
+    #     + run-file existence (I2) = anti-box-checking, not marker-checking.
+    group("23")
+    if re.search(r"(?mi)^\s*(?:[-*]\s*)?\**\s*(?:root-)?stall\s*\**\s*:", cur_block):
+        _research = re.search(
+            r"(?mi)^\s*(?:[-*]\s*)?\**\s*deadend-research\s*\**\s*:[^\n]*?(?:→|->)\s*\S"
+            r"[^\n]*\balternatives:\s*\S+\s*,\s*\S+", cur_block)
+        _fm = re.search(
+            r"(?mi)^\s*(?:[-*]\s*)?\**\s*assumption-falsify\s*\**\s*:[^\n]*\btest:\s*\S"
+            r"[^\n]*\brun:\s*(tests/\S+)[^\n]*\bresult:\s*(?:holds|falsified|inconclusive)\b", cur_block)
+        _falsify_ok = bool(_fm) and (root / _fm.group(1)).exists()
+        check(bool(_research),
+              "dead-end declared (stall/root-stall) but no `- deadend-research: <query> → <finding> | alternatives: <a>, <b>` — "
+              "a non-empty finding AND >=2 comma-separated alternatives are required (M4; re-search, don't hammer the same direction)", "23")
+        check(_falsify_ok,
+              "dead-end declared (stall/root-stall) but no valid `- assumption-falsify: <assumption> | test: <t> | run: tests/<log EXISTS> | result: holds|falsified|inconclusive` — "
+              "run an EXTERNAL falsification test on the root assumption (M1; anti-box-checking needs a REAL run: tests/<log> that exists + an enum result)", "23")
+
     if GIT_TIMEOUT:
         warn("groups 14-16/21: a git call timed out — content gates ran "
              "on partial data (fail-open); re-run to confirm", "git")
