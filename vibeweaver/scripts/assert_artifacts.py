@@ -505,16 +505,6 @@ def secret_scan(root, vl=""):  # vl = CURRENT task block (approval scoping)
                 f"verification_log.md — every approved secret needs its own "
                 f"path-scoped approval (A4.4 content gate)")
     return fails, warns
-    for mpath, cnt in sorted(marker_paths.items()):
-        approvals = len(re.findall(
-            r"^- secret-approved:\s*" + re.escape(mpath) + r"(?![\w.\-])", vl, re.M))
-        if approvals < cnt:
-            fails.append(
-                f"secret scan: {mpath}: {cnt} `vw-approved` marker line(s) but "
-                f"{approvals} matching `- secret-approved: {mpath}` line(s) in "
-                f"verification_log.md — every approved secret needs its own "
-                f"path-scoped approval (A4.4 content gate)")
-    return fails, warns
 
 
 SKIP_MARKER = re.compile(r"@pytest\.mark\.(?:skip|xfail)|@unittest\.skip|\b(?:it|test|describe|this)\.skip|\bxfail\s*\(|\bxtest\b|\bskipTest\s*\(")
@@ -1129,8 +1119,17 @@ SECRET_BASELINE = "tests/secret_baseline.json"
 
 
 def secret_baseline_read(root):
+    """R1 (F1/F2 fix): read the COMMITTED baseline (git HEAD), never the on-disk
+    copy. A hand-edit to tests/secret_baseline.json is INERT (you must commit a
+    forged entry to take effect — review-visible, and `record_secret_debt`'s
+    shrink-only-vs-committed refuses it); an untracked baseline is a no-op (so
+    delete+re-record can't launder). Mirrors debt_baseline's tamper anchor: the
+    COMMITTED record is the truth, disk is not."""
+    rc, out = _git(root, "show", "HEAD:" + SECRET_BASELINE)
+    if rc != 0:
+        return {}  # not committed → no dryrun (safe default; F2 window closed)
     try:
-        return (json.loads(read(root / SECRET_BASELINE) or "{}") or {}).get("files", {}) or {}
+        return (json.loads(out) or {}).get("files", {}) or {}
     except Exception:
         return {}
 
@@ -1145,39 +1144,33 @@ def _file_sha256(root, rel):
 def record_secret_debt(root):
     """R1 (W20a): one-shot secret-debt baseline — a G3-style SHRINK-ONLY ratchet.
     Records sha256 of every ignored secret-named file present NOW as pre-existing
-    debt. Later runs may only SHRINK (drop fixed/changed entries); a NEW entry
-    launders a fresh secret and is refused (review-visible, never silent). This is
-    SPOOF-PROOF vs W19's tracked/anchor fail-open: classification is a TRUSTED
-    content-hash record, not movable git state (`git add -f`/anchor move can't
-    forge it). Run once at project setup (before task work)."""
-    existed = (root / SECRET_BASELINE).exists()
-    bl = secret_baseline_read(root)
+    debt. The shrink-only check runs against the COMMITTED baseline (F1: a forged
+    entry must be committed to take effect, and this refuses to add it); later runs
+    may only SHRINK. SPOOF-PROOF vs W19's tracked/anchor fail-open AND vs on-disk
+    edits (F1/F2): classification reads the committed record, not movable git state
+    or a hand-editable file. Run at project setup (before task work), then COMMIT
+    tests/secret_baseline.json."""
+    committed = secret_baseline_read(root)  # from git HEAD (the truth)
     current = {}
     for rel in ignored_secret_files(root):
         sha = _file_sha256(root, rel)
         if sha:
             current[rel] = sha
-    if existed:
-        new_keys = [r for r in current if r not in bl]
+    if committed:
+        new_keys = [r for r in current if r not in committed]
         if new_keys:
             print("record-secret-debt: refusing NEW entry(ies) %s — adding a fresh "
-                  "secret to the baseline launders it (shrink-only ratchet; a hand "
-                  "edit of %s is review-visible, never silent)"
-                  % (new_keys[:5], SECRET_BASELINE))
+                  "secret to the baseline launders it (shrink-only vs the COMMITTED "
+                  "baseline; a forged entry must be committed to take effect, which "
+                  "is review-visible, never silent)" % (new_keys[:5]))
             return 1
-        updated = {r: s for r, s in bl.items() if current.get(r) == s}
-        for r in bl:
+        updated = {r: s for r, s in committed.items() if current.get(r) == s}
+        for r in committed:
             if r not in updated:
                 print(f"record-secret-debt: dropped {r} (fixed or changed) — shrink")
         bl = updated
         print(f"record-secret-debt: {SECRET_BASELINE} refreshed (shrink-only, {len(bl)} entries)")
     else:
-        rc_g, _ = _git(root, "cat-file", "-e", "HEAD:" + SECRET_BASELINE)
-        if rc_g == 0:
-            print("record-secret-debt: %s is tracked in HEAD but missing on disk — "
-                  "restore it (`git checkout -- %s`); delete-and-re-record would "
-                  "launder new debt" % (SECRET_BASELINE, SECRET_BASELINE))
-            return 1
         bl = dict(current)
         print(f"record-secret-debt: recorded {len(bl)} pre-existing secret file(s)")
     tests = root / "tests"
@@ -1187,6 +1180,12 @@ def record_secret_debt(root):
         json.dump({"version": 1, "files": bl}, f, indent=1, sort_keys=True)
         f.write("\n")
     os.replace(tmp, root / SECRET_BASELINE)
+    # F2: the tamper anchor must be COMMITTED for the dryrun to activate (the
+    # scanner reads git HEAD, not disk) — mirror debt_baseline's commit nag.
+    rc_ls, _ = _git(root, "ls-files", "--error-unmatch", SECRET_BASELINE)
+    if rc_ls != 0:
+        print(f"record-secret-debt: now COMMIT {SECRET_BASELINE} (the tamper anchor) — "
+              f"the dryrun only activates from the committed baseline (untracked is ignored)")
     return 0
 
 

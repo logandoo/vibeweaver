@@ -133,6 +133,7 @@ def build_lock(root, previous=None):
         },
         "profile": {"sha256": sha_file(root / "tests" / "project_profile.json") or None},
         "debt": {"sha256": sha_file(root / "tests" / "debt_baseline.json") or None},
+        "secret_debt": {"sha256": sha_file(root / "tests" / "secret_baseline.json") or None},
         "log": {
             "baseline_lines": baseline_lines,
             "baseline_sha256": baseline_sha,
@@ -247,7 +248,7 @@ def verify(root, final=False, rebase_new_task=False):
             errors.append("acceptance task section heading changed and the locked section was not preserved")
 
     # --- profile / debt -----------------------------------------------------
-    for key, rel in (("profile", "tests/project_profile.json"), ("debt", "tests/debt_baseline.json")):
+    for key, rel in (("profile", "tests/project_profile.json"), ("debt", "tests/debt_baseline.json"), ("secret_debt", "tests/secret_baseline.json")):
         want = (lock.get(key) or {}).get("sha256")
         if not want:
             continue
