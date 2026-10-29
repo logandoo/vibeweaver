@@ -343,7 +343,7 @@ happens). Use the Read tool, start→end.
 | # | Trigger (when) | Read IN FULL |
 |---|----------------|--------------|
 | R1 | Any task that touches code — R1-core after §3, BEFORE first code action; lazy blocks at their trigger (Load Map: VERIFICATION_UPGRADES §V9) | [TESTING_PROTOCOLS.md](TESTING_PROTOCOLS.md) — R1-core: §A4.1 loop steps + §A4.8 (offset reads OK) · lazy: §A4.6 at first hard failure · §A4.7/§A4.7b backend-only · §A4.9 at review dispatch · §A4.10 at first stall |
-| R1b | Same task — BEFORE the final completion output | [COMPLETION_GATE.md](COMPLETION_GATE.md) — §A4.4 · §A4.4.1 · §A4.4.2 · §AUDIT · §PRE-OUTPUT MANDATORY CHECKLIST |
+| R1b | Same task — BEFORE the final completion output | [COMPLETION_GATE.md](COMPLETION_GATE.md) — §A4.4 · §A4.4.1 · §A4.4.2 · §PRE-OUTPUT MANDATORY CHECKLIST · [AUDIT_PLUGIN.md](AUDIT_PLUGIN.md) §AUDIT |
 | R2 | Modify-Existing workflow | [REFERENCE.md](REFERENCE.md) → Part C: C2 |
 | R3 | New-project workflow | [REFERENCE.md](REFERENCE.md) → Part C: C1 |
 | R4 | Large task: ≥3 files or multi-step inter-dependencies | [REFERENCE.md](REFERENCE.md) → Part C: C3 |
@@ -742,7 +742,7 @@ pre-load beyond the active branch. Every file ≤ 45 KB (one Read, un-truncated)
   stall escape · §A4.11 PAUSED/resume.
 - [COMPLETION_GATE.md](COMPLETION_GATE.md) — **R1b.** §A4.4 (self-audit ·
   Gate Function · gate-line semantics + E2E ladder · 8-column spec) ·
-  §A4.4.1 (assertion table) · §A4.4.2 (physical gate) · §AUDIT · §PRE-OUTPUT.
+  §A4.4.1 (assertion table) · §A4.4.2 (physical gate) · AUDIT_PLUGIN.md §AUDIT · §PRE-OUTPUT.
 - [REFERENCE.md](REFERENCE.md) — **R2/R3/R4/R5.** Full Part B/C workflow
   steps · §A5.1 gate mechanics · checklists · anti-patterns.
 - [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — **R9.** §M modes

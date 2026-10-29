@@ -19,14 +19,14 @@ import time
 SOURCE = pathlib.Path(__file__).resolve().parent.parent
 SKILL_NAME = "vibeweaver"
 TOP_FILES = [
-    "SKILL.md", "COMPLETION_GATE.md", "CODING_PRINCIPLES.md",
+    "SKILL.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md",
     "ENGINEERING_STD.md", "REFERENCE.md", "APPENDIX.md",
     "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
     "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md", "bootstrap.md",
     "install.sh", "install.bat",
 ]
 CORE_COMPANIONS = [
-    "TESTING_PROTOCOLS.md", "COMPLETION_GATE.md", "VERIFICATION_UPGRADES.md",
+    "TESTING_PROTOCOLS.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "VERIFICATION_UPGRADES.md",
     "MEMORY_RULES.md", "WORKFLOWS_EXTENDED.md", "APPENDIX.md",
 ]
 PLUGINS = ["vibeweaver-gate.js", "vibeweaver-audit.js"]
