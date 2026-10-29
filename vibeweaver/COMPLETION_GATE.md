@@ -194,7 +194,7 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
 | 11 | every `tests/*.webm` / `tests/*.wav` / `tests/*.mp4` / `tests/*.mp3` cited in `verification_log.md` exists and >0 bytes | A4.1 Step 2/3 |
 | 12 | every `- iter N FAIL:` line carries `diagnosis:`, and (12b) it is substantive — ≥10 chars, not a placeholder (`-`/`?`/`none`/`na`/`idk`/`unknown`/`tbd`) | A4.1 Step 4 |
 | 13 | no claim word (verified/confirmed/validated/tested/proven + 已验证/已确认/已测试…) on a prose line of the CURRENT task block lacking a coverage scope on that line — COVER vocabulary (G4) below; `- iter N PARTIAL/PENDING/POST-HOC:` progress lines, fences/headings/tables, baseline/COV-skip exempt; `- claim-ack: line N "<quoted claim>" — <reason ≥10 chars>` licenses (quote binds ack↔claim; current-block refs only; fenced/drifted/misquoted acks suppress nothing → `stale claim-ack`) | A4.4 claim rule |
-| 14 | **secret scan** — no credential-looking string (AWS key · PRIVATE KEY block · `ghp_`/`github_pat_`/`xox*`/`sk-` · k=v `api_key`/`secret`/`password`/`token` = ≥12-char value; refs like `os.environ.get(…)` NOT flagged) on an ADDED wave line (anchor..HEAD + uncommitted; untracked + ignored secret-named (`.env*`, keys) whole-scanned); placeholder-marked exempt; `*.md` WARN only; `assert_artifacts.py` never scanned. **User-approved:** `vw-approved` exempts ONLY a line matching a credential pattern AND paired `- secret-approved: <path> — <reason>` (≤1/path) | A4.4 content gate |
+| 14 | **secret scan** — no credential-looking string (AWS key · PRIVATE KEY block · `ghp_`/`github_pat_`/`xox*`/`sk-` · k=v `api_key`/`secret`/`password`/`token` = ≥12-char value; refs like `os.environ.get(…)` NOT flagged) on an ADDED wave line (anchor..HEAD + uncommitted; untracked + ignored secret-named (`.env*`, keys) whole-scanned — STRICT, every non-`.md` hit blocks; the W19 dryrun grading was reverted: tracked/anchor provenance is spoofable); placeholder-marked exempt; `*.md` WARN only; `assert_artifacts.py` never scanned. **User-approved:** `vw-approved` exempts ONLY a line matching a credential pattern AND paired `- secret-approved: <path> — <reason>` (≤1/path) | A4.4 content gate |
 | 15 | **test-change guard** — no REMOVED assertion line (`assert`·`expect(`·`pytest.raises`·`require(`·`def test_`·`it(`·`test(`·`func Test`·`@Test`) in a test code file (segment `test`/`tests`/`__tests__`/`spec` or `test_*`/`*_test.*`/`*.test.*`/`*.spec.*`; code exts; whole-file deletions included) without `- test-change: <path> — <reason>`; NEW test files need their own line (C3b hash baseline) | A4.8 test integrity |
 | 16 | **risk-tier** — when the wave diff/untracked touches a risk-tier code path (`auth`/`security`/`payment`/`billing`/`crypto`/`migration`/`permission`/`acl` segment; code exts, deletions included), `tests/review_package.md` exists and >0 bytes — A4.9 non-skippable for risk-tier (existence check; freshness via §A4.9 scoped re-review) | A4.9 risk tiering |
 | 17a | **DOC-asset render gate (§V11.9)** — a delivered office asset (`docx/doc/xlsx/xls/pptx/ppt/pdf/odt/ods/odp/rtf/odg/epub/mht/docm/xlsm/pptm`, whole-wave, deletions excluded) needs a `render:` line naming it + >0-byte page evidence in `tests/` (png/webm, `probe_vision.*` excluded) — or `render: <asset> — N/A (<named missing toolchain>)`. **NO RENDER, NO DONE**; every class | §V11.9 render gate |
@@ -247,24 +247,34 @@ column.
 ## A4.4.2 Physical Gate (plugin enforcement — do not fight it) ★
 
 The `vibeweaver-gate` plugin (`~/.config/opencode/plugins/vibeweaver-gate.js`)
-enforces §A4.4.1 mechanically. After every `write`/`edit`, when the project
-is vibeweaver-active (has `tests/verification_log.md`), it runs
-`tests/assert_artifacts.py` (trying `--existing` / `--backend-only`
-variants) and **throws a GATE-BLOCKED error into the tool result** while
-verification evidence is missing or falsified. Bash is deliberately NOT
-gated (screenshots / server start must be free to produce evidence), and
-non-vibeweaver projects are silent. **Known boundary (named, accepted):**
-file mutations performed THROUGH bash (`sed -i`, `>`, editor scripts) bypass
-both the gate and §A7.16 cue delivery — hooking bash command text costs more
-false alarms than it catches. Mitigation is procedural, not mechanical: the
-completion-time `assert_artifacts.py --final` run + the audit's B12
-final-run check examine the resulting tree regardless of how it was edited.
+enforces §A4.4.1 mechanically. After every `write`/`edit`, when the project is
+vibeweaver-active (has `tests/verification_log.md`), it runs
+`tests/assert_artifacts.py` and **throws GATE-BLOCKED into the tool result** on
+a real violation. Bash is NOT gated (screenshots/server-start must be free to
+produce evidence); non-vibeweaver projects are silent. **Known boundary
+(named, accepted):** file mutations THROUGH bash (`sed -i`, `>`, editor
+scripts) bypass the gate and §A7.16 cue delivery — hooking bash text costs more
+false alarms than it catches. Mitigation is procedural: the `--final` run +
+audit B12 examine the tree regardless of how it was edited.
 
-- **Fail-closed (D4):** EVERY assert failure blocks (evidence and structure);
-  only `WARN` lines stay advisory. "The check could not run" is itself a BLOCK
-  (python3 missing, timeout, crash, placeholder/stub). A legacy prose-only
-  copy fails closed too (upgrade from `scripts/`). `--json` prints
-  `{ok, passes, fails:[{code,severity,detail}]}`.
+- **Graduated gate (W19 — SOTA: OPA deny/warn/dryrun + pre-commit incremental):**
+  enforcement is graded by KIND+PHASE. A **real violation** (tamper, wave-added
+  secret, pin/lock/risk, destructive) blocks per-edit (deny). A **completion
+  condition** (new-project git/design-docs/requirements, seal FRESHNESS) is
+  ADVISORY during execution, enforced at `--final` (warn→deny) — code changing
+  mid-wave is normal work, not a violation. `--final` always runs all 21 groups
+  STRICT (teeth never come off at completion).
+- **Fail-closed (D4):** a real violation blocks ("the check could not run" is
+  itself a BLOCK — python3 missing, timeout, crash, placeholder/stub); only `WARN`
+  + graded completion findings stay advisory during execution. A legacy prose-only
+  copy fails closed (upgrade from `scripts/`). `--json` prints
+  `{ok, passes, fails:[{code,severity,detail}]}`. Secret scan stays STRICT (every
+  non-`.md` hit blocks) — the "dryrun pre-existing" grading was reverted (W19
+  review): `tracked`/anchor provenance is spoofable; noise is handled by the banner
+  de-dup latch + explicit `- secret-approved:`, not by downgrading real secrets.
+- **Banner de-dup (W19):** an unchanged blocking list dumps IN FULL once, then a
+  one-line summary points at `tests/gate_result.json` (details on disk) — never
+  re-flood the same 60+ lines per edit (alarm-flood control, same latch as warnings).
 - `session.idle` with a RED gate writes a `warn` entry to the opencode log
   (tripwire when the agent stops on a red gate).
 - **Stall observer (stateful):** `.vibeweaver/state.json` (gitignore it)
@@ -282,25 +292,24 @@ final-run check examine the resulting tree regardless of how it was edited.
 
   | state | condition | verdict |
   |---|---|---|
-  | `no-seal` | neither file exists | WARN `evidence seal: none yet — run scripts/evidence_seal.py after the first green test run` (bootstrap; sealing is opt-in) |
-  | `partial` | baseline only | C3 finding — a seal once existed; deleting the manifest clears nothing |
-  | `tamper` | hash mismatch / sealed file gone | C3 finding `… (C3 tamper)` / `sealed evidence missing … (C3)` |
-  | `stale` | code changed after sealing | C3 finding `sealed evidence is STALE (C3 freshness) …` |
+  | `no-seal` | neither file exists | WARN `evidence seal: none yet — run scripts/evidence_seal.py` (bootstrap; opt-in) |
+  | `partial` | baseline only | C3 finding — a seal existed; deleting the manifest clears nothing |
+  | `tamper` | hash mismatch / sealed file gone | C3 `… (C3 tamper)` / `sealed evidence missing … (C3)` |
+  | `stale` | code changed after sealing | C3 `sealed evidence is STALE (C3 freshness) …` (graded, W19) |
   | `current` | seal matches the tree | silent |
 
-  A C3 finding BLOCKs when the seal obligation is live, WARNs
-  (`advisory until the first green - iter N PASS`) in the bootstrap window
-  (no green PASS in the current task block — the wave's backup anchor makes
-  old seals fresh-stale at wave start; W12's 30+ false banners). `--final`
-  ALWAYS enforces (completion = the sealing moment); the cited-media rule
-  (`cited media evidence is not sealed (C3)`) is unconditional; the green
-  marker uses COV-1's `PASS\b` grammar.
-- **`tests/` writes are never gated — either arg shape:** write/edit carry
-  the target as `args.path` (canonical) or `args.filePath` (adapter); the
-  exemption resolves both (symlink-safe normalize, EXACT first segment
-  `tests/` · `test/` · `memory/`; nested `src/tests/` is not evidence).
-  **Protected evidence (T2.5):** checker/acceptance/profile/debt/lock/
-  gate_result are gated; the lock is written only by `scripts/evidence_lock.py`.
+  A C3 finding enforces at `--final` (completion = the sealing moment).
+  `stale` is graded (W19): advisory during execution (code changes mid-wave
+  are normal work), enforced at `--final`. `tamper`/`missing`/`partial` block
+  always (real violations). The bootstrap window (no green PASS yet) keeps
+  findings advisory until the first green `- iter N PASS` (W12's 30+ false
+  banners). The cited-media rule (`cited media evidence is not sealed (C3)`)
+  is unconditional; the green marker uses COV-1's `PASS\b` grammar.
+- **`tests/` writes are never gated (either arg shape):** the exemption resolves
+  `args.path`/`args.filePath` (symlink-safe, EXACT first segment `tests/`·
+  `test/`·`memory/`; nested `src/tests/` is not evidence). **Protected evidence
+  (T2.5):** checker/acceptance/profile/debt/lock/gate_result stay gated; the lock
+  is written only by `scripts/evidence_lock.py`.
 
 The GATE-BLOCKED message means **keep working — fix the evidence, then the
 next write/edit re-checks automatically**. It is a completion gate, not an
@@ -653,5 +662,10 @@ Before declaring any task complete, explicitly list and confirm:
       claim carries its §V9 budget basis
 - [ ] (New project only) README.html / dependencies files updated / final git
       commit
+- [ ] ★ **Headless close (A7.7.1)** — when no interactive user is available
+      (CI / batch / eval harness), pending confirmations are logged as
+      `- awaiting decision:` entries (status stays ⏳) and the final output
+      ends with the completion table, never with a question or a conditional
+      offer ("say so and I'll …")
 
 **If any item is unchecked, return to fix it. Do NOT output "done".**

@@ -66,6 +66,12 @@ function assertTimeoutMs() {
 // key would swallow new failures = fail-open).
 const RESULT_CACHE = new Map()
 const RESULT_CACHE_MAX = 32
+// W19 (graduated gate / alarm-flood control): the blocking banner is LATCHED
+// per project — an unchanged failure list is dumped IN FULL only once, then a
+// one-line summary points at tests/gate_result.json (the details are always on
+// disk). Warnings already dedupe via LENIENT_NOTED; blocking had no such latch,
+// so a persistent vendored-secret wave re-emitted 60+ lines on EVERY edit.
+const LAST_BLOCK = new Map()
 // Review B4 (A4.9): a verdict that only passed under a lenient flag combo
 // (--existing / --backend-only) is surfaced ONCE per project+flags — the
 // combo sweep is how the gate copes with unknown task type (strict is tried
@@ -545,10 +551,13 @@ function lenientAllowed(root) {
   return { existing: hasClass && hasProfile, backend: backendOk }
 }
 
-function writeGateResult(root, flags, cls) {
+function writeGateResult(root, flags, cls, blocking, warnings) {
   try {
     const p = path.join(root, "tests", "gate_result.json")
-    const body = JSON.stringify({ flags: flags || "(none)", class: cls || "", at: new Date().toISOString() })
+    const body = JSON.stringify({
+      flags: flags || "(none)", class: cls || "", at: new Date().toISOString(),
+      blocking: blocking || [], warnings: warnings || [],
+    }, null, 1)
     const tmp = p + ".tmp"
     writeFileSync(tmp, body)
     renameSync(tmp, p)
@@ -784,13 +793,16 @@ async function checkGate(root) {
     }
     {
       const { blocking, warnings } = collectMessages(r.attempts)
-      result = { blocking, warnings: [...pinWarnings, ...warnings], attempts: r.attempts.map((a) => `[${a.flags}]`) }
+      const allWarn = [...pinWarnings, ...warnings]
+      result = { blocking, warnings: allWarn, attempts: r.attempts.map((a) => `[${a.flags}]`) }
+      // W19: details always on disk; the de-dup latch is computed at DISPLAY
+      // time in blockMessage (a cached result must not replay a stale `repeat`).
+      writeGateResult(root, (r.attempts && r.attempts.length ? "(failed)" : "(none)"), "", blocking, allWarn)
     }
     if (!lossy) {
       if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
       RESULT_CACHE.set(key, result)
     }
-    writeGateResult(root, (r.attempts && r.attempts.length ? "(failed)" : "(none)"), "")
     return result
   }
   const failures = inlineCheck(root)
@@ -850,6 +862,14 @@ function stallObservation(root, file) {
 }
 
 function blockMessage(root, result) {
+  // W19 latch at DISPLAY time (not cached): hash the current failure list and
+  // only re-dump the full banner when it CHANGED. Details are always on disk.
+  const hash = createHash("sha256").update(JSON.stringify(result.blocking)).digest("hex")
+  const repeat = LAST_BLOCK.get(root) === hash
+  LAST_BLOCK.set(root, hash)
+  if (repeat) {
+    return `GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED — ${result.blocking.length} blocking item(s) UNCHANGED since last edit. Full list: tests/gate_result.json. Completion gate, not an execution stop — fix the evidence; the next write re-checks.`
+  }
   const lines = [
     "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED — this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet — verification evidence is missing or falsified:",
     ...result.blocking.map((m) => "- " + m),

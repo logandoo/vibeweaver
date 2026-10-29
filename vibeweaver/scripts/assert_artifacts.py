@@ -413,10 +413,17 @@ def secret_scan(root, vl=""):  # vl = CURRENT task block (approval scoping)
     15's `- test-change: <path>`). A bare mention of the marker on a line
     that matches no credential pattern is a no-op (prose mentions never
     trip the gate). Pairing failures FAIL regardless of file type (the
-    .md warn-only rule applies only to plain unmarked secrets)."""
+    .md warn-only rule applies only to plain unmarked secrets).
+
+    W19: kept STRICT (every non-.md hit BLOCKs) — the "dryrun pre-existing"
+    grading was reverted: `tracked`/anchor provenance is spoofable (a committed
+    secret + a moved empty `backup:` anchor launders it, and provenance vs a
+    movable anchor does not close that). Noise is controlled by the gate's
+    banner de-dup latch + the explicit `- secret-approved:` per-path approval
+    instead of silently downgrading real secrets."""
     fails, warns, marker_paths = [], [], {}
 
-    def hit(path, lineno, text):
+    def hit(path, lineno, text, bucket="block"):
         if "assert_artifacts.py" in path or PLACEHOLDER.search(text):
             return
         approval = bool(APPROVAL_METADATA.search(text))
@@ -442,31 +449,62 @@ def secret_scan(root, vl=""):  # vl = CURRENT task block (approval scoping)
         if re.search(r"vw-approved", text, re.I):
             marker_paths[path] = marker_paths.get(path, 0) + 1
             return
-        (warns if path.endswith(".md") else fails).append(
-            f"secret scan: {path}:{lineno}: credential-looking string "
-            # review A4/re-review R3: NEVER echo any matched content (this
-            # detail is routed into gate block messages / session logs) —
-            # cite shape only (length), zero secret material
-            f"on an added line — {len(text.strip())} chars matched (redacted) (A4.4 content gate)")
+        msg = (f"secret scan: {path}:{lineno}: credential-looking string "
+               # review A4/re-review R3: NEVER echo matched content — shape only.
+               f"on an added line — {len(text.strip())} chars matched (redacted) (A4.4 content gate)")
+        if path.endswith(".md"):
+            warns.append(msg)
+        elif bucket == "dryrun":
+            # R1: pre-existing secret-debt (in the trusted baseline) — visible but
+            # non-blocking; a NEW secret is NOT in the baseline and still blocks.
+            warns.append(msg + " (pre-existing secret-debt — dryrun, in baseline)")
+        else:
+            fails.append(msg)
 
     for path, (added, _r) in parse_diff(wave_diff_text(root)).items():
         for lineno, l in added:
-            hit(path, lineno, l)
+            hit(path, lineno, l, "block")
     approved_files = set(re.findall(r"^- secret-approved:\s*(\S+)\s+—", vl, re.M))
     ignored = [p for p in ignored_secret_files(root) if p not in approved_files]
     rc_git, _ = _git(root, "rev-parse", "--git-dir")
     fallback = non_git_text_files(root) if rc_git != 0 else []
-    scan_paths = list(dict.fromkeys(untracked_files(root) + ignored + fallback))
-    for rel in scan_paths:
+    baseline = secret_baseline_read(root)
+
+    def scan_file(rel, bucket):
         p = root / rel
         try:
             if not p.is_file() or p.stat().st_size > 1_000_000:
-                continue
+                return
             t = p.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
-            continue
+            return
         for i, l in enumerate(t.splitlines(), 1):
-            hit(rel, i, l)
+            hit(rel, i, l, bucket)
+
+    # untracked (new) files → BLOCK (agent-introduced this wave)
+    seen = set()
+    for rel in untracked_files(root):
+        scan_file(rel, "block")
+        seen.add(rel)
+    # whole-file scan (ignored secret-named + non-git fallback) → baseline check.
+    # R1: a file whose content-hash is in the TRUSTED baseline = pre-existing debt
+    # (dryrun); anything else (new/changed) = a real secret → block. Spoof-proof —
+    # classification is a shrink-only trusted record, not movable git state.
+    for rel in dict.fromkeys(ignored + fallback):
+        if rel in seen:
+            continue
+        pre = (rel in baseline) and _file_sha256(root, rel) == baseline[rel]
+        scan_file(rel, "dryrun" if pre else "block")
+    for mpath, cnt in sorted(marker_paths.items()):
+        approvals = len(re.findall(
+            r"^- secret-approved:\s*" + re.escape(mpath) + r"(?![\w.\-])", vl, re.M))
+        if approvals < cnt:
+            fails.append(
+                f"secret scan: {mpath}: {cnt} `vw-approved` marker line(s) but "
+                f"{approvals} matching `- secret-approved: {mpath}` line(s) in "
+                f"verification_log.md — every approved secret needs its own "
+                f"path-scoped approval (A4.4 content gate)")
+    return fails, warns
     for mpath, cnt in sorted(marker_paths.items()):
         approvals = len(re.findall(
             r"^- secret-approved:\s*" + re.escape(mpath) + r"(?![\w.\-])", vl, re.M))
@@ -764,6 +802,24 @@ def check(ok: bool, msg: str, code: str = "", severity: str = "block"):
     PASSES += 1
     if not ok:
         FAILS.append({"code": code or CUR_GROUP, "severity": severity, "detail": msg})
+
+
+FINAL_MODE = False
+
+
+def staged_check(ok: bool, msg: str, code: str = ""):
+    """Graduated gate (W19; SOTA: OPA deny/warn + pre-commit incremental):
+    a COMPLETION condition (not-yet-done — new-project artifacts, seal
+    freshness) is ADVISORY during per-edit execution and only enforced at
+    --final; a real violation uses check() (per-edit block). PASSES still
+    counts the evaluation so the report shape stays stable."""
+    if FINAL_MODE:
+        check(ok, msg, code)
+    else:
+        global PASSES
+        PASSES += 1
+        if not ok:
+            warn(msg + " — advisory during execution; enforced at --final", code or CUR_GROUP)
 
 
 def read(p: pathlib.Path) -> str:
@@ -1069,6 +1125,71 @@ def record_debt(root):
     return 0
 
 
+SECRET_BASELINE = "tests/secret_baseline.json"
+
+
+def secret_baseline_read(root):
+    try:
+        return (json.loads(read(root / SECRET_BASELINE) or "{}") or {}).get("files", {}) or {}
+    except Exception:
+        return {}
+
+
+def _file_sha256(root, rel):
+    try:
+        return hashlib.sha256((root / rel).read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
+def record_secret_debt(root):
+    """R1 (W20a): one-shot secret-debt baseline — a G3-style SHRINK-ONLY ratchet.
+    Records sha256 of every ignored secret-named file present NOW as pre-existing
+    debt. Later runs may only SHRINK (drop fixed/changed entries); a NEW entry
+    launders a fresh secret and is refused (review-visible, never silent). This is
+    SPOOF-PROOF vs W19's tracked/anchor fail-open: classification is a TRUSTED
+    content-hash record, not movable git state (`git add -f`/anchor move can't
+    forge it). Run once at project setup (before task work)."""
+    existed = (root / SECRET_BASELINE).exists()
+    bl = secret_baseline_read(root)
+    current = {}
+    for rel in ignored_secret_files(root):
+        sha = _file_sha256(root, rel)
+        if sha:
+            current[rel] = sha
+    if existed:
+        new_keys = [r for r in current if r not in bl]
+        if new_keys:
+            print("record-secret-debt: refusing NEW entry(ies) %s — adding a fresh "
+                  "secret to the baseline launders it (shrink-only ratchet; a hand "
+                  "edit of %s is review-visible, never silent)"
+                  % (new_keys[:5], SECRET_BASELINE))
+            return 1
+        updated = {r: s for r, s in bl.items() if current.get(r) == s}
+        for r in bl:
+            if r not in updated:
+                print(f"record-secret-debt: dropped {r} (fixed or changed) — shrink")
+        bl = updated
+        print(f"record-secret-debt: {SECRET_BASELINE} refreshed (shrink-only, {len(bl)} entries)")
+    else:
+        rc_g, _ = _git(root, "cat-file", "-e", "HEAD:" + SECRET_BASELINE)
+        if rc_g == 0:
+            print("record-secret-debt: %s is tracked in HEAD but missing on disk — "
+                  "restore it (`git checkout -- %s`); delete-and-re-record would "
+                  "launder new debt" % (SECRET_BASELINE, SECRET_BASELINE))
+            return 1
+        bl = dict(current)
+        print(f"record-secret-debt: recorded {len(bl)} pre-existing secret file(s)")
+    tests = root / "tests"
+    tests.mkdir(exist_ok=True)
+    tmp = str(root / SECRET_BASELINE) + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump({"version": 1, "files": bl}, f, indent=1, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, root / SECRET_BASELINE)
+    return 0
+
+
 def evidence_lock_check(root: pathlib.Path, final: bool):
     """W0 Task 2.5: verify tests/.evidence.lock (acceptance/profile/debt/log/media).
 
@@ -1352,6 +1473,8 @@ def main():
                     help="COV-13 task class (§V11): DOC N/A's memory + service-lifecycle groups; CONFIG N/A's memory when the log carries `- memory: na (<why>)`. Default: auto-detect from the `- class: <X> — <basis>` first entry of the task block in tests/verification_log.md")
     ap.add_argument("--record-debt", action="store_true",
                     help="G3 ratchet: record today's existing-tree debt into tests/debt_baseline.json (shrink-only; new keys refused)")
+    ap.add_argument("--record-secret-debt", action="store_true",
+                    help="R1 ratchet: record pre-existing ignored secret files into tests/secret_baseline.json (shrink-only; new entries refused)")
     ap.add_argument("--self-check", action="store_true",
                     help="W0 Task 3: structural/bootstrap checks only (payload, links, manifest, fixtures) — no task block/baseline/working-note required")
     ap.add_argument("--final", action="store_true",
@@ -1365,6 +1488,8 @@ def main():
         print(msg, file=sys.stderr if args.json else sys.stdout)
 
     root = pathlib.Path(args.root).resolve() if args.root else pathlib.Path(__file__).resolve().parent.parent
+    global FINAL_MODE
+    FINAL_MODE = bool(args.final)  # graduated gate: completion conditions enforce only at --final
 
     # W0 Task 3 — clean-clone bootstrap: structural checks only. Must run
     # before the task-block gates (a fresh clone has no current task yet).
@@ -1384,6 +1509,8 @@ def main():
     # G3 ratchet: recording short-circuits the checks (it IS the bootstrap).
     if args.record_debt:
         sys.exit(record_debt(root))
+    if args.record_secret_debt:
+        sys.exit(record_secret_debt(root))
 
     # --- project profile: declarative N/A for groups that are structurally
     # impossible for this project kind (a library has no service to start).
@@ -1804,24 +1931,24 @@ def main():
         except (FileNotFoundError, subprocess.TimeoutExpired):
             rc, out = -1, ""
         n_commits = len([l for l in out.splitlines() if l.strip()]) if rc == 0 else 0
-        check(rc == 0 and n_commits >= 2,
+        staged_check(rc == 0 and n_commits >= 2,
               f"new-project git repo needs >=2 commits (init + final); found {n_commits} (C1 step 1/15)")
 
     # 7) §A5 design docs — new projects (skipped with --existing) (A5 / C1 step 2)
     group("7")
     if not existing:
         for doc in ["FLOW_DESIGN.html", "DATABASE_DESIGN.html", "BACKEND_DESIGN.html"]:
-            check((root / doc).exists(), f"new-project design doc missing: {doc} (A5 / C1 step 2)")
+            staged_check((root / doc).exists(), f"new-project design doc missing: {doc} (A5 / C1 step 2)")
         if not backend_only:
-            check((root / "PAGE_DESIGN.html").exists(),
+            staged_check((root / "PAGE_DESIGN.html").exists(),
                   "new-project design doc missing: PAGE_DESIGN.html (A5; use --backend-only if no UI)")
 
     # 8) README + requirements — new projects (skipped with --existing) (C1 step 15)
     group("8")
     if not existing:
-        check(any((root / n).exists() for n in ["README.md", "README.html"]),
+        staged_check(any((root / n).exists() for n in ["README.md", "README.html"]),
               "new-project README.md/README.html missing (C1 step 15)")
-        check(any((root / n).exists() for n in ["requirements.txt", "package.json"]),
+        staged_check(any((root / n).exists() for n in ["requirements.txt", "package.json"]),
               "new-project requirements.txt/package.json missing (C1 step 15)")
 
     # 9) COV-9 — Modify-Existing tasks: baseline verdict recorded on disk (COV-9)
@@ -1961,8 +2088,11 @@ def main():
                     _seal_finding(f"sealed evidence {_rel} hash mismatch (C3 tamper) - the file changed after "
                                   f"scripts/evidence_seal.py sealed it; re-run the covering tests and re-seal")
             if code_fingerprint(root) != _man.get("code_fingerprint"):
-                _seal_finding("sealed evidence is STALE (C3 freshness) - wave code changed after evidence_seal.py "
-                              "ran; re-run the covering tests and re-seal (missing != success)")
+                # W19: freshness is a COMPLETION condition — code changing mid-wave
+                # is normal work, so STALE is advisory during execution and only
+                # enforced at --final (tamper/missing above stay per-edit blocks).
+                staged_check(False, "sealed evidence is STALE (C3 freshness) - wave code changed after evidence_seal.py "
+                              "ran; re-run the covering tests and re-seal (missing != success)", "15b")
         else:
             # partial seal: evidence_seal.py writes BOTH files in one run, so
             # a baseline WITHOUT a manifest means the manifest was deleted.
