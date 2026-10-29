@@ -1,5 +1,5 @@
 {
-  "commit": "07008cb6da0e86cef408a1c1b0835bc6c9fbd995",
+  "commit": "22284a049412bc0519811dbc9fd638aebb014b53",
   "files": [
     {
       "bytes": 44419,
@@ -12,9 +12,9 @@
       "sha256": "50a21fd64484aaa14f762f95160ca8b4aede4fd4f7a8c7ef7b4df0808b225a6f"
     },
     {
-      "bytes": 44988,
+      "bytes": 34921,
       "path": "vibeweaver/COMPLETION_GATE.md",
-      "sha256": "55ae5573d697f60f8ba816eef5259fff215db9f53b1789220609d0ac43bd3d77"
+      "sha256": "18b7185f9d7078364e635b91dc541917f9223ef02ef38f5211556380c0e9524b"
     },
     {
       "bytes": 16311,
@@ -22,9 +22,9 @@
       "sha256": "93baab0b85e364151c188b1e7f86776b11a91fc2ec672b83a06e59fe8e1b8859"
     },
     {
-      "bytes": 29802,
+      "bytes": 30545,
       "path": "vibeweaver/MEMORY_RULES.md",
-      "sha256": "6633271fcccc78e6c503fa8769c91ca072b832ba756d6ffbe2e96cca05462e6f"
+      "sha256": "73cf368b6717b21e824cb20c5f7e987c73eeb16a04d0a4c3a8dadb9002410318"
     },
     {
       "bytes": 10393,
@@ -37,9 +37,9 @@
       "sha256": "a56e33a3e250934d67603830d64f067e33633974cf3a0feb6c3f0f080b4999e9"
     },
     {
-      "bytes": 48715,
+      "bytes": 48925,
       "path": "vibeweaver/SKILL.md",
-      "sha256": "33c66ba16c23d3eec76451877eb35f798b8fe04be9780d8a6849db63fa79340d"
+      "sha256": "39c3cf40847f4205a69ad5810387ea20f776750b1ca71d0037600cb6328af98f"
     },
     {
       "bytes": 45000,
@@ -82,9 +82,9 @@
       "sha256": "76ca7518b3466ad613863e4c8140ae21ecddd0974aa5a9b108291f191003a84d"
     },
     {
-      "bytes": 104186,
+      "bytes": 114428,
       "path": "vibeweaver/scripts/assert_artifacts.py",
-      "sha256": "40090938cdb5cc093fa84b95b49e2bb1ea40b3de2b77856c47257767c9b4ddaa"
+      "sha256": "33c10765a5a1c14a0346566a9b9356a187ec54446b0b931917d8e50636076525"
     },
     {
       "bytes": 296964,
@@ -127,9 +127,9 @@
       "sha256": "bbaa7cd54a974cb3ad9ee3a46e4380a3a94884193bc34af2e5a0e228efeab593"
     },
     {
-      "bytes": 15470,
+      "bytes": 15611,
       "path": "vibeweaver/scripts/evidence_lock.py",
-      "sha256": "c5a549a8a8325c11f08ee7c921dab2c1d4f02394d7cc8f5d905f357aeaf004bd"
+      "sha256": "aeab32516db3c7249ce604aad736e864ba6c7f4a22a3a2149ec1d4e4ca0cc589"
     },
     {
       "bytes": 12632,
@@ -142,9 +142,9 @@
       "sha256": "a1fe73b8abf1bd14047f765d9e95990e99cf4c86e04f56bf81c8e7f2f4dc726d"
     },
     {
-      "bytes": 10840,
+      "bytes": 10878,
       "path": "vibeweaver/scripts/install.py",
-      "sha256": "2b28a30e4ac831aa6d967ce5a5ec708f93eac2cc553d159e4261e87d683119ac"
+      "sha256": "9357ab223174b67d2c16e1cb56d4053f086b07bff273ca661fab3f06ee0decb6"
     },
     {
       "bytes": 4287,
@@ -222,11 +222,11 @@
       "sha256": "ee32df2e56afd34e4ee8da19e099752d66442e20bae4c6ee1e9fb807e957442d"
     },
     {
-      "bytes": 75995,
+      "bytes": 77339,
       "path": "vibeweaver/vibeweaver-gate.js",
-      "sha256": "9819d17dfb4268b9f7714e7acdd74a883065a299b789baeadfd1f0611a4db274"
+      "sha256": "a2a926e2bc7fed7d705f3018125e00318f7a3383a2e6b6616e13df9807809612"
     }
   ],
   "schema_version": 1,
-  "tag": "w19.0"
+  "tag": "w22.0"
 }
