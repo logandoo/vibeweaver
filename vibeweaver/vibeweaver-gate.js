@@ -557,7 +557,7 @@ function writeGateResult(root, flags, cls, blocking, warnings) {
     const body = JSON.stringify({
       flags: flags || "(none)", class: cls || "", at: new Date().toISOString(),
       blocking: blocking || [], warnings: warnings || [],
-    }, null, 1)
+    })
     const tmp = p + ".tmp"
     writeFileSync(tmp, body)
     renameSync(tmp, p)
