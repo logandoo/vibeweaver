@@ -1129,20 +1129,22 @@ function runAssertJson(root) {
 }
 
 {
-  // G1 three-state (gate side): seal exists + wave code changed after the
-  // seal → the stale state BLOCKS and the message keeps its STALE wording.
+  // G1 three-state (gate side), W19 graded: seal exists + wave code changed
+  // after the seal → STALE is now ADVISORY per-edit (staged_check), so the gate
+  // surfaces the STALE note but does NOT block (it enforces at --final instead).
   const root = assertGreenProject("gate-stale-v1")
   execFileSync(PY, [payloadScript("evidence_seal.py")], { cwd: root, encoding: "utf8" })
   mkdirSync(path.join(root, "src"), { recursive: true })
   writeFileSync(path.join(root, "src", "late.js"), "export const x = 1\n")
   const loaded = await loadAsV1(gateMod, { client: { app: { log: async () => {} } }, directory: root }, "vibeweaver-gate")
   let blocked = null
+  const outObj = { output: "" }
   try {
-    await loaded.hooks[0]["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "st1", args: { path: path.join(root, "src", "a.js") } }, { output: "ok" })
+    await loaded.hooks[0]["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "st1", args: { path: path.join(root, "src", "a.js") } }, outObj)
   } catch (e) {
     blocked = e
   }
-  rec("D10b-gate-v1: seal present + code changed after seal → GATE-BLOCKED with STALE", !!blocked && /STALE/.test(String((blocked && blocked.message) || "")), blocked ? "blocked (STALE)" : "UNEXPECTEDLY clean")
+  rec("D10b-gate-v1: seal present + code changed after seal → advisory STALE note (W19 graded), NOT GATE-BLOCKED", !blocked && /STALE/.test(outObj.output) && /advisory/.test(outObj.output), blocked ? "blocked (STALE)" : outObj.output.slice(0, 90))
 }
 
 {

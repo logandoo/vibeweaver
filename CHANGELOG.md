@@ -6,6 +6,36 @@
 
 ---
 
+## 2026-10-29 门禁降噪 + Epistemic Guard + 发布同步（W20a–W22）
+
+### W20a — secret baseline ratchet（解 vendored-secret 噪音）
+- shrink-only `tests/secret_baseline.json`（`--record-secret-debt`）：pre-existing ignored secret（committed baseline 命中）dryrun，新增/变更 block；**read-from-committed**（读 git HEAD 非 on-disk）+ `evidence_lock` 机械锚定 = spoof-proof（反洗白 5 探针：uncommitted→block · committed→dryrun · 改动→block · shrink-only 拒新增 · 拒 delete-re-record）
+- W19 的 tracked/anchor "dryrun pre-existing" fail-open 类闭环（A4.9 对抗评审两次 FAIL→fixed）
+- latch 只 key blocking（warning 抖动不破）；banner 去重 2170B→224B
+
+### W20b — Epistemic Guard（治钻牛角尖）
+- **group 23 死胡同再验证**：声明 stall/root-stall 必须带**外部**再验证（`- deadend-research: →finding|alternatives≥2` + `- assumption-falsify: run:tests/<存在>|result:enum`）否则 block；事件驱动 + 反填表（content+existence 非 marker）+ 全 log 扫描 + pair-after-stall + fence-aware
+- group 24：M5 假设台账（核心假设+证伪器）+ M2 approach-review 的 WARN gate；M3 root-stall 入 COV-7
+- 依据 arXiv 2607.09510（epistemic errors→earlier validation）+ 2606.22936（premature commitment→defer to external verifier，不"更坚定 decompose"）
+- A4.9 评审 4 must-fix（I1 反填表只验 marker/I2 run 可伪造/I3 触发可绕/I4 测试不钉 reject-side）全修
+
+### W20c — 残留清偿 + T39 预算债
+- group 23 硬化（M1 全 log/M2 pair-after/M4 fence + M5 变体）；M5/M2 gate
+- T39 预算债走 **split**（COV-1 flag-not-cheat，不私自调预算）
+
+### W21 — split §AUDIT→AUDIT_PLUGIN.md（清 T39 预算债）
+- §AUDIT（11344B）逐字移新 companion（163/163 行无丢失）；COMPLETION_GATE 46132B→34921B + AUDIT_PLUGIN 11654B 双 <45000 → **T39 清**
+- 测出默认 profile=core 的 dead-link（AP 加 CORE_COMPANIONS 修）+ 6 处 companion 清单补全
+
+### W22 — MANIFEST schema 修 + split 补全
+- 修 pre-existing MANIFEST schema 不匹配（元数据格式≠integrity 格式）：hybrid（make_manifest 生成 integrity+留元数据）→ install 不再需 --no-verify
+- split 漏 6 处清单全补（make_release_manifest TOP_LEVEL_FILES 根因 · contract_lint · token_budget · audit_selftest T39+payloadMds · assert PAYLOAD_MD）
+
+### 验证
+- `node scripts/audit_selftest.mjs` 572/0（T39 清，含 AUDIT_PLUGIN 预算）· `node scripts/mutation_sweep.mjs` 44/0 · `node tests/plugin_compat_test.mjs` 82/82
+- `python3 tests/test_assert_groups.py` 75/75 · `python3 tests/test_gate_graduated.py` 24/24 · `node tests/gate_latch_test.mjs` 7/7
+- `python3 tests/assert_artifacts.py --final` 36/36 · `python3 scripts/verify_release.py` 46/46 · `python3 scripts/contract_lint.py` 0 conflicts
+
 ## 2026-10-28 评测清偿：清零重狩猎三方向筛查（零存活）+ 审计修复
 
 ### 评测（ADR D-W2ISO-10 裁决：清零重狩猎）
