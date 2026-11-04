@@ -281,7 +281,17 @@ function auditComparePath(p) {
   } catch {
     s = auditReal(p)
   }
-  return WIN ? s.toLowerCase() : s
+  if (!WIN) return s
+  // Windows native realpath may return an extended-length `\\?\C:\...`
+  // prefix while resolveWritePath returns `C:\...`; normalize both before
+  // prefix comparisons (T37b/T17 evidence exemptions).
+  return s.replace(/^\\\\\?\\/, "").toLowerCase()
+}
+
+function auditLocalCompare(p) {
+  let s = resolveWritePath(path.resolve(p))
+  if (!WIN) return s
+  return s.replace(/^\\\\\?\\/, "").toLowerCase()
 }
 
 function auditNearestExistingDir(start) {
@@ -460,8 +470,8 @@ function writePathFromArgs(args) {
 
 function isTestDirPath(root, filePath) {
   if (typeof filePath !== "string" || !filePath) return false
-  const cmpRoot = auditComparePath(root)
-  const cmpFile = auditComparePath(filePath)
+  const cmpRoot = auditLocalCompare(root)
+  const cmpFile = auditLocalCompare(filePath)
   const rel = cmpFile.startsWith(cmpRoot + path.sep) ? cmpFile.slice(cmpRoot.length + path.sep.length) : null
   if (rel == null) return false
   return rel.split(/[\\/]/).some((seg) => {
