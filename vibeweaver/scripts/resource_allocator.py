@@ -351,6 +351,56 @@ class ResourceAllocator:
                            resource_name, resource_name, None)
             return resource_name
 
+    def allocate_quota(self, attempt_id: str, lease_epoch: int, name: str,
+                       limit) -> dict:
+        """Register a named resource quota (CPU-seconds, bytes, …) for an
+        attempt (§MA9 resource ownership). Idempotent per (attempt, name);
+        the stored row is kind='quota' with value {"limit", "used"}."""
+        self._check_epoch(attempt_id, lease_epoch)
+        if isinstance(limit, bool) or not isinstance(limit, (int, float)) or limit <= 0:
+            raise ValueError(f"quota limit must be a positive number, got: {limit!r}")
+        with _Txn(self._db) as db:
+            row = db.execute(
+                "SELECT value FROM allocations WHERE attempt_id=? AND kind='quota'"
+                " AND name=?", (attempt_id, name)).fetchone()
+            if row is not None:
+                return json.loads(row[0])
+            payload = {"limit": limit, "used": 0}
+            self._hold_row(db, attempt_id, lease_epoch, "quota", name,
+                           json.dumps(payload), None)
+            return payload
+
+    def charge_quota(self, attempt_id: str, lease_epoch: int, name: str,
+                     amount) -> bool:
+        """Charge usage against a quota. Returns False WITHOUT applying the
+        charge when it would exceed the limit (fail-closed, never overdrafts).
+        Raises KeyError when no held quota exists for the name."""
+        self._check_epoch(attempt_id, lease_epoch)
+        if isinstance(amount, bool) or not isinstance(amount, (int, float)) or amount < 0:
+            raise ValueError(f"quota charge must be a non-negative number, got: {amount!r}")
+        with _Txn(self._db) as db:
+            row = db.execute(
+                "SELECT value FROM allocations WHERE attempt_id=? AND kind='quota'"
+                " AND name=? AND state='held'", (attempt_id, name)).fetchone()
+            if row is None:
+                raise KeyError(f"no held quota {name!r} for {attempt_id}")
+            payload = json.loads(row[0])
+            if payload["used"] + amount > payload["limit"]:
+                return False
+            payload["used"] += amount
+            db.execute(
+                "UPDATE allocations SET value=? WHERE attempt_id=? AND kind='quota'"
+                " AND name=?", (json.dumps(payload), attempt_id, name))
+            return True
+
+    def quota(self, attempt_id: str, name: str):
+        """Current {"limit", "used"} for a quota, or None when unregistered."""
+        with _Txn(self._db) as db:
+            row = db.execute(
+                "SELECT value FROM allocations WHERE attempt_id=? AND kind='quota'"
+                " AND name=?", (attempt_id, name)).fetchone()
+        return json.loads(row[0]) if row is not None else None
+
     # -- lifecycle ---------------------------------------------------------
 
     def reclaim(self, attempt_id: str, lease_epoch=None) -> dict:
