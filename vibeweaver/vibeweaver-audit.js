@@ -472,8 +472,8 @@ function isTestDirPath(root, filePath) {
   if (typeof filePath !== "string" || !filePath) return false
   const cmpRoot = auditLocalCompare(root)
   const cmpFile = auditLocalCompare(filePath)
-  const rel = cmpFile.startsWith(cmpRoot + path.sep) ? cmpFile.slice(cmpRoot.length + path.sep.length) : null
-  if (rel == null) return false
+  const rel = path.relative(cmpRoot, cmpFile)
+  if (!rel || rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel)) return false
   return rel.split(/[\\/]/).some((seg) => {
     // EXACT name match (W18 review r2): case-folding made `Tests/` a false
     // exemption on case-sensitive filesystems. Nested test dirs
@@ -2527,7 +2527,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         if (key) {
           const entry = nestedState.roots[key]
           const latch = readLatch(entry)
-          const isAcceptance = filePath && isTestDirPath(root, filePath) && /(^|[\\/])acceptance\.md$/.test(filePath)
+          // The regex already requires a tests/test segment; avoid a second
+          // Windows path-prefix comparison here (D13c). findProjectRootForFile
+          // has already constrained the file to this project.
+          const isAcceptance = filePath && /(^|[\\/])tests?[\\/]acceptance\.md$/i.test(filePath)
           const armed = cur && entry.newTaskArms && entry.newTaskArms[cur] > (latch ? latch.ts : 0)
           if (latch && cur === latch.sessionID && armed) {
             entry.red = null
