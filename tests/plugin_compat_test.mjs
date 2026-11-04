@@ -1292,9 +1292,13 @@ function runAssertJson(root) {
     afterAcc = e
   }
   const nestedState = JSON.parse(readFileSync(path.join(dev, ".vibeweaver", "audit-state.json"), "utf8"))
+  const nestedKey = Object.keys(nestedState.roots || {}).find(
+    (k) => path.resolve(k).toLowerCase() === path.resolve(dev).toLowerCase(),
+  ) || dev
+  const nestedEntry = (nestedState.roots || {})[nestedKey] || {}
   rec("D13c-audit-v1: nested new-task acceptance releases its own latch",
-    !accBlocked && !afterAcc && !nestedState.roots[dev].red,
-    `acceptance=${accBlocked ? "blocked" : "clean"} source=${afterAcc ? "blocked" : "clean"} red=${nestedState.roots[dev].red ? "set" : "null"}`)
+    !accBlocked && !afterAcc && !nestedEntry.red,
+    `acceptance=${accBlocked ? "blocked" : "clean"} source=${afterAcc ? "blocked" : "clean"} red=${nestedEntry.red ? "set" : "null"}`)
 }
 
 // W23 — when the session workspace itself is an active nested repo, audit must

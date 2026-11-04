@@ -256,12 +256,26 @@ function auditCanonical(p) {
   return path.resolve(p)
 }
 
+const WIN = process.platform === "win32"
+
 function auditReal(p) {
   try {
     return realpathSync(path.resolve(p))
   } catch {
     return path.resolve(p)
   }
+}
+
+// Windows paths are case-insensitive; git/realpath may return a different
+// drive/8.3 spelling than the session argument. Compare normalized forms.
+function auditComparePath(p) {
+  let s
+  try {
+    s = realpathSync.native ? realpathSync.native(path.resolve(p)) : auditReal(p)
+  } catch {
+    s = auditReal(p)
+  }
+  return WIN ? s.toLowerCase() : s
 }
 
 function auditNearestExistingDir(start) {
@@ -304,7 +318,9 @@ function auditOutside(base, target) {
   const targetResolved = existsSync(target)
     ? realpathSync(target)
     : path.join(auditCanonical(auditNearestExistingDir(path.dirname(target))), path.basename(target))
-  const rel = path.relative(auditCanonical(base), targetResolved)
+  const baseCmp = WIN ? auditCanonical(base).toLowerCase() : auditCanonical(base)
+  const targetCmp = WIN ? targetResolved.toLowerCase() : targetResolved
+  const rel = path.relative(baseCmp, targetCmp)
   return rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel)
 }
 
@@ -325,12 +341,12 @@ function findProjectRootForFile(directory, filePath) {
   const outside = auditOutside(host, abs)
   const activeHere = existsSync(path.join(host, "tests", "verification_log.md")) ? host : null
   const activeAbove = path.dirname(host) !== host ? findProjectRoot([path.dirname(host)]) : null
-  if (fileGit && fileGit !== hostGit) {
+  if (fileGit && (!hostGit || auditComparePath(fileGit) !== auditComparePath(hostGit))) {
     if (auditTrustedProject(fileGit)) return fileGit
     return activeHere || activeAbove || fileGit
   }
   if (activeHere) return host
-  if (hostGit && activeAbove && activeAbove !== fileGit) return activeAbove
+  if (hostGit && activeAbove && (!fileGit || auditComparePath(activeAbove) !== auditComparePath(fileGit))) return activeAbove
   if (activeAbove) return activeAbove
   if (outside) return null
   for (let d = path.dirname(abs); ; d = path.dirname(d)) {
@@ -438,9 +454,9 @@ function writePathFromArgs(args) {
 
 function isTestDirPath(root, filePath) {
   if (typeof filePath !== "string" || !filePath) return false
-  const normRoot = resolveWritePath(root)
-  const normFile = resolveWritePath(filePath)
-  const rel = normFile.startsWith(normRoot + path.sep) ? normFile.slice(normRoot.length + path.sep.length) : null
+  const cmpRoot = auditComparePath(root)
+  const cmpFile = auditComparePath(filePath)
+  const rel = cmpFile.startsWith(cmpRoot + path.sep) ? cmpFile.slice(cmpRoot.length + path.sep.length) : null
   if (rel == null) return false
   return rel.split(/[\\/]/).some((seg) => {
     // EXACT name match (W18 review r2): case-folding made `Tests/` a false
@@ -2491,7 +2507,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const nestedStatePath = path.join(root, STATE_DIR, STATE_FILE)
         const nestedState = JSON.parse(readFileSync(nestedStatePath, "utf8"))
         const keys = nestedState && nestedState.roots ? Object.keys(nestedState.roots) : []
-        const key = keys.find((k) => auditReal(k) === auditReal(root))
+        const key = keys.find((k) => auditComparePath(k) === auditComparePath(root))
         if (key) {
           const entry = nestedState.roots[key]
           const latch = readLatch(entry)
