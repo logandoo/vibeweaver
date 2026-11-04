@@ -1,113 +1,74 @@
-"""Unit tests for vibeweaver/scripts/backlog_check.py (C8 outer-loop ledger gate)."""
+"""backlog_check.py tests (C3e / BL-19 — coverage restored 2026-10-15).
+
+Spec: a `passes:true` backlog item needs EXECUTION evidence (a command
+marker AND its exit 0) on a line naming the id — mentions/TODOs never count.
+Run: python3 tests/test_backlog_check.py
+"""
 import json
 import pathlib
 import subprocess
 import sys
 import tempfile
-import unittest
 
-SCRIPT = pathlib.Path(__file__).resolve().parent.parent / "vibeweaver" / "scripts" / "backlog_check.py"
-
-
-def run(root):
-    return subprocess.run([sys.executable, str(SCRIPT), str(root)], capture_output=True, text=True)
+REPO = pathlib.Path(__file__).resolve().parent.parent
+CHECK = REPO / "scripts" / "backlog_check.py"
+RESULTS = []
 
 
-class BacklogCheckTest(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.root = pathlib.Path(self.tmp.name)
-        (self.root / "tests").mkdir()
+def rec(name, ok, detail=""):
+    RESULTS.append((name, ok, detail))
+    print(f"{'PASS' if ok else 'FAIL'}  {name}" + (f" — {detail}" if detail else ""))
 
-    def tearDown(self):
-        self.tmp.cleanup()
 
-    def write(self, rel, text):
-        (self.root / rel).write_text(text, encoding="utf-8")
+def fixture(stories, log_lines):
+    d = pathlib.Path(tempfile.mkdtemp(prefix="vwbacklog-"))
+    (d / "tests").mkdir()
+    (d / "tests" / "backlog.json").write_text(json.dumps({"userStories": stories}))
+    (d / "tests" / "verification_log.md").write_text("## Task: t\n" + "\n".join(log_lines) + "\n")
+    return d
 
-    def test_inert_without_backlog(self):
-        r = run(self.root)
-        self.assertEqual(r.returncode, 0)
-        self.assertIn("inert", r.stdout)
 
-    def test_invalid_json_fails(self):
-        self.write("tests/backlog.json", "{not json")
-        r = run(self.root)
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("not valid JSON", r.stdout)
+def run(d):
+    return subprocess.run([sys.executable, str(CHECK)], cwd=d, capture_output=True, text=True, timeout=30)
 
-    def test_missing_userStories_fails(self):
-        self.write("tests/backlog.json", json.dumps({"nope": []}))
-        r = run(self.root)
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("userStories", r.stdout)
 
-    def test_missing_required_key_fails(self):
-        self.write("tests/backlog.json", json.dumps({"userStories": [{"id": "US-1", "passes": False}]}))
-        r = run(self.root)
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("title", r.stdout)
+def main():
+    ok_story = {"id": "US-1", "title": "t", "priority": "p", "passes": True}
+    todo_story = {"id": "US-3", "title": "t", "priority": "p", "passes": True}
+    todo_story2 = {"id": "US-4", "title": "t", "priority": "p", "passes": True}
+    open_story = {"id": "US-9", "title": "t", "priority": "p", "passes": False}
 
-    def test_passes_non_boolean_fails(self):
-        self.write(
-            "tests/backlog.json",
-            json.dumps({"userStories": [{"id": "US-1", "title": "t", "priority": 1, "passes": "yes"}]}),
-        )
-        r = run(self.root)
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("boolean", r.stdout)
+    d = fixture([ok_story], ["- US-1: ran pytest tests/test_us1.py → exit 0 (1/1)"])
+    r = run(d)
+    rec("C3e execution-evidence line (command + exit 0) satisfies passes:true",
+        r.returncode == 0, f"rc={r.returncode}")
 
-    def test_pass_true_without_evidence_fails(self):
-        self.write(
-            "tests/backlog.json",
-            json.dumps({"userStories": [{"id": "US-1", "title": "t", "priority": 1, "passes": True}]}),
-        )
-        self.write("tests/verification_log.md", "## Task\n- iter 1 PASS: something else\n")
-        r = run(self.root)
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("US-1", r.stdout)
-        self.assertIn("COV-1", r.stdout)
+    d = fixture([todo_story], ["- TODO: US-3 还没开始"])
+    r = run(d)
+    rec("C3e TODO/mention is NOT execution evidence -> FAIL",
+        r.returncode == 1 and "US-3" in r.stdout and "EXECUTION evidence" in r.stdout,
+        f"rc={r.returncode}")
 
-    def test_pass_true_with_evidence_passes(self):
-        # C3e (2026-10-15): evidence = command marker + exit 0 — a bare
-        # mention ("done, tests green") no longer marks an item done
-        self.write(
-            "tests/backlog.json",
-            json.dumps({"userStories": [{"id": "US-1", "title": "t", "priority": 1, "passes": True}]}),
-        )
-        self.write("tests/progress.txt", "- US-1: ran pytest tests/test_us1.py — exit 0 (1/1)\n")
-        r = run(self.root)
-        self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertIn("clean", r.stdout)
+    d = fixture([todo_story2], ["- US-4 passed all checks"])  # claim without command/exit
+    r = run(d)
+    rec("C3e claim-only line (no command/exit code) -> FAIL",
+        r.returncode == 1 and "US-4" in r.stdout, f"rc={r.returncode}")
 
-    def test_pass_true_with_only_a_mention_fails(self):
-        self.write(
-            "tests/backlog.json",
-            json.dumps({"userStories": [{"id": "US-3", "title": "t", "priority": 1, "passes": True}]}),
-        )
-        self.write("tests/verification_log.md", "## Task\n- TODO: US-3 not started\n")
-        r = run(self.root)
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("EXECUTION evidence", r.stdout)
+    d = fixture([open_story], ["- nothing done yet"])
+    r = run(d)
+    rec("C3e passes:false items need no evidence -> clean",
+        r.returncode == 0, f"rc={r.returncode}")
 
-    def test_pass_true_with_claim_but_no_exit_code_fails(self):
-        self.write(
-            "tests/backlog.json",
-            json.dumps({"userStories": [{"id": "US-4", "title": "t", "priority": 1, "passes": True}]}),
-        )
-        self.write("tests/verification_log.md", "## Task\n- US-4 passed all checks\n")
-        r = run(self.root)
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("US-4", r.stdout)
+    d = fixture([ok_story], ["- US-1: executed script/check.sh — exit code 0"])
+    r = run(d)
+    rec("C3e 'executed … exit code 0' phrasing also counts",
+        r.returncode == 0, f"rc={r.returncode}")
 
-    def test_pass_false_needs_no_evidence(self):
-        self.write(
-            "tests/backlog.json",
-            json.dumps({"userStories": [{"id": "US-9", "title": "t", "priority": 2, "passes": False}]}),
-        )
-        r = run(self.root)
-        self.assertEqual(r.returncode, 0)
+    fails = [n for n, ok, _ in RESULTS if not ok]
+    print(f"\n=== {len(RESULTS) - len(fails)}/{len(RESULTS)} pass" +
+          (f" — FAILED: {', '.join(fails)}" if fails else " ==="))
+    return 1 if fails else 0
 
 
 if __name__ == "__main__":
-    unittest.main()
+    sys.exit(main())

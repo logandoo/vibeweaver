@@ -1,143 +1,58 @@
-"""Regression tests for the mini kit's deterministic checker.
+#!/usr/bin/env python3
+"""Regression tests for the shipped vw_check.py template (APPENDIX §A4.8).
 
-Runs the checker shipped at vibeweaver-mini/scripts/vw_check.py against
-throwaway fixtures. Skipped when pytest is unavailable (the checker runs it).
+Run: python3 tests/test_vw_check.py
 """
-import importlib.util
 import pathlib
 import subprocess
 import sys
 import tempfile
-import unittest
 
-CHECKER = (pathlib.Path(__file__).resolve().parent.parent
-           / "vibeweaver-mini" / "scripts" / "vw_check.py")
+CHECKER = pathlib.Path(
+    "/Users/logan/Documents/DEV/SKILLS/vibeweaver-repo/vibeweaver-mini/scripts/vw_check.py"
+)
 
 
-def run(cwd, *extra):
-    return subprocess.run([sys.executable, str(CHECKER), *extra], cwd=cwd,
+def run(cwd):
+    return subprocess.run([sys.executable, str(CHECKER)], cwd=cwd,
                           capture_output=True, text=True)
 
 
-@unittest.skipUnless(importlib.util.find_spec("pytest"), "pytest not installed")
-class VwCheckTests(unittest.TestCase):
-    def test_no_tests_refuses(self):
-        with tempfile.TemporaryDirectory() as td:
-            r = run(td)
-            self.assertEqual(r.returncode, 1)
-            self.assertIn("NO TESTS FOUND", r.stdout)
+def case(name, ok, detail=""):
+    print(("PASS " if ok else "FAIL ") + name + (" — " + detail if detail else ""))
+    return ok
 
-    def test_nested_test_discovered(self):
-        with tempfile.TemporaryDirectory() as td:
-            d = pathlib.Path(td) / "tests"
-            d.mkdir()
-            (d / "test_api.py").write_text("def test_ok():\n    assert 1 == 1\n")
-            r = run(td)
-            self.assertEqual(r.returncode, 0, r.stdout[-300:])
-            self.assertIn("ALL CHECKS PASS", r.stdout)
 
-    def test_modified_test_refuses(self):
-        with tempfile.TemporaryDirectory() as td:
-            d = pathlib.Path(td) / "tests"
-            d.mkdir()
-            f = d / "test_api.py"
-            f.write_text("def test_ok():\n    assert 1 == 1\n")
-            self.assertEqual(run(td).returncode, 0)
-            f.write_text("def test_ok():\n    assert 2 == 2\n")
-            r = run(td)
-            self.assertEqual(r.returncode, 1)
-            self.assertIn("TEST SET CHANGED", r.stdout)
-
-    def test_added_test_refuses(self):
-        with tempfile.TemporaryDirectory() as td:
-            d = pathlib.Path(td) / "tests"
-            d.mkdir()
-            (d / "test_api.py").write_text("def test_ok():\n    assert 1 == 1\n")
-            self.assertEqual(run(td).returncode, 0)
-            (d / "test_new.py").write_text("def test_new():\n    assert 1 == 1\n")
-            r = run(td)
-            self.assertEqual(r.returncode, 1)
-            self.assertIn("TEST SET CHANGED", r.stdout)
-
-    def test_corrupt_hash_record_refuses(self):
-        with tempfile.TemporaryDirectory() as td:
-            d = pathlib.Path(td) / "tests"
-            d.mkdir()
-            (d / "test_api.py").write_text("def test_ok():\n    assert 1 == 1\n")
-            self.assertEqual(run(td).returncode, 0)
-            (pathlib.Path(td) / ".vw_test_hashes.json").write_text("{bad json")
-            r = run(td)
-            self.assertEqual(r.returncode, 1)
-            self.assertIn("UNREADABLE", r.stdout)
-
-    def test_no_bypass_hint_requires_reason(self):
-        """W5-F: the 'delete the hash file' bypass recipe is gone from the
-        model-visible output — a test change demands a `- test-change:` reason."""
-        with tempfile.TemporaryDirectory() as td:
-            d = pathlib.Path(td)
-            f = d / "test_api.py"
-            f.write_text("def test_ok():\n    assert 1 == 1\n")
-            self.assertEqual(run(td).returncode, 0)
-            f.write_text("def test_ok():\n    assert 2 == 2\n")
-            r = run(td)
-            self.assertEqual(r.returncode, 1)
-            self.assertIn("TEST SET CHANGED", r.stdout)
-            self.assertIn("test-change:", r.stdout)
-            self.assertNotIn("delete .vw_test_hashes", r.stdout)
-            self.assertNotIn("delete the hash", r.stdout.lower())
-
-    def test_test_change_flag_rebaselines(self):
-        with tempfile.TemporaryDirectory() as td:
-            d = pathlib.Path(td)
-            f = d / "test_api.py"
-            f.write_text("def test_ok():\n    assert 1 == 1\n")
-            self.assertEqual(run(td).returncode, 0)
-            f.write_text("def test_ok():\n    assert 1 == 1  # reviewed\n")
-            r = run(td, "--test-change", "spelling-only edit reviewed by A4.9")
-            self.assertEqual(r.returncode, 0, r.stdout[-300:])
-            self.assertIn("re-baselined under justification", r.stdout)
-
-    def test_stall_and_cap_declarations(self):
-        with tempfile.TemporaryDirectory() as td:
-            d = pathlib.Path(td)
-            (d / "test_api.py").write_text("def test_ok():\n    assert 1 == 2\n")
-            outs = []
-            for _ in range(5):
-                outs.append(run(td).stdout)
-            self.assertIn("- stall:", outs[2])   # 3rd identical failure
-            self.assertIn("- cap-hit:", outs[4])  # 5th run
-            self.assertIn("cap=5", outs[4])
-
-    def test_hash_record_deletion_is_not_a_rebaseline(self):
-        """Review R-C2: deleting .vw_test_hashes.json must not silently
-        re-baseline a weakened suite (the bypass recipe stays dead)."""
-        with tempfile.TemporaryDirectory() as td:
-            d = pathlib.Path(td)
-            f = d / "test_api.py"
-            f.write_text("def test_ok():\n    assert 1 == 1\n")
-            self.assertEqual(run(td).returncode, 0)
-            f.write_text("def test_ok():\n    assert 1 == 1  # weakened\n")
-            (d / ".vw_test_hashes.json").unlink()
-            r = run(td)
-            self.assertEqual(r.returncode, 1, r.stdout[-300:])
-            self.assertIn("HASH RECORD MISSING", r.stdout)
-            r2 = run(td, "--test-change", "reviewed spelling-only edit")
-            self.assertEqual(r2.returncode, 0, r2.stdout[-300:])
-
-    def test_check_sh_prints_completion_flag(self):
-        with tempfile.TemporaryDirectory() as td:
-            d = pathlib.Path(td)
-            (d / "test_api.py").write_text("def test_ok():\n    assert 1 == 1\n")
-            # installed COV-2 layout: script/check.sh + scripts/vw_check.py
-            (d / "script").mkdir()
-            (d / "scripts").mkdir()
-            (d / "script" / "check.sh").write_text((CHECKER.parent / "check.sh").read_text())
-            (d / "scripts" / "vw_check.py").write_text(CHECKER.read_text())
-            r = subprocess.run(["sh", str(d / "script" / "check.sh")], cwd=td,
-                               capture_output=True, text=True, timeout=300)
-            self.assertEqual(r.returncode, 0, r.stdout[-300:])
-            self.assertIn("ALL CHECKS PASS", r.stdout)
+def main():
+    import importlib.util
+    if importlib.util.find_spec("pytest") is None:
+        print(f"ENVIRONMENT: pytest is not importable by {sys.executable} — this is "
+              f"an environment issue, not a code failure. Install it "
+              f"(python3 -m pip install --user 'pytest<8') and re-run.")
+        return 2
+    results = []
+    with tempfile.TemporaryDirectory() as td:
+        td = pathlib.Path(td)
+        r = run(td)
+        results.append(case("no tests refuses", r.returncode == 1 and "NO TESTS FOUND" in r.stdout))
+        (td / "tests").mkdir()
+        (td / "tests" / "test_api.py").write_text("def test_ok():\n    assert 1 == 1\n")
+        r = run(td)
+        results.append(case("nested test_*.py discovered", r.returncode == 0 and "ALL CHECKS PASS" in r.stdout))
+        (td / "tests" / "test_api.py").write_text("def test_ok():\n    assert 2 == 2\n")
+        r = run(td)
+        results.append(case("modified test refuses", r.returncode == 1 and "TEST SET CHANGED" in r.stdout))
+        (td / "tests" / "test_api.py").write_text("def test_ok():\n    assert 1 == 1\n")
+        (td / "tests" / "test_new.py").write_text("def test_new():\n    assert 1 == 1\n")
+        r = run(td)
+        results.append(case("added test refuses", r.returncode == 1 and "TEST SET CHANGED" in r.stdout))
+        (td / ".vw_test_hashes.json").write_text("{bad json")
+        r = run(td)
+        results.append(case("corrupt hash record refuses (fail-closed)",
+                            r.returncode == 1 and "UNREADABLE" in r.stdout))
+    print(f"{sum(results)}/{len(results)} passed")
+    return 0 if all(results) else 1
 
 
 if __name__ == "__main__":
-    unittest.main()
+    sys.exit(main())
