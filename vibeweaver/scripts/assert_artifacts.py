@@ -1163,7 +1163,7 @@ def record_debt(root):
     return 0
 
 
-SECRET_BASELINE = "tests/secret_baseline.json"
+COMMITTED_DEBT_BASELINE = "tests/secret_baseline.json"
 
 
 def secret_baseline_read(root):
@@ -1173,7 +1173,7 @@ def secret_baseline_read(root):
     shrink-only-vs-committed refuses it); an untracked baseline is a no-op (so
     delete+re-record can't launder). Mirrors debt_baseline's tamper anchor: the
     COMMITTED record is the truth, disk is not."""
-    rc, out = _git(root, "show", "HEAD:" + SECRET_BASELINE)
+    rc, out = _git(root, "show", "HEAD:" + COMMITTED_DEBT_BASELINE)
     if rc != 0:
         return {}  # not committed → no dryrun (safe default; F2 window closed)
     try:
@@ -1217,22 +1217,22 @@ def record_secret_debt(root):
             if r not in updated:
                 print(f"record-secret-debt: dropped {r} (fixed or changed) — shrink")
         bl = updated
-        print(f"record-secret-debt: {SECRET_BASELINE} refreshed (shrink-only, {len(bl)} entries)")
+        print(f"record-secret-debt: {COMMITTED_DEBT_BASELINE} refreshed (shrink-only, {len(bl)} entries)")
     else:
         bl = dict(current)
         print(f"record-secret-debt: recorded {len(bl)} pre-existing secret file(s)")
     tests = root / "tests"
     tests.mkdir(exist_ok=True)
-    tmp = str(root / SECRET_BASELINE) + ".tmp"
+    tmp = str(root / COMMITTED_DEBT_BASELINE) + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump({"version": 1, "files": bl}, f, indent=1, sort_keys=True)
         f.write("\n")
-    os.replace(tmp, root / SECRET_BASELINE)
+    os.replace(tmp, root / COMMITTED_DEBT_BASELINE)
     # F2: the tamper anchor must be COMMITTED for the dryrun to activate (the
     # scanner reads git HEAD, not disk) — mirror debt_baseline's commit nag.
-    rc_ls, _ = _git(root, "ls-files", "--error-unmatch", SECRET_BASELINE)
+    rc_ls, _ = _git(root, "ls-files", "--error-unmatch", COMMITTED_DEBT_BASELINE)
     if rc_ls != 0:
-        print(f"record-secret-debt: now COMMIT {SECRET_BASELINE} (the tamper anchor) — "
+        print(f"record-secret-debt: now COMMIT {COMMITTED_DEBT_BASELINE} (the tamper anchor) — "
               f"the dryrun only activates from the committed baseline (untracked is ignored)")
     return 0
 
