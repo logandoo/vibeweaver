@@ -58,6 +58,10 @@ HUB_MANIFEST_FIELDS = (
     "review_records", "artifact_hashes", "archive_locations", "outbox_status",
 )
 RUN_CONTEXT_SCHEMA = "vibeweaver-run-context/1"
+# Hub id grammar (shared with run_control.py): a forged/garbage id is refused
+RUN_ID_RE = re.compile(r"^run-[0-9a-f]{32}$")
+ATTEMPT_ID_RE = re.compile(r"^attempt-[0-9a-f]{32}$")
+WAVE_ID_RE = re.compile(r"^wave-[0-9a-f]{32}$")
 # code fingerprint inputs — SHARED CONTRACT with scripts/assert_artifacts.py
 # (identical ext set AND identical file-set derivation; review R-I2 found the
 # divergence red-locked group 15b after a clean seal).
@@ -180,6 +184,17 @@ def _load_run_context(path):
                 "base_sha", "spec_hash", "skill_version", "checker_digest"):
         if not str(data.get(key, "")):
             raise ValueError(f"run context {path}: field `{key}` missing")
+    # Fail closed on garbage identity: the Hub id grammar and lease_epoch >= 1
+    # must hold before any identity lands in a manifest.
+    for key, rx in (("run_id", RUN_ID_RE), ("attempt_id", ATTEMPT_ID_RE),
+                    ("wave_id", WAVE_ID_RE)):
+        if rx.match(str(data.get(key, ""))) is None:
+            raise ValueError(f"run context {path}: field `{key}` has bad id "
+                             f"format: {data.get(key)!r}")
+    epoch = data.get("lease_epoch")
+    if type(epoch) is not int or epoch < 1:
+        raise ValueError(f"run context {path}: field `lease_epoch` must be an "
+                         f"int >= 1 (got {epoch!r})")
     return data
 
 

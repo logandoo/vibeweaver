@@ -115,9 +115,13 @@ integration works.
   `attempt_id + lease_epoch`; a second claim on an active lease raises
   `LeaseConflict`. `heartbeat` renews the lease but is NOT itself write
   authorization — every write is fenced by `lease_epoch`.
-- **Fencing:** every shared write (state, latch, event, outbox, queue)
-  carries `attempt_id + lease_epoch`; the storage side rejects stale epochs
-  with `StaleEpochError`. Client-side lease checks alone are insufficient.
+- **Fencing:** every shared write carries `attempt_id + lease_epoch` and the
+  STORAGE side rejects stale epochs with `StaleEpochError`. State, latch,
+  event, and leader-acquisition writes are always fenced; outbox,
+  session-map, final-ref, and flag/child writes accept fencing kwargs and
+  reject stale epochs when supplied (controller single-writer paths fence via
+  the leader lease instead). Queue writes are integrator-side under
+  `acquire_leader`. Client-side lease checks alone are insufficient.
 - **Expiry & takeover (order matters):** ① stop scheduling new writes ②
   isolate + stop supervised processes (exact pgid, never pattern-kill) ③
   revoke credentials/ref-write access ④ confirm the old attempt is silent
@@ -146,11 +150,14 @@ hash`. A moving branch name is never queued.
 + run review ② original evidence archived immediately, run enters `ready`
 ③ queue selects by dependency + order ④ integrator builds a candidate
 commit ON the latest target branch + prior queued changes
-(`build_candidate`) ⑤ conflicts → resolver per §MA5.1, new change-wave ⑥
-full tests + Integration Gate on the candidate ⑦ archive candidate-bound
+(`build_candidate`; stale/invalidated rows are never rebuildable) ⑤ conflicts
+→ resolver per §MA5.1, new change-wave ⑥ full tests + Integration Gate on
+the candidate — commands run in a detached worktree materialized at the exact
+candidate SHA, results bound to that tree ⑦ archive candidate-bound
 integration evidence ⑧ publish via expected-old-SHA conditional ref update
-(`publish` — CAS; a changed target raises `TargetChangedError`, invalidates
-the verification, re-queues) ⑨ post-publish outbox updates
+(`publish` — CAS; only a gate-passed candidate bound to the current queue
+entry is publishable; a changed target raises `TargetChangedError`,
+invalidates the verification, re-queues) ⑨ post-publish outbox updates
 memory/backlog/ADR ⑩ reconcile, THEN clean. Force-push is never a normal
 integration method.
 

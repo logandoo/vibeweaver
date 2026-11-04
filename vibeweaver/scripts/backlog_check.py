@@ -32,12 +32,13 @@ import sys
 import time
 
 REQUIRED = ("id", "title", "priority", "passes")
-# W25 transactional claim marker (Consistency Hub id grammar: uuid4-hex ids)
+# W25 transactional claim marker (Consistency Hub id grammar: uuid4-hex ids;
+# lease epochs start at 1 — epoch=0 is malformed and must never license a pass)
 CLAIM_RE = re.compile(
     r"^\s*-\s*claim:\s*task=(?P<task>[A-Za-z0-9._-]{1,64})"
     r"\s+run=(?P<run>run-[0-9a-f]{32})"
     r"\s+attempt=(?P<attempt>attempt-[0-9a-f]{32})"
-    r"\s+epoch=(?P<epoch>\d+)\s*$")
+    r"\s+epoch=(?P<epoch>[1-9]\d*)\s*$")
 
 
 def _claim_markers(text):

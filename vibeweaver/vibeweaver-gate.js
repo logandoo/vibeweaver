@@ -410,6 +410,19 @@ function loadRunContext(root) {
       runContextWarning(`${file}: attempt_id ${JSON.stringify(j.attempt_id)} is not attempt-<32hex> — falling back to legacy scope`)
       return null
     }
+    // J2 (W25 review): path-bound validation — worktree_root/artifact_root/
+    // state_root must be the run root itself or a path contained UNDER it
+    // (path.resolve + containment). A context pointing elsewhere claims
+    // ANOTHER run's evidence (forged attribution) — rejected like any forged
+    // context, fail-closed with a one-time RUN-CONTEXT WARNING.
+    const runRootResolved = path.resolve(root)
+    for (const f of ["worktree_root", "artifact_root", "state_root"]) {
+      const p = path.resolve(j[f])
+      if (p !== runRootResolved && !p.startsWith(runRootResolved + path.sep)) {
+        runContextWarning(`${file}: ${f} ${JSON.stringify(j[f])} escapes the run root ${runRootResolved} — falling back to legacy scope`)
+        return null
+      }
+    }
     return j
   } catch (err) {
     runContextWarning(`${root}: run context probe failed (${String((err && err.message) || err)}) — falling back to legacy scope`)

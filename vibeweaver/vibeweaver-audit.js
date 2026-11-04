@@ -1,4 +1,4 @@
-import { closeSync, existsSync, fsyncSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync, writeSync } from "node:fs"
+import { closeSync, existsSync, fsyncSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync, writeSync } from "node:fs"
 import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import path from "node:path"
@@ -547,6 +547,19 @@ function loadRunContext(root) {
       runContextWarning(`${file}: attempt_id ${JSON.stringify(j.attempt_id)} is not attempt-<32hex> — falling back to legacy scope`)
       return null
     }
+    // J2 (W25 review): path-bound validation — worktree_root/artifact_root/
+    // state_root must be the run root itself or a path contained UNDER it
+    // (path.resolve + containment). A context pointing elsewhere claims
+    // ANOTHER run's evidence (forged attribution) — rejected like any forged
+    // context, fail-closed with a one-time RUN-CONTEXT WARNING.
+    const runRootResolved = path.resolve(root)
+    for (const f of ["worktree_root", "artifact_root", "state_root"]) {
+      const p = path.resolve(j[f])
+      if (p !== runRootResolved && !p.startsWith(runRootResolved + path.sep)) {
+        runContextWarning(`${file}: ${f} ${JSON.stringify(j[f])} escapes the run root ${runRootResolved} — falling back to legacy scope`)
+        return null
+      }
+    }
     return j
   } catch (err) {
     runContextWarning(`${root}: run context probe failed (${String((err && err.message) || err)}) — falling back to legacy scope`)
@@ -584,6 +597,68 @@ function atomicWriteUnique(p, body) {
       /* best-effort tmp cleanup */
     }
     throw err
+  }
+}
+
+// W25 cross-process state write serialization (J3 hardening): a simple mutex
+// around the read-modify-write so two plugin PROCESSES cannot interleave the
+// prune/mutate/write of the shared state file. Lock dir `<state>.lock` via
+// mkdirSync (atomic create); EEXIST = retry up to ~20× with 25ms sleeps; a
+// lock whose mtime is older than 5s is a dead holder and gets stolen; the
+// lock is ALWAYS released in finally. Same-process re-entry is a no-op (the
+// caller already holds it). KNOWN GAP (documented, not solved here):
+// last-write-wins lost updates across processes — no merge algorithm; this
+// mutex only removes torn interleavings.
+const STATE_LOCK_HELD = new Set()
+const stateLockSleep = (ms) => {
+  try {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+  } catch {
+    /* no SharedArrayBuffer: fall through without sleeping (retry still bounds) */
+  }
+}
+function acquireStateLock(statePath) {
+  const lockDir = statePath + ".lock"
+  if (STATE_LOCK_HELD.has(lockDir)) return { lockDir, owned: false } // in-process re-entry
+  for (let i = 0; i < 20; i++) {
+    try {
+      mkdirSync(lockDir)
+      STATE_LOCK_HELD.add(lockDir)
+      return { lockDir, owned: true }
+    } catch (err) {
+      if (!err || err.code !== "EEXIST") throw err
+      try {
+        const st = statSync(lockDir)
+        if (Date.now() - Number(st.mtimeMs) > 5000) {
+          // stale holder (crashed process): steal, then retry immediately
+          try {
+            rmdirSync(lockDir)
+          } catch {
+            /* lost the steal race — the retry loop below sees the winner */
+          }
+          continue
+        }
+      } catch {
+        continue // lock vanished between mkdir and stat — retry immediately
+      }
+      stateLockSleep(25)
+    }
+  }
+  throw new Error("state lock busy: " + lockDir)
+}
+function withStateLock(statePath, fn) {
+  const got = acquireStateLock(statePath)
+  try {
+    return fn()
+  } finally {
+    if (got.owned) {
+      STATE_LOCK_HELD.delete(got.lockDir)
+      try {
+        rmdirSync(got.lockDir)
+      } catch {
+        /* best-effort release — a stale lock is stolen after 5s */
+      }
+    }
   }
 }
 
@@ -1050,18 +1125,23 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const flush = (critical) => {
     try {
       if (!persistable()) return true
-      // prune: keep only the most recent sessions so the state file stays bounded
-      const ids = Object.keys(state.sessions)
-      if (ids.length > 20) {
-        const keep = new Set(ids.slice(-20))
-        for (const id of ids) if (!keep.has(id)) delete state.sessions[id]
-      }
-      // W0 Task 1.5: redact credentials + enforce retention/size BEFORE the
-      // bytes reach disk. A secret that never lands needs no rotation.
-      state = boundState(state)
       if (!existsSync(path.join(directory, STATE_DIR))) mkdirSync(path.join(directory, STATE_DIR), { recursive: true })
-      atomicWriteUnique(statePath, JSON.stringify(state))
-      return true
+      // J3: cross-process mutex around the read-modify-write (lock dir
+      // <state>.lock; released in finally). KNOWN GAP: last-write-wins lost
+      // updates across processes are not solved — only torn interleavings.
+      return withStateLock(statePath, () => {
+        // prune: keep only the most recent sessions so the state file stays bounded
+        const ids = Object.keys(state.sessions)
+        if (ids.length > 20) {
+          const keep = new Set(ids.slice(-20))
+          for (const id of ids) if (!keep.has(id)) delete state.sessions[id]
+        }
+        // W0 Task 1.5: redact credentials + enforce retention/size BEFORE the
+        // bytes reach disk. A secret that never lands needs no rotation.
+        state = boundState(state)
+        atomicWriteUnique(statePath, JSON.stringify(state))
+        return true
+      })
     } catch (err) {
       const msg = String((err && err.message) || err)
       persistError = "persist failed: " + msg
@@ -1070,10 +1150,11 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     }
   }
   // W25: observation-only state write helper (nested-state mirror etc.):
-  // atomic, swallows on failure, flags persistError.
+  // atomic, swallows on failure, flags persistError. J3: serialized across
+  // processes with the same <state>.lock mutex.
   const persistStateFile = (p, body) => {
     try {
-      atomicWriteUnique(p, body)
+      withStateLock(p, () => atomicWriteUnique(p, body))
       return true
     } catch (err) {
       persistError = "persist failed: " + String((err && err.message) || err)
@@ -1247,19 +1328,28 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   // mirror. Latch and arm both carry run/attempt attribution (null = legacy);
   // the matrix (Hub latch shape, plan Task 5 rule a/b/c):
   //   - legacy latch or legacy arm → the pre-W25 session rules decide;
-  //   - same run + the latch predates the current attempt's first
-  //     observation (stale attempt) → "stale-attempt" (never blocks a newer
-  //     attempt);
+  //   - same run + the latch predates the CURRENT attempt's first
+  //     observation + BOTH attempt ids were OBSERVED earlier in this state
+  //     (recorded in runAttempts) → "stale-attempt" (never blocks a newer
+  //     attempt of the same task). FAIL-CLOSED (J1): a fresh, never-observed
+  //     attempt_id is NEVER a release key — self-declaring one in
+  //     run_context.json must not release anything. The current attempt must
+  //     have been recorded by a PRIOR evaluation/observation (releaseStale
+  //     notes attempts only AFTER this decision runs).
   //   - the new-task release requires the SAME run identity when both sides
   //     carry run ids (and the same attempt when both carry attempt ids) —
   //     an attempt B rewrite never releases attempt A's latch any other way.
   const releaseDecision = (entry, latch, pp, cur, rcNow) => {
     const attemptSeen = rcNow && entry.runAttempts && Number.isFinite(entry.runAttempts[rcNow.attempt_id])
       ? entry.runAttempts[rcNow.attempt_id]
-      : Date.now()
+      : null // never observed → fail closed, never Date.now()
+    const latchAttemptSeen = Boolean(latch.attemptID) && Boolean(entry.runAttempts)
+      && Number.isFinite(entry.runAttempts[latch.attemptID])
     const staleAttempt = Boolean(latch.runID) && Boolean(rcNow)
       && latch.runID === rcNow.run_id
       && latch.attemptID !== rcNow.attempt_id
+      && latchAttemptSeen
+      && attemptSeen !== null
       && latch.ts < attemptSeen
     const armRec = entry.newTaskArms ? entry.newTaskArms[latch.sessionID] : null
     const armTs = Number.isFinite(armRec) ? armRec : armRec && Number.isFinite(armRec.ts) ? armRec.ts : 0
@@ -1293,9 +1383,14 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (!entry || !latch) return null
       const pp = pathRoot || root
       const rcNow = loadRunContext(pp)
-      if (rcNow) noteAttempt(entry, rcNow)
       const cur = typeof currentSessionID === "string" && currentSessionID ? currentSessionID : null
+      // J1 fail-closed order: the release decision runs against the
+      // observations recorded SO FAR — noteAttempt records this hook's
+      // attempt only AFTER the decision, so a first sighting (a fresh,
+      // self-declared attempt_id) is data for FUTURE evaluations and never a
+      // release key for the latch under evaluation right now.
       const reason = releaseDecision(entry, latch, pp, cur, rcNow)
+      if (rcNow) noteAttempt(entry, rcNow)
       if (!reason) return null
       const rec = { ts: Date.now(), from: latch.sessionID || "unknown", bad: latch.bad, reason, via, by: cur || via }
       entry.red = null
@@ -2781,12 +2876,21 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
             ? true
             : latch.runID === armRec.runID
               && (!latch.attemptID || !(armRec && armRec.attemptID) || latch.attemptID === armRec.attemptID)
+          // J1 fail-closed: the mirror applies rule (c) exactly — both
+          // attempt ids must have been OBSERVED earlier in this nested state
+          // (runAttempts is recorded by the nested root's own plugin); a
+          // fresh, never-observed attempt_id never releases anything here
+          // (no Date.now() fallback).
           const mirrorSeen = rc && entry.runAttempts && Number.isFinite(entry.runAttempts[rc.attempt_id])
             ? entry.runAttempts[rc.attempt_id]
-            : Date.now()
+            : null
+          const mirrorLatchSeen = Boolean(latch && latch.attemptID) && Boolean(entry.runAttempts)
+            && Number.isFinite(entry.runAttempts[latch.attemptID])
           const mirrorStale = Boolean(latch && latch.runID) && Boolean(rc)
             && latch.runID === rc.run_id
             && latch.attemptID !== rc.attempt_id
+            && mirrorLatchSeen
+            && mirrorSeen !== null
             && latch.ts < mirrorSeen
           if (latch && mirrorStale) {
             entry.red = null
@@ -3155,6 +3259,7 @@ async function setup(ctx) {
 server.loadRunContext = loadRunContext
 server.atomicWriteUnique = atomicWriteUnique
 server.stateScopeKey = stateScopeKey
+server.withStateLock = withStateLock
 
 export default {
   id: "vibeweaver-audit",

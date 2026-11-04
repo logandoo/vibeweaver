@@ -4424,19 +4424,38 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     rec("W25c latch owned by attempt A is NOT released by attempt B's new-task rewrite",
       typeof res1 === "string" && /GATE-BLOCKED/.test(res1) && slot1.red && slot1.red.runID === rid("1"),
       res1 === true ? "RELEASED — attribution fence lost" : `still latched runID=${slot1.red && slot1.red.runID}`)
-    // c2: a stale-attempt latch (same run, older attempt) does not block the newer attempt
+    // c2 (J1 spec rewrite, fail-closed): a SELF-DECLARED fresh attempt_id is
+    // never a release key — rewriting run_context.json with a new attempt_id
+    // must NOT release the RED latch (the spec forbids the auto-release this
+    // check used to codify). The stale-attempt rule (c) fires ONLY when BOTH
+    // attempt ids were OBSERVED earlier in this state (recorded in
+    // runAttempts) and the latch pre-dates the takeover attempt's first
+    // observation. The session-new-task release (rule a) stays covered by
+    // c3/T29b.
     const root2 = newFixture("w25c2-stale")
     write(root2, "tests/verification_log.md", "placeholder — no iter entries\n")
     writeRunContext(root2, "1", "a")
     const plugin2 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root2 })
     await latchRed(plugin2, "ses_w25c2", root2)
-    writeRunContext(root2, "1", "c") // same run, newer attempt takes over
+    writeRunContext(root2, "1", "c") // fresh, never-observed attempt id (same run)
     const res2 = await tryWrite(plugin2, root2, "src/x.ts", "ses_w25c2_new")
     const slot2 = JSON.parse(readFileSync(path.join(root2, ".vibeweaver", "audit-state.json"), "utf8")).roots[root2] || {}
     const rel2 = (slot2.redReleases || []).filter((r) => r.reason === "stale-attempt")
-    rec("W25c stale-attempt latch does not block a newer attempt (journaled: stale-attempt)",
-      res2 === true && slot2.red == null && rel2.length >= 1,
-      res2 === true ? `released; journal=${rel2.length}` : "blocked: " + String(res2).slice(0, 60))
+    rec("W25c2 fresh self-declared attempt_id does NOT release the latch (fail-closed)",
+      typeof res2 === "string" && /GATE-BLOCKED/.test(res2)
+        && !!slot2.red && slot2.red.runID === rid("1") && slot2.red.attemptID === aid("a")
+        && rel2.length === 0,
+      res2 === true ? "RELEASED — self-declared attempt switch bypassed the latch"
+        : `still latched run=${slot2.red && slot2.red.runID} attempt=${slot2.red && slot2.red.attemptID} releases=${rel2.length}`)
+    // rule (c) positive leg: the blocked write above OBSERVED attempt c, so
+    // the takeover attempt of the same run now releases the older attempt's
+    // latch — journaled "stale-attempt" (never for a fresh unknown attempt).
+    const res2b = await tryWrite(plugin2, root2, "src/x.ts", "ses_w25c2_new")
+    const slot2b = JSON.parse(readFileSync(path.join(root2, ".vibeweaver", "audit-state.json"), "utf8")).roots[root2] || {}
+    const rel2b = (slot2b.redReleases || []).filter((r) => r.reason === "stale-attempt")
+    rec("W25c2 previously-observed takeover attempt releases (journaled: stale-attempt)",
+      res2b === true && slot2b.red == null && rel2b.length >= 1,
+      res2b === true ? `released; journal=${rel2b.length}` : "blocked: " + String(res2b).slice(0, 60))
     // c3: a legacy latch still releases under the old session rules
     const root3 = newFixture("w25c3-legacy")
     write(root3, "tests/verification_log.md", "placeholder — no iter entries\n")
@@ -4528,6 +4547,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       warns.push(a.join(" "))
     }
     let nulls = 0
+    let escNulls = 0
     try {
       const base = path.join(TMP, "w25f-forged")
       rmSync(base, { recursive: true, force: true })
@@ -4544,12 +4564,43 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
         writeFileSync(path.join(base, name, ".vibeweaver", "run_context.json"), JSON.stringify(body))
         if (VibeweaverAudit.loadRunContext(path.join(base, name)) === null) nulls++
       }
+      // J2 path-bound validation: worktree_root/artifact_root/state_root must
+      // be the run root itself or under it. A context pointing OUTSIDE the
+      // run root (another run's evidence) is rejected like any forged
+      // context — by BOTH plugins. Each case keeps the other two roots INSIDE
+      // its own root so only the named field is under test.
+      const escBase = path.join(TMP, "w25f-escape")
+      rmSync(escBase, { recursive: true, force: true })
+      const outside = path.join(TMP, "w25f-other-run")
+      mkdirSync(outside, { recursive: true })
+      for (const [name, field] of [
+        ["g1-escape-worktree", "worktree_root"],
+        ["g2-escape-artifact", "artifact_root"],
+        ["g3-escape-state", "state_root"],
+      ]) {
+        const croot = path.join(escBase, name)
+        mkdirSync(path.join(croot, ".vibeweaver"), { recursive: true })
+        const body = Object.assign({}, good, {
+          worktree_root: croot,
+          artifact_root: path.join(croot, ".vibeweaver", "artifacts"),
+          state_root: path.join(croot, ".vibeweaver"),
+          [field]: path.join(outside, name), // the single path escape
+        })
+        writeFileSync(path.join(croot, ".vibeweaver", "run_context.json"), JSON.stringify(body))
+        if (VibeweaverAudit.loadRunContext(croot) === null) escNulls++
+        if (gateServer.loadRunContext(croot) === null) escNulls++
+      }
     } finally {
       console.warn = origWarn
     }
     rec("W25f forged run_context rejected (missing field / schema / id format / lease_epoch)", nulls === 5, `null returns=${nulls}/5`)
     rec("W25f rejected run_context surfaces a one-time RUN-CONTEXT WARNING",
       warns.filter((w) => /RUN-CONTEXT WARNING/.test(w)).length >= 5, `warnings=${warns.filter((w) => /RUN-CONTEXT WARNING/.test(w)).length}`)
+    rec("W25f path-escape run_context rejected (worktree/artifact/state root outside the run root)",
+      escNulls === 6, `null returns=${escNulls}/6`)
+    rec("W25f path-escape run_context surfaces a RUN-CONTEXT WARNING",
+      warns.filter((w) => /RUN-CONTEXT WARNING/.test(w) && /escapes the run root/.test(w)).length >= 3,
+      `escape warnings=${warns.filter((w) => /escapes the run root/.test(w)).length}`)
     // behavioral fallback: a forged run_context session falls back to legacy scope
     const root = newFixture("w25f-fallback")
     write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
@@ -4661,6 +4712,52 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       `wtState=${wtState} mainState=${existsSync(path.join(base, "main", ".vibeweaver", "state.json"))} block=${r.block ? r.block.slice(0, 60) : "none"}`)
   } catch (e) {
     rec("W25i worktree root owns its .vibeweaver state (never the shared common dir)", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25j (J3) cross-process state write serialization ----
+  // The persist path (flush) is a read-modify-write across processes; a
+  // cross-process mutex (lock dir `<state>.lock`) serializes writers so no
+  // torn interleaving can land. KNOWN GAP (documented): last-write-wins lost
+  // updates are NOT solved here — no merge algorithm. Simulated here: the
+  // lock is ALREADY HELD on the first call (a dead holder, mtime beyond the
+  // 5s steal threshold), then the persist path runs twice sequentially —
+  // both runs serialize inside the lock and neither errors.
+  try {
+    const dir = path.join(TMP, "w25j-state-lock")
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(dir, { recursive: true })
+    const p = path.join(dir, "state.json")
+    const lockDir = p + ".lock"
+    mkdirSync(lockDir) // "another process" holds the lock right now
+    const dead = new Date(Date.now() - 10_000) // its holder died >5s ago
+    utimesSync(lockDir, dead, dead)
+    const spans = []
+    const persistOnce = (tag) =>
+      VibeweaverAudit.withStateLock(p, () => {
+        const cur = { tag, enter: Date.now(), held: existsSync(lockDir), exit: 0 }
+        spans.push(cur)
+        let body = { writes: 0 }
+        try {
+          body = JSON.parse(readFileSync(p, "utf8"))
+        } catch {
+          /* first writer */
+        }
+        body.writes += 1
+        VibeweaverAudit.atomicWriteUnique(p, JSON.stringify(body))
+        cur.exit = Date.now()
+        return tag
+      })
+    const r1 = persistOnce("first")
+    const r2 = persistOnce("second")
+    const st = JSON.parse(readFileSync(p, "utf8"))
+    rec("W25j state-write mutex serializes overlapping persists (held lock first) and neither errors",
+      r1 === "first" && r2 === "second"
+        && spans.length === 2 && spans.every((s) => s.held)
+        && spans[0].exit <= spans[1].enter
+        && st.writes === 2 && !existsSync(lockDir),
+      `writes=${st.writes} held=[${spans.map((s) => s.held).join(",")}] lockResidue=${existsSync(lockDir)}`)
+  } catch (e) {
+    rec("W25j state-write mutex serializes overlapping persists (held lock first) and neither errors", false, "threw: " + String(e.message || e))
   }
 
   if (prevHome === undefined) delete process.env.VIBEWEAVER_HOME

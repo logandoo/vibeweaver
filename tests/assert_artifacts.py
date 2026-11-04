@@ -1596,6 +1596,16 @@ def run_attribution_checks(root: pathlib.Path, run_root, profile: str):
         check(False, e)
     if ctx is None:
         return
+    # J2 (W25 review): path-bound validation — worktree_root/artifact_root/
+    # state_root must be the run root itself or under it (_under). A context
+    # pointing elsewhere claims ANOTHER run's evidence: fail the group closed
+    # with the named finding before any citation is attested.
+    escapes = [f for f in ("worktree_root", "artifact_root", "state_root")
+               if not _under(pathlib.Path(str(ctx.get(f, ""))), root)]
+    if escapes:
+        check(False, "run attribution: context path escapes run root (%s not under %s) — "
+                     "cross-run evidence reuse (§MA1)" % (", ".join(escapes), root))
+        return
     run_id = str(ctx.get("run_id", ""))
     attempt_id = str(ctx.get("attempt_id", ""))
     artifact_root = pathlib.Path(str(ctx.get("artifact_root", "")))

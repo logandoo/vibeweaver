@@ -39,10 +39,20 @@ TOP_LEVEL_FILES = {
     "TESTING_PROTOCOLS.md",
     "WORKFLOWS_EXTENDED.md",
     "VERIFICATION_UPGRADES.md",
+    "MULTI_AGENT.md",
     "install.sh",
     "install.bat",
     "vibeweaver-gate.js",
     "vibeweaver-audit.js",
+}
+# W25 multi-agent modules — named explicitly on top of the suffix rule below:
+# the release integrity root must detect tampering with the multi-agent
+# protocol, so these protocol-critical scripts are pinned by name and can
+# never silently drop out of the manifest.
+SCRIPT_FILES = {
+    "scripts/run_control.py",
+    "scripts/resource_allocator.py",
+    "scripts/integrate.py",
 }
 SCRIPT_SUFFIXES = {".py", ".js", ".mjs", ".sh", ".bat"}
 EXCLUDED_DIRS = {
@@ -91,7 +101,7 @@ def _included(rel, prefix):
         if "/" not in inner:
             return inner in TOP_LEVEL_FILES
         if inner.startswith("scripts/"):
-            return pathlib.PurePosixPath(inner).suffix.lower() in SCRIPT_SUFFIXES
+            return inner in SCRIPT_FILES or pathlib.PurePosixPath(inner).suffix.lower() in SCRIPT_SUFFIXES
         if inner.startswith("profiles/"):
             return True
         return False
@@ -99,7 +109,7 @@ def _included(rel, prefix):
     if "/" not in rel:
         return rel in TOP_LEVEL_FILES
     if rel.startswith("scripts/"):
-        return pathlib.PurePosixPath(rel).suffix.lower() in SCRIPT_SUFFIXES
+        return rel in SCRIPT_FILES or pathlib.PurePosixPath(rel).suffix.lower() in SCRIPT_SUFFIXES
     if rel.startswith("vibeweaver-mini/"):
         return True
     if rel.startswith("profiles/"):

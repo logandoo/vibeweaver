@@ -43,14 +43,17 @@ Python 3.9+ stdlib only.
 import argparse
 import json
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from pathlib import Path
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+IRUN_RE = re.compile(r"^irun-[0-9a-f]{32}$")
 QUEUE_STATES = ("queued", "building", "gated", "published", "stale", "invalidated")
 # FIFO build picks: dead items (stale/invalidated) are never replayed.
 PICKABLE_STATES = ("queued", "building", "gated", "published")
@@ -167,10 +170,39 @@ class IntegrationQueue:
     def _emit(self, queue_id, candidate_sha, event):
         if self.control is None:
             return
+        row = self._row(queue_id)
         self.control.outbox_put(
             "integration",
-            {"queue_id": queue_id, "candidate_sha": candidate_sha, "event": event},
+            {"queue_id": queue_id, "candidate_sha": candidate_sha, "event": event,
+             "run_id": row["run_id"]},
             f"integration:{queue_id}:{event}")
+
+    def _drop_worktree(self, repo_path, workdir):
+        """Safe worktree teardown (build artifact lifecycle, R11).
+
+        Removes the worktree registration (`git worktree remove --force` +
+        `prune`) and the directory itself — but ONLY for paths that `git
+        worktree list` attributes to repo_path. A non-worktree directory at
+        the path is NEVER deleted (it may hold precious data), and the
+        repository checkout itself is rejected outright. Idempotent: a
+        missing workdir is a no-op, so a crashed previous build can be
+        recovered at the next start.
+        """
+        workdir = Path(workdir).resolve()
+        repo_res = Path(repo_path).resolve()
+        if workdir == repo_res:
+            raise ValueError("workdir must not be the repository checkout")
+        if not workdir.exists():
+            self._git(repo_path, "worktree", "prune")
+            return
+        listed = self._git(repo_path, "worktree", "list", "--porcelain")
+        registered = [ln[len("worktree "):] for ln in listed.stdout.splitlines()
+                      if ln.startswith("worktree ")]
+        if str(workdir) not in registered:
+            return  # foreign directory: leave it untouched
+        self._git(repo_path, "worktree", "remove", "--force", str(workdir))
+        self._git(repo_path, "worktree", "prune")
+        shutil.rmtree(workdir, ignore_errors=True)
 
     @staticmethod
     def _git(cwd, *args):
@@ -210,58 +242,70 @@ class IntegrationQueue:
         Materializes a detached worktree at the frozen target_base_sha and
         cherry-picks each pickable item up to and including this one, in FIFO
         order. On any cherry-pick conflict the pick is aborted and no candidate
-        is produced (worktree left clean).
+        is produced (worktree left clean). integration_run_id must be an
+        irun-<32hex> id; rows in state 'stale'/'invalidated' are REFUSED — an
+        old green must never be rebuildable from a dead frozen base (their
+        stale marker is never wiped by a rebuild).
         """
         row = self._row(queue_id)
-        if not isinstance(integration_run_id, str) or not integration_run_id:
-            raise ValueError("integration_run_id must be a non-empty str")
+        if not isinstance(integration_run_id, str) or IRUN_RE.match(integration_run_id) is None:
+            raise ValueError(
+                f"integration_run_id must match irun-<32hex>, got: {integration_run_id!r}")
+        if row["state"] in ("stale", "invalidated"):
+            raise ValueError(
+                f"queue {queue_id} is {row['state']} — its frozen base is dead and"
+                " its old green is void; rebuild refused (re-enqueue against the"
+                " current target)")
         self._set_state(queue_id, "building")
         workdir = Path(workdir)
         workdir.parent.mkdir(parents=True, exist_ok=True)
+        self._drop_worktree(repo_path, workdir)  # recover a crashed/leaked build workdir
         wt = self._git(repo_path, "worktree", "add", "--detach",
                        str(workdir), row["target_base_sha"])
         if wt.returncode != 0:
             self._set_state(queue_id, "queued")
             raise RuntimeError(f"worktree add failed: {wt.stderr.strip()}")
+        try:
+            with self._connect() as conn:
+                picks = [r["source_head_sha"] for r in conn.execute(
+                    "SELECT * FROM queue WHERE state IN (%s) AND"
+                    " rowid <= (SELECT rowid FROM queue WHERE id=?)"
+                    " ORDER BY rowid" % ",".join("?" * len(PICKABLE_STATES)),
+                    (*PICKABLE_STATES, queue_id)).fetchall()]
+                picks.append(row["source_head_sha"])  # current item last in FIFO order
+                picks = list(dict.fromkeys(picks))  # dedupe while keeping order
 
-        with self._connect() as conn:
-            picks = [r["source_head_sha"] for r in conn.execute(
-                "SELECT * FROM queue WHERE state IN (%s) AND"
-                " rowid <= (SELECT rowid FROM queue WHERE id=?)"
-                " ORDER BY rowid" % ",".join("?" * len(PICKABLE_STATES)),
-                (*PICKABLE_STATES, queue_id)).fetchall()]
-            picks.append(row["source_head_sha"])  # current item last in FIFO order
-            picks = list(dict.fromkeys(picks))  # dedupe while keeping order
-
-        for sha in picks:
-            cp = self._git(workdir, "cherry-pick", sha)
-            if cp.returncode != 0:
-                out = cp.stderr + cp.stdout
-                if "now empty" in out or "empty cherry-pick" in out:
-                    # Nothing to replay (e.g. an --allow-empty source commit or a
-                    # change already present): no-op, keep going, no candidate loss.
+            for sha in picks:
+                cp = self._git(workdir, "cherry-pick", sha)
+                if cp.returncode != 0:
+                    out = cp.stderr + cp.stdout
+                    if "now empty" in out or "empty cherry-pick" in out:
+                        # Nothing to replay (e.g. an --allow-empty source commit or a
+                        # change already present): no-op, keep going, no candidate loss.
+                        self._git(workdir, "cherry-pick", "--abort")
+                        continue
                     self._git(workdir, "cherry-pick", "--abort")
-                    continue
-                self._git(workdir, "cherry-pick", "--abort")
-                self._set_state(queue_id, "queued")
-                return {"queue_id": queue_id, "candidate_sha": None,
-                        "tree_sha": None, "conflicts": [sha]}
-        candidate_sha = self._git(workdir, "rev-parse", "HEAD").stdout.strip()
-        tree_sha = self._git(workdir, "rev-parse", "HEAD^{tree}").stdout.strip()
-        manifest = {"queue_id": queue_id, "integration_run_id": integration_run_id,
-                    "candidate_sha": candidate_sha, "tree_sha": tree_sha,
-                    "target_base_sha": row["target_base_sha"], "picked": picks}
-        with self._connect() as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO candidates (queue_id, integration_run_id,"
-                " candidate_sha, tree_sha, manifest_json, state, stale_reason)"
-                " VALUES (?,?,?,?,?,?,?)",
-                (queue_id, integration_run_id, candidate_sha, tree_sha,
-                 json.dumps(manifest), "built", None))
-        self._emit(queue_id, candidate_sha, "built")
-        return {"queue_id": queue_id, "candidate_sha": candidate_sha,
-                "tree_sha": tree_sha, "conflicts": [],
-                "integration_run_id": integration_run_id}
+                    self._set_state(queue_id, "queued")
+                    return {"queue_id": queue_id, "candidate_sha": None,
+                            "tree_sha": None, "conflicts": [sha]}
+            candidate_sha = self._git(workdir, "rev-parse", "HEAD").stdout.strip()
+            tree_sha = self._git(workdir, "rev-parse", "HEAD^{tree}").stdout.strip()
+            manifest = {"queue_id": queue_id, "integration_run_id": integration_run_id,
+                        "candidate_sha": candidate_sha, "tree_sha": tree_sha,
+                        "target_base_sha": row["target_base_sha"], "picked": picks}
+            with self._connect() as conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO candidates (queue_id, integration_run_id,"
+                    " candidate_sha, tree_sha, manifest_json, state, stale_reason)"
+                    " VALUES (?,?,?,?,?,?,?)",
+                    (queue_id, integration_run_id, candidate_sha, tree_sha,
+                     json.dumps(manifest), "built", None))
+            self._emit(queue_id, candidate_sha, "built")
+            return {"queue_id": queue_id, "candidate_sha": candidate_sha,
+                    "tree_sha": tree_sha, "conflicts": [],
+                    "integration_run_id": integration_run_id}
+        finally:
+            self._drop_worktree(repo_path, workdir)
 
     # ----------------------------------------------------------------- gate
 
@@ -269,10 +313,24 @@ class IntegrationQueue:
                          test_commands: list[list[str]], review_ids: list[str]) -> dict:
         """Run test commands bound to the queue's current candidate SHA.
 
-        Returns {"ok", "results", "covered", "unverified", "candidate_sha"}.
-        ok=True never hides unverified entries: every empty/placeholder review id
-        is listed in "unverified" with a reason regardless of ok.
+        Binding is REAL: the commands run in a fresh detached worktree
+        materialized at exactly candidate_sha (git worktree add --detach under a
+        fresh temp dir, HEAD verified == candidate_sha or RuntimeError) — never
+        in whatever checkout repo_path happens to point at. The worktree is
+        ALWAYS removed (worktree remove --force + prune) in a finally block.
+        Every results entry records "tree_sha" = the tree the commands ran on.
+
+        Returns {"ok", "results", "covered", "unverified", "candidate_sha",
+        "tree_sha"}. ok=True never hides unverified entries: every empty/
+        placeholder review id is listed in "unverified" with a reason
+        regardless of ok. Completion is a CAS ('building' -> 'gated'): a row
+        that left 'building' while the tests ran (e.g. invalidated) is never
+        resurrected — the gate reports ok=False and the candidate goes stale.
+        A benign re-gate of an already-'gated'/'published' row just records
+        results: it never poisons state with a false stale marker.
         """
+        if not test_commands:
+            raise ValueError("integration_gate requires at least one test command")
         if not _is_sha(candidate_sha):
             raise ValueError(f"candidate_sha must be a 40-hex SHA, got: {candidate_sha!r}")
         current = self._candidate_row(queue_id)
@@ -290,24 +348,61 @@ class IntegrationQueue:
             raise ValueError(
                 f"queue {queue_id} is {qrow['state']} — its old green is void; "
                 "rebuild and re-gate on the current target")
-        results = []
-        for cmd in test_commands:
-            try:
-                r = subprocess.run(cmd, cwd=repo_path, capture_output=True, timeout=120)
-                out = r.stdout.decode("utf-8", "replace")
-                err = r.stderr.decode("utf-8", "replace")
-                rc = r.returncode
-            except subprocess.TimeoutExpired:
-                out, err, rc = "", "timeout after 120s", -1
-            results.append({"cmd": list(cmd), "rc": rc,
-                            "stdout_tail": out[-2000:], "stderr_tail": err[-2000:],
-                            "candidate_sha": candidate_sha})
+        # Materialize the exact candidate tree (detached worktree, verified).
+        base = Path(tempfile.mkdtemp(prefix="vw-gate-"))
+        wt = base / "wt"
+        wtadd = self._git(repo_path, "worktree", "add", "--detach", str(wt), candidate_sha)
+        if wtadd.returncode != 0:
+            shutil.rmtree(base, ignore_errors=True)
+            raise RuntimeError(f"worktree add failed: {wtadd.stderr.strip()}")
+        try:
+            head = self._git(wt, "rev-parse", "HEAD").stdout.strip()
+            if head != candidate_sha:
+                raise RuntimeError(
+                    f"gate worktree HEAD {head} != candidate {candidate_sha}")
+            tree_sha = self._git(wt, "rev-parse", "HEAD^{tree}").stdout.strip()
+            results = []
+            for cmd in test_commands:
+                try:
+                    r = subprocess.run(cmd, cwd=str(wt), capture_output=True, timeout=120)
+                    out = r.stdout.decode("utf-8", "replace")
+                    err = r.stderr.decode("utf-8", "replace")
+                    rc = r.returncode
+                except subprocess.TimeoutExpired:
+                    out, err, rc = "", "timeout after 120s", -1
+                results.append({"cmd": list(cmd), "rc": rc,
+                                "stdout_tail": out[-2000:], "stderr_tail": err[-2000:],
+                                "candidate_sha": candidate_sha, "tree_sha": tree_sha})
+        finally:
+            self._git(repo_path, "worktree", "remove", "--force", str(wt))
+            self._git(repo_path, "worktree", "prune")
+            shutil.rmtree(base, ignore_errors=True)
         covered = [r["cmd"] for r in results if r["rc"] == 0]
         unverified = [{"review_id": rid,
                        "reason": f"review {rid!r} is empty or placeholder — "
                                  f"coverage unverified"}
                       for rid in review_ids if _is_placeholder_review(rid)]
         ok = all(r["rc"] == 0 for r in results)
+        if ok:
+            # CAS completion: never resurrect a row that left 'building' while
+            # the tests ran (TOCTOU — e.g. invalidated by a target change). A
+            # benign re-gate of an already-'gated'/'published' row just records
+            # results — it never poisons state with a false stale marker.
+            with self._connect() as conn:
+                qstate = conn.execute("SELECT state FROM queue WHERE id=?",
+                                      (queue_id,)).fetchone()["state"]
+                if qstate not in ("gated", "published"):
+                    cas = conn.execute(
+                        "UPDATE queue SET state='gated' WHERE id=? AND state='building'",
+                        (queue_id,))
+                    if cas.rowcount == 0:
+                        now = conn.execute("SELECT state FROM queue WHERE id=?",
+                                           (queue_id,)).fetchone()["state"]
+                        if now in ("stale", "invalidated"):
+                            conn.execute(
+                                "UPDATE candidates SET state='stale', stale_reason=?"
+                                " WHERE queue_id=?", ("invalidated during gate run", queue_id))
+                            ok = False
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO gate_results (queue_id, candidate_sha, ok, results_json,"
@@ -315,15 +410,19 @@ class IntegrationQueue:
                 (queue_id, candidate_sha, 1 if ok else 0,
                  json.dumps(results), json.dumps(covered), json.dumps(unverified),
                  time.time_ns()))
-        if ok:
-            self._set_state(queue_id, "gated")
         return {"ok": ok, "results": results, "covered": covered,
-                "unverified": unverified, "candidate_sha": candidate_sha}
+                "unverified": unverified, "candidate_sha": candidate_sha,
+                "tree_sha": tree_sha}
 
     # -------------------------------------------------------------- publish
 
     def publish(self, repo_path: str, queue_id: str, candidate_sha: str, expected_old_sha: str) -> dict:
         """CAS publish: git update-ref <target_ref> candidate expected_old.
+
+        Publish is bound to the GATED candidate: the queue must be state
+        'gated' AND an ok gate_results row must be bound to the SAME sha as the
+        queue's current candidate (== candidate_sha) — otherwise
+        ValueError("candidate not gated / gate not bound to candidate").
 
         Target moved -> TargetChangedError, candidate row marked stale,
         outbox event "target-changed", queue item returns to "queued".
@@ -333,6 +432,17 @@ class IntegrationQueue:
                             ("expected_old_sha", expected_old_sha)):
             if not _is_sha(value):
                 raise ValueError(f"{name} must be a 40-hex SHA, got: {value!r}")
+        with self._connect() as conn:
+            qrow = conn.execute("SELECT state FROM queue WHERE id=?",
+                                (queue_id,)).fetchone()
+            gate = conn.execute(
+                "SELECT 1 FROM gate_results WHERE queue_id=? AND candidate_sha=?"
+                " AND ok=1 LIMIT 1", (queue_id, candidate_sha)).fetchone()
+        cand = self._candidate_row(queue_id)
+        if (qrow is None or qrow["state"] != "gated"
+                or cand is None or cand["candidate_sha"] != candidate_sha
+                or gate is None):
+            raise ValueError("candidate not gated / gate not bound to candidate")
         ref = self.target_ref
         r = self._git(repo_path, "update-ref", ref, candidate_sha, expected_old_sha)
         if r.returncode != 0:
@@ -375,15 +485,33 @@ class IntegrationQueue:
                 " final_commit_sha, final_tree_sha) VALUES (?,?,?,?)",
                 (queue_id, candidate_sha, final_commit_sha, final_tree_sha))
 
-    def reconcile_shas(self) -> list[dict]:
-        """Pure-DB diff report: published queue items missing their sha_map row."""
+    def reconcile_shas(self, repo_path=None) -> list[dict]:
+        """Pure-DB diff report: published queue items missing their sha_map row.
+
+        With repo_path, ALSO flag sha_map rows whose final_commit_sha /
+        final_tree_sha are unreachable in that repo (`git cat-file -e`).
+        The default (repo_path=None) stays pure-DB.
+        """
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT q.id FROM queue q WHERE q.state='published'"
                 " AND NOT EXISTS (SELECT 1 FROM sha_map m WHERE m.queue_id = q.id)"
                 " ORDER BY q.rowid").fetchall()
-        return [{"queue_id": r["id"],
-                 "issue": "published queue has no sha_map row"} for r in rows]
+        out = [{"queue_id": r["id"],
+                "issue": "published queue has no sha_map row"} for r in rows]
+        if repo_path is not None:
+            with self._connect() as conn:
+                maps = conn.execute(
+                    "SELECT * FROM sha_map ORDER BY rowid").fetchall()
+            for m in maps:
+                for col, peel in (("final_commit_sha", "commit"),
+                                  ("final_tree_sha", "tree")):
+                    r = self._git(repo_path, "cat-file", "-e", f"{m[col]}^{{{peel}}}")
+                    if r.returncode != 0:
+                        out.append({"queue_id": m["queue_id"],
+                                    "issue": f"sha_map {col} {m[col]} is unreachable"
+                                             f" in {repo_path}"})
+        return out
 
     # -------------------------------------------------------- invalidation
 
@@ -418,8 +546,10 @@ class IntegrationQueue:
     # ------------------------------------------------------------- cleanup
 
     def cleanup_precheck(self, queue_id: str) -> tuple[bool, list[str]]:
-        """(ok, reasons): True only when published + sha_map present + ok gate bound
-        to the current candidate + no pending "integration" outbox entries."""
+        """(ok, reasons): True only when published + sha_map present AND bound
+        to the current candidate + ok gate bound to the current candidate +
+        no pending "integration" outbox entries. Fail-closed: without a control
+        plane the outbox condition is UNVERIFIED and the answer is False."""
         row = self._row(queue_id)
         reasons = []
         if row["state"] != "published":
@@ -430,21 +560,28 @@ class IntegrationQueue:
             gates = conn.execute(
                 "SELECT * FROM gate_results WHERE queue_id=? ORDER BY id",
                 (queue_id,)).fetchall()
-        if not maps:
-            reasons.append("no sha_map row")
         cand = self._candidate_row(queue_id)
         current_sha = cand["candidate_sha"] if cand else None
+        if not maps:
+            reasons.append("no sha_map row")
+        elif all(m["candidate_sha"] != current_sha for m in maps):
+            reasons.append("sha_map not bound to the current candidate")
         gate_ok = any(g["ok"] == 1 and g["candidate_sha"] == current_sha for g in gates)
         if not gates:
             reasons.append("no gate_results row")
         elif not gate_ok:
-            reasons.append("no ok gate_results row bound to the current candidate")
+            if all(g["candidate_sha"] != current_sha for g in gates):
+                reasons.append("gate not bound to current candidate")
+            else:
+                reasons.append("no ok gate_results row bound to the current candidate")
         pending = getattr(self.control, "outbox_pending", None)
         if self.control is not None and callable(pending):
             n = len([i for i in pending()
                      if isinstance(i, dict) and i.get("record_type") == "integration"])
             if n:
                 reasons.append(f"{n} pending integration outbox entries")
+        else:
+            reasons.append("outbox unverifiable (no control plane)")
         return (not reasons), reasons
 
     # ----------------------------------------------------------------- CLI

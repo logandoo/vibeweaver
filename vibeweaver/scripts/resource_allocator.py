@@ -330,15 +330,40 @@ class ResourceAllocator:
                            lease_epoch: int) -> str:
         self._check_epoch(attempt_id, lease_epoch)
         with _Txn(self._db) as db:
-            # The partial UNIQUE(name) WHERE state='held' index rejects a
-            # second holder with IntegrityError -> ResourceConflict.
+            own = db.execute(
+                "SELECT state FROM allocations WHERE attempt_id=? AND kind='exclusive'"
+                " AND name=?", (attempt_id, resource_name)).fetchone()
+            if own is not None and own[0] == "held":
+                return resource_name  # idempotent: the existing hold wins
+            # The partial UNIQUE(name) WHERE state='held' index does NOT cover
+            # 'quarantined' rows — reject held OR quarantined takes of the same
+            # singleton explicitly (transactionally) so quarantine is never a
+            # double-take bypass.
+            clash = db.execute(
+                "SELECT attempt_id, state FROM allocations"
+                " WHERE kind='exclusive' AND name=? AND state IN ('held','quarantined')"
+                " LIMIT 1", (resource_name,)).fetchone()
+            if clash is not None:
+                raise ResourceConflict(
+                    f"exclusive:{resource_name} is {clash[1]} by {clash[0]};"
+                    f" awaiting release/human review")
             self._hold_row(db, attempt_id, lease_epoch, "exclusive",
                            resource_name, resource_name, None)
             return resource_name
 
     # -- lifecycle ---------------------------------------------------------
 
-    def reclaim(self, attempt_id: str) -> dict:
+    def reclaim(self, attempt_id: str, lease_epoch=None) -> dict:
+        """Reclaim every held row of an attempt (fail-closed per row).
+
+        lease_epoch is an optional write fence: when supplied, a stale epoch
+        raises StaleEpochError before anything is touched. A tempdir that
+        cannot be removed stays state='held' and is listed under "skipped"
+        with reason "rmtree-failed:<err>" — a row is never marked reclaimed
+        while its directory still exists.
+        """
+        if lease_epoch is not None:
+            self._check_epoch(attempt_id, lease_epoch)  # stale epoch -> StaleEpochError
         summary = {"reclaimed": [], "skipped": []}
         with _Txn(self._db) as db:
             rows = db.execute(
@@ -359,7 +384,16 @@ class ResourceAllocator:
                     entry = self._reclaim_procgroup(db, name, value, extra)
                     (summary["reclaimed"] if entry[0] else summary["skipped"]).append(entry[1])
                 elif kind == "tempdir":
-                    self._rm_tree(value)
+                    try:
+                        self._rm_tree(value)
+                    except OSError as err:
+                        if os.path.isdir(value):
+                            # Fail closed: the directory still exists — keep the
+                            # row held and record why removal failed.
+                            summary["skipped"].append(
+                                {"kind": kind, "name": name, "value": value,
+                                 "reason": f"rmtree-failed:{err}"})
+                            continue
                     db.execute("UPDATE allocations SET state='reclaimed'"
                                " WHERE attempt_id=? AND kind=? AND name=?",
                                (attempt_id, kind, name))
@@ -416,7 +450,9 @@ class ResourceAllocator:
     @staticmethod
     def _rm_tree(path):
         import shutil  # local import: only reclaim needs it
-        shutil.rmtree(path, ignore_errors=True)
+        # Fail closed: errors propagate to reclaim() so a still-existing
+        # directory is never silently dropped (no ignore_errors).
+        shutil.rmtree(path)
 
     def quarantine(self, attempt_id: str, reason: str) -> None:
         with _Txn(self._db) as db:

@@ -674,8 +674,12 @@ function w25py(name, lines, args = []) {
     "try:",
     "    iq.publish(repo, q, cand['candidate_sha'], base)",
     "    print('PUBLISH_ACCEPTED')",
-    "except TargetChangedError:",
-    "    print('TARGET-CHANGED')",
+    "except (TargetChangedError, ValueError):",
+    "    # TargetChangedError (CAS) or ValueError (publish precondition: the row",
+    "    # is no longer gated) both mean the stale publish was REFUSED — assert",
+    "    # the ref never moves to the stale candidate either way.",
+    "    moved = git('rev-parse', 'refs/heads/main') == cand['candidate_sha']",
+    "    print('PUBLISH-REF-MOVED' if moved else 'TARGET-CHANGED')",
     "ok, reasons = iq.cleanup_precheck(q)",
     "print('PRECHECK-BLOCKED' if not ok else 'PRECHECK-PASSED')",
     "try:",
@@ -687,7 +691,8 @@ function w25py(name, lines, args = []) {
   w25rec("W25m4 stale green after target change not reusable (CAS + precheck + re-gate)",
     r.out.includes("GATE_OK True") && r.out.includes("INVALIDATED 1") &&
       r.out.includes("TARGET-CHANGED") && r.out.includes("PRECHECK-BLOCKED") &&
-      r.out.includes("REUSE-REJECTED") && !r.out.includes("PUBLISH_ACCEPTED"),
+      r.out.includes("REUSE-REJECTED") && !r.out.includes("PUBLISH_ACCEPTED") &&
+      !r.out.includes("PUBLISH-REF-MOVED"),
     `out=${r.out.trim().split("\n").join(" / ")}`)
 }
 

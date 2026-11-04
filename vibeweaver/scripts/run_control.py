@@ -272,6 +272,17 @@ class ControlPlane:
             raise StaleEpochError(
                 f"stale epoch {lease_epoch} for task {row['task_id']} (current {mx})")
 
+    def _fence(self, cur, attempt_id, lease_epoch) -> None:
+        """Optional write fence for the shared-write entry points: when both
+        attempt_id and lease_epoch are supplied, run _assert_epoch first (a
+        stale epoch raises StaleEpochError). Supplying only one of the pair is
+        a fencing mistake and fails closed."""
+        if (attempt_id is None) != (lease_epoch is None):
+            raise ValueError(
+                "attempt_id and lease_epoch must be supplied together (fenced write)")
+        if attempt_id is not None:
+            self._assert_epoch(cur, attempt_id, lease_epoch)
+
     def _attempt_row(self, cur, attempt_id):
         row = cur.execute("SELECT * FROM attempts WHERE attempt_id=?",
                           (attempt_id,)).fetchone()
@@ -349,21 +360,38 @@ class ControlPlane:
         """Atomic claim of a task. lease_epoch = previous max epoch + 1 (starts at 1).
 
         Raises LeaseConflict when the task has an unexpired active lease and
-        takeover=False. With takeover=True the old lease is force-superseded
-        (the strict expire+isolate preconditions live in takeover()).
+        takeover=False. With takeover=True the SAME §MA4 precondition as
+        takeover() applies: every non-terminal prior attempt must already be
+        expire()d AND isolate()d — a LIVE lease is never force-superseded
+        (expiry is not stop); otherwise LeaseConflict. Met preconditions are
+        then superseded (same order as takeover(): supersede BEFORE insert).
         """
         if TASK_ID_RE.match(task_id) is None:
             raise ContextValidationError(f"bad task_id format: {task_id!r}")
 
         def _tx(cur):
             now = time.time()
-            lease = self._lease_active(cur, task_id, now)
-            if lease is not None and lease["expired"] == 0 and lease["expires_at"] > now:
-                if not takeover:
+            if takeover:
+                priors = cur.execute(
+                    "SELECT attempt_id, lease_expired, isolated FROM attempts"
+                    " WHERE task_id=? AND state NOT IN"
+                    " ('merged','published','cleaned','aborted')"
+                    " ORDER BY lease_epoch", (task_id,)).fetchall()
+                for p in priors:
+                    if p["lease_expired"] != 1 or p["isolated"] != 1:
+                        raise LeaseConflict(
+                            f"claim(takeover=True) denied: attempt {p['attempt_id']}"
+                            f" is not yet expire()d + isolate()d"
+                            f" (lease_expired={p['lease_expired']},"
+                            f" isolated={p['isolated']})")
+                if priors:
+                    self._supersede(cur, task_id, now)
+            else:
+                lease = self._lease_active(cur, task_id, now)
+                if lease is not None and lease["expired"] == 0 and lease["expires_at"] > now:
                     raise LeaseConflict(
                         f"task {task_id} has an unexpired lease held by"
                         f" attempt {lease['attempt_id']} (epoch {lease['lease_epoch']})")
-                self._supersede(cur, task_id, now)
             epoch = self._next_epoch(cur, task_id)
             run_id, wave_id = self._new_run(cur, task_id, repo_id, now)
             ctx = RunContext(
@@ -424,8 +452,12 @@ class ControlPlane:
                 worktree_root=worktree_root, artifact_root=artifact_root,
                 state_root=state_root, base_sha=base_sha, spec_hash=spec_hash,
                 skill_version=skill_version, checker_digest=checker_digest)
-            self._insert_attempt(cur, ctx, now)
+            # Supersede the OLD attempts BEFORE inserting the fresh one (same
+            # order claim() uses): _supersede force-expires every non-terminal
+            # row of the task, so running it after the insert would mark the
+            # brand-new attempt 'expired' and kill it before it ever started.
             self._supersede(cur, task_id, now)
+            self._insert_attempt(cur, ctx, now)
             self._upsert_lease(cur, task_id, ctx.attempt_id, epoch, now)
             self._event(cur, ctx.attempt_id, epoch,
                         "takeover", f"reason={reason} new_attempt={ctx.attempt_id}", now)
@@ -458,9 +490,10 @@ class ControlPlane:
     def heartbeat(self, attempt_id, lease_epoch) -> bool:
         """Renew the lease TTL. False only for an unknown attempt.
 
-        A stale lease_epoch raises StaleEpochError. An explicitly expire()d
-        lease stays expired (sticky): renewal never resurrects a decision the
-        supervisor already made; it only extends TTL on live leases.
+        A stale lease_epoch raises StaleEpochError. Heartbeat only extends the
+        lease TTL timestamp; it never clears the `expired` flag, so a lease the
+        supervisor explicitly expire()d does NOT come back to life — renewal
+        never resurrects that decision.
         """
         def _tx(cur):
             row = cur.execute("SELECT task_id FROM attempts WHERE attempt_id=?",
@@ -504,8 +537,12 @@ class ControlPlane:
 
     # -- session mapping ---------------------------------------------------
 
-    def set_session_run(self, session_id, run_id, attempt_id) -> None:
+    def set_session_run(self, session_id, run_id, attempt_id, *, lease_epoch=None) -> None:
+        """Map session -> run/attempt. Pass lease_epoch to fence the write with
+        the row's attempt_id (stale epoch -> StaleEpochError)."""
         def _tx(cur):
+            if lease_epoch is not None:
+                self._assert_epoch(cur, attempt_id, lease_epoch)
             cur.execute("INSERT INTO session_runs(session_id, run_id, attempt_id)"
                         " VALUES (?,?,?)"
                         " ON CONFLICT(session_id) DO UPDATE SET"
@@ -565,10 +602,14 @@ class ControlPlane:
 
     # -- outbox ------------------------------------------------------------
 
-    def outbox_put(self, record_type, payload: dict, idempotency_key) -> int:
+    def outbox_put(self, record_type, payload: dict, idempotency_key,
+                   *, attempt_id=None, lease_epoch=None) -> int:
         """Insert an outbox record; a duplicate idempotency_key returns the
-        existing row id without inserting (Hub: <type>:<subject>:<intent>)."""
+        existing row id without inserting (Hub: <type>:<subject>:<intent>).
+        Optional (attempt_id, lease_epoch) fence the write (stale epoch ->
+        StaleEpochError); unfenced calls stay backward compatible."""
         def _tx(cur):
+            self._fence(cur, attempt_id, lease_epoch)
             row = cur.execute("SELECT id FROM outbox WHERE idempotency_key=?",
                               (idempotency_key,)).fetchone()
             if row is not None:
@@ -588,8 +629,11 @@ class ControlPlane:
                  "idempotency_key": r["idempotency_key"], "status": r["status"]}
                 for r in rows]
 
-    def outbox_mark_done(self, item_id) -> None:
+    def outbox_mark_done(self, item_id, *, attempt_id=None, lease_epoch=None) -> None:
+        """Mark an outbox record published. Optional (attempt_id, lease_epoch)
+        fence the write (stale epoch -> StaleEpochError)."""
         def _tx(cur):
+            self._fence(cur, attempt_id, lease_epoch)
             cur.execute("UPDATE outbox SET status='done', done_ts=? WHERE id=?",
                         (time.time(), item_id))
         self._write(_tx)
@@ -639,9 +683,12 @@ class ControlPlane:
         _ = now
         return recs
 
-    def record_final_ref(self, run_id, sha) -> None:
-        """Record the final ref/sha a run published (consumed by reconcile)."""
+    def record_final_ref(self, run_id, sha, *, attempt_id=None, lease_epoch=None) -> None:
+        """Record the final ref/sha a run published (consumed by reconcile).
+        Optional (attempt_id, lease_epoch) fence the write (stale epoch ->
+        StaleEpochError)."""
         def _tx(cur):
+            self._fence(cur, attempt_id, lease_epoch)
             row = cur.execute("SELECT run_id FROM runs WHERE run_id=?", (run_id,)).fetchone()
             if row is None:
                 raise KeyError(f"unknown run {run_id}")
@@ -696,31 +743,38 @@ class ControlPlane:
 
     # -- cleanup preconditions (MULTI_AGENT.md §MA4 — all seven) ------------
 
-    def mark_handed_off(self, attempt_id) -> None:
-        self._flag(attempt_id, "handed_off")
+    def mark_handed_off(self, attempt_id, *, lease_epoch=None) -> None:
+        self._flag(attempt_id, "handed_off", lease_epoch=lease_epoch)
 
-    def mark_evidence_archived(self, attempt_id) -> None:
-        self._flag(attempt_id, "evidence_archived")
+    def mark_evidence_archived(self, attempt_id, *, lease_epoch=None) -> None:
+        self._flag(attempt_id, "evidence_archived", lease_epoch=lease_epoch)
 
-    def mark_untracked_included(self, attempt_id) -> None:
-        self._flag(attempt_id, "untracked_included")
+    def mark_untracked_included(self, attempt_id, *, lease_epoch=None) -> None:
+        self._flag(attempt_id, "untracked_included", lease_epoch=lease_epoch)
 
-    def mark_effects_reconciled(self, attempt_id) -> None:
-        self._flag(attempt_id, "effects_reconciled")
+    def mark_effects_reconciled(self, attempt_id, *, lease_epoch=None) -> None:
+        self._flag(attempt_id, "effects_reconciled", lease_epoch=lease_epoch)
 
-    def mark_retention_satisfied(self, attempt_id) -> None:
-        self._flag(attempt_id, "retention_satisfied")
+    def mark_retention_satisfied(self, attempt_id, *, lease_epoch=None) -> None:
+        self._flag(attempt_id, "retention_satisfied", lease_epoch=lease_epoch)
 
-    def _flag(self, attempt_id, column) -> None:
+    def _flag(self, attempt_id, column, *, lease_epoch=None) -> None:
+        """Set a cleanup-precondition flag. Optional lease_epoch fences the
+        write against the row's attempt_id (stale epoch -> StaleEpochError)."""
         def _tx(cur):
+            if lease_epoch is not None:
+                self._assert_epoch(cur, attempt_id, lease_epoch)
             self._attempt_row(cur, attempt_id)
             cur.execute(f"UPDATE attempts SET {column}=1 WHERE attempt_id=?",
                         (attempt_id,))
         self._write(_tx)
 
-    def add_child(self, attempt_id) -> int:
-        """Register a supervised child process; returns the open-child count."""
+    def add_child(self, attempt_id, *, lease_epoch=None) -> int:
+        """Register a supervised child process; returns the open-child count.
+        Optional lease_epoch fences the write (stale epoch -> StaleEpochError)."""
         def _tx(cur):
+            if lease_epoch is not None:
+                self._assert_epoch(cur, attempt_id, lease_epoch)
             self._attempt_row(cur, attempt_id)
             cur.execute("UPDATE attempts SET open_children=open_children+1"
                         " WHERE attempt_id=?", (attempt_id,))
@@ -728,9 +782,12 @@ class ControlPlane:
                                (attempt_id,)).fetchone()["n"]
         return self._write(_tx)
 
-    def finish_child(self, attempt_id) -> int:
-        """A supervised child exited; returns the open-child count (floored at 0)."""
+    def finish_child(self, attempt_id, *, lease_epoch=None) -> int:
+        """A supervised child exited; returns the open-child count (floored at 0).
+        Optional lease_epoch fences the write (stale epoch -> StaleEpochError)."""
         def _tx(cur):
+            if lease_epoch is not None:
+                self._assert_epoch(cur, attempt_id, lease_epoch)
             self._attempt_row(cur, attempt_id)
             cur.execute("UPDATE attempts SET open_children=CASE WHEN open_children>0"
                         " THEN open_children-1 ELSE 0 END WHERE attempt_id=?",
@@ -761,6 +818,23 @@ class ControlPlane:
             reasons.append("attempt not isolated (isolate not called)")
         if row["retention_satisfied"] != 1:
             reasons.append("retention/approval not satisfied (mark_retention_satisfied not set)")
+        # §MA4: 'cleaned' is unreachable while publication is incomplete — a
+        # pending outbox record for THIS run blocks cleanup until it is done.
+        # Unattributable 'integration' rows (no run_id in the payload) also
+        # block: an orphaned publication cannot be proven complete (fail-closed).
+        pend = cur.execute("SELECT record_type, payload_json FROM outbox"
+                           " WHERE status='pending'").fetchall()
+        for p in pend:
+            try:
+                payload = json.loads(p["payload_json"])
+            except ValueError:
+                payload = {}
+            if isinstance(payload, dict) and payload.get("run_id") == row["run_id"]:
+                reasons.append("outbox publication incomplete")
+                break
+            if p["record_type"] == "integration" and not (isinstance(payload, dict) and payload.get("run_id")):
+                reasons.append("outbox publication incomplete (unattributed integration record)")
+                break
         return (not reasons, reasons)
 
 
