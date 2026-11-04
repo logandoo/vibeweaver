@@ -28,6 +28,15 @@ printf '%s  assert_artifacts.py\n' "$DIGEST" > "$HOME_DIR/scripts/assert_artifac
 cp "$HOME_DIR/scripts/assert_artifacts.py" "$P/tests/assert_artifacts.py"
 printf '> cap=5  stall=3×\n1. fixture\n' > "$P/tests/acceptance.md"
 printf '## fixture\n- class: CODE - basis: fixture\n- Baseline verified GREEN - fixture\n' > "$P/tests/verification_log.md"
+# W23: dependency caching is a git-project feature (non-git roots are
+# intentionally uncached). Keep the counter/cache artifacts ignored so the
+# cache key stays stable across runs.
+printf 'checker_runs.log\ntests/gate_result.json\n.vibeweaver/\n' > "$P/.gitignore"
+git -C "$P" init -q
+git -C "$P" config user.email fixture@test
+git -C "$P" config user.name fixture
+git -C "$P" add -A
+git -C "$P" commit -qm "fixture"
 
 OUT="$(node "$SEQ" "$P" "$HOME_DIR")"
 echo "$OUT"

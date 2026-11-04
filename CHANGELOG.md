@@ -21,7 +21,7 @@
 
 ### 验证
 - `tests/context_state_test.mjs` 50/50：structured、malformed/type/version fallback、>4KB freeform、长 debt 交叉、多行/重复/公共短语 Next action、数组原始计数、snapshot >4KB、空 note reset、读取失败（EISDIR/EACCES/zero-byte EACCES/symlink/oversize）不删快照并回退、head+tail snapshot、state-dir symlink 拒绝、legacy snapshot 拒绝。
-- 旧套件全绿：scope 69/69 · failclosed 29/29 · plugin compat 86/86 · latch 7/7 · graduated 24/24 · assert groups 75/75 · v2 arm 16 · finding kind 5 · cache 4/4 · audit 572/0 · mutation 44/0 · bootstrap 8/8 · state bounds 4/4。
+- 旧套件全绿：context 50/50 · plugin compat 86/86 · audit_selftest 572/0 · mutation_sweep 44/0 · mini gate 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows)；主仓完整矩阵（scope/failclosed/latch/graduated/assert groups/v2/cache/bootstrap/state bounds）见 tests/verification_log.md。
 - 发布套件：audit_selftest 572 / 0 · mutation_sweep 44 / 0 · plugin compat 86 / 86 · mini gate 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows)。
 
 ## 2026-11-04 门禁作用域/阶段/恢复（W23）

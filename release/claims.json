@@ -984,6 +984,32 @@
    "n": 163,
    "seeds": 1,
    "ci": "local run (no CI interval)"
+  },
+  {
+   "id": "C-300",
+   "token": "50/50",
+   "claim": "W24 context_state_test 50 checks pass",
+   "command": "node tests/context_state_test.mjs",
+   "expected_regex": "50/50",
+   "platform": "macOS/Linux/Windows (node)",
+   "evidence": "CHANGELOG.md 2026-11-04",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-301",
+   "token": "86/86",
+   "claim": "plugin compat harness 86 checks pass",
+   "command": "node tests/plugin_compat_test.mjs",
+   "expected_regex": "86/86",
+   "platform": "macOS/Linux/Windows (node)",
+   "evidence": "CHANGELOG.md 2026-11-04",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
   }
  ]
 }
