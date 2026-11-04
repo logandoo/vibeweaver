@@ -271,7 +271,13 @@ function auditReal(p) {
 function auditComparePath(p) {
   let s
   try {
-    s = realpathSync.native ? realpathSync.native(path.resolve(p)) : auditReal(p)
+    if (existsSync(p)) {
+      s = realpathSync.native ? realpathSync.native(path.resolve(p)) : auditReal(p)
+    } else {
+      // Non-existent final component: resolve the nearest existing ancestor
+      // (including symlinked parent dirs) exactly like the write path will.
+      s = resolveWritePath(path.resolve(p))
+    }
   } catch {
     s = auditReal(p)
   }
