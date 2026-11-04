@@ -785,13 +785,56 @@ def script_syntax_check(path: pathlib.Path):
         return False, f"checker unavailable ({exc})"
     return True, "no parser for ext (existence only)"
 
+VIOLATION_CODES = {"14", "15", "18", "22", "evidence-lock", "checker-pin"}
+COMPLETION_CODES = {
+    "1", "2", "3", "4", "5", "5b", "6", "7", "8", "9", "10", "11",
+    "12", "12b", "13", "16", "17", "17a", "17b", "19", "20", "21",
+    "23", "24",
+}
+
+
+def finding_kind(code: str, msg: str) -> str:
+    """W23: completion debt vs a real integrity/security violation.
+
+    Explicit COMPLETION_CODES are the only findings allowed to become a
+    non-throwing note. Unknown groups and "cannot verify" failures are
+    `unavailable` (hard): a classifier bug must never silently downgrade a
+    safety check. Falsified evidence (fake PNG/media magic) is a violation.
+    """
+    c = str(code or "")
+    low = (msg or "").lower()
+    if c == "15b":
+        if ("tamper" in low or "hash mismatch" in low or "sealed evidence missing" in low
+                or "manifest.json missing" in low or "partial seal" in low):
+            return "violation"
+        return "completion"
+    if c in VIOLATION_CODES:
+        return "violation"
+    if c == "21" and any(k in low for k in (
+            "cannot verify", "could not run", "failed inside an existing .git",
+            "timed out", "overflowed", "fail-closed")):
+        return "unavailable"
+    if c in ("3", "10", "11") and any(k in low for k in (
+            "not a real png", "wrong format", "magic", "is not a real")):
+        return "violation"
+    if ("secret scan:" in low or "evidence-lock fail" in low
+            or "checker was modified" in low or "class contradiction" in low
+            or "test-change guard:" in low):
+        return "violation"
+    if c in COMPLETION_CODES:
+        return "completion"
+    return "unavailable"
+
+
 def check(ok: bool, msg: str, code: str = "", severity: str = "block"):
     """D4 structured result: every failure carries code/severity/detail so the
     gate keys on exit code + severity (never prose keywords)."""
     global PASSES
     PASSES += 1
     if not ok:
-        FAILS.append({"code": code or CUR_GROUP, "severity": severity, "detail": msg})
+        c = code or CUR_GROUP
+        FAILS.append({"code": c, "severity": severity,
+                      "kind": finding_kind(c, msg), "detail": msg})
 
 
 FINAL_MODE = False

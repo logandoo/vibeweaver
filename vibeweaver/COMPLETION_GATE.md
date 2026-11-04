@@ -247,42 +247,72 @@ column.
 ## A4.4.2 Physical Gate (plugin enforcement — do not fight it) ★
 
 The `vibeweaver-gate` plugin (`~/.config/opencode/plugins/vibeweaver-gate.js`)
-enforces §A4.4.1 mechanically. After every `write`/`edit`, when the project is
-vibeweaver-active (has `tests/verification_log.md`), it runs
-`tests/assert_artifacts.py` and **throws GATE-BLOCKED into the tool result** on
-a real violation. Bash is NOT gated (screenshots/server-start must be free to
-produce evidence); non-vibeweaver projects are silent. **Known boundary
-(named, accepted):** file mutations THROUGH bash (`sed -i`, `>`, editor
-scripts) bypass the gate and §A7.16 cue delivery — hooking bash text costs more
-false alarms than it catches. Mitigation is procedural: the `--final` run +
-audit B12 examine the tree regardless of how it was edited.
+enforces §A4.4.1 mechanically. After every `write`/`edit` it resolves the
+**nearest active project scope** and runs that project's
+`tests/assert_artifacts.py`. Scope resolution is file-relative: a nested active
+git repository owns writes only when it has both `tests/verification_log.md`
+and `tests/assert_artifacts.py` (a trusted project); when the host is active, a
+nested non-git marker **cannot** shrink scope; an inactive/untrusted nested git
+repo is refused rather than silently skipped (the umbrella checker cannot scan
+a gitlink). Hooks without a file path (idle, cue, compaction) follow the
+session's last same-workspace gated root; a foreign absolute write cannot
+rebind it. `--final` evaluates ONE trusted scope: an umbrella final cannot scan
+inside a nested gitlink, so a wave spanning trusted nested projects must run
+each nested project's `--final` and record both results. Bash is NOT gated
+(screenshots/server-start must be free to produce evidence); non-vibeweaver
+projects are silent. **Known boundary (named, accepted):** file mutations
+THROUGH bash (`sed -i`, `>`, editor scripts) bypass the gate and §A7.16 cue
+delivery — hooking bash text costs more false alarms than it catches. Mitigation
+is procedural: the `--final` run + audit B12 examine the tree regardless of how
+it was edited.
 
-- **Graduated gate (W19 — SOTA: OPA deny/warn/dryrun + pre-commit incremental):**
-  enforcement is graded by KIND+PHASE. A **real violation** (tamper, wave-added
-  secret, pin/lock/risk, destructive) blocks per-edit (deny). A **completion
-  condition** (new-project git/design-docs/requirements, seal FRESHNESS) is
-  ADVISORY during execution, enforced at `--final` (warn→deny) — code changing
-  mid-wave is normal work, not a violation. `--final` runs all groups STRICT.
-- **Fail-closed (D4):** a real violation blocks ("the check could not run" is
-  itself a BLOCK — python3 missing, timeout, crash, placeholder/stub); only `WARN`
-  + graded completion findings stay advisory during execution. A legacy prose-only
-  copy fails closed (upgrade from `scripts/`). `--json` prints
-  `{ok, passes, fails:[{code,severity,detail}]}`. Secret scan stays STRICT (every
-  non-`.md` hit blocks) — the "dryrun pre-existing" grading was reverted (W19
-  review: `tracked`/anchor provenance is spoofable); noise is handled by the
-  de-dup latch + `- secret-approved:`, never by downgrading real secrets.
-- **Banner de-dup (W19):** an unchanged blocking list dumps IN FULL once, then a
-  one-line summary points at `tests/gate_result.json` (details on disk) — never
-  re-flood the same lines per edit (alarm-flood control, same latch as warnings).
+- **Graduated gate (W19/W23 — SOTA: OPA deny/warn/dryrun + pre-commit incremental):**
+  enforcement is graded by KIND+PHASE, not by one message token.
+  - **Hard violation** (wave-added secret, seal tamper/missing, checker pin,
+    test deletion without license, class contradiction, evidence lock,
+    destructive/risk pre-deny) → `GATE-BLOCKED` error; the write still landed,
+    fix the violation before completion.
+  - **Completion debt** (tests/evidence missing, new-project artifacts, seal
+    freshness, review package, working-note lifecycle, repo hygiene, historical
+    stall closure, etc.) → a deduped `[VIBEWEAVER COMPLETION-NOT-READY]` note:
+    **editing continues**, but declaring done remains blocked until `--final`
+    exits 0. The old behavior threw completion debt as a phantom tool error.
+  - **Un-runnable check** (python missing, timeout, crash, placeholder/stub,
+    legacy prose without structured severity) → `GATE-CHECK-UNAVAILABLE`; never
+    silently passes.
+  `--final` runs all groups STRICT.
+- **Fail-closed (D4):** "the check could not run" is itself a hard block. A
+  legacy prose-only copy still fails closed (upgrade from `scripts/`). `--json`
+  prints `{ok, passes, fails:[{code,severity,kind,detail}]}`; `kind` is
+  `violation | completion` (the plugin adds `unavailable` for terminal runner
+  failures and has a conservative prose fallback). Secret scan stays STRICT
+  (every non-`.md` hit blocks) — the "dryrun pre-existing" grading was reverted
+  (W19 review: `tracked`/anchor provenance is spoofable); noise is handled by
+  the de-dup latch + `- secret-approved:`, never by downgrading real secrets.
+- **Banner de-dup (W19/W23):** hard violations dump in full once, then an
+  unchanged list becomes one summary line; completion debt is also latched by
+  content hash, so a 598-item historical list cannot become a per-edit alarm
+  flood. Details always remain in `tests/gate_result.json`.
 - `session.idle` with a RED gate writes a `warn` entry to the opencode log
   (tripwire when the agent stops on a red gate).
 - **Stall observer (stateful):** `.vibeweaver/state.json` (gitignore it)
   keeps the last ≤20 ops + the `iter N PASS` count; the SAME file edited 3×
-  with no new PASS gets a `[GATE-WARNING]` stall note (§A4.10). Warnings only
-  — never blocks (COV-7, machine-counted).
-- Escape hatch: `VIBEWEAVER_GATE=off` disables the plugin.
+  with no new PASS gets a `[GATE-WARNING]` stall note (§A4.10). W23: this
+  observer runs **even while the gate is RED/completion-blocked**, so chronic
+  debt cannot hide a stalled loop. Warnings only — never blocks (COV-7).
+- **Cache safety (W23):** non-git roots are never served from the result cache
+  (ordinary source edits have no trustworthy whole-tree key); git cache reads
+  use `GIT_OPTIONAL_LOCKS=0` so computing a key does not mutate `.git/index`.
+- **Snapshot generation (W23):** a deleted `tests/working_note.md` can be
+  restored from the harness snapshot only for the **same active task**. A new
+  task heading/acceptance hash or a green `- final-run: --final … fail=0`
+  invalidates it; legacy snapshots without `taskKey` are ignored.
+- Escape hatch: `VIBEWEAVER_GATE=off` is a user-authorized operational action
+  only; it is never the agent's repair path. `VIBEWEAVER_GATE_FINAL=1` hardens
+  completion debt back into a hard block (second line of defense).
 - If `tests/assert_artifacts.py` is missing, the plugin runs an inline evidence
-  check and the GATE-BLOCKED message points to §A4.4.1.
+  floor and surfaces COMPLETION-NOT-READY (or the scope denial for an untrusted
+  nested project); it points to §A4.4.1.
 - **Trust model:** laziness/drift, not hostile root — fake checker → pin
   (T2); protected evidence → lock (T2.5). `tests/` exempt.
 - **Seal three-state (G1, W18)** — `tests/evidence_manifest.json` +
@@ -310,9 +340,12 @@ audit B12 examine the tree regardless of how it was edited.
   (T2.5):** checker/acceptance/profile/debt/lock/gate_result stay gated; the lock
   is written only by `scripts/evidence_lock.py`.
 
-The GATE-BLOCKED message means **keep working — fix the evidence, then the
-next write/edit re-checks automatically**. It is a completion gate, not an
-execution stop.
+`COMPLETION-NOT-READY` means **keep editing — fix the listed debt before
+declaring done**; `GATE-BLOCKED` means a hard violation landed despite the
+write succeeding; `GATE-CHECK-UNAVAILABLE` means the checker could not produce
+a trustworthy verdict. None is an execution stop. Disabling the plugin is a
+user-authorized operational choice, never an agent repair; it suppresses
+post-write checks but never the `--final` requirement.
 
 ---
 

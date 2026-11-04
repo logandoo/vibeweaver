@@ -352,8 +352,18 @@ Create `memory/.consolidation-log.md` when consolidating (see MEMORY_RULES.md §
 
 Task-scoped working memory. REWRITE on each update (state, not chronicle);
 ≤50 lines; delete at task end after distilling into `memory/` (A7.9).
+Preferred format: fenced `vibeweaver-state` JSON v1 first, optional prose after.
+`task` and `next_action` are required; the harness keeps them when trimming.
 
-```markdown
+````markdown
+```vibeweaver-state
+{"version":1,"task":"<short task>","updated":"iter N / <time>",
+ "current_criterion":"#2","next_action":"<one concrete action>",
+ "assumption":"<core assumption>","falsifier":"<test that would disprove it>",
+ "confirmed":["..."],"open":["..."],"excluded":["..."],
+ "key_files":["path:line — why"],"blocked":[]}
+```
+
 # Working Note — <task> (updated: iter N / <time>)
 
 ## Hypothesis ledger
@@ -371,4 +381,9 @@ path/to/file.ts:123 — <one clause why it matters>
 
 ## Next action
 <one line>
-```
+````
+
+Legacy notes without the state block are still accepted. A malformed block
+produces a `WORKING-STATE SCHEMA WARNING` and uses the head+tail fallback. When
+a `## Next action` section exists, it is rendered first in the fallback; arrays
+show a `… (+N more <field>)` marker for every item the delivery budget omits.

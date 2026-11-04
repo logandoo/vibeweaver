@@ -1,4 +1,5 @@
 import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
+import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import path from "node:path"
 import os from "node:os"
@@ -244,6 +245,117 @@ function findProjectRoot(startDirs) {
   }
   return null
 }
+
+const AUDIT_SESSION_ROOT = new Map()
+
+// Audit state keys historically use the host's logical path (`/var`), while
+// the gate may hand us a realpath (`/private/var`). Keep audit bookkeeping on
+// path.resolve so existing state/latches/tests keep one stable key; deeper
+// symlink safety is the gate's job, not the passive auditor's.
+function auditCanonical(p) {
+  return path.resolve(p)
+}
+
+function auditReal(p) {
+  try {
+    return realpathSync(path.resolve(p))
+  } catch {
+    return path.resolve(p)
+  }
+}
+
+function auditNearestExistingDir(start) {
+  let d = path.resolve(start)
+  for (;;) {
+    if (existsSync(d)) return d
+    const up = path.dirname(d)
+    if (up === d) return d
+    d = up
+  }
+}
+
+function auditGitTop(dir) {
+  try {
+    const out = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: dir, encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"],
+    }).trim()
+    return out ? path.resolve(out) : null
+  } catch {
+    return null
+  }
+}
+
+// git rev-parse returns the realpath (`/private/var/...`); keep the host's
+// spelling (`/var/...`) so state keys and tests stay stable.
+function auditHostSpelling(host, target) {
+  if (!target) return target
+  try {
+    const realHost = realpathSync(path.resolve(host))
+    if (target === realHost || target.startsWith(realHost + path.sep)) {
+      return path.join(path.resolve(host), path.relative(realHost, target))
+    }
+  } catch {
+    /* host may not exist */
+  }
+  return target
+}
+
+function auditOutside(base, target) {
+  const targetResolved = existsSync(target)
+    ? realpathSync(target)
+    : path.join(auditCanonical(auditNearestExistingDir(path.dirname(target))), path.basename(target))
+  const rel = path.relative(auditCanonical(base), targetResolved)
+  return rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel)
+}
+
+function auditTrustedProject(dir) {
+  return existsSync(path.join(dir, "tests", "verification_log.md"))
+    && existsSync(path.join(dir, "tests", "assert_artifacts.py"))
+}
+
+// Mirror the gate's W23 scope: nested trusted git project > active host/parent
+// > inactive nested git (falls back to the active parent; gate denies if none).
+function findProjectRootForFile(directory, filePath) {
+  const host = directory ? auditCanonical(directory) : null
+  if (!filePath) return findProjectRoot([host])
+  const abs = path.resolve(host || ".", filePath)
+  if (!host) return findProjectRoot([path.dirname(abs)])
+  const fileGit = auditHostSpelling(host, auditGitTop(auditNearestExistingDir(path.dirname(abs))))
+  const hostGit = auditHostSpelling(host, auditGitTop(host))
+  const outside = auditOutside(host, abs)
+  const activeHere = existsSync(path.join(host, "tests", "verification_log.md")) ? host : null
+  const activeAbove = path.dirname(host) !== host ? findProjectRoot([path.dirname(host)]) : null
+  if (fileGit && fileGit !== hostGit) {
+    if (auditTrustedProject(fileGit)) return fileGit
+    return activeHere || activeAbove || fileGit
+  }
+  if (activeHere) return host
+  if (hostGit && activeAbove && activeAbove !== fileGit) return activeAbove
+  if (activeAbove) return activeAbove
+  if (outside) return null
+  for (let d = path.dirname(abs); ; d = path.dirname(d)) {
+    if (existsSync(path.join(d, "tests", "verification_log.md"))) return d
+    if (d === host || d === path.dirname(d)) break
+  }
+  return null
+}
+
+function rememberAuditRoot(sessionID, root, host) {
+  if (!sessionID || !root) return
+  const h = host ? auditCanonical(host) : null
+  if (h && auditOutside(h, root)) return
+  AUDIT_SESSION_ROOT.delete(sessionID)
+  AUDIT_SESSION_ROOT.set(sessionID, { root: auditCanonical(root), host: h })
+  if (AUDIT_SESSION_ROOT.size > 500) AUDIT_SESSION_ROOT.delete(AUDIT_SESSION_ROOT.keys().next().value)
+}
+
+function auditRootForSession(directory, sessionID) {
+  const rec = sessionID ? AUDIT_SESSION_ROOT.get(sessionID) : null
+  if (rec && rec.host === auditCanonical(directory)) return rec.root
+  return findProjectRoot([directory])
+}
+
+
 
 // A path is exempt from RED blocking when it lies inside the project root
 // and any segment of its project-relative path is a test directory —
@@ -822,6 +934,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const touchSession = (sessionID) => {
     if (!state.sessions[sessionID]) state.sessions[sessionID] = { text: "", textParts: {}, tools: [], skillLoaded: false }
     const s = state.sessions[sessionID]
+    s.sessionID = sessionID
     s.updatedAt = Date.now() // W0 Task 1.5 retention key
     if (!s.roles) s.roles = {} // messageID → role (stop-guard, bounded)
     if (!s.partMsg) s.partMsg = {} // text-partID → messageID (stop-guard, bounded)
@@ -990,7 +1103,8 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const runAudit = async (sessionID, phase) => {
     const sess = state.sessions[sessionID]
     if (!sess) return null
-    const root = findProjectRoot([directory])
+    const rootResolved = auditRootForSession(directory, sessionID)
+    const root = stateRootKey(rootResolved) || rootResolved
     if (!root) return null
     if (process.env.VIBEWEAVER_AUDIT === "off") return null
     const loaded = skillLoaded(sess)
@@ -1475,7 +1589,8 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (typeof core.stopEuphemism !== "function" || typeof core.stopGuardDecision !== "function") return
       const sess = state.sessions[sessionID]
       if (!sess) return
-      const root = findProjectRoot([directory])
+      const rootResolved = auditRootForSession(directory, sessionID)
+      const root = stateRootKey(rootResolved) || rootResolved
       if (!root) return
       if (!skillLoaded(sess)) return
       if (!sess.stopGuard) sess.stopGuard = { interventions: 0, armed: true, disarmedKey: null }
@@ -1957,7 +2072,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   }
   const recordBashWrites = (sess, command, messageID, holder) => {
     if (!holder || holder.writeRecorded) return
-    const root = findProjectRoot([directory])
+    const root = auditRootForSession(directory, sess.sessionID)
     const targets = bashWriteTargets(command).filter((p) => {
       if (p.startsWith("/dev/")) return false
       if (!root) return true
@@ -2335,14 +2450,77 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     touchSession(sessionID).lastErrorAt = Date.now()
   }
 
+  // State may have been written before W23 with a `/var` logical path while
+  // the resolver now returns `/private/var` (macOS symlink). Match canonically
+  // but keep mutating the original key so old latches survive.
+  const stateRootKey = (root) => {
+    if (!root) return null
+    if (state.roots[root]) return root
+    const want = auditCanonical(root)
+    return Object.keys(state.roots).find((k) => auditCanonical(k) === want) || null
+  }
+
+  const auditLatchMessage = (cur, latch) => cur === latch.sessionID
+    ? "GATE-BLOCKED (vibeweaver-audit): YOUR session's mechanical audit is RED — read tests/gate_audit.md. To unblock: fix each [BAD] item (any test directory — tests/, dev/tests/, … — stays writable: repair the missing evidence and append `- audit-fix: …` entries to tests/verification_log.md), then re-emit a corrected [Verification Gate] line in your reply. The audit re-runs at every session idle and re-checks on every write. Starting a NEW task in this session? Per protocol write tests/acceptance.md first (Step 1 — tests/ is writable right now): a post-latch acceptance rewrite BY THE WRITE/EDIT TOOL (hook-observed; bash touches do not count — D-W18-6 attribution) auto-releases the latch on your next gated write (journaled as new-task) — no other session, no TTL wait, no VIBEWEAVER_AUDIT=off needed; the old wave's debt stays in tests/gate_audit.md and your new wave's own final audit re-checks everything. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
+    : "GATE-BLOCKED (vibeweaver-audit): a mechanical RED latch for this project is still pending — read tests/gate_audit.md. The latch belongs to the session that earned it and does NOT release on other sessions' writes (D3: subagent/task-tool writes count as foreign). It releases only on that session's own new task (tests/acceptance.md rewritten after the latch) or after the red TTL (default 24h). Any test directory (tests/, dev/tests/, …) stays writable so evidence can be repaired. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
+
   // RED-latch write gate (shared by both execute.before adapters).
   // Returns the block message to throw, or null.
   const beforeWrite = ({ tool, sessionID, filePath }) => {
     if (tool !== "write" && tool !== "edit") return null
     if (process.env.VIBEWEAVER_AUDIT === "off") return null
     const cur = typeof sessionID === "string" && sessionID ? sessionID : null
-    const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
-    if (!root || !state.roots[root]) return null
+    const root = findProjectRootForFile(directory, filePath)
+    if (!root) return null
+    let rootKey = stateRootKey(root)
+    // Bind the session to the STATE key (may be the legacy logical `/var`
+    // spelling), not the canonical path, so idle/stop-guard mutate the same
+    // latch entry. With no state yet, keep the host's logical spelling for a
+    // non-nested workspace so a later first write uses the same root key.
+    let sessionRoot = rootKey || root
+    if (!rootKey) {
+      const logicalHost = findProjectRoot([directory])
+      if (logicalHost && auditCanonical(logicalHost) === auditCanonical(root)) sessionRoot = logicalHost
+    }
+    rememberAuditRoot(cur, sessionRoot, directory)
+    if (!rootKey && auditCanonical(root) !== auditCanonical(directory)) {
+      // Nested project state lives under its own .vibeweaver/. Read it read-
+      // only for the pre-write deny; the global state file stays the owner of
+      // the host workspace.
+      try {
+        const nestedStatePath = path.join(root, STATE_DIR, STATE_FILE)
+        const nestedState = JSON.parse(readFileSync(nestedStatePath, "utf8"))
+        const keys = nestedState && nestedState.roots ? Object.keys(nestedState.roots) : []
+        const key = keys.find((k) => auditReal(k) === auditReal(root))
+        if (key) {
+          const entry = nestedState.roots[key]
+          const latch = readLatch(entry)
+          const isAcceptance = filePath && isTestDirPath(root, filePath) && /(^|[\\/])acceptance\.md$/.test(filePath)
+          const armed = cur && entry.newTaskArms && entry.newTaskArms[cur] > (latch ? latch.ts : 0)
+          if (latch && cur === latch.sessionID && armed) {
+            entry.red = null
+            writeFileSync(nestedStatePath, JSON.stringify(nestedState))
+            return null
+          }
+          if (isAcceptance && (!latch || cur === latch.sessionID)) {
+            if (!entry.newTaskArms || typeof entry.newTaskArms !== "object") entry.newTaskArms = {}
+            entry.newTaskArms[cur || "(none)"] = Math.max(Date.now(), (latch ? latch.ts : 0) + 1)
+            writeFileSync(nestedStatePath, JSON.stringify(nestedState))
+            return null
+          }
+          if (latch && Date.now() - latch.ts > 24 * 3600 * 1000) {
+            entry.red = null
+            writeFileSync(nestedStatePath, JSON.stringify(nestedState))
+            return null
+          }
+          if (latch && filePath && !isTestDirPath(root, filePath)) return auditLatchMessage(cur, latch)
+        }
+      } catch {
+        /* no nested state → no latch */
+      }
+      return null
+    }
+    if (!rootKey) return null
     // D-W18-6 (W18 review Important): the "new-task" release key is
     // ATTRIBUTION-GATED. Only a tests/acceptance.md write observed for the
     // LATCHING session arms it — a foreign session's write (or a bash
@@ -2352,7 +2530,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       // per-session arms (review A: a single slot let a FOREIGN acceptance
       // write clobber the owner's arm and grief its legitimate release);
       // bounded map, newest ts per session wins.
-      const entryA = state.roots[root]
+      const entryA = state.roots[rootKey]
       if (!entryA.newTaskArms || typeof entryA.newTaskArms !== "object") entryA.newTaskArms = {}
       entryA.newTaskArms[cur || "(none)"] = Date.now()
       const _arms = Object.keys(entryA.newTaskArms)
@@ -2360,14 +2538,11 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       flush()
       return null
     }
-    releaseStale(root, cur, "write")
-    const latch = readLatch(state.roots[root])
+    releaseStale(rootKey, cur, "write")
+    const latch = readLatch(state.roots[rootKey])
     if (!latch) return null
     if (filePath && isTestDirPath(root, filePath)) return null
-    const selfLatched = cur === latch.sessionID
-    return selfLatched
-      ? "GATE-BLOCKED (vibeweaver-audit): YOUR session's mechanical audit is RED — read tests/gate_audit.md. To unblock: fix each [BAD] item (any test directory — tests/, dev/tests/, … — stays writable: repair the missing evidence and append `- audit-fix: …` entries to tests/verification_log.md), then re-emit a corrected [Verification Gate] line in your reply. The audit re-runs at every session idle and re-checks on every write. Starting a NEW task in this session? Per protocol write tests/acceptance.md first (Step 1 — tests/ is writable right now): a post-latch acceptance rewrite BY THE WRITE/EDIT TOOL (hook-observed; bash touches do not count — D-W18-6 attribution) auto-releases the latch on your next gated write (journaled as new-task) — no other session, no TTL wait, no VIBEWEAVER_AUDIT=off needed; the old wave's debt stays in tests/gate_audit.md and your new wave's own final audit re-checks everything. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
-      : "GATE-BLOCKED (vibeweaver-audit): a mechanical RED latch for this project is still pending — read tests/gate_audit.md. The latch belongs to the session that earned it and does NOT release on other sessions' writes (D3: subagent/task-tool writes count as foreign). It releases only on that session's own new task (tests/acceptance.md rewritten after the latch) or after the red TTL (default 24h). Any test directory (tests/, dev/tests/, …) stays writable so evidence can be repaired. Escalate via VIBEWEAVER_AUDIT=off only with user consent."
+    return auditLatchMessage(cur, latch)
   }
 
   // Session-idle driver (v1 "session.idle"; v2 "session.status" idle).
@@ -2378,7 +2553,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     // pass runs BEFORE the audit. D3: foreign sessions no longer release
     // anything; a fresh latch of THIS session survives (releaseStale refuses
     // it) and its own final audit decides.
-    const idleRoot = findProjectRoot([directory])
+    const idleRoot = auditRootForSession(directory, sessionID)
     if (idleRoot) releaseStale(idleRoot, sessionID, "idle")
     flush()
     const sess = state.sessions[sessionID]

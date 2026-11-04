@@ -1,4 +1,4 @@
-# using-vibeweaver (bootstrap v1)
+# using-vibeweaver (bootstrap v2)
 
 You are working with the vibeweaver skill. This 1–2 KB pointer is injected at
 session start. Read the profile it names; do not load the full 340 KB contract
@@ -23,11 +23,11 @@ explanation do not need this workflow.
 - completion → `tests/assert_artifacts.py` (canonical, pinned) exits 0
 
 ## Gate
-- The gate is a completion gate, not an execution stop: a blocked write still
-  landed; fix the evidence, then the next write re-checks.
+- `COMPLETION-NOT-READY` = keep editing, done blocked; `GATE-BLOCKED` = hard
+  violation; `GATE-CHECK-UNAVAILABLE` = checker failed. All mean write landed.
 - Never claim done without executed tests and on-disk evidence.
 - Host without any injection hook: install `bootstrap.md` and ask the host to
-  prepend it at session start (`BOOTSTRAP_VERSION=1`).
+  prepend it at session start (`BOOTSTRAP_VERSION=2`).
 
 Full contract: `SKILL.md` §1 (13 covenants) → `TESTING_PROTOCOLS.md` §A4.1/§A4.8
 → `COMPLETION_GATE.md` §A4.4.

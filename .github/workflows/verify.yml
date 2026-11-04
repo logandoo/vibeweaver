@@ -46,7 +46,9 @@ jobs:
           node vibeweaver/scripts/mutation_sweep.mjs
 
       - name: Plugin compat harness (node, no quarantine)
-        run: node tests/plugin_compat_test.mjs
+        run: |
+          node tests/plugin_compat_test.mjs
+          node tests/context_state_test.mjs
 
       - name: Mini checker gate harness
         run: node tests/mini_gate_test.mjs

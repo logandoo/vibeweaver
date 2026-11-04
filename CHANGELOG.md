@@ -6,6 +6,49 @@
 
 ---
 
+## 2026-11-04 结构化 working note + 上下文恢复（W24）
+
+### Schema
+- `tests/working_note.md` 顶部支持 fenced `vibeweaver-state` JSON v1：`task`/`next_action` 必填；`current_criterion`、`assumption`、`falsifier`、`confirmed[]`、`open[]`、`excluded[]`、`key_files[]`、`blocked[]` 可选。正文仍是 Markdown，可继续写假设台账/关键路径。
+- 旧 freeform note 完全兼容；malformed JSON、错误容器类型、未知 schema version 均显示 `WORKING-STATE SCHEMA WARNING` 并走 head+tail fallback，不崩溃、不静默丢笔记。
+
+### Context delivery
+- 结构化渲染优先级：`task` → `current_criterion` → `next_action` → `assumption`/`falsifier` → 数组；数组按预算裁剪并显示 `… (+N more <field>)`，且 N 按原始总数计算（不再在 parser 硬截 8 项）。
+- freeform 长笔记：取**最后一个非空** `## Next action` 的完整 section（渲染上限 1000B），从正文移除所有旧 action section 后把当前 action 渲染在最前面；>4KB 的尾部 next action 不再被截掉，且 stale action 不会残留。
+- snapshot 读取失败（EISDIR/EACCES/zero-byte EACCES/非普通文件/超限）不再把空字符串误判为“空笔记”并删除有效快照；读失败时投递回退到已有快照并标注 unreadable；只有真正空的笔记才 reset；可读的超大笔记刷新快照（head+tail，保留尾部 action）并标 truncated；symlink 笔记与 `.vibeweaver` 外部 symlink 不持久化/不读取外部内容（W24a S5s/S5t/S5t2/S5u/S5v/S5v2/S5w 回归）。
+- completion debt：每项先压到 100B，保证前 3 项 + `+N` 计数在 430B 内；state/debt 总投递仍 ≤4096B，debt 不能挤掉 `next_action`。
+- snapshot 原始存储上限 4KB → 64KB，delivery 仍 4096B；超过 64KB 的 snapshot 明确标注 truncated；空 note 会清掉旧 snapshot，避免当 authoritative 复活。W23 的 `taskKey`/`finalized` 代际保护不变。
+
+### 验证
+- `tests/context_state_test.mjs` 50/50：structured、malformed/type/version fallback、>4KB freeform、长 debt 交叉、多行/重复/公共短语 Next action、数组原始计数、snapshot >4KB、空 note reset、读取失败（EISDIR/EACCES/zero-byte EACCES/symlink/oversize）不删快照并回退、head+tail snapshot、state-dir symlink 拒绝、legacy snapshot 拒绝。
+- 旧套件全绿：scope 69/69 · failclosed 29/29 · plugin compat 86/86 · latch 7/7 · graduated 24/24 · assert groups 75/75 · v2 arm 16 · finding kind 5 · cache 4/4 · audit 572/0 · mutation 44/0 · bootstrap 8/8 · state bounds 4/4。
+- 发布套件：audit_selftest 572 / 0 · mutation_sweep 44 / 0 · plugin compat 86 / 86 · mini gate 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows)。
+
+## 2026-11-04 门禁作用域/阶段/恢复（W23）
+
+### Scope
+- 文件写入按最近 **active git 项目根** 选 scope（多仓 umbrella + nested dev 不再跑错根）；嵌套 non-git marker 不能从 active host 缩域；未信任/inactive nested git（缺 checker 或 gitlink 无法扫描）被 scope guard 明确拒绝，不再静默逃逸；idle/cue/compaction 跟随 session→最近同 workspace gated root。
+- `tests/gate_result.json` 增加 `scope`/`kinds`/`violations`/`completion`；旧 `blocking` 字段保留。
+
+### Phase
+- 完成债不再伪装成失败写入：`[VIBEWEAVER COMPLETION-NOT-READY]` 去重 note，编辑继续、`--final` 仍强制；secret/tamper/pin/lock 仍 `GATE-BLOCKED`；无法运行/legacy prose 为 `GATE-CHECK-UNAVAILABLE`。完整 598 旧债不再每次重灌。
+- checker JSON failure 增加 `kind`（`violation|completion`）；prose fallback fail-closed 为 unavailable。
+- RED 状态仍运行 stall observer；non-git verdict 不再复用缓存 PASS；git cache key 使用 `GIT_OPTIONAL_LOCKS=0` 避免自失效。
+
+### Recovery
+- memory snapshot 绑定 task heading+occurrence+acceptance hash；legacy 无 key 快照拒绝，new task / green `- final-run … fail=0` 后不复活旧 note；同 task 意外删源仍可恢复（failed final 不关闭）。
+- baseline harness 隔离宿主 checker pin；修 legacy prose checker 的 fail-open（W23 failclosed 由红转全绿，证据见 `tests/logs/w23_iter1_failclosed.log`）。
+
+### Review hardening（fresh-context adversarial）
+- nested git scope 须有 log+checker；untrusted/inactive nested git 被 scope guard 明确拒绝（不再 inline-only 自缩域）。
+- completion latch 按 root+session+task；green 清空、compaction 重挂、只展示 new/changed 前 3 项；`VIBEWEAVER_GATE_FINAL=1` 将完成债硬化为 block。
+- unknown checker finding 默认 `unavailable`（不再默认 completion）；fake media 为 violation；idle 只报 completion 摘要不 dump 全量；gate_events 识别 COMPLETION/UNAVAILABLE/stall 且拒绝散文误计。
+- audit plugin 同步 nested scope + session root + 旧 `/var`↔`/private/var` state key 兼容；session 外写不再串根；nested 自己的 acceptance/TTL 可释放 nested latch。
+- nested activation 只放行 `tests/verification_log.md` + `tests/assert_artifacts.py`（protected evidence 仍走 lock）；agent 写 `tests/gate_result.json` 强制 fresh checker，杜绝 cached PASS 盲区。
+
+### 验证
+- W23 suites all green（scope / failclosed / plugin compat / latch / graduated / assert groups / v2 arm；逐项日志见 `tests/logs/w23_*.log` 与 `tests/verification_log.md`）。
+
 ## 2026-10-29 门禁降噪 + Epistemic Guard + 发布同步（W20a–W22）
 
 ### W20a — secret baseline ratchet（解 vendored-secret 噪音）

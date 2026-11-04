@@ -495,10 +495,10 @@ re-run until exit 0. Missing the script → copy `scripts/` canonical. Groups + 
 `--final` / profiles): COMPLETION_GATE.md §A4.4.1.
 
 #### A4.4.2 Physical gate (plugin) ★
-The `vibeweaver-gate` plugin re-runs `tests/assert_artifacts.py` after every
-write/edit: failures → GATE-BLOCKED (completion gate — fix evidence; next
-write re-checks; Bash not gated). `VIBEWEAVER_GATE=off` escapes. Semantics:
-COMPLETION_GATE.md §A4.4.2.
+After write/edit in the nearest active scope, completion debt → deduped
+`COMPLETION-NOT-READY` note (edit continues; `--final` enforces); secret/tamper
+→ `GATE-BLOCKED`; un-runnable check → `GATE-CHECK-UNAVAILABLE`. Bash not gated.
+Semantics: COMPLETION_GATE.md §A4.4.2.
 
 #### A4.5 Media capture template
 Playwright video + in-page audio + screenshot templates: APPENDIX.md §A4.5.

@@ -81,8 +81,9 @@ bash tests/self_check.sh                               # clean-clone structural 
 python3 scripts/contract_lint.py                       # 0 conflicts
 ```
 
-The gate (`vibeweaver-gate.js`) re-runs the checker after writes; a
-GATE-BLOCKED result means the write landed but completion is not allowed yet.
+The gate (`vibeweaver-gate.js`) re-runs the checker after writes.
+`COMPLETION-NOT-READY` = keep editing, done blocked; `GATE-BLOCKED` = hard
+violation; `GATE-CHECK-UNAVAILABLE` = checker failed. All mean write landed.
 
 ## Read more (only when needed)
 

@@ -185,15 +185,15 @@ class TestGatePlugin(unittest.TestCase):
                 self.assertIn("THROW=N", line, r.stdout)
 
     @unittest.skipUnless(shutil.which("node"), "node not available")
-    def test_missing_iter_entries_blocks(self):
-        """The evidence floor fires: a log with no `- iter N PASS/FAIL:` entry blocks writes."""
+    def test_missing_iter_entries_is_completion_debt_not_throw(self):
+        """W23 semantics: missing iter entries are completion debt, not a tool throw."""
         tmp = self._stage_gate()
         (tmp / "tests" / "verification_log.md").write_text(
             "## Task: x | 2026-08-19\n- tried some stuff\n", encoding="utf-8")
         r = run(["node", str(tmp / "driver.mjs"), str(tmp)], cwd=str(tmp))
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lines = [l for l in r.stdout.splitlines() if l.startswith("R")]
-        self.assertTrue(lines and all("THROW=Y" in l for l in lines), r.stdout)
+        self.assertTrue(lines and all("THROW=N" in l for l in lines), r.stdout)
 
 
 class TestPackageCoherence(unittest.TestCase):

@@ -2,9 +2,10 @@
 """scripts/gate_events.py — 从 eval run 的 trajectory.json 解析 gate 插件的拦截事件。
 
 产品形态 eval（v2）的「插件体检表」：gate 插件在 vibeweaver-active 项目里对
-write/edit/bash 输出 GATE-BLOCKED 反馈（write-succeeded-completion-gate 形），
-subject 的每一次被拦截都会出现在 opencode 的 JSON 事件流里（trajectory.json 的
-agent.stdout）。本模块把它机械地数出来：次数、类型分布、首次拦截位置。
+write/edit/bash 输出硬 `GATE-BLOCKED`、`GATE-CHECK-UNAVAILABLE` 或
+`COMPLETION-NOT-READY` 提示；这些事件都会出现在 opencode 的 JSON 事件流里
+（trajectory.json 的 agent.stdout）。本模块把它们机械地数出来：次数、类型分布、
+首次事件位置。
 
 口径（诚实性）：
   * 只统计 JSON 事件流里 tool_result 文本中的命中——非 JSON 的裸文本永不计事件
@@ -19,17 +20,30 @@ import re
 import sys
 
 PREFIX = "GATE-BLOCKED"
-# Only the plugin's own message shape counts as an interception: "GATE-BLOCKED"
-# followed by a parenthesised label. Prose mentions (the SKILL docs explain the
-# mechanism and quote the token, v2-smoke2 showed 6 such false hits) never count.
+COMPLETION_PREFIX = "[VIBEWEAVER COMPLETION-NOT-READY]"
+UNAVAILABLE_PREFIX = "GATE-CHECK-UNAVAILABLE"
+# Only the plugin's own message shape counts as an interception: a token
+# followed by a parenthesised label / canonical completion prefix. Prose
+# mentions (the SKILL docs explain the mechanism and quote the token,
+# v2-smoke2 showed 6 such false hits) never count.
 MESSAGE_RE = re.compile(r"GATE-BLOCKED\s*\(")
+# Anchor the W23 markers to the plugin's message shape; docs/review text quotes
+# the bare token and must never inflate the event metric.
+COMPLETION_RE = re.compile(
+    r"^" + re.escape(COMPLETION_PREFIX) + r"\s+WRITE SUCCEEDED\s+—\s+scope=")
+UNAVAILABLE_RE = re.compile(
+    r"^GATE-CHECK-UNAVAILABLE\s*\([^)]*\)\s*:\s*WRITE SUCCEEDED")
+STALL_RE = re.compile(r"\[GATE-WARNING \(vibeweaver-stall\)\]\s*STALL observed")
 
 # 顺序敏感：physical-gate 消息体内也会提到 evidence lock 等词，先匹配最外层标签。
 TYPE_PATTERNS = [
     ("destructive", re.compile(r"GATE-BLOCKED \(destructive guard\)")),
     ("secret", re.compile(r"GATE-BLOCKED \((?:vibeweaver )?secret", re.I)),
-    ("stall", re.compile(r"STALL observed")),
+    ("stall", re.compile(r"\[GATE-WARNING \(vibeweaver-stall\)\]|STALL observed")),
     ("evidence-lock", re.compile(r"GATE-BLOCKED \(vibeweaver evidence lock\)")),
+    ("unavailable", re.compile(r"GATE-CHECK-UNAVAILABLE")),
+    ("integrity", re.compile(r"GATE-BLOCKED \(vibeweaver integrity\)")),
+    ("completion", re.compile(re.escape(COMPLETION_PREFIX))),
     ("completion", re.compile(r"GATE-BLOCKED \((?:vibeweaver )?(?:physical )?gate\)")),
 ]
 
@@ -72,27 +86,52 @@ def _iter_texts(traj):
 
 
 def summarize(traj):
-    """trajectory dict -> {gate_blocked_events, by_type, first_blocked_at, events}."""
-    total = 0
+    """trajectory dict -> gate event counts.
+
+    Keeps `gate_blocked_events` as the HARD block count (backward compatible)
+    and adds `completion_not_ready_events` for the W23 non-throwing debt note.
+    `gate_events` is the total plugin-intervention count used by health checks.
+    """
+    hard = 0
+    completion = 0
+    stalls = 0
     by_type = {}
     first = None
     events = []
+    last = None
     for idx, text in _iter_texts(traj):
-        if PREFIX not in text:
+        if (PREFIX not in text and COMPLETION_PREFIX not in text
+                and UNAVAILABLE_PREFIX not in text and STALL_RE.search(text) is None):
             continue
+        last = None  # detail attribution never crosses a result/text boundary
         for line in text.splitlines():
-            n = len(MESSAGE_RE.findall(line))
+            n_hard = len(MESSAGE_RE.findall(line)) + len(UNAVAILABLE_RE.findall(line))
+            n_completion = len(COMPLETION_RE.findall(line))
+            n_stall = len(STALL_RE.findall(line))
+            n = n_hard + n_completion + n_stall
             if not n:
+                # Attribute a secret detail line back to the multiline hard
+                # banner it belongs to (the wrapper label is `integrity`).
+                if last and last.get("type") == "integrity" and re.match(r"^\s*-\s*secret scan:", line):
+                    by_type["integrity"] = max(0, by_type.get("integrity", 0) - 1)
+                    if by_type["integrity"] == 0:
+                        by_type.pop("integrity", None)
+                    by_type["secret"] = by_type.get("secret", 0) + 1
+                    last["type"] = "secret"
                 continue
-            total += n
+            hard += n_hard
+            completion += n_completion
+            stalls += n_stall
             typ = classify(line)
             by_type[typ] = by_type.get(typ, 0) + n
             if first is None:
                 first = idx
-            events.append({"event_index": idx, "type": typ,
-                           "excerpt": line.strip()[:160]})
-    return {"gate_blocked_events": total, "by_type": by_type,
-            "first_blocked_at": first, "events": events[:50]}
+            last = {"event_index": idx, "type": typ,
+                    "excerpt": line.strip()[:160]}
+            events.append(last)
+    return {"gate_blocked_events": hard, "completion_not_ready_events": completion,
+            "stall_events": stalls, "gate_events": hard + completion + stalls,
+            "by_type": by_type, "first_blocked_at": first, "events": events[:50]}
 
 
 def main(argv=None):

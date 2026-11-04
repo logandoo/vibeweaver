@@ -1,6 +1,6 @@
 import { execFile, execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
-import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
+import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
 // vibeweaver physical gate — https://opencode.ai
@@ -72,6 +72,11 @@ const RESULT_CACHE_MAX = 32
 // disk). Warnings already dedupe via LENIENT_NOTED; blocking had no such latch,
 // so a persistent vendored-secret wave re-emitted 60+ lines on EVERY edit.
 const LAST_BLOCK = new Map()
+const LAST_COMPLETION = new Map()
+// W23: a write resolves its scope from the target file (nearest git project
+// boundary). Session-scoped hooks without a file path (compaction/idle/cue)
+// must follow the same root, not fall back to the umbrella workspace root.
+const SESSION_ROOT = new Map()
 // Review B4 (A4.9): a verdict that only passed under a lenient flag combo
 // (--existing / --backend-only) is surfaced ONCE per project+flags — the
 // combo sweep is how the gate copes with unknown task type (strict is tried
@@ -80,6 +85,10 @@ const LENIENT_NOTED = new Set()
 
 function depFingerprint(root) {
   LOSSY_FINGERPRINT.delete(root)
+  // W23/O2: a non-git tree has no trustworthy whole-tree content key here.
+  // Do not cache its verdict at all (the old path only keyed evidence/secret
+  // files, so an ordinary source edit could reuse a stale PASS).
+  if (!existsSync(path.join(root, ".git"))) LOSSY_FINGERPRINT.add(root)
   const parts = [root]
   const add = (p) => {
     try {
@@ -199,6 +208,9 @@ function gitDigest(root) {
       timeout: 2000,
       maxBuffer: GIT_DIGEST_MAX_BUFFER,
       stdio: ["ignore", "pipe", "pipe"],
+      // A cache-key read must not mutate .git/index (which would invalidate
+      // the very key it is computing and turn every write into a cache miss).
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
     })
   } catch (e) {
     // Only a genuinely absent repo/binary is `no-git`; a timeout/overflow is
@@ -211,7 +223,15 @@ function gitDigest(root) {
   }
   LOSSY_DIGEST.delete(root)
   const started = Date.now()
-  const parts = [out]
+  // Filter gate-owned noise from the STATUS STRING too: `parts=[out]` made
+  // skipping the per-path stat useless because the porcelain line itself
+  // changed the cache key (tracked tests/gate_result.json case).
+  const stableStatus = out.split("\n").filter((line) => {
+    const p = line.slice(3).trim().replace(/^"|"$/g, "")
+    return p !== "tests/gate_result.json"
+      && p !== ".vibeweaver" && !p.startsWith(".vibeweaver/")
+  }).join("\n")
+  const parts = [stableStatus]
   let seen = 0
   let overflow = false
   function lossyKey() {
@@ -266,6 +286,9 @@ function gitDigest(root) {
     // harness state is not evidence — its churn (stall observer rewrites)
     // must not defeat the result cache (re-review R6)
     if (p === ".vibeweaver" || p.startsWith(".vibeweaver/")) continue
+    // The gate writes this itself; tracking it must not invalidate the cache
+    // key on every write (the previous workaround was fixture-only ignore).
+    if (p === "tests/gate_result.json") continue
     statOne(p, "")
   }
   return overflow ? lossyKey() : parts.join("\n")
@@ -399,12 +422,20 @@ function relativeUnderRoot(root, filePath) {
   const normRoot = resolveWritePath(root)
   const normFile = resolveWritePath(filePath)
   const rel = path.relative(normRoot, normFile)
-  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return ""
+  if (!rel || isOutsideRel(rel)) return ""
   return rel.split(path.sep).join("/")
 }
 
 function protectedEvidencePath(root, filePath) {
   return PROTECTED_EVIDENCE.has(relativeUnderRoot(root, filePath))
+}
+
+// A scope-denied nested project may only bootstrap the two files that make it
+// trusted. Protected evidence (acceptance/profile/debt/lock) must never ride
+// this activation path without its lock check.
+function isActivationPath(root, filePath) {
+  const rel = relativeUnderRoot(root, filePath)
+  return rel === "tests/verification_log.md" || rel === "tests/assert_artifacts.py"
 }
 
 function evidenceLockScript(root) {
@@ -479,6 +510,136 @@ function findProjectRoot(startDirs) {
   return null
 }
 
+function projectMarkerAt(dir) {
+  return existsSync(path.join(dir, "tests", "verification_log.md"))
+    || existsSync(path.join(dir, ".vibeweaver", "project.json"))
+}
+
+// Git top-level is the trusted project boundary for a nested write. A marker
+// that an agent can create in an arbitrary nested directory must not be able
+// to shrink the gate scope away from an active workspace root.
+function gitTopLevel(start) {
+  if (!start) return null
+  try {
+    const out = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: path.resolve(start),
+      encoding: "utf8",
+      timeout: 5000,
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim()
+    return out ? path.resolve(out) : null
+  } catch {
+    return null
+  }
+}
+
+function nearestExistingDir(start) {
+  let d = path.resolve(start)
+  for (;;) {
+    if (existsSync(d)) return d
+    const up = path.dirname(d)
+    if (up === d) return d
+    d = up
+  }
+}
+
+function canonicalPath(p) {
+  try {
+    return realpathSync(path.resolve(p))
+  } catch {
+    return path.resolve(p)
+  }
+}
+
+function isOutsideRel(rel) {
+  return rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel)
+}
+
+function isOutside(base, target) {
+  // New write targets may not exist yet; resolve the nearest existing ancestor
+  // (same normalization used by the tests/evidence exemption) so a `/var` ↔
+  // `/private/var` symlink does not masquerade as an out-of-tree write.
+  return isOutsideRel(path.relative(canonicalPath(base), resolveWritePath(path.resolve(target))))
+}
+
+function trustedNestedProject(dir) {
+  return projectMarkerAt(dir)
+    && existsSync(path.join(dir, "tests", "verification_log.md"))
+    && existsSync(path.join(dir, "tests", "assert_artifacts.py"))
+}
+
+function findProjectRootForWrite(directory, filePath) {
+  const host = directory ? canonicalPath(directory) : null
+  if (typeof filePath !== "string" || !filePath) {
+    const root = findProjectRoot([host])
+    return root ? { root, via: "workspace" } : null
+  }
+  const abs = path.resolve(host || ".", filePath)
+  const fileDir = path.dirname(abs)
+  // A write target may not exist yet; resolve git from its nearest existing
+  // ancestor or a new subdirectory would silently fall back to the host.
+  const fileGit = gitTopLevel(nearestExistingDir(fileDir))
+  const hostGit = host ? gitTopLevel(host) : null
+  const outsideHost = host ? isOutside(host, abs) : true
+  const activeHere = host && projectMarkerAt(host) ? host : null
+  const hostTrusted = activeHere ? trustedNestedProject(host) : false
+  const activeAbove = host && path.dirname(host) !== host ? findProjectRoot([path.dirname(host)]) : null
+  const activeFallback = activeHere || activeAbove
+  const scopeBlock = (root, target, why, evidenceRoot) => ({
+    root, via: "untrusted-scope", evidenceRoot, block:
+      `GATE-BLOCKED (vibeweaver scope): ${target} ${why} Activate it as a trusted vibeweaver project by writing ONLY tests/verification_log.md + tests/assert_artifacts.py; protected evidence stays gated.`,
+  })
+
+  // A nested git repo owns scope only when it is actually set up (log +
+  // checker). An empty marker / unpinned inline-only repo is not enough to
+  // shrink away an active umbrella's security teeth.
+  if (fileGit && fileGit !== hostGit) {
+    if (trustedNestedProject(fileGit)) return { root: fileGit, via: outsideHost ? "external-git" : "nested-git" }
+    const why = `is in git repository ${fileGit} that is not a trusted vibeweaver project.`
+    return scopeBlock(activeFallback || fileGit, path.relative(activeFallback || fileGit, resolveWritePath(abs)), why, fileGit)
+  }
+
+  // The host itself is a nested repo inside a different active project.
+  if (hostGit && activeAbove && activeAbove !== fileGit) {
+    if (hostTrusted) return { root: host, via: "trusted-workspace-git" }
+    return scopeBlock(activeAbove, host,
+      `is a nested git repo inside active project ${activeAbove} and is not a trusted vibeweaver project.`, host)
+  }
+  if (activeHere) return { root: host, via: "workspace" }
+  if (activeFallback) return { root: activeFallback, via: "ancestor" }
+  if (outsideHost) return null
+  // No active umbrella and no nested git boundary: a nested non-git project
+  // may own scope (there is no active host to shrink away from).
+  for (let d = fileDir; ; d = path.dirname(d)) {
+    if (projectMarkerAt(d)) return { root: d, via: "nested-marker" }
+    if (!host || d === host || d === path.dirname(d)) break
+  }
+  return null
+}
+
+function rememberSessionRoot(sessionID, root, host = null) {
+  if (!sessionID || typeof sessionID !== "string" || !root) return
+  const hostAbs = host ? canonicalPath(host) : null
+  root = canonicalPath(root)
+  // A write into another workspace must not re-bind this session's memory /
+  // idle / compaction root to that foreign project.
+  if (hostAbs && isOutside(hostAbs, root)) return
+  SESSION_ROOT.delete(sessionID)
+  SESSION_ROOT.set(sessionID, { root, host: hostAbs })
+  if (SESSION_ROOT.size > 500) {
+    const firstKey = SESSION_ROOT.keys().next().value
+    SESSION_ROOT.delete(firstKey)
+  }
+}
+
+function rootForSession(directory, sessionID) {
+  const rec = sessionID ? SESSION_ROOT.get(sessionID) : null
+  if (rec && rec.host && directory && rec.host === canonicalPath(directory)) return rec.root
+  // A session moved to another workspace must not reuse the old workspace's
+  // root. The next gated write re-binds it; until then use the local root.
+  return findProjectRoot([directory])
+}
+
 // D4 (2026-10-15, PLAN §2 D4): fail-closed — "the check could not run" is
 // itself a BLOCK, never a pass (METR Hawk: fail loudly / deny by default).
 // The old keyword classifier (BLOCKING_HINTS) let hint-free failures through;
@@ -551,12 +712,17 @@ function lenientAllowed(root) {
   return { existing: hasClass && hasProfile, backend: backendOk }
 }
 
-function writeGateResult(root, flags, cls, blocking, warnings) {
+function writeGateResult(root, flags, cls, blocking, warnings, kinds) {
   try {
     const p = path.join(root, "tests", "gate_result.json")
+    const split = splitGateResult({ blocking: blocking || [], kinds: kinds || [] })
     const body = JSON.stringify({
       flags: flags || "(none)", class: cls || "", at: new Date().toISOString(),
+      scope: root,
       blocking: blocking || [], warnings: warnings || [],
+      violations: split.violations,
+      completion: split.completion,
+      kinds: kinds || [],
     })
     const tmp = p + ".tmp"
     writeFileSync(tmp, body)
@@ -586,9 +752,9 @@ async function runAssert(root) {
   })
   for (const combo of combos) {
     const flags = final ? ["--final", ...combo] : combo
-    const argv = jsonSupported ? ["--json", ...rootArgs, ...flags] : [...rootArgs, ...flags]
-    const { err, stdout, stderr } = await runPython(script, argv, root)
-    const out = `${stdout}${stderr ? "\n" + stderr : ""}`.trim()
+    let argv = jsonSupported ? ["--json", ...rootArgs, ...flags] : [...rootArgs, ...flags]
+    let { err, stdout, stderr } = await runPython(script, argv, root)
+    let out = `${stdout}${stderr ? "\n" + stderr : ""}`.trim()
     // the transport flag (--json) and the gate mode (--final) are NOT
     // leniency flags: label attempts by the real flag combo so a strict pass
     // reads "(none)" and never triggers the "passed only under …" note.
@@ -600,10 +766,16 @@ async function runAssert(root) {
       if (jsonSupported && /--json/.test(out)) {
         jsonSupported = false
         attempts.push({ flags: label, output: "legacy script without --json — prose mode", terminal: "legacy" })
+        // W23: retry the SAME flag combo in prose mode. The old `continue`
+        // consumed the only combo and turned a prose failure into warnings
+        // (a fail-open; pinned by D4-5).
+        argv = [...rootArgs, ...flags]
+        ;({ err, stdout, stderr } = await runPython(script, argv, root))
+        out = `${stdout}${stderr ? "\n" + stderr : ""}`.trim()
+      } else {
+        attempts.push({ flags: label, output: out, terminal: "placeholder" })
         continue
       }
-      attempts.push({ flags: label, output: out, terminal: "placeholder" })
-      continue
     }
     const json = parseAssertJson(stdout)
     if (!err) {
@@ -650,41 +822,91 @@ const TERMINAL_MESSAGES = {
   legacy: "tests/assert_artifacts.py is a legacy copy without --json — upgrade from the skill's scripts/assert_artifacts.py (the gate still fails closed on its prose output)",
 }
 
+const VIOLATION_CODES = new Set(["14", "15", "18", "22", "evidence-lock", "checker-pin"])
+const COMPLETION_CODES = new Set([
+  "1", "2", "3", "4", "5", "5b", "6", "7", "8", "9", "10", "11",
+  "12", "12b", "13", "16", "17", "17a", "17b", "19", "20", "21", "23", "24",
+])
+function classifyGateFinding(finding) {
+  const kind = finding && typeof finding === "object" ? String(finding.kind || "") : ""
+  if (kind === "violation" || kind === "unavailable" || kind === "completion") return kind
+  const code = finding && typeof finding === "object" ? String(finding.code || "") : ""
+  const detail = String(finding && typeof finding === "object" ? finding.detail ?? "" : finding || "")
+  const low = detail.toLowerCase()
+  if (code === "15b") {
+    if (/tamper|hash mismatch|sealed evidence missing|manifest\.json missing|partial seal/.test(low)) return "violation"
+    return "completion"
+  }
+  if (VIOLATION_CODES.has(code)) return "violation"
+  if (code === "21" && /cannot verify|could not run|failed inside an existing \.git|timed out|overflowed|fail-closed/.test(low)) return "unavailable"
+  if (["3", "10", "11"].includes(code) && /not a real png|wrong format|magic|is not a real/.test(low)) return "violation"
+  if (/secret scan:|evidence-lock fail|checker was modified|class contradiction|test-change guard:/.test(low)) return "violation"
+  if (COMPLETION_CODES.has(code)) return "completion"
+  // Unknown structured findings are not safely classifiable as debt.
+  return "unavailable"
+}
+
 function collectMessages(attempts) {
   const blocking = []
+  const kinds = []
   const warnings = []
   const seen = new Set()
-  const push = (arr, msg) => {
+  const push = (arr, msg, kind = "completion") => {
     if (!msg || seen.has(msg)) return
     seen.add(msg)
     arr.push(msg)
+    if (arr === blocking) kinds.push(kind)
   }
   for (const a of attempts) {
     if (a.terminal) {
       // "legacy" is an upgrade hint (the check still ran in prose mode below);
-      // every other terminal means the check could NOT run → block.
+      // every other terminal means the check could NOT run → hard block.
       if (a.terminal === "legacy") push(warnings, TERMINAL_MESSAGES.legacy)
-      else push(blocking, TERMINAL_MESSAGES[a.terminal] || `verification check unavailable (${a.terminal})`)
+      else push(blocking, TERMINAL_MESSAGES[a.terminal] || `verification check unavailable (${a.terminal})`, "unavailable")
       continue
     }
     if (Array.isArray(a.fails) && a.fails.length) {
       for (const f of a.fails) {
         const detail = f && typeof f === "object" ? String(f.detail ?? f.code ?? f) : String(f)
         if (f && typeof f === "object" && f.severity === "warn") push(warnings, detail)
-        else push(blocking, detail)
+        else push(blocking, detail, classifyGateFinding(f))
       }
       continue
     }
     for (const line of String(a.output || "").split("\n")) {
       const m = line.trim()
       if (m.startsWith("WARN ")) push(warnings, m.slice(5))
-      else if (m.startsWith("- ")) push(blocking, m.slice(2))
+      else if (m.startsWith("- ")) {
+        const detail = m.slice(2)
+        // Prose-only checkers cannot carry the structured completion/violation
+        // kind. Fail closed as "unavailable"; never guess this debt is safe.
+        push(blocking, detail, "unavailable")
+      }
     }
   }
   if (!blocking.length && !warnings.length && attempts.length) {
-    push(blocking, attempts[attempts.length - 1].output.slice(0, 400))
+    push(blocking, attempts[attempts.length - 1].output.slice(0, 400), "unavailable")
   }
-  return { blocking, warnings }
+  return { blocking, warnings, kinds }
+}
+
+function splitGateResult(result) {
+  const violations = []
+  const completion = []
+  const violationKinds = []
+  const completionKinds = []
+  for (let i = 0; i < (result.blocking || []).length; i++) {
+    const msg = result.blocking[i]
+    const kind = (result.kinds && result.kinds[i]) || classifyGateFinding(msg)
+    if (kind === "completion") {
+      completion.push(msg)
+      completionKinds.push(kind)
+    } else {
+      violations.push(msg)
+      violationKinds.push(kind)
+    }
+  }
+  return { violations, completion, violationKinds, completionKinds }
 }
 
 // WARN-level findings the assert reported on a PASSING run (G1 three-state:
@@ -736,7 +958,7 @@ function inlineCheck(root) {
   return failures
 }
 
-async function checkGate(root) {
+async function checkGate(root, force = false) {
   const logPath = path.join(root, "tests", "verification_log.md")
   if (!existsSync(logPath)) {
     const key = root + "|inactive"
@@ -751,11 +973,11 @@ async function checkGate(root) {
     const pin = verifyChecker(root)
     const pinWarnings = pin.warning ? [pin.warning] : []
     if (!pin.ok) {
-      return { blocking: [pin.reason], warnings: pinWarnings, attempts: ["(checker-pin)"] }
+      return { blocking: [pin.reason], kinds: ["violation"], warnings: pinWarnings, attempts: ["(checker-pin)"] }
     }
     const key = depFingerprint(root)
     const lossy = LOSSY_DIGEST.has(root) || LOSSY_FINGERPRINT.has(root)
-    if (!lossy && RESULT_CACHE.has(key)) {
+    if (!force && !lossy && RESULT_CACHE.has(key)) {
       const cached = RESULT_CACHE.get(key) // may be null = cached PASS
       if (cached === null && pinWarnings.length) return { blocking: [], warnings: pinWarnings }
       return cached
@@ -763,7 +985,7 @@ async function checkGate(root) {
     const r = await runAssert(root)
     let result
     if (r.ok) {
-      if (!lossy) {
+      if (!force && !lossy) {
         if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
         RESULT_CACHE.set(key, null) // cache the CLEAN verdict (the note is out-of-band)
       }
@@ -792,21 +1014,24 @@ async function checkGate(root) {
       return notes.length ? { blocking: [], warnings: notes } : null
     }
     {
-      const { blocking, warnings } = collectMessages(r.attempts)
+      const { blocking, warnings, kinds } = collectMessages(r.attempts)
       const allWarn = [...pinWarnings, ...warnings]
-      result = { blocking, warnings: allWarn, attempts: r.attempts.map((a) => `[${a.flags}]`) }
+      result = { scope: root, blocking, kinds, warnings: allWarn, attempts: r.attempts.map((a) => `[${a.flags}]`) }
       // W19: details always on disk; the de-dup latch is computed at DISPLAY
       // time in blockMessage (a cached result must not replay a stale `repeat`).
-      writeGateResult(root, (r.attempts && r.attempts.length ? "(failed)" : "(none)"), "", blocking, allWarn)
+      writeGateResult(root, (r.attempts && r.attempts.length ? "(failed)" : "(none)"), "", blocking, allWarn, kinds)
     }
-    if (!lossy) {
+    if (!force && !lossy) {
       if (RESULT_CACHE.size >= RESULT_CACHE_MAX) RESULT_CACHE.clear()
       RESULT_CACHE.set(key, result)
     }
     return result
   }
   const failures = inlineCheck(root)
-  if (failures.length) return { blocking: failures, warnings: [], attempts: [], inline: true }
+  if (failures.length) return {
+    scope: root, blocking: failures, kinds: failures.map(() => "completion"),
+    warnings: [], attempts: [], inline: true,
+  }
   return null
 }
 
@@ -867,11 +1092,16 @@ function blockMessage(root, result) {
   const hash = createHash("sha256").update(JSON.stringify(result.blocking)).digest("hex")
   const repeat = LAST_BLOCK.get(root) === hash
   LAST_BLOCK.set(root, hash)
+  const unavailable = (result.kinds || []).length > 0
+    && (result.kinds || []).every((k) => k === "unavailable")
+  const prefix = unavailable
+    ? "GATE-CHECK-UNAVAILABLE (vibeweaver physical gate)"
+    : "GATE-BLOCKED (vibeweaver integrity)"
   if (repeat) {
-    return `GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED — ${result.blocking.length} blocking item(s) UNCHANGED since last edit. Full list: tests/gate_result.json. Completion gate, not an execution stop — fix the evidence; the next write re-checks.`
+    return `${prefix}: WRITE SUCCEEDED — ${result.blocking.length} hard blocking item(s) UNCHANGED since last edit. Full list: tests/gate_result.json. THE WRITE LANDED; this is an integrity/unavailable error, not a completion-debt note.`
   }
   const lines = [
-    "GATE-BLOCKED (vibeweaver physical gate): WRITE SUCCEEDED — this is a completion gate, NOT an execution stop. The task cannot be DECLARED complete yet — verification evidence is missing or falsified:",
+    `${prefix}: WRITE SUCCEEDED — a hard violation or unavailable check was found; this is NOT completion debt and NOT an execution stop. The task cannot be completed until these are fixed:`,
     ...result.blocking.map((m) => "- " + m),
   ]
   if (result.warnings.length) {
@@ -885,8 +1115,42 @@ function blockMessage(root, result) {
   } else if (result.attempts) {
     lines.push("assert_artifacts.py flag attempts: " + result.attempts.join(" "))
   }
-  lines.push("This gate is re-checkable, not a dead stop: fix the artifacts, then your next write/edit re-runs it automatically. If the failure is legitimately out of scope, set VIBEWEAVER_GATE=off or escalate to the user.")
+  lines.push("This gate is re-checkable: fix the violation, then your next write/edit re-runs it automatically. If the finding is a false positive, record the evidence and escalate to the user; bypassing via bash or disabling the gate is not a repair.")
   return lines.join("\n")
+}
+
+function completionLatchKey(root, sessionID) {
+  return [root, sessionID || "(none)", taskKeyOf(root)].join("\n")
+}
+
+function clearCompletionLatch(root, sessionID) {
+  for (const [key, rec] of LAST_COMPLETION) {
+    if (rec.root === root && (!sessionID || rec.sessionID === sessionID)) LAST_COMPLETION.delete(key)
+  }
+}
+
+function clearCompletionLatchForSession(sessionID) {
+  if (!sessionID) return
+  for (const [key, rec] of LAST_COMPLETION) {
+    if (rec.sessionID === sessionID) LAST_COMPLETION.delete(key)
+  }
+}
+
+function completionNotice(root, items, sessionID = null) {
+  if (!items.length) return null
+  const hash = createHash("sha256").update(JSON.stringify(items)).digest("hex")
+  const key = completionLatchKey(root, sessionID)
+  const prev = LAST_COMPLETION.get(key)
+  if (prev && prev.hash === hash) return null
+  const newItems = prev ? items.filter((m) => !prev.items.includes(m)) : []
+  const shown = (newItems.length ? newItems : items).slice(0, 3).map((m) => "- " + m)
+  LAST_COMPLETION.set(key, { hash, items, root, sessionID: sessionID || "(none)" })
+  if (LAST_COMPLETION.size > 64) LAST_COMPLETION.delete(LAST_COMPLETION.keys().next().value)
+  return [
+    `[VIBEWEAVER COMPLETION-NOT-READY] WRITE SUCCEEDED — scope=${root} | completion=BLOCKED | ${items.length} completion item(s)${newItems.length ? ` (${newItems.length} new/changed)` : ""} — editing may continue; DECLARING DONE is blocked until \`--final\` exits 0.`,
+    ...shown,
+    `details: ${path.join(root, "tests", "gate_result.json")}`,
+  ].join("\n")
 }
 
 // The host's write/edit tools carry the target under `filePath` (v1 sample
@@ -920,7 +1184,7 @@ function isEvidencePath(root, filePath) {
   const normRoot = resolveWritePath(root)
   const normFile = resolveWritePath(filePath)
   const rel = path.relative(normRoot, normFile)
-  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return false
+  if (!rel || isOutsideRel(rel)) return false
   // EXACT first-segment match (review A Minor): case-folding made `Tests/` /
   // `Memory/` a false exemption on case-sensitive filesystems — fail closed
   // (a mis-cased evidence dir gets gated = noise, never a hole).
@@ -1098,7 +1362,7 @@ function cueNotes(root, filePath) {
     // realpath'd file (macOS /tmp → /private/tmp) yields a `..` relative
     // path and silently dropped every cue (D5 review).
     const rel = path.relative(resolveWritePath(root), resolveWritePath(filePath))
-    if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return []
+    if (!rel || isOutsideRel(rel)) return []
     if (rel.split(path.sep)[0].toLowerCase() === "memory") return []
     const memDir = path.join(root, "memory")
     if (!existsSync(memDir)) return []
@@ -1165,6 +1429,10 @@ function cueNotes(root, filePath) {
 // tests/verification_log.md) and never throw into the host.
 
 const MEMORY_BUNDLE_MAX = 4096
+// Snapshot storage is allowed to be larger than the delivery budget: the
+// structured state is rendered/trimmed at delivery time, so the snapshot must
+// not pre-truncate the tail before the renderer can see it.
+const SNAPSHOT_MAX = 64 * 1024
 const MEMORY_STATE_CAP = 500
 
 const SESSION_MEM = {
@@ -1178,7 +1446,7 @@ const SESSION_MEM = {
 // 1-2 KB pointer at session start (and again after compaction); never stack it
 // on top of an already-forced full contract, and never inject into subagent
 // sessions. VIBEWEAVER_BOOTSTRAP=off disables the injection.
-const BOOTSTRAP_VERSION = "1"
+const BOOTSTRAP_VERSION = "2"
 const BOOTSTRAP_MARK = "using-vibeweaver (bootstrap v" + BOOTSTRAP_VERSION + ")"
 const FULL_CONTRACT_MARK = "§1 OPERATING COVENANT"
 let _bootstrapText = null
@@ -1252,8 +1520,269 @@ function capBounded(set) {
   }
 }
 
+function readWorkingNote(root) {
+  const p = path.join(root, "tests", "working_note.md")
+  let fd = null
+  try {
+    const lst = lstatSync(p)
+    // Symlinks are not task state: reject them so an external file can never be
+    // snapshotted/delivered as authoritative (dsh guards this the same way).
+    if (!lst.isFile()) return { exists: true, ok: false, text: "", truncated: false }
+    fd = openSync(p, "r")
+    const st = fstatSync(fd)
+    if (!(st.size >= 0) || st.size > READ_CAP) {
+      return { exists: true, ok: false, text: "", truncated: false }
+    }
+    if (st.size === 0) return { exists: true, ok: true, text: "", truncated: false }
+    // Notes are ≤50 lines; 1MB is already 20x the contract. Read via the fd so
+    // a stat→read replacement cannot bypass the size bound (TOCTOU). For a
+    // pathological >1MB note, keep a head + tail window so a freeform action
+    // at the end is still deliverable.
+    const HEAD = 1 << 20
+    const TAIL = 256 * 1024
+    if (st.size > HEAD) {
+      const headBuf = Buffer.alloc(HEAD)
+      const headN = readSync(fd, headBuf, 0, HEAD, 0)
+      const tailSize = Math.min(st.size - HEAD, TAIL)
+      const tailBuf = Buffer.alloc(tailSize)
+      const tailN = readSync(fd, tailBuf, 0, tailSize, st.size - tailSize)
+      return {
+        exists: true, ok: true,
+        text: headBuf.subarray(0, headN).toString("utf8") + "\n…[middle omitted]…\n" + tailBuf.subarray(0, tailN).toString("utf8"),
+        truncated: true,
+      }
+    }
+    const buf = Buffer.alloc(st.size)
+    const n = readSync(fd, buf, 0, st.size, 0)
+    return {
+      exists: true, ok: true,
+      text: buf.subarray(0, n).toString("utf8").replace(/\r\n/g, "\n"),
+      truncated: n < st.size,
+    }
+  } catch {
+    return { exists: existsSync(p), ok: false, text: "", truncated: false }
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* never crash on close */
+      }
+    }
+  }
+}
+
 function workingNoteOf(root) {
-  return safeRead(path.join(root, "tests", "working_note.md")).replace(/\r\n/g, "\n")
+  return readWorkingNote(root).text
+}
+
+function utf8Len(s) {
+  return Buffer.byteLength(String(s || ""), "utf8")
+}
+
+function clipUtf8(s, maxBytes) {
+  const buf = Buffer.from(String(s || ""), "utf8")
+  if (buf.length <= maxBytes) return buf.toString("utf8")
+  let end = Math.max(0, maxBytes)
+  while (end > 0 && (buf[end] & 0xc0) === 0x80) end--
+  return buf.subarray(0, end).toString("utf8")
+}
+
+function clipUtf8End(s, maxBytes) {
+  const buf = Buffer.from(String(s || ""), "utf8")
+  if (buf.length <= maxBytes) return buf.toString("utf8")
+  let start = Math.max(0, buf.length - maxBytes)
+  while (start < buf.length && (buf[start] & 0xc0) === 0x80) start++
+  return buf.subarray(start).toString("utf8")
+}
+
+// Snapshot storage keeps BOTH ends of a long note: structured state lives at
+// the head, a freeform `## Next action` often lives at the tail. A plain
+// prefix would silently lose the most important part.
+function clipUtf8HeadTail(s, maxBytes) {
+  if (utf8Len(s) <= maxBytes) return String(s || "")
+  const marker = "\n…[snapshot truncated; middle omitted]…\n"
+  const markerLen = utf8Len(marker)
+  const headBudget = Math.max(0, Math.floor((maxBytes - markerLen) * 0.6))
+  const tailBudget = Math.max(0, maxBytes - markerLen - headBudget)
+  return clipUtf8(s, headBudget) + marker + clipUtf8End(s, tailBudget)
+}
+
+function stateStr(v, max = 480) {
+  return typeof v === "string" ? clipUtf8(v.replace(/\s+/g, " ").trim(), max) : ""
+}
+
+function stateList(v, maxItems = 200, maxItem = 260) {
+  if (!Array.isArray(v)) return { items: [], total: 0 }
+  const valid = v.filter((x) => typeof x === "string" && x.trim())
+  return {
+    items: valid.slice(0, maxItems).map((x) => clipUtf8(x.replace(/\s+/g, " ").trim(), maxItem)),
+    total: valid.length,
+  }
+}
+
+function parseWorkingState(note) {
+  const m = String(note || "").match(/```\s*vibeweaver-state\s*\n([\s\S]*?)\n```/i)
+  if (!m) return { ok: false, found: false, reason: "no vibeweaver-state block" }
+  try {
+    const raw = JSON.parse(m[1])
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return { ok: false, found: true, reason: "state block is not a JSON object" }
+    }
+    const version = raw.version == null ? 1 : raw.version
+    if (version !== 1) {
+      return { ok: false, found: true, reason: "unsupported schema version: " + String(raw.version).slice(0, 40) }
+    }
+    for (const key of ["confirmed", "open", "excluded", "key_files", "blocked"]) {
+      if (raw[key] != null && !Array.isArray(raw[key])) {
+        return { ok: false, found: true, reason: `${key} must be an array` }
+      }
+      if (Array.isArray(raw[key]) && raw[key].some((x) => typeof x !== "string")) {
+        return { ok: false, found: true, reason: `${key} must contain only strings` }
+      }
+    }
+    const state = {
+      version,
+      task: stateStr(raw.task, 300),
+      updated: stateStr(raw.updated, 120),
+      current_criterion: stateStr(raw.current_criterion, 180),
+      next_action: stateStr(raw.next_action, 900),
+      assumption: stateStr(raw.assumption, 420),
+      falsifier: stateStr(raw.falsifier, 420),
+      confirmed: stateList(raw.confirmed),
+      open: stateList(raw.open),
+      excluded: stateList(raw.excluded),
+      key_files: stateList(raw.key_files, 200, 220),
+      blocked: stateList(raw.blocked),
+    }
+    if (!state.task || !state.next_action) {
+      return { ok: false, found: true, reason: "required task/next_action missing or empty" }
+    }
+    return { ok: true, found: true, state }
+  } catch (e) {
+    return { ok: false, found: true, reason: "invalid JSON: " + String(e.message || e).slice(0, 120) }
+  }
+}
+
+function renderWorkingState(state, maxBytes = 3600) {
+  const lines = [
+    "VIBEWEAVER WORKING-STATE v1 (structured; prioritize next_action over narrative):",
+    "task: " + state.task,
+  ]
+  if (state.current_criterion) lines.push("criterion: " + state.current_criterion)
+  lines.push("next_action: " + state.next_action)
+  const append = (label, value) => {
+    if (!value) return
+    if (utf8Len(lines.join("\n") + "\n" + label + " " + value) <= maxBytes) lines.push(label + " " + value)
+  }
+  append("updated:", state.updated)
+  append("assumption:", state.assumption)
+  append("falsifier:", state.falsifier)
+  const lists = [
+    ["open", state.open],
+    ["confirmed", state.confirmed],
+    ["excluded", state.excluded],
+    ["key_files", state.key_files],
+    ["blocked", state.blocked],
+  ].filter(([, list]) => list && list.total > 0)
+  lists.forEach(([label, list], idx) => {
+    const remaining = lists.length - idx - 1
+    const reserveForLater = remaining * 64
+    const header = label + ":"
+    if (utf8Len(lines.join("\n") + "\n" + header) > maxBytes - reserveForLater) return
+    lines.push(header)
+    let shown = 0
+    for (const item of list.items) {
+      const line = "- " + item
+      if (utf8Len(lines.join("\n") + "\n" + line) > maxBytes - reserveForLater - 64) break
+      lines.push(line)
+      shown++
+    }
+    const omitted = list.total - shown
+    if (omitted > 0) {
+      const marker = `- … (+${omitted} more ${label})`
+      const shortMarker = `- … +${omitted} ${label}`
+      const chosen = utf8Len(lines.join("\n") + "\n" + marker) <= maxBytes - reserveForLater ? marker : shortMarker
+      if (utf8Len(lines.join("\n") + "\n" + chosen) <= maxBytes - reserveForLater) lines.push(chosen)
+    }
+  })
+  return clipUtf8(lines.join("\n"), maxBytes)
+}
+
+// Legacy freeform notes may contain several "## Next action" sections. The
+// LAST non-empty one is the current state; earlier sections are superseded.
+// A lazy `$` in a multiline regex would stop at the first line, so use an
+// explicit end-of-string lookahead.
+function nextActionSections(note) {
+  const re = /^##\s+Next action\s*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/gim
+  const sections = []
+  let m
+  while ((m = re.exec(note))) sections.push({ start: m.index, end: re.lastIndex, body: m[1].trim() })
+  return sections
+}
+
+function extractNextAction(note) {
+  const sections = nextActionSections(note)
+  for (let i = sections.length - 1; i >= 0; i--) {
+    if (sections[i].body) return "## Next action\n" + sections[i].body
+  }
+  return ""
+}
+
+function stripNextActionSections(note, sections) {
+  if (!sections.length) return note
+  let out = ""
+  let cursor = 0
+  for (const s of sections) {
+    out += note.slice(cursor, s.start)
+    cursor = s.end
+  }
+  return out + note.slice(cursor)
+}
+
+function shortenFreeformNote(note, maxBytes = 3600, { fromSnapshot = false, snapshotTruncated = false } = {}) {
+  if (utf8Len(note) <= maxBytes) return note
+  const sections = nextActionSections(note)
+  let current = ""
+  for (let i = sections.length - 1; i >= 0; i--) {
+    if (sections[i].body) { current = "## Next action\n" + sections[i].body; break }
+  }
+  const actionText = current ? clipUtf8(current, 1000) : ""
+  // Remove ALL Next-action sections from the narrative, so stale sections
+  // cannot reappear and content after the current section is preserved.
+  const cleaned = stripNextActionSections(note, sections)
+  if (actionText && utf8Len(actionText) + utf8Len(cleaned) + 1 <= maxBytes) {
+    return actionText + "\n" + cleaned
+  }
+  const tailBudget = actionText ? 350 : 900
+  const tail = clipUtf8End(cleaned, tailBudget)
+  const headBudget = Math.max(300, maxBytes - utf8Len(actionText) - utf8Len(tail) - 160)
+  const head = clipUtf8(cleaned, headBudget)
+  const parts = []
+  // Put the extracted action FIRST: any later end-clipping (debt) can only
+  // remove narrative/tail, never the next action.
+  if (actionText) parts.push(actionText)
+  parts.push(head)
+  if (utf8Len(cleaned) > utf8Len(head) + utf8Len(tail) + 20) {
+    parts.push(fromSnapshot
+      ? (snapshotTruncated
+        ? "…[working note truncated; the harness snapshot was stored truncated at 64KB]…"
+        : "…[working note truncated; the harness snapshot is the authoritative copy]…")
+      : "…[working note truncated; full source remains tests/working_note.md]…")
+  }
+  if (tail && !parts.join("\n").includes(tail)) parts.push(tail)
+  return clipUtf8(parts.filter(Boolean).join("\n"), maxBytes)
+}
+
+function renderWorkingNote(note, { fromSnapshot = false, snapshotTruncated = false, maxBytes = 3600 } = {}) {
+  const parsed = parseWorkingState(note)
+  if (parsed.ok) return renderWorkingState(parsed.state, maxBytes)
+  const warning = parsed.found
+    ? `[WORKING-STATE SCHEMA WARNING] ${parsed.reason}; using freeform fallback.`
+    : ""
+  const bodyBudget = Math.max(400, maxBytes - utf8Len(warning) - (warning ? 1 : 0))
+  const body = shortenFreeformNote(note, bodyBudget, { fromSnapshot, snapshotTruncated })
+  return [warning, body].filter(Boolean).join("\n")
 }
 
 const SNAPSHOT_FILE = "memory-snapshot.json"
@@ -1262,74 +1791,210 @@ const SNAPSHOT_FILE = "memory-snapshot.json"
 // source file disappearing. Snapshot is refreshed whenever the source exists;
 // once the source is gone the snapshot IS the memory (the paper's
 // deleted-fixture regime made locally testable).
+function taskIdentity(root) {
+  const log = safeRead(path.join(root, "tests", "verification_log.md")).replace(/\r\n/g, "\n")
+  const blocks = log.split(/^(?=## )/m).filter(Boolean)
+  let chosen = ""
+  const nonTask = /^## (?:Notes|Verification Log|Stop-debt)\b/i
+  for (const b of blocks) {
+    const h = ((b.match(/^## .+$/m) || [""])[0]).trim()
+    if ((h && !nonTask.test(h))
+        || /^- iter \d+ (?:PASS|FAIL|PARTIAL|PENDING|POST-HOC)\b/m.test(b)) chosen = b
+  }
+  if (!chosen) return { heading: "", occurrence: 0, block: "", key: "" }
+  const heading = ((chosen.match(/^## .+$/m) || [""])[0]).trim()
+  // Same heading reused by a later task still gets a distinct generation.
+  let occurrence = 0
+  for (const b of blocks) {
+    if ((((b.match(/^## .+$/m) || [""])[0]).trim()) === heading) occurrence++
+  }
+  const acceptance = createHash("sha256").update(safeRead(path.join(root, "tests", "acceptance.md"))).digest("hex")
+  return { heading, occurrence, block: chosen, key: `${heading}\n#${occurrence}\n${acceptance}` }
+}
+
+function taskKeyOf(root) {
+  return taskIdentity(root).key
+}
+
+function taskFinalized(root) {
+  const block = taskIdentity(root).block
+  if (!block) return false
+  // A failed final run must not close the task. Only a green, unfenced
+  // `- final-run: --final … pass>=1/fail=0` is a completion marker.
+  let inFence = false
+  const finals = []
+  for (const line of block.split("\n")) {
+    if (/^\s*```/.test(line)) { inFence = !inFence; continue }
+    if (!inFence && /^- final-run:\s*--final\b/.test(line)) finals.push(line)
+  }
+  if (!finals.length) return false
+  // The LAST final run decides; an earlier green followed by a failed run is
+  // not a completion. `pass=0` is never green.
+  return /\bpass=[1-9]\d*\s*\/\s*fail=0\b/.test(finals[finals.length - 1])
+}
+
 function snapshotWorkingNote(root) {
   try {
     const rel = path.join("tests", "working_note.md")
-    const text = workingNoteOf(root)
-    if (!text.trim()) return
-    const p = path.join(root, STATE_DIR, SNAPSHOT_FILE)
-    if (!existsSync(path.join(root, STATE_DIR))) mkdirSync(path.join(root, STATE_DIR), { recursive: true })
+    const dir = path.join(root, STATE_DIR)
+    // `.vibeweaver` itself may be a symlink to an external directory; never
+    // write task state outside the project (dsh guards both sides the same way).
+    if (!relativeUnderRoot(root, resolveWritePath(dir))) return
+    const p = path.join(dir, SNAPSHOT_FILE)
+    if (!relativeUnderRoot(root, resolveWritePath(p))) return
+    // Distinguish "the file is genuinely empty" from "the read failed".
+    // A transient EACCES/EISDIR/symlink read must NEVER delete a valid
+    // snapshot: the snapshot is the only recovery path when the source is
+    // gone. Oversize-but-readable notes still refresh the snapshot with a
+    // flagged head+tail, so an older task state cannot resurrect.
+    const read = readWorkingNote(root)
+    if (!read.ok) return
+    if (!read.text.trim()) {
+      // A genuinely empty note is a deliberate reset. Do not let an older
+      // snapshot become authoritative when the file is later deleted.
+      rmSync(p, { force: true })
+      return
+    }
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     const tmp = p + ".tmp"
-    writeFileSync(tmp, JSON.stringify({ rel, text: text.slice(0, MEMORY_BUNDLE_MAX), t: Date.now() }))
+    writeFileSync(tmp, JSON.stringify({
+      rel, text: clipUtf8HeadTail(read.text, SNAPSHOT_MAX), truncated: read.truncated || utf8Len(read.text) > SNAPSHOT_MAX,
+      t: Date.now(), taskKey: taskKeyOf(root), finalized: taskFinalized(root),
+    }))
     renameSync(tmp, p)
   } catch {
-    /* snapshot is best-effort; delivery still works while the file lives */
+    /* snapshot is best-effort: delivery still works while the file lives */
   }
 }
 
 function snapshotTextOf(root) {
   try {
-    const p = path.join(root, STATE_DIR, SNAPSHOT_FILE)
-    if (!existsSync(p)) return ""
+    const dir = path.join(root, STATE_DIR)
+    if (!relativeUnderRoot(root, resolveWritePath(dir))) return { text: "", truncated: false }
+    const p = path.join(dir, SNAPSHOT_FILE)
+    if (!relativeUnderRoot(root, resolveWritePath(p))) return { text: "", truncated: false }
+    if (!existsSync(p)) return { text: "", truncated: false }
     const d = JSON.parse(safeRead(p) || "null")
-    return typeof d.text === "string" ? d.text : ""
+    if (!d || typeof d.text !== "string") return { text: "", truncated: false }
+    // F4/W23: a deleted note is restorable ONLY for the same active task.
+    // Legacy snapshots without taskKey, a finalized task, or a new task key
+    // must never be resurrected as authoritative.
+    if (d.finalized || taskFinalized(root)) return { text: "", truncated: false }
+    if (!d.taskKey || d.taskKey !== taskKeyOf(root)) return { text: "", truncated: false }
+    // Legacy snapshots (no `truncated` field) were capped at 4KB; flag the
+    // exact-cap case conservatively. New snapshots carry the explicit flag, so
+    // an exactly-64KB note is NOT falsely labelled truncated.
+    const legacyTruncated = d.truncated == null && utf8Len(d.text) === MEMORY_BUNDLE_MAX
+    return { text: d.text, truncated: !!d.truncated || legacyTruncated }
   } catch {
-    return ""
+    return { text: "", truncated: false }
   }
 }
 
 // The delivered bundle: working note verbatim (bounded) + resume rule. With
 // no note, deliver the create instruction instead — the boundary is exactly
 // the moment the ledger matters most.
-function compactStateBundle(root) {
-  let note = workingNoteOf(root).trim()
-  let fromSnapshot = false
-  if (note) {
-    snapshotWorkingNote(root)
-  } else {
-    note = snapshotTextOf(root).trim()
-    fromSnapshot = !!note
+function gateDebtBrief(root) {
+  try {
+    const d = JSON.parse(safeRead(path.join(root, "tests", "gate_result.json")) || "{}")
+    const items = Array.isArray(d.completion) ? d.completion : []
+    if (!items.length) return ""
+    const concise = items.slice(0, 3).map((m) => clipUtf8(String(m).replace(/\s+/g, " ").trim(), 100))
+    return "COMPLETION DEBT (current checker): " + concise.map((m) => "- " + m).join(" ") + (items.length > 3 ? ` … (+${items.length - 3})` : "")
+  } catch {
+    return ""
   }
+}
+
+function gateDebtPart(root) {
+  const debt = gateDebtBrief(root)
+  return debt ? clipUtf8(debt, 430) : ""
+}
+
+function withGateDebt(bundle, root, debtPart = gateDebtPart(root)) {
+  if (!debtPart) return clipUtf8(bundle, MEMORY_BUNDLE_MAX)
+  const body = clipUtf8(bundle, MEMORY_BUNDLE_MAX - utf8Len(debtPart) - 1)
+  return body + "\n" + debtPart
+}
+
+function compactStateBundle(root) {
+  const read = readWorkingNote(root)
+  const noteExists = read.exists
+  let note = read.text.trim()
+  let fromSnapshot = false
+  let snapshotTruncated = false
+  let snapshotUnreadable = false
+  if (read.ok) {
+    // Also clears an older snapshot when the file is genuinely empty.
+    if (note || noteExists) snapshotWorkingNote(root)
+  } else {
+    const snap = snapshotTextOf(root)
+    note = snap.text.trim()
+    fromSnapshot = !!note
+    snapshotTruncated = snap.truncated
+    snapshotUnreadable = read.exists && !!note
+  }
+  const debtPart = gateDebtPart(root)
+  const debtReserve = debtPart ? utf8Len(debtPart) + 1 : 0
+  const budgetFor = (header, footer) =>
+    Math.max(600, MEMORY_BUNDLE_MAX - debtReserve - utf8Len(header) - utf8Len(footer) - 2)
   if (note && fromSnapshot) {
-    return [
-      "VIBEWEAVER WORKING-STATE (harness snapshot — the source tests/working_note.md is no longer present; this copy is authoritative):",
-      note.slice(0, MEMORY_BUNDLE_MAX - 400),
-      "Resume rule: re-read tests/acceptance.md and the last 20 lines of tests/verification_log.md BEFORE the next edit; the working note lives in this harness snapshot now.",
-    ].join("\n")
+    const sourceState = snapshotUnreadable
+      ? "is unreadable (permissions or a non-regular file)"
+      : "is no longer present"
+    const header = "VIBEWEAVER WORKING-STATE (harness snapshot — the source tests/working_note.md " + sourceState + "; this copy is authoritative" +
+      (snapshotTruncated ? "; the stored copy was truncated at 64KB, so the tail may be missing" : "") + "):"
+    const footer = "Resume rule: re-read tests/acceptance.md and the last 20 lines of tests/verification_log.md BEFORE the next edit; the working note lives in this harness snapshot now."
+    return withGateDebt([
+      header,
+      renderWorkingNote(note, { fromSnapshot: true, snapshotTruncated, maxBytes: budgetFor(header, footer) }),
+      footer,
+    ].join("\n"), root, debtPart)
   }
   if (!note) {
     const acc = safeRead(path.join(root, "tests", "acceptance.md"))
     const capLine = (acc.split("\n").find((l) => l.includes("cap=5")) || "").trim()
-    return [
-      "VIBEWEAVER COMPACT-RESUME (machine-delivered by vibeweaver-gate — no tests/working_note.md exists):",
-      "After this compaction, BEFORE the next edit: re-read tests/acceptance.md and the last 20 lines of tests/verification_log.md, and CREATE tests/working_note.md (§A7.15 hypothesis ledger: confirmed/doubted/excluded/open + key locations + dead ends + next action, <=50 lines). The gate re-delivers this note at every compaction boundary.",
+    let header
+    let instruction
+    if (!noteExists) {
+      header = "VIBEWEAVER COMPACT-RESUME (machine-delivered by vibeweaver-gate — no tests/working_note.md exists):"
+      instruction = "After this compaction, BEFORE the next edit: re-read tests/acceptance.md and the last 20 lines of tests/verification_log.md, and CREATE tests/working_note.md (preferred: a fenced `vibeweaver-state` JSON v1 block with task + next_action; a freeform confirmed/doubted/excluded/open ledger + key locations + dead ends + next action is also accepted; <=50 lines). The gate re-delivers this note at every compaction boundary."
+    } else if (!read.ok) {
+      header = "VIBEWEAVER COMPACT-RESUME (machine-delivered by vibeweaver-gate — tests/working_note.md exists but is unreadable):"
+      instruction = "After this compaction, BEFORE the next edit: re-read tests/acceptance.md and the last 20 lines of tests/verification_log.md, fix tests/working_note.md permissions/type (symlinks and non-regular files are not task state), then REWRITE it (preferred: a fenced `vibeweaver-state` JSON v1 block with task + next_action; <=50 lines). The gate re-delivers this note at every compaction boundary."
+    } else {
+      header = "VIBEWEAVER COMPACT-RESUME (machine-delivered by vibeweaver-gate — tests/working_note.md exists but is empty):"
+      instruction = "After this compaction, BEFORE the next edit: re-read tests/acceptance.md and the last 20 lines of tests/verification_log.md, and REWRITE tests/working_note.md (preferred: a fenced `vibeweaver-state` JSON v1 block with task + next_action; a freeform confirmed/doubted/excluded/open ledger + key locations + dead ends + next action is also accepted; <=50 lines). The gate re-delivers this note at every compaction boundary."
+    }
+    return withGateDebt([
+      header,
+      instruction,
       capLine ? `Acceptance first line: ${capLine}` : "",
     ]
       .filter(Boolean)
       .join("\n")
-      .slice(0, MEMORY_BUNDLE_MAX)
+      .slice(0, MEMORY_BUNDLE_MAX - debtReserve), root, debtPart)
   }
-  return [
-    "VIBEWEAVER WORKING-STATE (machine-delivered by vibeweaver-gate; this ledger is task state and takes precedence over the compacted summary — preserve its essentials):",
-    note.slice(0, MEMORY_BUNDLE_MAX - 400),
-    "Resume rule: after compaction re-read tests/working_note.md, tests/acceptance.md, and the last 20 lines of tests/verification_log.md BEFORE the next edit.",
-  ].join("\n")
+  const header = "VIBEWEAVER WORKING-STATE (machine-delivered by vibeweaver-gate; this ledger is task state and takes precedence over the compacted summary — preserve its essentials):"
+  const footer = "Resume rule: after compaction re-read tests/working_note.md, tests/acceptance.md, and the last 20 lines of tests/verification_log.md BEFORE the next edit."
+  return withGateDebt([
+    header,
+    renderWorkingNote(note, { maxBytes: budgetFor(header, footer) }),
+    footer,
+  ].join("\n"), root, debtPart)
 }
 
 function resumeCueNote(root) {
-  const exists = workingNoteOf(root).trim().length > 0
-  if (exists) {
+  const notePath = path.join(root, "tests", "working_note.md")
+  const read = readWorkingNote(root)
+  if (read.ok && read.text.trim()) {
     return "[vibeweaver] tests/working_note.md exists (task state ledger) — read it first (§3.3 re-entry); the gate re-delivers it at every compaction boundary."
+  }
+  if (read.exists && !read.ok) {
+    return "[vibeweaver] tests/working_note.md exists but is unreadable (permissions or non-regular file) — fix it and rewrite before the next edit (§A7.15); the gate re-delivers it at every compaction boundary."
+  }
+  if (read.exists) {
+    return "[vibeweaver] tests/working_note.md exists but is empty — rewrite it before the next edit (§A7.15); the gate re-delivers it at every compaction boundary."
   }
   if (existsSync(path.join(root, "tests", "acceptance.md"))) {
     return "[vibeweaver] active task detected without tests/working_note.md — create it (§A7.15); the gate delivers it deterministically at every compaction boundary."
@@ -1455,20 +2120,35 @@ function beforeToolCheck(directory, tool, args) {
   const filePath = writePathFromArgs(args)
   if (!filePath) return null
   const abs = path.isAbsolute(filePath) ? filePath : path.resolve(directory || ".", filePath)
-  const root = findProjectRoot([directory, path.dirname(abs)])
-  if (!root) return null
-  const risk = riskPathBlock(root, abs)
+  const scope = findProjectRootForWrite(directory, abs)
+  if (!scope) return null
+  if (scope.block) {
+    // Bootstrap-only allowlist: log + checker. Protected evidence and source
+    // stay denied.
+    if (scope.evidenceRoot && isActivationPath(scope.evidenceRoot, abs)) return null
+    return scope.block
+  }
+  const risk = riskPathBlock(scope.root, abs)
   if (risk) return risk
   return null
 }
 
-function gateCheckWrite(directory, filePath) {
+function gateCheckWrite(directory, filePath, sessionID = null) {
   if (process.env.VIBEWEAVER_GATE === "off") return Promise.resolve(null)
   // relative args.path resolves against the host directory (review A: cwd
   // resolution made a tests/ write look like a non-evidence write)
   if (filePath && !path.isAbsolute(filePath) && directory) filePath = path.resolve(directory, filePath)
-  const root = findProjectRoot([directory, filePath ? path.dirname(filePath) : null])
+  const scope = findProjectRootForWrite(directory, filePath)
+  const root = scope && scope.root
   if (!root) return Promise.resolve(null)
+  if (scope.block) {
+    if (scope.evidenceRoot && isActivationPath(scope.evidenceRoot, filePath)) {
+      const cues = cueNotes(scope.evidenceRoot, filePath)
+      return Promise.resolve(cues.length ? { notes: cues } : null)
+    }
+    return Promise.resolve({ block: scope.block })
+  }
+  rememberSessionRoot(sessionID, root, directory)
   // Cue delivery is hoisted ABOVE the gate: a RED gate (e.g. the task's
   // first write, empty log) is exactly when "read it before editing" must
   // arrive — delivery must never depend on the gate being green.
@@ -1485,38 +2165,73 @@ function gateCheckWrite(directory, filePath) {
   if (protectedEvidencePath(root, filePath)) {
     return checkProtectedEvidence(root, filePath).then((r) => {
       if (r && r.block) return { block: r.block }
+      clearCompletionLatch(root, sessionID) // repairs happen on protected evidence too
       const notes = [...cues, ...((r && r.notes) || [])]
       return notes.length ? { notes } : null
     })
   }
   // evidence-fix path must never be gated (same rule as the audit
   // plugin): writes under tests/ or memory/ ARE the evidence repair
-  // itself — gating them creates the first-log catch-22 deadlock.
-  if (isEvidencePath(root, filePath)) return Promise.resolve(cues.length ? { notes: cues } : null)
-  return checkGate(root).then((result) => {
-    if (result && result.blocking.length) {
-      let msg = blockMessage(root, result)
+  // itself — gating them creates the first-log catch-22 deadlock. A repair
+  // write also re-arms completion debt so an evidence-only fix cannot leave
+  // a stale latch hiding a regression.
+  if (isEvidencePath(root, filePath)) {
+    clearCompletionLatch(root, sessionID)
+    return Promise.resolve(cues.length ? { notes: cues } : null)
+  }
+  // `tests/gate_result.json` is agent-writable but excluded from the cache
+  // digest as gate-owned noise. Force one fresh checker run for that target
+  // so a secret written there cannot ride a cached PASS.
+  const force = relativeUnderRoot(root, filePath) === "tests/gate_result.json"
+  return checkGate(root, force).then((result) => {
+    // O1/W23: RED must not blind the stall observer. Record EVERY gated
+    // source edit before deciding whether to throw.
+    const stall = stallObservation(root, filePath || "(unknown file)")
+    const split = result
+      ? splitGateResult(result)
+      : { violations: [], completion: [], violationKinds: [], completionKinds: [] }
+    if (process.env.VIBEWEAVER_GATE_FINAL === "1" && split.completion.length) {
+      // Completion mode is the second line of defense: debt cannot remain a
+      // note once the host explicitly requests --final semantics.
+      split.violations.push(...split.completion)
+      split.violationKinds.push(...split.completion.map(() => "violation"))
+      split.completion = []
+    }
+    if (split.violations.length) {
+      let msg = blockMessage(root, {
+        ...result,
+        blocking: split.violations,
+        kinds: split.violationKinds,
+      })
       if (cues.length) msg += "\n" + cues.join("\n")
+      if (stall) msg += "\n[GATE-WARNING (vibeweaver-stall)] " + stall
       return { block: msg }
     }
     const notes = [...cues]
     if (result && result.warnings.length) {
       notes.push("[GATE-WARNING (vibeweaver)] non-blocking: " + result.warnings.join("; ") + " — fix before the final [Verification Gate] line.")
     }
-    const stall = stallObservation(root, filePath || "(unknown file)")
+    if (split.completion.length) {
+      const notice = completionNotice(root, split.completion, sessionID)
+      if (notice) notes.push(notice)
+    } else {
+      clearCompletionLatch(root, sessionID)
+    }
     if (stall) notes.push("[GATE-WARNING (vibeweaver-stall)] " + stall)
     return notes.length ? { notes } : null
   })
 }
 
 // Session-idle re-check: returns { blocking } when the gate is RED.
-function gateIdleCheck(directory) {
+function gateIdleCheck(directory, sessionID = null) {
   if (process.env.VIBEWEAVER_GATE === "off") return Promise.resolve(null)
-  const root = findProjectRoot([directory])
+  const root = rootForSession(directory, sessionID)
   if (!root) return Promise.resolve(null)
   return checkGate(root).then((result) => {
-    if (result && result.blocking.length) return { blocking: result.blocking }
-    return null
+    if (!result || !result.blocking.length) return null
+    const split = splitGateResult(result)
+    if (!split.violations.length && !split.completion.length) return null
+    return { root, hard: split.violations, completion: split.completion }
   })
 }
 
@@ -1547,22 +2262,22 @@ async function logToHost(appLike, entry) {
 function appendNotesToV2Result(event, notes) {
   const text = notes.join("\n")
   const result = event.result
-  if (!result || typeof result !== "object") return
+  if (!result || typeof result !== "object") return false
   try {
     if (typeof result.content === "string") {
       result.content = result.content + "\n" + text
-      return
+      return true
     }
     if (Array.isArray(result.content)) {
       result.content.push({ type: "text", text })
-      return
+      return true
     }
     if (result.metadata && typeof result.metadata === "object") {
       result.metadata.vibeweaverGate = text
-      return
+      return true
     }
     result.metadata = { vibeweaverGate: text }
-    return
+    return true
   } catch {
     /* readonly/frozen result — fall back to reassignment */
   }
@@ -1574,8 +2289,10 @@ function appendNotesToV2Result(event, notes) {
     } else {
       event.result = { ...result, metadata: { ...(result.metadata || {}), vibeweaverGate: text } }
     }
+    return true
   } catch {
     /* fully-frozen event — a cue note must never break a landed write */
+    return false
   }
 }
 
@@ -1590,7 +2307,7 @@ function v2EventIsIdle(event) {
 // Session-start proxy: exactly one resume pointer per project per process.
 function firstTouchCue(directory, sessionID) {
   try {
-    const root = findProjectRoot([directory])
+    const root = rootForSession(directory, sessionID)
     if (!root) return null
     const key = `${root}:${sessionID || "(session)"}`
     if (SESSION_MEM.firstCue.has(key)) return null
@@ -1620,7 +2337,7 @@ async function server({ client, directory }) {
         // Host without a pre-hook: the guard cannot stop execution, but it
         // must not disappear silently — surface a post-hoc GATE-WARNING.
         const cmd = input.args && typeof input.args.command === "string" ? input.args.command : ""
-        const root = findProjectRoot([directory])
+        const root = rootForSession(directory, input.sessionID)
         if (root && cmd) {
           const warn = riskCommandBlock(root, cmd) || destructiveBlock(root, cmd)
           if (warn) {
@@ -1632,7 +2349,7 @@ async function server({ client, directory }) {
       }
       if (!GATED_TOOLS.has(input.tool)) return
       const filePath = writePathFromArgs(input.args)
-      const r = await gateCheckWrite(directory, filePath)
+      const r = await gateCheckWrite(directory, filePath, input.sessionID)
       if (r && r.block) throw new Error(r.block)
       if (r && r.notes) {
         for (const note of r.notes) {
@@ -1644,8 +2361,9 @@ async function server({ client, directory }) {
     },
     "experimental.session.compacting": async (input, output) => {
       if (process.env.VIBEWEAVER_GATE === "off") return
-      const root = findProjectRoot([directory])
+      const root = rootForSession(directory, input && input.sessionID)
       if (!root) return
+      clearCompletionLatchForSession(input && input.sessionID) // result is about to leave context
       try {
         output.context = output.context || []
         output.context.push(compactStateBundle(root))
@@ -1663,7 +2381,7 @@ async function server({ client, directory }) {
       }
       const sid = input && typeof input.sessionID === "string" ? input.sessionID : null
       if (!sid || !SESSION_MEM.pendingResume.has(sid)) return
-      const root = findProjectRoot([directory])
+      const root = rootForSession(directory, sid)
       if (!root) return
       try {
         if (Array.isArray(output.system)) {
@@ -1684,17 +2402,26 @@ async function server({ client, directory }) {
           SESSION_MEM.bootstrapped.delete(sid) // compaction may drop the pointer
           SESSION_MEM.pendingResume.add(sid)
           capBounded(SESSION_MEM.pendingResume)
+          clearCompletionLatchForSession(sid) // the tool result carrying the note is gone
         }
         return
       }
       if (!event || event.type !== "session.idle") return
-      const r = await gateIdleCheck(directory)
-      if (r) {
+      const payload = (event.data || event.properties) || {}
+      const r = await gateIdleCheck(directory, payload.sessionID)
+      if (r && r.hard.length) {
         await logToHost(client && client.app, {
           service: "vibeweaver-gate",
           level: "warn",
-          message: "Session idle with RED verification gate",
-          extra: { blocking: r.blocking },
+          message: "Session idle with hard verification gate",
+          extra: { blocking: r.hard.slice(0, 20), scope: r.root },
+        })
+      } else if (r && r.completion.length) {
+        await logToHost(client && client.app, {
+          service: "vibeweaver-gate",
+          level: "info",
+          message: `Session idle with completion debt (${r.completion.length})`,
+          extra: { completion: r.completion.slice(0, 3), scope: r.root },
         })
       }
     },
@@ -1723,10 +2450,15 @@ async function setup(ctx) {
     if (event.status !== "completed") return
     const input = event.input
     const filePath = writePathFromArgs(input)
-    const r = await gateCheckWrite(directory, filePath)
+    const r = await gateCheckWrite(directory, filePath, event.sessionID)
     if (r && r.block) throw new Error(r.block)
-    if (r && r.notes) appendNotesToV2Result(event, r.notes)
-    const cue = firstTouchCue(directory)
+    if (r && r.notes) {
+      const delivered = appendNotesToV2Result(event, r.notes)
+      if (!delivered && r.notes.some((n) => n.includes("COMPLETION-NOT-READY"))) {
+        clearCompletionLatchForSession(event.sessionID)
+      }
+    }
+    const cue = firstTouchCue(directory, event.sessionID)
     if (cue) appendNotesToV2Result(event, [cue])
   })
   registrations.push(registration)
@@ -1777,16 +2509,25 @@ async function setup(ctx) {
               SESSION_MEM.bootstrapped.delete(sid2)
               SESSION_MEM.pendingResume.add(sid2)
               capBounded(SESSION_MEM.pendingResume)
+              clearCompletionLatchForSession(sid2)
             }
           }
           if (!v2EventIsIdle(event)) continue
-          const r = await gateIdleCheck(directory)
-          if (r) {
+          const payloadIdle = (event.data || event.properties) || {}
+          const r = await gateIdleCheck(directory, payloadIdle.sessionID)
+          if (r && r.hard.length) {
             await logToHost(null, {
               service: "vibeweaver-gate",
               level: "warn",
-              message: "Session idle with RED verification gate",
-              extra: { blocking: r.blocking },
+              message: "Session idle with hard verification gate",
+              extra: { blocking: r.hard.slice(0, 20), scope: r.root },
+            })
+          } else if (r && r.completion.length) {
+            await logToHost(null, {
+              service: "vibeweaver-gate",
+              level: "info",
+              message: `Session idle with completion debt (${r.completion.length})`,
+              extra: { completion: r.completion.slice(0, 3), scope: r.root },
             })
           }
         } catch {

@@ -256,11 +256,13 @@ if (gateHooksV1) {
   const out = { output: "write ok" }
   let blocked = null
   try {
-    await gateHooksV1["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "c1", args: { filePath: path.join(red, "src", "a.js") } }, out)
+    await gateHooksV1["tool.execute.after"]({ tool: "write", sessionID: "s-c1", callID: "c1", args: { filePath: path.join(red, "src", "a.js") } }, out)
   } catch (e) {
     blocked = e
   }
-  rec("C1-gate-v1: RED project write is GATE-BLOCKED (throws)", !!blocked && String(blocked.message).includes("GATE-BLOCKED"), blocked ? "threw" : "no throw")
+  rec("C1-gate-v1: completion-RED write lands with COMPLETION-NOT-READY (no phantom error)",
+    !blocked && /COMPLETION-NOT-READY/.test(out.output) && !/GATE-BLOCKED/.test(out.output),
+    blocked ? "threw" : out.output.slice(0, 100))
 
   const out2 = { output: "write ok" }
   let blocked2 = null
@@ -342,13 +344,16 @@ if (gateHooksV1) {
     "---",
     "# Fix: auth token refresh trap",
   ].join("\n"))
+  const redOut = { output: "" }
   let redErr = null
   try {
-    await gateHooksV1["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "cue5", args: { filePath: path.join(cueRed, "src", "auth", "x.ts") } }, { output: "" })
+    await gateHooksV1["tool.execute.after"]({ tool: "write", sessionID: "s-c5e", callID: "cue5", args: { filePath: path.join(cueRed, "src", "auth", "x.ts") } }, redOut)
   } catch (e) {
     redErr = e
   }
-  rec("C5e-gate-v1: RED gate block message still carries the cue note", !!redErr && String(redErr.message).includes("vibeweaver-cue"), redErr ? String(redErr.message).split("\n").pop().slice(0, 60) : "not blocked")
+  rec("C5e-gate-v1: RED completion note still carries the cue note",
+    !redErr && redOut.output.includes("vibeweaver-cue") && redOut.output.includes("COMPLETION-NOT-READY"),
+    redErr ? String(redErr.message).slice(0, 60) : redOut.output.slice(-90))
 
   // tests/-path writes are gate-exempt but still cue (trigger targets can
   // live under tests/ too — e.g. a trap in test infra).
@@ -477,14 +482,16 @@ if (gateV2def) {
   rec("D0-gate-v2: setup(ctx) registers execute.after hook", toolHooks.after.length === 1, `after=${toolHooks.after.length}`)
   rec("D0b-gate-v2: setup returns a cleanup function", typeof cleanup === "function", typeof cleanup)
 
-  const ev = { tool: "write", sessionID: "s1", agent: "a", messageID: "m1", id: "c1", input: { filePath: path.join(red, "src", "a.js") }, status: "completed", result: { content: "write ok" } }
+  const ev = { tool: "write", sessionID: "s-d1", agent: "a", messageID: "m1", id: "c1", input: { filePath: path.join(red, "src", "a.js") }, status: "completed", result: { content: "write ok" } }
   let blocked = null
   try {
     await toolHooks.after[0](ev)
   } catch (e) {
     blocked = e
   }
-  rec("D1-gate-v2: RED project completed write is GATE-BLOCKED (throws)", !!blocked && String(blocked.message).includes("GATE-BLOCKED"), blocked ? "threw" : "no throw")
+  rec("D1-gate-v2: completion-RED completed write gets COMPLETION-NOT-READY (no phantom error)",
+    !blocked && /COMPLETION-NOT-READY/.test(String(ev.result.content)) && !/GATE-BLOCKED/.test(String(ev.result.content)),
+    blocked ? "threw" : String(ev.result.content).slice(0, 100))
 
   const green = greenProject("gate-green-v2")
   const g2 = makeV2Ctx(green)
@@ -1002,6 +1009,28 @@ const BLOCK = "function foo() {\n  return computeValue(x)\n}\n"
     out8b.context[0] ? out8b.context[0].slice(0, 80) : "none"
   )
 }
+{
+  // D8b — a finalized task / new task generation must not resurrect the old
+  // snapshot (W23 F4). Same deletion window, different task key.
+  const root8 = greenProject("mem-d8b")
+  writeFileSync(path.join(root8, "tests", "working_note.md"), "# WN\nSTALE-GENERATION-TOKEN\n")
+  const hooks8 = await loadAsV1(gateMod, { client: { app: { log: async () => {} } }, directory: root8 }, "vibeweaver-gate")
+  const h8 = hooks8.hooks[0]
+  await h8["experimental.session.compacting"]({ sessionID: "s-d8b" }, { context: [] })
+  rmSync(path.join(root8, "tests", "working_note.md"), { force: true })
+  writeFileSync(
+    path.join(root8, "tests", "verification_log.md"),
+    "# log\n- iter 1 PASS: old (evidence: fixture, 1/1)\n- final-run: --final — pass=1/fail=0\n\n## Task: new\n- iter 1 PASS: new (evidence: fixture, 1/1)\n"
+  )
+  const out = { context: [] }
+  await h8["experimental.session.compacting"]({ sessionID: "s-d8b" }, out)
+  const bundle = out.context.join("\n")
+  rec(
+    "D8b-gate-v1: finalized/new-task snapshot is NOT resurrected",
+    !bundle.includes("STALE-GENERATION-TOKEN") && bundle.includes("VIBEWEAVER COMPACT-RESUME"),
+    bundle.slice(0, 100)
+  )
+}
 
 // ---------- W18 batch1: G1 three-state seal + G2 write-path shape ----------
 const REPO_ROOT = path.resolve(import.meta.dirname, "..")
@@ -1075,12 +1104,15 @@ function runAssertJson(root) {
   }
   rec("D9-gate-v1: host args.path shape — tests/ write is never gated", !blockedTests, blockedTests ? "BLOCKED (args.path unseen)" : "clean")
   let blockedSrc = null
+  const srcOut = { output: "ok" }
   try {
-    await h["tool.execute.after"]({ tool: "write", sessionID: "s1", callID: "ap2", args: { path: path.join(root, "src", "x.js"), content: "x" } }, { output: "ok" })
+    await h["tool.execute.after"]({ tool: "write", sessionID: "s-d9", callID: "ap2", args: { path: path.join(root, "src", "x.js"), content: "x" } }, srcOut)
   } catch (e) {
     blockedSrc = e
   }
-  rec("D9b-gate-v1: host args.path shape — src write on a RED project still BLOCKS", !!blockedSrc && /GATE-BLOCKED/.test(String((blockedSrc && blockedSrc.message) || "")), blockedSrc ? "blocked" : "UNEXPECTEDLY clean")
+  rec("D9b-gate-v1: host args.path shape — src write on completion-RED gets a debt note, not a phantom error",
+    !blockedSrc && /COMPLETION-NOT-READY/.test(srcOut.output),
+    blockedSrc ? "blocked" : srcOut.output.slice(0, 90))
   if (gateV2def) {
     const root2 = redProject("gate-argspath-red-v2")
     const { ctx, toolHooks } = makeV2Ctx(root2)
@@ -1092,12 +1124,15 @@ function runAssertJson(root) {
       b1 = e
     }
     let b2 = null
+    const v2src = { tool: "write", sessionID: "s-d9c", agent: "a", messageID: "m1", id: "ap4", input: { path: path.join(root2, "src", "y.js"), content: "x" }, status: "completed", result: { content: "ok" } }
     try {
-      await toolHooks.after[0]({ tool: "write", sessionID: "s1", agent: "a", messageID: "m1", id: "ap4", input: { path: path.join(root2, "src", "y.js"), content: "x" }, status: "completed", result: { content: "ok" } })
+      await toolHooks.after[0](v2src)
     } catch (e) {
       b2 = e
     }
-    rec("D9c-gate-v2: host args.path shape — tests/ writable, src still BLOCKS", !b1 && !!b2, `tests=${b1 ? "blocked" : "clean"} src=${b2 ? "blocked" : "clean"}`)
+    rec("D9c-gate-v2: host args.path shape — tests/ writable, src gets completion debt note",
+      !b1 && !b2 && /COMPLETION-NOT-READY/.test(String(v2src.result.content)),
+      `tests=${b1 ? "blocked" : "clean"} src=${b2 ? "blocked" : String(v2src.result.content).slice(0, 60)}`)
   }
 }
 
@@ -1222,6 +1257,67 @@ function runAssertJson(root) {
     }
     rec("D12c-audit-v2: args.path shape — tests/ writable, src still BLOCKS", !b1 && !!b2, `tests=${b1 ? "blocked" : "clean"} src=${b2 ? "blocked" : "clean"}`)
   }
+}
+
+// W23 — audit latch must follow the same nested-project scope as the gate.
+{
+  const parent = redProject("audit-scope-parent")
+  const dev = auditLatchedProject("audit-scope-parent/dev", "s-scope")
+  writeFileSync(path.join(dev, "tests", "assert_artifacts.py"), readFileSync(payloadScript("assert_artifacts.py"), "utf8"))
+  execFileSync("git", ["init", "-q"], { cwd: dev })
+  execFileSync("git", ["config", "user.email", "compat@test"], { cwd: dev })
+  execFileSync("git", ["config", "user.name", "compat"], { cwd: dev })
+  execFileSync("git", ["add", "-A"], { cwd: dev })
+  execFileSync("git", ["commit", "-qm", "fixture"], { cwd: dev })
+  const hooks = await newAuditV1(parent)
+  let blocked = null
+  try {
+    await hooks["tool.execute.before"]({ tool: "write", sessionID: "s-scope", callID: "sc1" }, { args: { path: path.join(dev, "src", "a.js"), content: "x" } })
+  } catch (e) {
+    blocked = e
+  }
+  rec("D13-audit-v1: nested dev RED latch is consulted, not the umbrella root",
+    !!blocked && /GATE-BLOCKED \(vibeweaver-audit\)/.test(String(blocked.message || "")),
+    blocked ? "blocked by dev latch" : "UNEXPECTEDLY clean")
+  let accBlocked = null
+  try {
+    await hooks["tool.execute.before"]({ tool: "write", sessionID: "s-scope", callID: "sc2" }, { args: { path: path.join(dev, "tests", "acceptance.md"), content: "new task" } })
+  } catch (e) {
+    accBlocked = e
+  }
+  let afterAcc = null
+  try {
+    await hooks["tool.execute.before"]({ tool: "write", sessionID: "s-scope", callID: "sc3" }, { args: { path: path.join(dev, "src", "b.js"), content: "x" } })
+  } catch (e) {
+    afterAcc = e
+  }
+  const nestedState = JSON.parse(readFileSync(path.join(dev, ".vibeweaver", "audit-state.json"), "utf8"))
+  rec("D13c-audit-v1: nested new-task acceptance releases its own latch",
+    !accBlocked && !afterAcc && !nestedState.roots[dev].red,
+    `acceptance=${accBlocked ? "blocked" : "clean"} source=${afterAcc ? "blocked" : "clean"} red=${nestedState.roots[dev].red ? "set" : "null"}`)
+}
+
+// W23 — when the session workspace itself is an active nested repo, audit must
+// use its own latch, not the parent umbrella's clean/red state.
+{
+  redProject("audit-nested-host-parent")
+  const dev = auditLatchedProject("audit-nested-host-parent/dev", "s-host")
+  writeFileSync(path.join(dev, "tests", "assert_artifacts.py"), readFileSync(payloadScript("assert_artifacts.py"), "utf8"))
+  execFileSync("git", ["init", "-q"], { cwd: dev })
+  execFileSync("git", ["config", "user.email", "compat@test"], { cwd: dev })
+  execFileSync("git", ["config", "user.name", "compat"], { cwd: dev })
+  execFileSync("git", ["add", "-A"], { cwd: dev })
+  execFileSync("git", ["commit", "-qm", "fixture"], { cwd: dev })
+  const hooks = await newAuditV1(dev)
+  let blocked = null
+  try {
+    await hooks["tool.execute.before"]({ tool: "write", sessionID: "s-host", callID: "nh1" }, { args: { path: path.join(dev, "src", "a.js"), content: "x" } })
+  } catch (e) {
+    blocked = e
+  }
+  rec("D13b-audit-v1: active nested workspace uses its own RED latch",
+    !!blocked && /GATE-BLOCKED \(vibeweaver-audit\)/.test(String(blocked.message || "")),
+    blocked ? "blocked by host latch" : "UNEXPECTEDLY clean")
 }
 
 console.log(`\n=== COMPAT HARNESS: ${count - failures}/${count} passed, ${failures} failed ===`)

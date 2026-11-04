@@ -34,6 +34,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_*.py'
           python3 tests/test_check_doc_counts.py
           node tests/plugin_compat_test.mjs
+          node tests/context_state_test.mjs
 
       - name: Build manifest
         run: |
