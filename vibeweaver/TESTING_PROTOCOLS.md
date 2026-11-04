@@ -22,43 +22,35 @@ A **convergent** loop: verifiable stop condition · independent verifier
 (maker/checker split) · iteration cap · stall detection. REQUIRED for every
 frontend/UI/runtime-affecting change.
 
-**Step 0 — Detect + announce the media verifier (AT TASK START, before any code, in ZERO):**
-Three verifier modes exist — `model-native [image]` (the current model is
-image-perceptive, PROBED not assumed), `mm-sensor [video+audio|video|image]`
-(external media verifier), `direct read` (neither available). Probe IN THIS
-ORDER; the announced mode is fixed for the task (one probe per task; the
-probe is the single source of truth, not a filesystem/config guess).
+**Step 0 — Detect + announce the media verifier (AT TASK START, before any
+code, in ZERO):** three modes — `model-native [image]` (image-perceptive,
+PROBED not assumed), `mm-sensor [video+audio|video|image]` (external),
+`direct read` (neither). Probe IN THIS ORDER; the mode is fixed for the task
+(one probe per task — the probe is the source of truth, not a config guess).
 
 - **Step 0a — Self-multimodality probe (the model probes ITS OWN perception).
   Behavioral, never declarative** — self-declaration ("I support images") is
   NOT evidence; capability is established by reading generated pixels.
   `VW_DIR` = this skill's installation directory.
-  ★ **Precedence:** this probe runs BEFORE any mm-sensor invocation. When it
-  PASSES, mm-sensor's blanket "never use your own vision / Read tool on
-  media" mandate does NOT apply to screenshot grading in this task — the
-  §A4.1.1 protocol governs instead (mm-sensor still grades video/audio per
-  the hybrid rule below, and remains the verifier whenever the probe
-  fails).
+  ★ **Precedence:** runs BEFORE any mm-sensor invocation. When it PASSES,
+  mm-sensor's "never use your own vision" mandate does NOT apply to
+  screenshot grading — §A4.1.1 governs (mm-sensor still grades video/audio
+  per the hybrid rule below, and is the verifier whenever the probe fails).
   1. Run `python3 {VW_DIR}/scripts/mm_probe.py --generate` → writes
      `tests/probe_vision.png` (random 6-char token + one of 5 palette
      colors) and `tests/probe_vision.expected` (ground truth).
   2. Read `tests/probe_vision.png` with the Read tool. **Media-Read is
-     ALLOWED for this probe artifact only** — the mm-sensor Read-ban applies
-     to grading captured media, not to the probe. Read the PNG BEFORE
-     running `--check` (the token is random per run — nothing to recall).
-  3. Report what you actually perceive (exact token + color). If the Read
-     errors or you cannot extract them, report that honestly — a failed
-     probe is a valid result.
+     ALLOWED for this probe artifact only** — the Read-ban applies to
+     grading captured media, not the probe. Read the PNG BEFORE `--check`
+     (the token is random per run).
+  3. Report what you perceive (exact token + color). Read errors or
+     non-extraction reported honestly — a failed probe is a valid result.
   4. Validate: `python3 {VW_DIR}/scripts/mm_probe.py --check <token> <color>`.
-     - **exit 0 (PASS)** → the model IS image-perceptive → announce
-       `Verifier: model-native [image]`. PASS criterion: color exact AND
-       >= 5 of 6 token chars in exact positions (a blind guesser scores
-       ~0-1/6, so the gate is unpassable without real perception, while one
-       isolated slip no longer disqualifies a vision-capable model).
-       Screenshots are graded via the
-       Read tool under **§A4.1.1 Visual Verification Protocol**
-       (observation-first · per-criterion verdicts · DOM/log cross-check ·
-       UNCERTAIN=FAIL) — the countermeasure to self-grading bias.
+     - **exit 0 (PASS)** → image-perceptive → announce `Verifier: model-native
+       [image]`. PASS criterion: color exact AND ≥5 of 6 token chars in exact
+       positions (blind guess ~0-1/6; one isolated slip does not
+       disqualify). Screenshots graded via Read under **§A4.1.1** — the
+       countermeasure to self-grading bias.
      - **exit 1 (FAIL)** → the model is NOT image-perceptive → Step 0b.
      - **exit 2 / error** → fix the probe invocation, re-run; on repeat
        failure treat as FAIL (0b).
@@ -69,35 +61,30 @@ probe is the single source of truth, not a filesystem/config guess).
   for `mm-sensor` (opencode injects this list; it is authoritative).
   - **`mm-sensor` IS in available_skills** → MANDATORY independent verifier.
     - Derive `SKILL_DIR` from the `<location>` in available_skills.
-    - Run the capability probe (cheap, no tokens):
-      `python3 {SKILL_DIR}/vision.py --probe` and parse the JSON:
-      `media_capabilities` (absent/empty = all three) and `error` (non-null =
-      config broken → fix the config, then re-probe).
-    - Announce the verifier WITH its modality mode (COV-5):
-      `Verifier: mm-sensor [video+audio]` · `Verifier: mm-sensor [video]` ·
-      `Verifier: mm-sensor [image]` — the mode decides the capture set in
-      Step 2 and the grading set in Step 3.
-    - Invoke with `--detail high` for EVERY captured media file:
-      `python3 {SKILL_DIR}/vision.py --detail high /path/to/file.webm`.
-    - NEVER use the model's own vision or the Read tool on media while
-      mm-sensor is the verifier — that is self-grading and a violation.
-      There is no fallback to self-grading: on call errors, fix the config
-      and retry; only after repeated failure escalate to the user.
+    - Capability probe (cheap, no tokens): `python3 {SKILL_DIR}/vision.py
+      --probe`; `media_capabilities` (absent/empty = all three); `error`
+      non-null = config broken → fix, re-probe.
+    - Announce WITH its modality mode (COV-5): `Verifier: mm-sensor
+      [video+audio|video|image]` — the mode decides Step 2's capture set and
+      Step 3's grading set.
+    - EVERY captured media file: `python3 {SKILL_DIR}/vision.py --detail high
+      /path/to/file.webm`.
+    - NEVER self-grade (own vision / Read tool) while mm-sensor is the
+      verifier — a violation. No fallback to self-grading: on call errors fix
+      the config and retry; escalate to the user only after repeated
+      failure.
   - **`mm-sensor` NOT in available_skills** → Step 0c.
 - **Step 0c — direct read fallback (0a FAILED and no mm-sensor):** announce
-  `Verifier: direct read (no multimodal model, no mm-sensor)`. **This is the
-  weakest verifier: the model cannot perceive pixels at all** — the
-  screenshot is NOT the evidence channel here. Verification must lean on
-  DOM queries (`querySelector` / `getComputedStyle` / `textContent` /
-  `boundingClientRect`), log inspection, and API responses; screenshots are
-  kept as artifacts for human review later. Be extra strict and cross-check
+  `Verifier: direct read (no multimodal model, no mm-sensor)`. **Weakest
+  verifier — the model cannot perceive pixels; the screenshot is NOT the
+  evidence channel.** Lean on DOM queries (`querySelector` /
+  `getComputedStyle` / `textContent` / `boundingClientRect`), logs, and API
+  responses; screenshots stay artifacts for human review. Cross-check
   everything.
-- **Hybrid (model-native + mm-sensor):** when the verifier is `model-native
-  [image]` but acceptance criteria require video/audio evidence and mm-sensor
-  is installed → grade THOSE files via mm-sensor (`vision.py --detail high`)
-  and record the hybrid in the log. Without mm-sensor → record
-  `video/audio: not gradeable` in the log and verify the underlying state
-  via DOM/API/log instead.
+- **Hybrid (model-native + mm-sensor):** criteria needing video/audio with
+  mm-sensor installed → grade THOSE via `vision.py --detail high`, record the
+  hybrid. Without mm-sensor → record `video/audio: not gradeable` and verify
+  state via DOM/API/log.
 
 ---
 
@@ -118,10 +105,9 @@ is fine" — not verdicts. Every verdict is produced by this chain, IN ORDER:
 **1. OBSERVE-FIRST (never judge before describing).** From the screenshot,
 enumerate what IS on screen, zone by zone (header / nav / main / sidebar /
 footer / modals): every element with position, rendered text, colors, and
-state (visible / disabled / empty). Only what is actually visible — no
-inference, no "should be"; absence is recorded as absence ("no modal is
-open"). Observation comes first because visual attention is highest then
-(MJ1).
+state (visible / disabled / empty). Only what is visible — no inference, no
+"should be"; absence is recorded as absence ("no modal is open"). Observation
+first — MJ1.
 
 **2. CLAIM EXTRACTION (rubric tree).** Decompose every acceptance criterion
 into atomic, individually-verifiable claims (WebDevJudge): criterion #1
@@ -141,13 +127,12 @@ overflowing elements, response codes — MUST additionally be checked via
 boundingClientRect), API response, or log inspection. Record both evidence
 legs in the verdict.
 
-**5. ABSTAIN ON UNCERTAINTY (UNCERTAIN = FAIL).** If the screenshot or DOM
+**5. ABSTAIN ON UNCERTAINTY (UNCERTAIN = FAIL).** If screenshot or DOM
 cannot determine a criterion — clipped viewport, resolution, unreadable
 text, ambiguous state, animation mid-flight — the verdict is
-`UNCERTAIN: <what is missing>` and COUNTS AS FAIL for the loop (CUAAudit
-calibration; uijudge-bench abstention). Never guess. An UNCERTAIN verdict
-forces the loop to improve the evidence (re-capture, larger viewport, DOM
-probe) — a silent guess converts a bad screenshot into a false pass.
+`UNCERTAIN: <what is missing>` and COUNTS AS FAIL (CUAAudit; uijudge-bench).
+Never guess. UNCERTAIN forces better evidence (re-capture, larger viewport,
+DOM probe) — a silent guess converts a bad screenshot into a false pass.
 
 **6. PER-CRITERION VERDICT SHEET (the only valid verdict form):**
 ```
@@ -159,9 +144,9 @@ discipline as mm-sensor grading. Loop exit requires every criterion PASS
 
 **7. MAKER/CHECKER HONESTY RULE.** In model-native mode the grader built the
 page. Guardrails: (a) observation and verdict are separate passes — never
-interleave with "I remember writing X"; (b) when a criterion's verdict is
-load-bearing and mm-sensor is installed, run BOTH and reconcile
-(DUAL-PATH RECONCILE §A4.10) — disagreement locates the faulty judgment.
+"I remember writing X"; (b) load-bearing verdict + mm-sensor installed → run
+BOTH and reconcile (DUAL-PATH RECONCILE §A4.10) — disagreement locates the
+faulty judgment.
 
 **Video/audio in model-native mode:** screenshots are graded natively;
 video/audio via mm-sensor if installed (hybrid, recorded in the log), else
@@ -302,9 +287,8 @@ Decision rules:
   memory entries — the memory does the knowledge transfer, that's what it is
   for) OR **escalate to the user** (see §A4.6 — 3+ failed fixes may signal
   an architectural problem).
-- **Iteration cap = 5 max per sub-problem** → STOP. Record failure in
-  `memory/`, report to user with the last screenshot + verifier output. Do
-  not loop forever.
+- **Iteration cap = 5 max per sub-problem** → STOP. Record in `memory/`,
+  report to user with last screenshot + verifier output.
 
 ★ **Covenant Recall Check:** before emitting the next iteration, re-read §1
 OPERATING COVENANT — confirm all covenants still hold for THIS iteration,
@@ -317,11 +301,10 @@ Before the A4.4 completion table, output ONE convergence summary line per task:
 ```
 Example: `[Convergence] Login page: 3 iters | 6/6 pass | 0 stalls | 0 cap-hits`
 
-Then persist state — every iteration is recorded in the fix-tracking memory
-topic file so future sessions don't re-derive the same dead ends (A7.14 in
-[MEMORY_RULES.md](MEMORY_RULES.md)). If convergence metrics reveal a baseline
-(e.g. "this project's UI tasks average 2.3 iters"), record it as a `project`
-memory entry for future A/B comparison.
+Then persist state — iterations recorded in the fix-tracking memory topic so
+future sessions don't re-derive dead ends (A7.14 in
+[MEMORY_RULES.md](MEMORY_RULES.md)). Convergence baselines (e.g. "UI tasks
+average 2.3 iters") become `project` memory for A/B comparison.
 
 The loop is only "done" when the **verifier** confirms every criterion passes —
 not when the model that wrote the code says so. Mock data, console logs, "it
@@ -412,13 +395,11 @@ boundary diagnostics. Complete each phase before the next.
 
 **Escalation — 3+ failed fixes = question the architecture:**
 After **3 failed fixes on the same problem** (or each fix reveals a NEW
-problem elsewhere, or every fix demands "massive refactoring"), STOP — an
-**architectural** problem, not a wrong hypothesis. Do NOT attempt fix #4 in
-the same direction. Record the failed methods in memory (❌/⛔ per
-[MEMORY_RULES.md §A7.7](MEMORY_RULES.md)), then escalate to the user. This
-complements A4.1's stall rule (3× same criterion): stall stops the loop;
-this rule escalates the **direction** — generated by §A4.10 PARAMETRIZE,
-not by trying harder in the same frame.
+problem, or fixes demand "massive refactoring"), STOP — **architectural**,
+not a wrong hypothesis; no fix #4 in the same direction. Record the methods
+in memory (❌/⛔ per [MEMORY_RULES.md §A7.7](MEMORY_RULES.md)) and escalate.
+Complements A4.1's stall (3× criterion): stall stops the loop; this escalates
+the **direction** (§A4.10 PARAMETRIZE).
 
 ---
 
@@ -709,10 +690,9 @@ cannot trust the check):
 1. **Build the reference** — the simplest independent procedure whose
    assumptions are explicit and separately checked: brute force, exhaustive
    enumeration, a second data path, a hand-worked example.
-2. **The reference must NOT share the candidate's cleverness.** If it
-   inherits the same assumption, it inherits the same bug and will agree
-   with the candidate beautifully while both are wrong. Where they must
-   share an assumption, test that assumption separately and say so.
+2. **The reference must NOT share the candidate's cleverness.** Same
+   assumption = same bug = beautiful agreement while both wrong. Where
+   sharing is unavoidable, test that assumption separately and say so.
 3. **Differential-test:** same inputs to both. Compare outputs. Sweep small,
    edge (empty, single, maximum, degenerate) and randomized cases where
    cheap.
@@ -784,3 +764,16 @@ re-plan); clear the file, append `- resumed: <default> approved` to
 **AUTO runaway bound:** at most ONE extra autonomous direction per stop
 type; ≥3 ADRs on the SAME sub-problem → next stop escalates to PAUSED
 regardless of mode.
+
+## Task Gate & Integration Gate (MULTI_AGENT.md §MA3/§MA5) ★
+Task Gate = the full single-agent contract inside one run (§MA3). Integration
+Gate = full tests + interface-contract/migration-order/invariant checks +
+cross-run delta review + applicable FCV + the real final gate on the CANDIDATE
+commit (§MA5). Invalidation propagation (§MA2 invariant two): rebase/
+cherry-pick · conflict resolution · lockfile regen · test/interface/contract
+change · global ADR change · skill/plugin/checker/hook/config update · target-
+branch or queue-predecessor change — each voids old tests/reviews/gates;
+re-verify on the new SHA and record the SHA mapping. A conflict resolution
+needs a NEW review bound to the NEW SHA — the resolver is never its own sole
+reviewer. Cross-run coverage honesty: unproven cross-run interactions are
+recorded `UNVERIFIED` (§V3) — never laundered by a green suite.

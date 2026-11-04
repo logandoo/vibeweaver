@@ -9,20 +9,68 @@ Two checks over tests/backlog.json (the machine-checkable stop condition):
      a pass flag without an executed-test record is COV-1 fraud at the
      backlog level (a flip without evidence is the outer-loop failure mode).
 
-Usage: python3 backlog_check.py [project-root]   (default: cwd)
+W25 multi-agent (PLAN Task 6, §MA7): a `passes:true` item may instead carry
+a TRANSACTIONAL CLAIM marker — a line in tests/verification_log.md (or a
+string in the item's `claims` list) matching
+    `- claim: task=<id> run=<run-<32hex>> attempt=<attempt-<32hex>> epoch=<int>`
+bound to that item's id. A claim marker additionally requires:
+    * a live lease (optional --leases JSON {attempt_id: expiry_epoch_seconds};
+      an absent file = legacy mode, no lease check; a missing entry or an
+      expired expiry blocks the claim),
+    * no pending outbox entry for the item (optional --outbox JSON list of
+      {subject, status}; pending -> the item cannot claim passes).
+
+Usage: python3 backlog_check.py [project-root] [--leases PATH] [--outbox PATH]
 Exit 0 = clean (or no backlog.json — the check is inert outside C8).
 Exit 1 = violations, named on stdout.
 """
+import argparse
 import json
 import pathlib
 import re
 import sys
+import time
 
 REQUIRED = ("id", "title", "priority", "passes")
+# W25 transactional claim marker (Consistency Hub id grammar: uuid4-hex ids)
+CLAIM_RE = re.compile(
+    r"^\s*-\s*claim:\s*task=(?P<task>[A-Za-z0-9._-]{1,64})"
+    r"\s+run=(?P<run>run-[0-9a-f]{32})"
+    r"\s+attempt=(?P<attempt>attempt-[0-9a-f]{32})"
+    r"\s+epoch=(?P<epoch>\d+)\s*$")
+
+
+def _claim_markers(text):
+    out = []
+    for line in text.splitlines():
+        m = CLAIM_RE.match(line)
+        if m:
+            out.append(m.groupdict())
+    return out
+
+
+def _load_json_map(path, what):
+    """Return (value, error) — a missing file is legacy mode (None, None)."""
+    p = pathlib.Path(path)
+    if not p.is_file():
+        return None, None
+    try:
+        return json.loads(p.read_text(encoding="utf-8")), None
+    except (OSError, ValueError) as e:
+        return None, f"FAIL {path}: unreadable {what} JSON — {e}"
 
 
 def main() -> int:
-    root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+    ap = argparse.ArgumentParser(description="C8 outer-loop ledger gate")
+    ap.add_argument("root", nargs="?", default=".", help="project root (default: cwd)")
+    ap.add_argument("--leases", default="",
+                    help="JSON mapping attempt_id -> lease expiry epoch seconds "
+                         "(absent file = legacy mode: no lease check)")
+    ap.add_argument("--outbox", default="",
+                    help="JSON list of {subject, status} outbox records "
+                         "(pending entries block passes:true)")
+    args = ap.parse_args()
+    root = pathlib.Path(args.root).resolve()
     backlog = root / "tests" / "backlog.json"
     if not backlog.is_file():
         print("backlog_check.py: no tests/backlog.json — inert (exit 0)")
@@ -54,6 +102,27 @@ def main() -> int:
         if "passes" in item and not isinstance(item["passes"], bool):
             fails.append(f"userStories[{i}] ({item.get('id', '?')}): `passes` must be a boolean")
 
+    # --- W25 lease / outbox inputs (absent file = legacy mode) -------------
+    leases, err = _load_json_map(args.leases, "lease") if args.leases else (None, None)
+    if err:
+        print(err)
+        return 1
+    if leases is not None and not isinstance(leases, dict):
+        print(f"FAIL {args.leases}: lease JSON must map attempt_id -> expiry epoch seconds")
+        return 1
+    outbox, err = _load_json_map(args.outbox, "outbox") if args.outbox else (None, None)
+    if err:
+        print(err)
+        return 1
+    if outbox is not None and not isinstance(outbox, list):
+        print(f"FAIL {args.outbox}: outbox JSON must be a list of {{subject, status}} records")
+        return 1
+
+    # claim markers: tests/verification_log.md lines + per-item `claims` lists
+    vlog = root / "tests" / "verification_log.md"
+    log_markers = _claim_markers(
+        vlog.read_text(encoding="utf-8", errors="replace") if vlog.is_file() else "")
+
     passed_ids = [str(it.get("id")) for it in items if isinstance(it, dict) and it.get("passes") is True and it.get("id")]
     if passed_ids:
         evidence = ""
@@ -66,7 +135,10 @@ def main() -> int:
         # ("- TODO: US-3 not started" must never mark US-3 done).
         exec_ok = re.compile(r"(?:exit(?:\s*code)?|rc)\s*[:=]?\s*0\b|(?:→|->)\s*0\b", re.I)
         cmd_mark = re.compile(r"(?:\$\s|command\s*[:=]|cmd\s*[:=]|\bran\b|\bexecuted\b|\brun\b)", re.I)
-        for pid in passed_ids:
+        for item in items:
+            if not (isinstance(item, dict) and item.get("passes") is True and item.get("id")):
+                continue
+            pid = str(item.get("id"))
             hit = False
             for line in evidence.splitlines():
                 if not re.search(rf"^\s*-.*\b{re.escape(pid)}\b", line, re.M):
@@ -74,12 +146,57 @@ def main() -> int:
                 if exec_ok.search(line) and cmd_mark.search(line):
                     hit = True
                     break
-            if not hit:
+            # W25: transactional claim markers bound to THIS item's id also
+            # license passes:true — with their own lease/outbox conditions.
+            markers = [m for m in log_markers if m["task"] == pid]
+            for claim in item.get("claims") or []:
+                if not isinstance(claim, str):
+                    continue
+                text = claim.strip()
+                if not text.startswith("-"):
+                    text = "- " + text
+                m = CLAIM_RE.match(text)
+                if m and m.group("task") == pid:
+                    markers.append(m.groupdict())
+            if not hit and not markers:
                 fails.append(
                     f"{pid}: passes:true but no line in tests/verification_log.md or "
                     f"tests/progress.txt carries EXECUTION evidence for it (a command "
                     f"marker AND its exit 0) — a mention or TODO is not a test run "
                     f"(C3e / COV-1)")
+                continue
+            for m in markers:
+                if leases is not None:
+                    exp = leases.get(m["attempt"])
+                    if exp is None:
+                        fails.append(
+                            f"{pid}: claim marker attempt={m['attempt']} has no lease record in "
+                            f"{args.leases} — a transactional claim needs a live lease "
+                            f"(missing entry = lease not established)")
+                    else:
+                        try:
+                            exp_f = float(exp)
+                        except (TypeError, ValueError):
+                            fails.append(
+                                f"{pid}: claim marker attempt={m['attempt']} lease expiry is not "
+                                f"epoch seconds ({exp!r}) — repair {args.leases} (fail-closed)")
+                            continue
+                        if time.time() >= exp_f:
+                            fails.append(
+                                f"{pid}: claim marker attempt={m['attempt']} lease expired at "
+                                f"{int(exp_f)} (epoch {m['epoch']}) — an expired lease cannot "
+                                f"claim passes (expiry is not stop, §MA4; create a new attempt)")
+                if outbox is not None:
+                    pending = [e for e in outbox
+                               if isinstance(e, dict)
+                               and str(e.get("subject")) == pid
+                               and str(e.get("status", "")).lower() == "pending"]
+                    if pending:
+                        fails.append(
+                            f"{pid}: {len(pending)} pending outbox entr"
+                            f"{'y' if len(pending) == 1 else 'ies'} for this item — publication "
+                            f"incomplete; passes:true cannot be claimed until the outbox is "
+                            f"reconciled (§MA7 transactional outbox)")
 
     if fails:
         print(f"backlog_check.py: {len(fails)} violation(s):")

@@ -8,6 +8,9 @@ before a release. Checks:
   * precedence is explicit: COV-0 > line-176 pointer > COV-9
   * banned placeholders outside quotes/code fences
   * size caps: SKILL < 49 KB; companions <= 45 KB; bootstrap <= 2 KB
+  * lazy companions (MULTI_AGENT.md, R11 — loaded at trigger only) get the
+    same placeholder scan + 45 KB cap but a SEPARATE token budget (lazy cap
+    20000 tokens) instead of entering the always-resident 90000-token count
   * profiles/core presence is a warning until Task 9 lands
 """
 import argparse
@@ -18,10 +21,12 @@ import sys
 
 COV_RE = re.compile(r"^`COV-(\d+)\.", re.M)
 COMPANIONS = (
-    "COMPLETION_GATE.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
+    "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
     "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
 )
+LAZY_COMPANIONS = ("MULTI_AGENT.md",)
+LAZY_TOKEN_CAP = 20000
 BANNED = (
     "TBD", "handle edge cases", "similar to Task N", "appropriate validation",
 )
@@ -71,7 +76,7 @@ def lint(root):
         if "final answer" in line and "only tests/" in line:
             errors.append("SKILL.md:%d still contains the legacy final-answer/only-tests contradiction" % i)
 
-    for md in [skill] + [pay / c for c in COMPANIONS if (pay / c).is_file()]:
+    for md in [skill] + [pay / c for c in COMPANIONS + LAZY_COMPANIONS if (pay / c).is_file()]:
         body = md.read_text(encoding="utf-8", errors="replace")
         live = _live_text(body)
         for term in BANNED:
@@ -85,7 +90,7 @@ def lint(root):
     size = skill.stat().st_size
     if size >= 49000:
         errors.append("SKILL.md is %d bytes (must be < 49000)" % size)
-    for c in COMPANIONS:
+    for c in COMPANIONS + LAZY_COMPANIONS:
         p = pay / c
         if p.is_file() and p.stat().st_size > 45000:
             errors.append("%s is %d bytes (companion cap 45000)" % (c, p.stat().st_size))
@@ -104,6 +109,9 @@ def lint(root):
     full_tokens = sum(len((pay / f).read_text(encoding="utf-8", errors="replace")) for f in ("SKILL.md",) + COMPANIONS if (pay / f).is_file()) // 4
     if full_tokens > 90000:
         errors.append("full contract is %d tokens (cap 90000)" % full_tokens)
+    lazy_tokens = sum(len((pay / f).read_text(encoding="utf-8", errors="replace")) for f in LAZY_COMPANIONS if (pay / f).is_file()) // 4
+    if lazy_tokens > LAZY_TOKEN_CAP:
+        errors.append("lazy companions are %d tokens (cap %d)" % (lazy_tokens, LAZY_TOKEN_CAP))
     return errors, warnings
 
 

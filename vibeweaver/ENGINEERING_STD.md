@@ -236,3 +236,17 @@ verify `git rev-list --objects --all | rg '\.pnpm-store/'` is empty afterward.
 **Staging rule:** `git add -u && git add <explicit new paths>` only. Never
 `git add -A` / `git add .` in a mixed workspace. A pre-commit hook is useful
 but bypassable with `--no-verify`; the authoritative gate is group 21.
+
+### Worktree shared boundaries & resource ownership (MULTI_AGENT.md §MA9)
+Worktrees are accident guards, not security boundaries (absolute paths,
+symlinks, shell, `git -C`, GIT_DIR/WORK_TREE, shared hooks all escape).
+Trusted tier: per-attempt worktree/branch, explicit staging, no direct main
+writes, no force-push; untrusted tier: independent clone + container/OS
+identity + per-run HOME/credentials. During active runs: NO gc/prune/
+filter-repo; hooks/shared config controller-pinned and read-only. Resources
+(ports, pgids, temp dirs, DBs, profiles, credential refs, quotas) are owned
+per attempt by `scripts/resource_allocator.py` (exact-pgid reclamation, never
+pattern-kill); non-namespaced resources need exclusive leases. Agents never
+touch production write interfaces; external calls carry idempotency keys +
+run/attempt/fencing info; DB migrations use expand/contract — git revert does
+not restore data.

@@ -1,4 +1,4 @@
-import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs"
+import { closeSync, existsSync, fsyncSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync, writeSync } from "node:fs"
 import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import path from "node:path"
@@ -256,42 +256,12 @@ function auditCanonical(p) {
   return path.resolve(p)
 }
 
-const WIN = process.platform === "win32"
-
 function auditReal(p) {
   try {
     return realpathSync(path.resolve(p))
   } catch {
     return path.resolve(p)
   }
-}
-
-// Windows paths are case-insensitive; git/realpath may return a different
-// drive/8.3 spelling than the session argument. Compare normalized forms.
-function auditComparePath(p) {
-  let s
-  try {
-    if (existsSync(p)) {
-      s = realpathSync.native ? realpathSync.native(path.resolve(p)) : auditReal(p)
-    } else {
-      // Non-existent final component: resolve the nearest existing ancestor
-      // (including symlinked parent dirs) exactly like the write path will.
-      s = resolveWritePath(path.resolve(p))
-    }
-  } catch {
-    s = auditReal(p)
-  }
-  if (!WIN) return s
-  // Windows native realpath may return an extended-length `\\?\C:\...`
-  // prefix while resolveWritePath returns `C:\...`; normalize both before
-  // prefix comparisons (T37b/T17 evidence exemptions).
-  return s.replace(/^\\\\\?\\/, "").toLowerCase()
-}
-
-function auditLocalCompare(p) {
-  let s = resolveWritePath(path.resolve(p))
-  if (!WIN) return s
-  return s.replace(/^\\\\\?\\/, "").toLowerCase()
 }
 
 function auditNearestExistingDir(start) {
@@ -334,9 +304,7 @@ function auditOutside(base, target) {
   const targetResolved = existsSync(target)
     ? realpathSync(target)
     : path.join(auditCanonical(auditNearestExistingDir(path.dirname(target))), path.basename(target))
-  const baseCmp = WIN ? auditCanonical(base).toLowerCase() : auditCanonical(base)
-  const targetCmp = WIN ? targetResolved.toLowerCase() : targetResolved
-  const rel = path.relative(baseCmp, targetCmp)
+  const rel = path.relative(auditCanonical(base), targetResolved)
   return rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel)
 }
 
@@ -357,12 +325,12 @@ function findProjectRootForFile(directory, filePath) {
   const outside = auditOutside(host, abs)
   const activeHere = existsSync(path.join(host, "tests", "verification_log.md")) ? host : null
   const activeAbove = path.dirname(host) !== host ? findProjectRoot([path.dirname(host)]) : null
-  if (fileGit && (!hostGit || auditComparePath(fileGit) !== auditComparePath(hostGit))) {
+  if (fileGit && fileGit !== hostGit) {
     if (auditTrustedProject(fileGit)) return fileGit
     return activeHere || activeAbove || fileGit
   }
   if (activeHere) return host
-  if (hostGit && activeAbove && (!fileGit || auditComparePath(activeAbove) !== auditComparePath(fileGit))) return activeAbove
+  if (hostGit && activeAbove && activeAbove !== fileGit) return activeAbove
   if (activeAbove) return activeAbove
   if (outside) return null
   for (let d = path.dirname(abs); ; d = path.dirname(d)) {
@@ -470,10 +438,10 @@ function writePathFromArgs(args) {
 
 function isTestDirPath(root, filePath) {
   if (typeof filePath !== "string" || !filePath) return false
-  const cmpRoot = auditLocalCompare(root)
-  const cmpFile = auditLocalCompare(filePath)
-  const rel = path.relative(cmpRoot, cmpFile)
-  if (!rel || rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel)) return false
+  const normRoot = resolveWritePath(root)
+  const normFile = resolveWritePath(filePath)
+  const rel = normFile.startsWith(normRoot + path.sep) ? normFile.slice(normRoot.length + path.sep.length) : null
+  if (rel == null) return false
   return rel.split(/[\\/]/).some((seg) => {
     // EXACT name match (W18 review r2): case-folding made `Tests/` a false
     // exemption on case-sensitive filesystems. Nested test dirs
@@ -483,19 +451,149 @@ function isTestDirPath(root, filePath) {
   })
 }
 
-// Normalize the stored red latch to { sessionID, ts, bad } | null.
+// Normalize the stored red latch to { sessionID, runID, attemptID, ts, bad } | null.
 // Legacy boolean `true` (pre session-scoping) → unknown latcher, born stale:
 // it releases on the first observed session write/idle or via TTL.
+// W25 run/attempt attribution: a latch written under a RunContext carries
+// runID/attemptID; legacy latches keep the exact pre-W25 shape on disk and
+// normalize to runID/attemptID = null here.
 function readLatch(rootEntry) {
   const r = rootEntry && rootEntry.red
   if (!r) return null
   if (typeof r === "object")
     return {
       sessionID: typeof r.sessionID === "string" ? r.sessionID : null,
+      runID: typeof r.runID === "string" ? r.runID : null,
+      attemptID: typeof r.attemptID === "string" ? r.attemptID : null,
       ts: typeof r.ts === "number" ? r.ts : 0,
       bad: Number.isFinite(r.bad) ? r.bad : null,
     }
-  return { sessionID: null, ts: 0, bad: null }
+  return { sessionID: null, runID: null, attemptID: null, ts: 0, bad: null }
+}
+
+// ---------- W25 run-aware helpers (MULTI_AGENT.md §MA1/§MA2) ----------
+// Self-contained (no cross-imports): vibeweaver-gate.js carries its own copy.
+// The seams hang off the server function below so the module export shape
+// stays exactly { id, server, setup } (see the dual-compat contract).
+
+const RUN_CONTEXT_SCHEMA = "vibeweaver-run-context/1"
+const RUN_ID_RE = /^(run)-[0-9a-f]{32}$/
+const ATTEMPT_ID_RE = /^attempt-[0-9a-f]{32}$/
+const RUN_CONTEXT_WARNED = new Set()
+
+// One-time RUN-CONTEXT WARNING per bad file/reason — a missing file is plain
+// legacy and warns nothing (byte-identical legacy behavior).
+function runContextWarning(msg) {
+  try {
+    if (RUN_CONTEXT_WARNED.has(msg)) return
+    RUN_CONTEXT_WARNED.add(msg)
+    if (RUN_CONTEXT_WARNED.size > 64) RUN_CONTEXT_WARNED.clear()
+    console.warn("RUN-CONTEXT WARNING: " + msg)
+  } catch {
+    /* never crash on a warning */
+  }
+}
+
+// W25 RunContext detection (Hub "JS RunContext 探测"): read
+// <root>/.vibeweaver/run_context.json (VIBEWEAVER_RUN_CONTEXT overrides the
+// path when the default file is absent). A valid object requires schema
+// "vibeweaver-run-context/1" plus every Hub field (all strings except
+// lease_epoch: int >= 1) and canonical run/attempt id shapes. A BAD file
+// returns null and surfaces a one-time RUN-CONTEXT WARNING — never crashes.
+// A MISSING file returns null silently: that is the legacy single-agent path.
+function loadRunContext(root) {
+  try {
+    if (!root || typeof root !== "string") return null
+    let file = path.join(root, STATE_DIR, "run_context.json")
+    if (!existsSync(file)) {
+      const env = process.env.VIBEWEAVER_RUN_CONTEXT
+      if (!env || typeof env !== "string") return null // legacy: no run context
+      file = env
+    }
+    const raw = safeRead(file)
+    if (!raw) {
+      runContextWarning(`${file}: run context unreadable or empty — falling back to legacy scope`)
+      return null
+    }
+    let j = null
+    try {
+      j = JSON.parse(raw)
+    } catch {
+      j = null
+    }
+    if (!j || typeof j !== "object" || Array.isArray(j)) {
+      runContextWarning(`${file}: run context is not a JSON object — falling back to legacy scope`)
+      return null
+    }
+    if (j.schema !== RUN_CONTEXT_SCHEMA) {
+      runContextWarning(`${file}: schema ${JSON.stringify(j.schema)} != ${RUN_CONTEXT_SCHEMA} — falling back to legacy scope`)
+      return null
+    }
+    for (const f of ["repo_id", "task_id", "run_id", "attempt_id", "wave_id", "session_id", "worktree_root", "artifact_root", "state_root", "base_sha", "spec_hash", "skill_version", "checker_digest"]) {
+      if (typeof j[f] !== "string" || !j[f]) {
+        runContextWarning(`${file}: missing/empty field ${f} — falling back to legacy scope`)
+        return null
+      }
+    }
+    if (!Number.isInteger(j.lease_epoch) || j.lease_epoch < 1) {
+      runContextWarning(`${file}: lease_epoch must be an integer >= 1 — falling back to legacy scope`)
+      return null
+    }
+    if (!RUN_ID_RE.test(j.run_id)) {
+      runContextWarning(`${file}: run_id ${JSON.stringify(j.run_id)} is not run-<32hex> — falling back to legacy scope`)
+      return null
+    }
+    if (!ATTEMPT_ID_RE.test(j.attempt_id)) {
+      runContextWarning(`${file}: attempt_id ${JSON.stringify(j.attempt_id)} is not attempt-<32hex> — falling back to legacy scope`)
+      return null
+    }
+    return j
+  } catch (err) {
+    runContextWarning(`${root}: run context probe failed (${String((err && err.message) || err)}) — falling back to legacy scope`)
+    return null
+  }
+}
+
+// W25 atomic state write (Hub "JS 原子写"): unique tmp
+// (<p>.<pid>.<Date.now()>.<rand>.tmp) + fsync + rename. On ANY failure THROW —
+// the caller decides critical fail-closed vs. observation-only swallow. The
+// unique tmp name removes the fixed-<p>.tmp rename race between writers.
+function atomicWriteUnique(p, body) {
+  const tmp = p + "." + process.pid + "." + Date.now() + "." + Math.random().toString(36).slice(2) + ".tmp"
+  let fd = null
+  try {
+    fd = openSync(tmp, "w")
+    const buf = Buffer.from(body)
+    let off = 0
+    while (off < buf.length) off += writeSync(fd, buf, off, buf.length - off)
+    fsyncSync(fd)
+    closeSync(fd)
+    fd = null
+    renameSync(tmp, p)
+  } catch (err) {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* keep the original error */
+      }
+    }
+    try {
+      unlinkSync(tmp)
+    } catch {
+      /* best-effort tmp cleanup */
+    }
+    throw err
+  }
+}
+
+// W25 state scope key (Hub): with a RunContext the state block is keyed by run
+// and attempt identity ("run:<run_id>/attempt:<attempt_id>"); without one the
+// legacy key derivation (the root path) is unchanged. File paths always use
+// the resolved root — never the scope key.
+function stateScopeKey(root) {
+  const rc = loadRunContext(root)
+  return rc ? "run:" + rc.run_id + "/attempt:" + rc.attempt_id : root
 }
 
 // Core module resolution: env override → installed skill dir (sibling of the
@@ -926,6 +1024,9 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
 
   let state = { sessions: {}, roots: {} }
   const statePath = path.join(directory, STATE_DIR, STATE_FILE)
+  // W25: observation-only persistence failures are swallowed (existing
+  // behavior) but flagged here and surfaced in the next emitted message.
+  let persistError = null
   try {
     const raw = safeRead(statePath)
     if (raw) state = JSON.parse(raw)
@@ -942,9 +1043,13 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     if (findProjectRoot([directory])) return true
     return Object.values(state.sessions).some((s) => s && s.skillLoaded)
   }
-  const flush = () => {
+  // W25: atomic (unique tmp + fsync + rename) and split by consequence —
+  // critical callers (the RED latch write / final audit) fail CLOSED with
+  // GATE-CHECK-UNAVAILABLE on a failed persist; observation-only callers keep
+  // the historical swallow but set persistError for the next emitted message.
+  const flush = (critical) => {
     try {
-      if (!persistable()) return
+      if (!persistable()) return true
       // prune: keep only the most recent sessions so the state file stays bounded
       const ids = Object.keys(state.sessions)
       if (ids.length > 20) {
@@ -955,12 +1060,84 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       // bytes reach disk. A secret that never lands needs no rotation.
       state = boundState(state)
       if (!existsSync(path.join(directory, STATE_DIR))) mkdirSync(path.join(directory, STATE_DIR), { recursive: true })
-      const tmp = statePath + ".tmp"
-      writeFileSync(tmp, JSON.stringify(state))
-      renameSync(tmp, statePath)
-    } catch {
-      /* never crash on persistence */
+      atomicWriteUnique(statePath, JSON.stringify(state))
+      return true
+    } catch (err) {
+      const msg = String((err && err.message) || err)
+      persistError = "persist failed: " + msg
+      if (critical) throw new Error("GATE-CHECK-UNAVAILABLE (persist failed: " + msg + ")")
+      return false
     }
+  }
+  // W25: observation-only state write helper (nested-state mirror etc.):
+  // atomic, swallows on failure, flags persistError.
+  const persistStateFile = (p, body) => {
+    try {
+      atomicWriteUnique(p, body)
+      return true
+    } catch (err) {
+      persistError = "persist failed: " + String((err && err.message) || err)
+      return false
+    }
+  }
+
+  // ---- W25 run-aware machine helpers ----
+  // First-observation clock per attempt (bounded): the "older attempt" bound
+  // for the stale-attempt latch rule (a latch predating the current attempt's
+  // first observation belongs to an older attempt and never blocks it).
+  const noteAttempt = (entry, rc) => {
+    if (!entry || !rc) return 0
+    if (!entry.runAttempts || typeof entry.runAttempts !== "object") entry.runAttempts = {}
+    const at = entry.runAttempts[rc.attempt_id]
+    if (Number.isFinite(at)) return at
+    entry.runAttempts[rc.attempt_id] = Date.now()
+    const keys = Object.keys(entry.runAttempts)
+    if (keys.length > 8) for (const k of keys.slice(0, keys.length - 8)) delete entry.runAttempts[k]
+    return entry.runAttempts[rc.attempt_id]
+  }
+  // W25 session→run mapping (Hub §MA1): recorded inside the plugin's own
+  // state file on the first root-bearing hook of a session with a RunContext
+  // (first-hook wins — later hooks of other runs must not re-bind it, that is
+  // exactly the "last-write guessing" this replaces). Idle/final audits lack
+  // a file path and resolve their root from this mapping first; an absent
+  // mapping keeps the legacy SESSION_ROOT fallback. No RunContext → nothing
+  // is recorded: legacy state bytes stay identical.
+  const recordSessionRun = (sessionID, realRoot, rc) => {
+    if (!sessionID || !realRoot || !rc) return
+    try {
+      if (!state.sessionRuns || typeof state.sessionRuns !== "object") state.sessionRuns = {}
+      const prev = state.sessionRuns[sessionID]
+      if (prev && prev.runID === rc.run_id) {
+        // same run: keep the first root, follow attempt takeover
+        if (prev.attemptID !== rc.attempt_id) {
+          prev.attemptID = rc.attempt_id
+          prev.at = Date.now()
+          flush()
+        }
+        return
+      }
+      if (prev) return // first-hook wins across runs (no last-write guessing)
+      state.sessionRuns[sessionID] = { root: realRoot, runID: rc.run_id, attemptID: rc.attempt_id, at: Date.now() }
+      const keys = Object.keys(state.sessionRuns)
+      if (keys.length > 50) for (const k of keys.slice(0, keys.length - 50)) delete state.sessionRuns[k]
+      flush()
+    } catch {
+      /* mapping is best-effort: never break a hook */
+    }
+  }
+  const mappedRootFor = (sessionID) => {
+    const mapped = sessionID && state.sessionRuns ? state.sessionRuns[sessionID] : null
+    return mapped && typeof mapped.root === "string" && mapped.root ? mapped.root : null
+  }
+  // Idle/compaction/resume root resolution: the session→run mapping first
+  // (persisted, survives restarts), then the legacy in-memory fallback.
+  const resolveRootForSession = (sessionID) => {
+    return mappedRootFor(sessionID) || auditRootForSession(directory, sessionID)
+  }
+  // The run-aware scope key of a resolved root (null in legacy mode).
+  const runKeyOf = (realRoot) => {
+    const rc = loadRunContext(realRoot)
+    return rc ? "run:" + rc.run_id + "/attempt:" + rc.attempt_id : null
   }
 
   const touchSession = (sessionID) => {
@@ -1066,26 +1243,59 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       return 0
     }
   }
-  const releaseStale = (root, currentSessionID, via) => {
+  // W25 release decision — shared by the main latch path and the nested-state
+  // mirror. Latch and arm both carry run/attempt attribution (null = legacy);
+  // the matrix (Hub latch shape, plan Task 5 rule a/b/c):
+  //   - legacy latch or legacy arm → the pre-W25 session rules decide;
+  //   - same run + the latch predates the current attempt's first
+  //     observation (stale attempt) → "stale-attempt" (never blocks a newer
+  //     attempt);
+  //   - the new-task release requires the SAME run identity when both sides
+  //     carry run ids (and the same attempt when both carry attempt ids) —
+  //     an attempt B rewrite never releases attempt A's latch any other way.
+  const releaseDecision = (entry, latch, pp, cur, rcNow) => {
+    const attemptSeen = rcNow && entry.runAttempts && Number.isFinite(entry.runAttempts[rcNow.attempt_id])
+      ? entry.runAttempts[rcNow.attempt_id]
+      : Date.now()
+    const staleAttempt = Boolean(latch.runID) && Boolean(rcNow)
+      && latch.runID === rcNow.run_id
+      && latch.attemptID !== rcNow.attempt_id
+      && latch.ts < attemptSeen
+    const armRec = entry.newTaskArms ? entry.newTaskArms[latch.sessionID] : null
+    const armTs = Number.isFinite(armRec) ? armRec : armRec && Number.isFinite(armRec.ts) ? armRec.ts : 0
+    const armRun = armRec && typeof armRec === "object" && typeof armRec.runID === "string" ? armRec.runID : null
+    const armAttempt = armRec && typeof armRec === "object" && typeof armRec.attemptID === "string" ? armRec.attemptID : null
+    const identityOk = !latch.runID || !armRun
+      ? true // fallback to existing session rules when either is legacy
+      : latch.runID === armRun && (!latch.attemptID || !armAttempt || latch.attemptID === armAttempt)
+    return latch.ts === 0
+      ? "legacy-state"
+      : Date.now() - latch.ts > readConfigTtlMs()
+        ? "ttl-expiry"
+        : staleAttempt
+          ? "stale-attempt"
+          : cur && latch.sessionID === cur && acceptanceMtime(pp) > latch.ts
+              && entry.newTaskArms
+              && armTs > latch.ts
+              && identityOk
+            ? "new-task"
+            : null
+  }
+  const readConfigTtlMs = () => {
+    const cfg = readConfig()
+    const ttlHours = Number.isFinite(cfg.redTtlHours) ? cfg.redTtlHours : RED_TTL_HOURS_DEFAULT
+    return ttlHours * 3_600_000
+  }
+  const releaseStale = (root, currentSessionID, via, pathRoot) => {
     try {
       const entry = state.roots[root]
       const latch = readLatch(entry)
       if (!entry || !latch) return null
-      const cfg = readConfig()
-      const ttlHours = Number.isFinite(cfg.redTtlHours) ? cfg.redTtlHours : RED_TTL_HOURS_DEFAULT
-      const age = Date.now() - latch.ts
+      const pp = pathRoot || root
+      const rcNow = loadRunContext(pp)
+      if (rcNow) noteAttempt(entry, rcNow)
       const cur = typeof currentSessionID === "string" && currentSessionID ? currentSessionID : null
-      // ts===0 identifies a latch that was never session-scoped at birth
-      // (legacy boolean form) — label it as such, not as a fleet of unknowns.
-      const reason = latch.ts === 0
-        ? "legacy-state"
-        : age > ttlHours * 3_600_000
-          ? "ttl-expiry"
-          : cur && latch.sessionID === cur && acceptanceMtime(root) > latch.ts
-              && state.roots[root].newTaskArms
-              && state.roots[root].newTaskArms[latch.sessionID] > latch.ts
-            ? "new-task"
-            : null
+      const reason = releaseDecision(entry, latch, pp, cur, rcNow)
       if (!reason) return null
       const rec = { ts: Date.now(), from: latch.sessionID || "unknown", bad: latch.bad, reason, via, by: cur || via }
       entry.red = null
@@ -1135,14 +1345,26 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const runAudit = async (sessionID, phase) => {
     const sess = state.sessions[sessionID]
     if (!sess) return null
-    const rootResolved = auditRootForSession(directory, sessionID)
+    // W25: the idle/final audit has no file path — resolve the session's root
+    // from the session→run mapping first, then the legacy fallback.
+    const rootResolved = resolveRootForSession(sessionID)
+    // W25 split: `root` is the latch-slot key (legacy root-key derivation —
+    // the RED latch family lives there so every run/attempt at the root sees
+    // it), `scopeKey` is the per-attempt block (stateScopeKey), and file
+    // paths use the real root. Legacy (no RunContext): all three collapse to
+    // the pre-W25 value exactly.
+    const rcRun = loadRunContext(rootResolved)
+    const rk = rcRun ? "run:" + rcRun.run_id + "/attempt:" + rcRun.attempt_id : null
     const root = stateRootKey(rootResolved) || rootResolved
+    const scopeKey = rk || root
+    const pathRoot = rk ? rootResolved : root
     if (!root) return null
     if (process.env.VIBEWEAVER_AUDIT === "off") return null
+    recordSessionRun(sessionID, rootResolved, rcRun) // W25 first-hook binding (no-op without a RunContext)
     const loaded = skillLoaded(sess)
-    const priorFlagged = state.roots[root] && Array.isArray(state.roots[root].c8Flagged) ? state.roots[root].c8Flagged : []
+    const priorFlagged = state.roots[scopeKey] && Array.isArray(state.roots[scopeKey].c8Flagged) ? state.roots[scopeKey].c8Flagged : []
     const audit = auditProject({
-      root,
+      root: pathRoot,
       sessionID,
       sessionText: assistantCorpus(sess),
       tools: sess.tools,
@@ -1152,6 +1374,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       priorFlagged,
     })
     if (audit.skipped) return null
+    if (!state.roots[scopeKey]) state.roots[scopeKey] = {}
+    // The latch slot (legacy root-key derivation) is the RED-latch family's
+    // home — created here so every run/attempt at the root sees it. In legacy
+    // mode this is the same key as scopeKey (identical pre-W25 state shape).
     if (!state.roots[root]) state.roots[root] = {}
     if (phase === "final" && Array.isArray(audit.newlyFlagged) && audit.newlyFlagged.length) {
       // C8 dedup persistence — the same forbidden command never flags twice
@@ -1159,17 +1385,17 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       // FINAL phase only: a mid-phase warn must NOT consume the one-shot —
       // otherwise a forbidden command run mid-task would be persisted before
       // the latching final audit ever sees it, and the latch never engages.
-      state.roots[root].c8Flagged = [...new Set([...priorFlagged, ...audit.newlyFlagged])].slice(-100)
+      state.roots[scopeKey].c8Flagged = [...new Set([...priorFlagged, ...audit.newlyFlagged])].slice(-100)
     }
     const packets = makePackets(audit, sess)
     const releases = Array.isArray(state.roots[root].redReleases) ? state.roots[root].redReleases : []
-    const stopDebts = Array.isArray(state.roots[root].stopDebt) ? state.roots[root].stopDebt : []
+    const stopDebts = Array.isArray(state.roots[scopeKey].stopDebt) ? state.roots[scopeKey].stopDebt : []
     // Append-only render: the state journal is bounded (RELEASES_CAP), but the
     // report's "never delete" section is an audit trail — merge the prior
     // render's release lines with the current state lines (union + dedupe).
     let priorReport = ""
     try {
-      priorReport = safeRead(path.join(root, "tests", AUDIT_FILE))
+      priorReport = safeRead(path.join(pathRoot, "tests", AUDIT_FILE))
     } catch {
       /* first run — no prior render */
     }
@@ -1185,8 +1411,8 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     )
     const report = buildReport(audit, sessionID, packets, footer, debtFooter)
     try {
-      if (!existsSync(path.join(root, "tests"))) mkdirSync(path.join(root, "tests"), { recursive: true })
-      writeFileSync(path.join(root, "tests", AUDIT_FILE), report)
+      if (!existsSync(path.join(pathRoot, "tests"))) mkdirSync(path.join(pathRoot, "tests"), { recursive: true })
+      writeFileSync(path.join(pathRoot, "tests", AUDIT_FILE), report)
     } catch {
       /* report best-effort */
     }
@@ -1223,7 +1449,13 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
           const sigs = state.roots[root].lastRedSigs || {}
           const sameClaimResidue = sigs[sessionID] === badSig && !(gateCount > (state.roots[root].lastLatchGateCount ?? 0))
           if (!sameClaimResidue) {
-            state.roots[root].red = { sessionID, ts: Date.now(), bad: audit.bad }
+            // W25: the latch carries run/attempt attribution under a
+            // RunContext; a legacy session keeps the exact pre-W25
+            // { sessionID, ts, bad } shape (byte-identical legacy state).
+            noteAttempt(state.roots[root], rcRun)
+            state.roots[root].red = rcRun
+              ? { sessionID, runID: rcRun.run_id, attemptID: rcRun.attempt_id, ts: Date.now(), bad: audit.bad }
+              : { sessionID, ts: Date.now(), bad: audit.bad }
             sigs[sessionID] = badSig
             state.roots[root].lastRedSigs = Object.fromEntries(Object.entries(sigs).slice(-20))
             state.roots[root].lastLatchGateCount = gateCount
@@ -1237,8 +1469,11 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         state.roots[root].lastLatchGateCount = 0
       }
     }
-    state.roots[root].lastSession = sessionID
-    flush()
+    state.roots[scopeKey].lastSession = sessionID
+    // W25: the final audit's state write is the RED-latch write — persist
+    // failures here fail CLOSED (GATE-CHECK-UNAVAILABLE); never silently
+    // claim a final pass (or a silent latch) after a failed persist.
+    flush(phase === "final")
     return { audit, report }
   }
 
@@ -1621,8 +1856,12 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (typeof core.stopEuphemism !== "function" || typeof core.stopGuardDecision !== "function") return
       const sess = state.sessions[sessionID]
       if (!sess) return
-      const rootResolved = auditRootForSession(directory, sessionID)
+      // W25: session→run mapping first (idle-ish paths lack a write target).
+      const rootResolved = resolveRootForSession(sessionID)
+      const sgRc = loadRunContext(rootResolved)
       const root = stateRootKey(rootResolved) || rootResolved
+      const sgPathRoot = sgRc ? rootResolved : root
+      const sgScope = sgRc ? "run:" + sgRc.run_id + "/attempt:" + sgRc.attempt_id : root
       if (!root) return
       if (!skillLoaded(sess)) return
       if (!sess.stopGuard) sess.stopGuard = { interventions: 0, armed: true, disarmedKey: null }
@@ -1647,7 +1886,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       let pausedState = false
       let classE = false
       try {
-        const pp = path.join(root, "tests", "paused_state.md")
+        const pp = path.join(sgPathRoot, "tests", "paused_state.md")
         const pm = Math.floor(statSync(pp, { throwIfNoEntry: false })?.mtimeMs ?? 0)
         pausedState = pm >= sessionStart && sessionStart > 0
           && typeof core.pausedPacketValid === "function" && core.pausedPacketValid(safeRead(pp))
@@ -1656,7 +1895,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         /* absent */
       }
       try {
-        const dp = path.join(root, "tests", "decisions.md")
+        const dp = path.join(sgPathRoot, "tests", "decisions.md")
         const dm = Math.floor(statSync(dp, { throwIfNoEntry: false })?.mtimeMs ?? 0)
         const decText = safeRead(dp)
         const decLen = Number.isFinite(sess.userDecisionsLen) ? sess.userDecisionsLen : 0
@@ -1675,7 +1914,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         /(^\s*(?:please\s+)?(?:stop|cancel|quit)\b(?!\s+(?:the|a|an)\s)|\bplease\s+(?:stop|cancel|quit)\b|\b(?:stop|cancel|quit)\s+(?:here|now|it|this|coding|working|for today)\b|停一下|停下来|停止吧|别做了|别再做|取消吧|到此为止|今天到这)/i.test(
           uText
         ) && !/((?:don't|do not|never)\s+(?:stop|cancel|quit)|不要停|别停|不能停)/i.test(uText)
-      const logPath = path.join(root, "tests", "verification_log.md")
+      const logPath = path.join(sgPathRoot, "tests", "verification_log.md")
       const logText = safeRead(logPath)
       const userLogLen = Number.isFinite(sess.userLogLen) ? sess.userLogLen : null
       // W11 P0-2: a length is not an identity. Completion/class evidence is
@@ -1697,10 +1936,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         : userLogLen === null ? logText : turnLog
       // W11 P0-1/P0-2: the current task block's LAST final-run must be corroborated.
       const finalEv = typeof core.finalRunEvidence === "function"
-        ? core.finalRunEvidence(curBlock, { root, sinceMs: Number.isFinite(sess.lastUserAt) ? sess.lastUserAt : sessionStart })
+        ? core.finalRunEvidence(curBlock, { root: sgPathRoot, sinceMs: Number.isFinite(sess.lastUserAt) ? sess.lastUserAt : sessionStart })
         : { trusted: false, reason: "helper-missing" }
       const waveComplete = !!finalEv.trusted
-      const taskActive = existsSync(path.join(root, "tests", "acceptance.md")) && sess.tools.length > 0 && !waveComplete
+      const taskActive = existsSync(path.join(sgPathRoot, "tests", "acceptance.md")) && sess.tools.length > 0 && !waveComplete
       // W10 scoping: absence of final-run is not proof of abandonment.
       // - Class DOC / a user-scoped read-only instruction is a legitimate
       //   terminal state (C4 audit, evaluation-only, prose).
@@ -1760,7 +1999,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       const canPrompt = typeof onStopPrompt === "function"
       if (decision.action === "debt" || sg.interventions >= maxI || !canPrompt) {
         const why = decision.action === "debt" ? decision.why : !canPrompt ? "no-prompt-channel" : "budget-exhausted"
-        journalStopDebt(root, sessionID, effectiveTrigger, why)
+        journalStopDebt(sgScope, sessionID, effectiveTrigger, why)
         void log({
           service: "vibeweaver-stopguard",
           level: "info",
@@ -1792,12 +2031,12 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       void Promise.resolve(onStopPrompt(sessionID, text)).then((ok) => {
         if (ok === false) {
           sg.interventions = Math.max(0, sg.interventions - 1)
-          journalStopDebt(root, sessionID, effectiveTrigger, "prompt-failed")
+          journalStopDebt(sgScope, sessionID, effectiveTrigger, "prompt-failed")
           void log({ service: "vibeweaver-stopguard", level: "warn", message: "stop-guard prompt failed — intervention not counted, debt journaled", extra: { sessionID } })
         }
       }).catch(() => {
         sg.interventions = Math.max(0, sg.interventions - 1)
-        journalStopDebt(root, sessionID, effectiveTrigger, "prompt-failed")
+        journalStopDebt(sgScope, sessionID, effectiveTrigger, "prompt-failed")
         void log({ service: "vibeweaver-stopguard", level: "warn", message: "stop-guard prompt threw — intervention not counted, debt journaled", extra: { sessionID } })
       })
     } catch {
@@ -2104,7 +2343,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   }
   const recordBashWrites = (sess, command, messageID, holder) => {
     if (!holder || holder.writeRecorded) return
-    const root = auditRootForSession(directory, sess.sessionID)
+    const root = resolveRootForSession(sess.sessionID)
     const targets = bashWriteTargets(command).filter((p) => {
       if (p.startsWith("/dev/")) return false
       if (!root) return true
@@ -2504,6 +2743,8 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const cur = typeof sessionID === "string" && sessionID ? sessionID : null
     const root = findProjectRootForFile(directory, filePath)
     if (!root) return null
+    // W25: run attribution for the write (null = legacy single-agent path).
+    const rc = loadRunContext(root)
     let rootKey = stateRootKey(root)
     // Bind the session to the STATE key (may be the legacy logical `/var`
     // spelling), not the canonical path, so idle/stop-guard mutate the same
@@ -2515,6 +2756,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (logicalHost && auditCanonical(logicalHost) === auditCanonical(root)) sessionRoot = logicalHost
     }
     rememberAuditRoot(cur, sessionRoot, directory)
+    recordSessionRun(cur, root, rc) // W25 first-hook session→run binding
     if (!rootKey && auditCanonical(root) !== auditCanonical(directory)) {
       // Nested project state lives under its own .vibeweaver/. Read it read-
       // only for the pre-write deny; the global state file stays the owner of
@@ -2523,29 +2765,50 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const nestedStatePath = path.join(root, STATE_DIR, STATE_FILE)
         const nestedState = JSON.parse(readFileSync(nestedStatePath, "utf8"))
         const keys = nestedState && nestedState.roots ? Object.keys(nestedState.roots) : []
-        const key = keys.find((k) => auditComparePath(k) === auditComparePath(root))
+        const key = keys.find((k) => auditReal(k) === auditReal(root))
         if (key) {
           const entry = nestedState.roots[key]
           const latch = readLatch(entry)
-          // The regex already requires a tests/test segment; avoid a second
-          // Windows path-prefix comparison here (D13c). findProjectRootForFile
-          // has already constrained the file to this project.
-          const isAcceptance = filePath && /(^|[\\/])tests?[\\/]acceptance\.md$/i.test(filePath)
-          const armed = cur && entry.newTaskArms && entry.newTaskArms[cur] > (latch ? latch.ts : 0)
-          if (latch && cur === latch.sessionID && armed) {
+          const isAcceptance = filePath && isTestDirPath(root, filePath) && /(^|[\\/])acceptance\.md$/.test(filePath)
+          const armRec = entry.newTaskArms && entry.newTaskArms[cur]
+          const armTs = Number.isFinite(armRec) ? armRec : armRec && Number.isFinite(armRec.ts) ? armRec.ts : 0
+          const armed = cur && armTs > (latch ? latch.ts : 0)
+          // W25: run-aware latches are fenced by run/attempt identity (an
+          // attempt B rewrite never releases attempt A's latch) and a
+          // stale-attempt latch never blocks a newer attempt; legacy latches
+          // and legacy arms keep the pre-W25 decision exactly.
+          const mirrorIdentityOk = !latch || !latch.runID || !(armRec && armRec.runID)
+            ? true
+            : latch.runID === armRec.runID
+              && (!latch.attemptID || !(armRec && armRec.attemptID) || latch.attemptID === armRec.attemptID)
+          const mirrorSeen = rc && entry.runAttempts && Number.isFinite(entry.runAttempts[rc.attempt_id])
+            ? entry.runAttempts[rc.attempt_id]
+            : Date.now()
+          const mirrorStale = Boolean(latch && latch.runID) && Boolean(rc)
+            && latch.runID === rc.run_id
+            && latch.attemptID !== rc.attempt_id
+            && latch.ts < mirrorSeen
+          if (latch && mirrorStale) {
             entry.red = null
-            writeFileSync(nestedStatePath, JSON.stringify(nestedState))
+            persistStateFile(nestedStatePath, JSON.stringify(nestedState))
+            return null
+          }
+          if (latch && cur === latch.sessionID && armed && mirrorIdentityOk) {
+            entry.red = null
+            persistStateFile(nestedStatePath, JSON.stringify(nestedState))
             return null
           }
           if (isAcceptance && (!latch || cur === latch.sessionID)) {
             if (!entry.newTaskArms || typeof entry.newTaskArms !== "object") entry.newTaskArms = {}
-            entry.newTaskArms[cur || "(none)"] = Math.max(Date.now(), (latch ? latch.ts : 0) + 1)
-            writeFileSync(nestedStatePath, JSON.stringify(nestedState))
+            entry.newTaskArms[cur || "(none)"] = rc
+              ? { ts: Math.max(Date.now(), (latch ? latch.ts : 0) + 1), runID: rc.run_id, attemptID: rc.attempt_id }
+              : Math.max(Date.now(), (latch ? latch.ts : 0) + 1)
+            persistStateFile(nestedStatePath, JSON.stringify(nestedState))
             return null
           }
           if (latch && Date.now() - latch.ts > 24 * 3600 * 1000) {
             entry.red = null
-            writeFileSync(nestedStatePath, JSON.stringify(nestedState))
+            persistStateFile(nestedStatePath, JSON.stringify(nestedState))
             return null
           }
           if (latch && filePath && !isTestDirPath(root, filePath)) return auditLatchMessage(cur, latch)
@@ -2564,16 +2827,20 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     if (filePath && isTestDirPath(root, filePath) && /(^|[\\/])acceptance\.md$/.test(filePath)) {
       // per-session arms (review A: a single slot let a FOREIGN acceptance
       // write clobber the owner's arm and grief its legitimate release);
-      // bounded map, newest ts per session wins.
+      // bounded map, newest ts per session wins. W25: a run-aware arm carries
+      // its run/attempt identity so a foreign run's rewrite can never release
+      // this latch (rule a); legacy sessions keep the plain ts form.
       const entryA = state.roots[rootKey]
       if (!entryA.newTaskArms || typeof entryA.newTaskArms !== "object") entryA.newTaskArms = {}
-      entryA.newTaskArms[cur || "(none)"] = Date.now()
+      entryA.newTaskArms[cur || "(none)"] = rc
+        ? { ts: Date.now(), runID: rc.run_id, attemptID: rc.attempt_id }
+        : Date.now()
       const _arms = Object.keys(entryA.newTaskArms)
       if (_arms.length > 8) for (const _k of _arms.slice(0, _arms.length - 8)) delete entryA.newTaskArms[_k]
       flush()
       return null
     }
-    releaseStale(rootKey, cur, "write")
+    releaseStale(rootKey, cur, "write", root)
     const latch = readLatch(state.roots[rootKey])
     if (!latch) return null
     if (filePath && isTestDirPath(root, filePath)) return null
@@ -2588,8 +2855,13 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     // pass runs BEFORE the audit. D3: foreign sessions no longer release
     // anything; a fresh latch of THIS session survives (releaseStale refuses
     // it) and its own final audit decides.
-    const idleRoot = auditRootForSession(directory, sessionID)
-    if (idleRoot) releaseStale(idleRoot, sessionID, "idle")
+    // W25: the idle has no file path — resolve the root from the session→run
+    // mapping first (never last-write guessing), legacy fallback unchanged.
+    const idleResolved = resolveRootForSession(sessionID)
+    const idleRk = runKeyOf(idleResolved)
+    const idleSlot = idleRk ? stateRootKey(idleResolved) || idleResolved : idleResolved
+    const idlePath = idleRk ? idleResolved : idleSlot
+    if (idleResolved) releaseStale(idleSlot, sessionID, "idle", idlePath)
     flush()
     const sess = state.sessions[sessionID]
     // mid-task idle (no completion marker yet) -> warn-only audit, no red.
@@ -2598,10 +2870,14 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     const phase = sess && (completionHeuristic(sess) || !skillLoaded(sess)) ? "final" : "mid"
     const result = await runAudit(sessionID, phase)
     if (result && result.audit) {
+      // W25: an observation-only persist failure is surfaced in the next
+      // emitted message (then cleared) — never silently dropped.
+      const persistNote = persistError ? ` | persist-error: ${persistError}` : ""
+      if (persistError) persistError = null
       await log({
         service: "vibeweaver-audit",
         level: result.audit.red ? "warn" : result.audit.escalate ? "info" : "debug",
-        message: `Audit ${result.audit.red ? "RED" : result.audit.escalate ? "ESCALATE" : "GREEN"} (BAD=${result.audit.bad} UNCERTAIN=${result.audit.uncertain})`,
+        message: `Audit ${result.audit.red ? "RED" : result.audit.escalate ? "ESCALATE" : "GREEN"} (BAD=${result.audit.bad} UNCERTAIN=${result.audit.uncertain})${persistNote}`,
         extra: { escalateReasons: result.audit.escalateReasons },
       })
     }
@@ -2634,7 +2910,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       s2.reasoningChars = 0
       s2.reasoningCeilingAt = 0
       try {
-        const txt = idleRoot ? safeRead(path.join(idleRoot, "tests", "verification_log.md")) : ""
+        const txt = idlePath ? safeRead(path.join(idlePath, "tests", "verification_log.md")) : ""
         s2.userLogLen = txt.length
         s2.userLogHash = hashText(txt)
       } catch {
@@ -2871,6 +3147,14 @@ async function setup(ctx) {
     }
   }
 }
+
+// W25 test seams (properties on the server function — the module export
+// shape stays exactly { id, server, setup }; loaders only read the default
+// object's keys and named exports, never function properties). The selftest
+// exercises the run-aware helpers through these; hosts never see them.
+server.loadRunContext = loadRunContext
+server.atomicWriteUnique = atomicWriteUnique
+server.stateScopeKey = stateScopeKey
 
 export default {
   id: "vibeweaver-audit",

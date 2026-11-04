@@ -559,3 +559,14 @@ update the glob in the same commit (a stale trigger is a silent
 non-delivery, same failure class as a stale reference — A7.6 rule 8
 applies). Trust-tier semantics carry over: ⛔/❌ topics are the prime
 candidates for triggers.
+
+### Multi-agent memory — run-local proposal & outbox (MULTI_AGENT.md §MA7)
+Run-local memory writes stay normal (the final gate keeps working). Shared
+mainline memory is curator-published, never agent-written; user-global memory
+serves runs read-only. Unmerged/failed-run lessons stay candidate/quarantine.
+Backlog claims are transactional with lease and run/attempt/evidence refs. ADR:
+run-local `(run_id, D-n)`; cross-run decisions via the central registry; AUTO
+never approves global/irreversible ADRs. Publication goes through the outbox
+(stable idempotency key; reconciler diffs git vs registry; `cleaned` is
+unreachable while publication is pending). Ordering uses server-side versions
+— never agent-local clocks or mtimes.

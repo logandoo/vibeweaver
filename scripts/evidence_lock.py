@@ -16,20 +16,37 @@ This tool writes tests/.evidence.lock (the only writer) and verifies:
   media: magic bytes + non-trivial size for every cited tests/*.{png,webm,...}
 
 Usage:
-  python3 scripts/evidence_lock.py --init
-  python3 scripts/evidence_lock.py --check [--final]
-  python3 scripts/evidence_lock.py --seal-log
+  python3 scripts/evidence_lock.py --init [--run-context PATH]
+  python3 scripts/evidence_lock.py --check [--final] [--run-context PATH]
+  python3 scripts/evidence_lock.py --seal-log [--run-context PATH]
+  python3 scripts/evidence_lock.py --verify-archive [--run-context PATH]
   python3 scripts/evidence_lock.py --update-acceptance --reason "..." --approved
+
+W25 multi-agent (PLAN Task 6, §MA6): with a RunContext supplied via
+`--run-context PATH` (or env VIBEWEAVER_RUN_CONTEXT) the lock record gains
+run_id / attempt_id / spec_hash and the per-line chain hash includes them —
+tampering any of the three breaks the chain at `--check`. Media refs resolve
+under the RunContext artifact_root first, falling back to the project root
+(legacy). `--verify-archive` is the archival read-back gate: it reads back
+every locked media/hash and fails listing any missing/unreadable/mismatched
+file. Append-only: a chain is never rewritten in place.
 """
 import argparse
 import hashlib
 import json
+import os
 import pathlib
 import re
 import sys
 
 LOCK_REL = "tests/.evidence.lock"
+RUN_CONTEXT_SCHEMA = "vibeweaver-run-context/1"
+RUN_ID_RE = re.compile(r"^run-[0-9a-f]{32}$")
+ATTEMPT_ID_RE = re.compile(r"^attempt-[0-9a-f]{32}$")
 MEDIA_RE = re.compile(r"tests/([^\s`'\"()]+\.(?:png|jpe?g|webm|wav|mp4|mp3))", re.I)
+# run-aware superset: run-scoped evidence may cite `evidence/<file>` refs that
+# resolve under the RunContext artifact_root (legacy keeps MEDIA_RE unchanged)
+RUN_MEDIA_RE = re.compile(r"(?:tests|evidence)/([^\s`'\"()]+\.(?:png|jpe?g|webm|wav|mp4|mp3))", re.I)
 MAGIC = {
     ".png": b"\x89PNG\r\n\x1a\n",
     ".jpg": b"\xff\xd8\xff",
@@ -107,7 +124,39 @@ def _line_hashes(text):
     return [sha_bytes(line.encode("utf-8")) for line in text.splitlines()]
 
 
-def build_lock(root, previous=None):
+def load_run_binding(path):
+    """Return the {run_id, attempt_id, spec_hash} binding from a RunContext
+    JSON file (schema vibeweaver-run-context/1). Raises ValueError when the
+    file is missing/unparseable, the schema is wrong, or the three fields are
+    not in the Hub id grammar (a forged context binds nothing)."""
+    try:
+        data = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise ValueError("run context %s missing/unparseable (%s)" % (path, e))
+    if not isinstance(data, dict) or data.get("schema") != RUN_CONTEXT_SCHEMA:
+        raise ValueError("run context %s: schema must be %r (forged/legacy "
+                         "context rejected, §MA1)" % (path, RUN_CONTEXT_SCHEMA))
+    run_id = str(data.get("run_id", ""))
+    attempt_id = str(data.get("attempt_id", ""))
+    spec_hash = str(data.get("spec_hash", ""))
+    if not RUN_ID_RE.match(run_id):
+        raise ValueError("run context %s: run_id %r is not run-<32hex>" % (path, run_id))
+    if not ATTEMPT_ID_RE.match(attempt_id):
+        raise ValueError("run context %s: attempt_id %r is not attempt-<32hex>" % (path, attempt_id))
+    if not spec_hash:
+        raise ValueError("run context %s: spec_hash missing" % path)
+    return {"run_id": run_id, "attempt_id": attempt_id, "spec_hash": spec_hash,
+            "artifact_root": data.get("artifact_root")}
+
+
+def _entry_hash(run, prev, line_hash):
+    """Run-bound chain hash: includes run_id/attempt_id/spec_hash so tampering
+    any of the three breaks the chain (legacy entries hash the bare line)."""
+    return sha_bytes(("\n".join([run["run_id"], run["attempt_id"],
+                                 run["spec_hash"], prev or "", line_hash])).encode("utf-8"))
+
+
+def build_lock(root, previous=None, run=None):
     root = pathlib.Path(root)
     acc = read_text(root / "tests" / "acceptance.md")
     heading, sec, start = section(acc)
@@ -133,6 +182,7 @@ def build_lock(root, previous=None):
         },
         "profile": {"sha256": sha_file(root / "tests" / "project_profile.json") or None},
         "debt": {"sha256": sha_file(root / "tests" / "debt_baseline.json") or None},
+        "secret_debt": {"sha256": sha_file(root / "tests" / "secret_baseline.json") or None},
         "log": {
             "baseline_lines": baseline_lines,
             "baseline_sha256": baseline_sha,
@@ -144,10 +194,20 @@ def build_lock(root, previous=None):
     }
     if previous and isinstance(previous.get("history"), list):
         lock["history"] = previous["history"]
+    # W25 run binding (optional; present only when a RunContext is supplied,
+    # or carried forward from the previous record — never silently dropped)
+    binding = run or ({"run_id": previous.get("run_id"),
+                       "attempt_id": previous.get("attempt_id"),
+                       "spec_hash": previous.get("spec_hash")}
+                      if previous and previous.get("run_id") else None)
+    if binding:
+        lock["run_id"] = binding["run_id"]
+        lock["attempt_id"] = binding["attempt_id"]
+        lock["spec_hash"] = binding["spec_hash"]
     return lock
 
 
-def init(root, force=False, approved=False):
+def init(root, force=False, approved=False, run=None):
     p = _lock_path(root)
     if p.exists() and not force:
         print("EVIDENCE-LOCK FAIL: %s already exists (use --update-acceptance/--seal-log)" % p, file=sys.stderr)
@@ -161,21 +221,53 @@ def init(root, force=False, approved=False):
             prev = json.loads(p.read_text(encoding="utf-8"))
         except ValueError:
             prev = None
-    _write_lock(root, build_lock(root, prev))
+    _write_lock(root, build_lock(root, prev, run))
     print("EVIDENCE-LOCK OK: initialized %s" % p)
     return 0
 
 
-def check_media(root, text):
+def _media_magic_ok(data, ext):
+    """(ok, why) for one media blob — shared by check_media and verify_archive."""
+    if len(data) < 8:
+        return False, "too small (%d bytes)" % len(data)
+    if ext == ".wav":
+        ok = data[:4] == b"RIFF" and data[8:12] == b"WAVE"
+    elif ext == ".mp4":
+        ok = b"ftyp" in data[:64]
+    else:
+        magic = MAGIC.get(ext)
+        ok = data.startswith(magic) if magic else True
+    return ok, "" if ok else "magic mismatch (%s)" % ext
+
+
+def _resolve_media(root, artifact_root, rel):
+    """Run-relative media resolution: `<artifact_root>/<ref>` first, then
+    `<artifact_root>/<ref minus tests/>`, falling back to the project root
+    (legacy). Returns the first EXISTING candidate or None."""
+    if artifact_root is not None:
+        norm = rel[6:] if rel.startswith("tests/") else rel
+        for c in (pathlib.Path(artifact_root) / rel,
+                  pathlib.Path(artifact_root) / norm):
+            if c.is_file():
+                return c
+    p = pathlib.Path(root) / rel
+    return p if p.is_file() else None
+
+
+def check_media(root, text, artifact_root=None):
     errors = []
     seen = set()
-    for m in MEDIA_RE.finditer(text):
-        rel = "tests/" + m.group(1)
+    if artifact_root is not None:
+        # run-aware: accept `evidence/<file>` refs too (run-scoped citations)
+        matches = [m.group(0) for m in RUN_MEDIA_RE.finditer(text)]
+    else:
+        matches = ["tests/" + m.group(1) for m in MEDIA_RE.finditer(text)]
+    for rel in matches:
         if rel in seen:
             continue
         seen.add(rel)
-        p = pathlib.Path(root) / rel
-        if not p.is_file():
+        p = _resolve_media(root, artifact_root, rel)
+        if p is None:
             errors.append("cited media missing: %s" % rel)
             continue
         try:
@@ -201,7 +293,7 @@ def check_media(root, text):
     return errors
 
 
-def verify(root, final=False, rebase_new_task=False):
+def verify(root, final=False, rebase_new_task=False, run=None):
     root = pathlib.Path(root)
     p = _lock_path(root)
     if not p.exists():
@@ -212,6 +304,17 @@ def verify(root, final=False, rebase_new_task=False):
         return ["evidence lock unparseable: %s" % e]
 
     errors = []
+    # --- W25 run binding --------------------------------------------------
+    lock_run = {"run_id": lock.get("run_id"),
+                "attempt_id": lock.get("attempt_id"),
+                "spec_hash": lock.get("spec_hash")}
+    if run and lock.get("run_id") and (
+            run["run_id"] != lock_run["run_id"]
+            or run["attempt_id"] != lock_run["attempt_id"]
+            or run["spec_hash"] != lock_run["spec_hash"]):
+        errors.append("run context does not match the locked run binding "
+                      "(run_id/attempt_id/spec_hash) — evidence from another "
+                      "run/attempt cannot verify this lock (§MA6)")
     log_text = read_text(root / "tests" / "verification_log.md")
     # --- acceptance section -------------------------------------------------
     acc_text = read_text(root / "tests" / "acceptance.md")
@@ -247,7 +350,7 @@ def verify(root, final=False, rebase_new_task=False):
             errors.append("acceptance task section heading changed and the locked section was not preserved")
 
     # --- profile / debt -----------------------------------------------------
-    for key, rel in (("profile", "tests/project_profile.json"), ("debt", "tests/debt_baseline.json")):
+    for key, rel in (("profile", "tests/project_profile.json"), ("debt", "tests/debt_baseline.json"), ("secret_debt", "tests/secret_baseline.json")):
         want = (lock.get(key) or {}).get("sha256")
         if not want:
             continue
@@ -276,6 +379,21 @@ def verify(root, final=False, rebase_new_task=False):
             errors.append("verification_log.md chain break at line %d (prev hash mismatch)" % i)
         if i < 1 or i > len(hashes):
             errors.append("verification_log.md chain line %d missing (log truncated)" % i)
+            prev = e.get("sha256", "")
+            continue
+        if e.get("run_id") is not None or e.get("attempt_id") is not None or e.get("spec_hash") is not None:
+            # W25 run-bound entry: the entry's binding must still equal the
+            # lock record's, and the chain hash must recompute from them —
+            # tampering run_id/attempt_id/spec_hash breaks the chain here.
+            entry_run = {"run_id": e.get("run_id"),
+                         "attempt_id": e.get("attempt_id"),
+                         "spec_hash": e.get("spec_hash")}
+            if lock.get("run_id") is not None and entry_run != lock_run:
+                errors.append("run binding changed after seal at line %d "
+                              "(run_id/attempt_id/spec_hash mismatch — chain break)" % i)
+            elif _entry_hash(entry_run, e.get("prev"), hashes[i - 1]) != e.get("sha256"):
+                errors.append("verification_log.md line %d changed after seal "
+                              "(run-bound chain hash mismatch)" % i)
         elif hashes[i - 1] != e.get("sha256"):
             errors.append("verification_log.md line %d changed after seal" % i)
         prev = e.get("sha256", "")
@@ -286,15 +404,160 @@ def verify(root, final=False, rebase_new_task=False):
         )
 
     # --- cited media --------------------------------------------------------
-    errors.extend(check_media(root, acc_text + "\n" + log_text))
+    errors.extend(check_media(root, acc_text + "\n" + log_text,
+                              artifact_root=(run or {}).get("artifact_root")))
     return errors
 
 
-def seal_log(root):
+def verify_archive(root, run=None):
+    """Archival read-back gate (PLAN §13.3 / §MA6): read back EVERY locked
+    media/hash and fail listing any missing/unreadable/mismatched file.
+    Archiving is only proven when the bundle reads back intact — copying
+    files is not re-passing the gate."""
+    root = pathlib.Path(root)
+    p = _lock_path(root)
+    if not p.exists():
+        return ["archive read-back: evidence lock missing: %s (run --init)" % p]
+    try:
+        lock = json.loads(p.read_text(encoding="utf-8"))
+    except ValueError as e:
+        return ["archive read-back: evidence lock unparseable: %s" % e]
+    errors = []
+    artifact_root = (run or {}).get("artifact_root")
+
+    # locked hashes: acceptance section + profile/debt/secret baselines
+    acc_path = root / "tests" / "acceptance.md"
+    locked_acc = lock.get("acceptance", {})
+    try:
+        acc_text = acc_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        acc_text = ""
+        errors.append("archive read-back: tests/acceptance.md unreadable (%s)" % e)
+    if acc_text:
+        _h, sec, _s = section(acc_text)
+        if locked_acc.get("sha256") and sha_bytes(norm_section(sec).encode("utf-8")) != locked_acc.get("sha256"):
+            errors.append("archive read-back: tests/acceptance.md hash mismatch "
+                          "(locked section changed after lock)")
+    elif locked_acc.get("sha256") and not acc_path.is_file():
+        errors.append("archive read-back: tests/acceptance.md missing")
+    for key, rel in (("profile", "tests/project_profile.json"),
+                     ("debt", "tests/debt_baseline.json"),
+                     ("secret_debt", "tests/secret_baseline.json")):
+        want = (lock.get(key) or {}).get("sha256")
+        if not want:
+            continue
+        fp = root / rel
+        if not fp.is_file():
+            errors.append("archive read-back: locked file missing: %s" % rel)
+            continue
+        try:
+            got = sha_bytes(fp.read_bytes())
+        except OSError as e:
+            errors.append("archive read-back: locked file unreadable: %s (%s)" % (rel, e))
+            continue
+        if got != want:
+            errors.append("archive read-back: locked hash mismatch: %s" % rel)
+
+    # append-only log chain read-back (baseline prefix + every sealed line)
+    log_path = root / "tests" / "verification_log.md"
+    try:
+        log_text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        log_text = ""
+        errors.append("archive read-back: tests/verification_log.md unreadable (%s)" % e)
+    if log_text or not log_path.is_file():
+        if not log_path.is_file():
+            errors.append("archive read-back: tests/verification_log.md missing")
+        lines = log_text.splitlines()
+        hashes = _line_hashes(log_text)
+        lg = lock.get("log", {})
+        base_n = int(lg.get("baseline_lines", 0))
+        base_sha = str(lg.get("baseline_sha256", ""))
+        if base_sha:
+            if len(lines) < base_n:
+                errors.append("archive read-back: verification_log.md truncated "
+                              "below the locked baseline (%d < %d lines)"
+                              % (len(lines), base_n))
+            elif sha_bytes("\n".join(lines[:base_n]).encode("utf-8")) != base_sha:
+                errors.append("archive read-back: verification_log.md baseline "
+                              "prefix hash mismatch")
+        prev = base_sha
+        for e in lg.get("chain", []) or []:
+            i = int(e.get("i", 0))
+            if e.get("prev") != prev:
+                errors.append("archive read-back: verification_log.md chain break "
+                              "at line %d (prev hash mismatch)" % i)
+            if i < 1 or i > len(hashes):
+                errors.append("archive read-back: verification_log.md line %d "
+                              "missing (log truncated)" % i)
+                prev = e.get("sha256", "")
+                continue
+            if e.get("run_id") is not None or e.get("attempt_id") is not None or e.get("spec_hash") is not None:
+                entry_run = {"run_id": e.get("run_id"),
+                             "attempt_id": e.get("attempt_id"),
+                             "spec_hash": e.get("spec_hash")}
+                if (lock.get("run_id") is not None and entry_run != {
+                        "run_id": lock.get("run_id"),
+                        "attempt_id": lock.get("attempt_id"),
+                        "spec_hash": lock.get("spec_hash")}):
+                    errors.append("archive read-back: run binding changed after "
+                                  "seal at line %d (run_id/attempt_id/spec_hash "
+                                  "mismatch — chain break)" % i)
+                elif _entry_hash(entry_run, e.get("prev"), hashes[i - 1]) != e.get("sha256"):
+                    errors.append("archive read-back: verification_log.md line %d "
+                                  "changed after seal (run-bound chain hash "
+                                  "mismatch)" % i)
+            elif hashes[i - 1] != e.get("sha256"):
+                errors.append("archive read-back: verification_log.md line %d "
+                              "changed after seal" % i)
+            prev = e.get("sha256", "")
+
+    # every cited media file read back (run-relative resolution when bound)
+    seen = set()
+    if artifact_root is not None:
+        refs = [m.group(0) for m in RUN_MEDIA_RE.finditer(acc_text + "\n" + log_text)]
+    else:
+        refs = ["tests/" + m.group(1) for m in MEDIA_RE.finditer(acc_text + "\n" + log_text)]
+    for rel in refs:
+        if rel in seen:
+            continue
+        seen.add(rel)
+        mp = _resolve_media(root, artifact_root, rel)
+        if mp is None:
+            errors.append("archive read-back: cited media missing: %s" % rel)
+            continue
+        try:
+            data = mp.read_bytes()
+        except OSError as e:
+            errors.append("archive read-back: cited media unreadable: %s (%s)" % (rel, e))
+            continue
+        ok, why = _media_magic_ok(data, mp.suffix.lower())
+        if not ok:
+            errors.append("archive read-back: cited media mismatched: %s (%s)" % (rel, why))
+    return errors
+
+
+def seal_log(root, run=None):
     p = _lock_path(root)
     if not p.exists():
         return ["evidence lock missing: %s (run --init)" % p]
     lock = json.loads(p.read_text(encoding="utf-8"))
+    # W25 run binding: a supplied RunContext must match the locked one; a
+    # first-time binding is recorded here (metadata append — the chain below
+    # is only ever appended to, never rewritten in place).
+    if run:
+        if lock.get("run_id") and (
+                run["run_id"] != lock.get("run_id")
+                or run["attempt_id"] != lock.get("attempt_id")
+                or run["spec_hash"] != lock.get("spec_hash")):
+            return ["run context does not match the locked run binding "
+                    "(run_id/attempt_id/spec_hash) — refusing to seal another "
+                    "run's lines into this chain (§MA6)"]
+        lock["run_id"] = run["run_id"]
+        lock["attempt_id"] = run["attempt_id"]
+        lock["spec_hash"] = run["spec_hash"]
+    binding = ({"run_id": lock["run_id"], "attempt_id": lock["attempt_id"],
+                "spec_hash": lock["spec_hash"]}) if lock.get("run_id") else None
     log_text = read_text(pathlib.Path(root) / "tests" / "verification_log.md")
     lines = log_text.splitlines()
     hashes = _line_hashes(log_text)
@@ -313,8 +576,14 @@ def seal_log(root):
     added = 0
     for i in range(base_n + len(chain) + 1, len(hashes) + 1):
         e = {"i": i, "sha256": hashes[i - 1], "prev": prev}
+        if binding:
+            # run-bound chain hash includes run_id/attempt_id/spec_hash
+            e["sha256"] = _entry_hash(binding, prev, hashes[i - 1])
+            e["run_id"] = binding["run_id"]
+            e["attempt_id"] = binding["attempt_id"]
+            e["spec_hash"] = binding["spec_hash"]
         chain.append(e)
-        prev = hashes[i - 1]
+        prev = e["sha256"]
         added += 1
     if chain:
         lg["mode"] = "chain"
@@ -365,24 +634,42 @@ def main(argv=None):
     g.add_argument("--init", action="store_true")
     g.add_argument("--check", action="store_true")
     g.add_argument("--seal-log", action="store_true")
+    g.add_argument("--verify-archive", action="store_true",
+                   help="archival read-back gate (§13.3): read back every locked "
+                        "media/hash and fail listing any missing/unreadable/mismatched file")
     g.add_argument("--update-acceptance", action="store_true")
     ap.add_argument("--final", action="store_true")
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--rebase-new-task", action="store_true")
     ap.add_argument("--reason", default="")
     ap.add_argument("--approved", action="store_true", help="Class-E approval for re-baseline/acceptance changes")
+    ap.add_argument("--run-context", default="",
+                    help="W25: RunContext JSON (schema vibeweaver-run-context/1) — "
+                         "binds run_id/attempt_id/spec_hash into the lock chain "
+                         "(default: env VIBEWEAVER_RUN_CONTEXT; absent = legacy)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
     root = pathlib.Path(args.root).resolve()
 
+    run = None
+    ctx_path = args.run_context or os.environ.get("VIBEWEAVER_RUN_CONTEXT", "")
+    if ctx_path:
+        try:
+            run = load_run_binding(ctx_path)
+        except ValueError as e:
+            print("EVIDENCE-LOCK FAIL: %s" % e, file=sys.stderr)
+            return 1
+
     if args.init:
-        return init(root, args.force, args.approved)
+        return init(root, args.force, args.approved, run)
     if args.update_acceptance:
         errs = update_acceptance(root, args.reason, args.approved)
     elif args.seal_log:
-        errs = seal_log(root)
+        errs = seal_log(root, run)
+    elif args.verify_archive:
+        errs = verify_archive(root, run)
     else:
-        errs = verify(root, final=args.final, rebase_new_task=args.rebase_new_task)
+        errs = verify(root, final=args.final, rebase_new_task=args.rebase_new_task, run=run)
 
     if args.json:
         print(json.dumps({"ok": not errs, "errors": errs}, indent=2))

@@ -9,7 +9,12 @@ gates: 14 secret scan (`vw-approved` marker ⇄ `- secret-approved:` log
 pairing), 15 test-change guard, 16 risk-tier review. Project profiles
 (tests/project_profile.json or --profile) declaratively skip groups that
 are structurally N/A for the project kind (service/UI/new-project) —
-a profile never weakens an applicable group. `--class DOC|CONFIG|CODE`
+a profile never weakens an applicable group. `--run-root PATH` (W25)
+verifies run attribution: cited artifacts must live under the RunContext
+artifact_root and cite the context's run_id/attempt_id; `--profile
+task|integration` selects the run gate (integration additionally requires
+<run-root>/final-result.json with reachable candidate/final SHAs).
+`--class DOC|CONFIG|CODE`
 (COV-13 / §V11, or the log's `- class:` basis line) N/A's the memory (4)
 and service-lifecycle (5) groups for the classes whose path card has no
 such risk."""
@@ -785,7 +790,7 @@ def script_syntax_check(path: pathlib.Path):
         return False, f"checker unavailable ({exc})"
     return True, "no parser for ext (existence only)"
 
-VIOLATION_CODES = {"14", "15", "18", "22", "evidence-lock", "checker-pin"}
+VIOLATION_CODES = {"14", "15", "18", "22", "25", "evidence-lock", "checker-pin"}
 COMPLETION_CODES = {
     "1", "2", "3", "4", "5", "5b", "6", "7", "8", "9", "10", "11",
     "12", "12b", "13", "16", "17", "17a", "17b", "19", "20", "21",
@@ -1272,7 +1277,7 @@ PAYLOAD_MD = (
     "SKILL.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md",
     "ENGINEERING_STD.md", "REFERENCE.md", "APPENDIX.md",
     "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
-    "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
+    "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md", "MULTI_AGENT.md",
 )
 PAYLOAD_REQUIRED = (
     "scripts/assert_artifacts.py", "scripts/evidence_seal.py",
@@ -1504,13 +1509,173 @@ def repo_hygiene_check(root: pathlib.Path, existing: bool, final: bool):
                      f"(R3: pure deletions never count — a deletion-only wave belongs in its own hygiene commit)")
 
 
+# --- W25 run attribution (PLAN Task 6; Consistency Hub vocabulary) -------
+RUN_CONTEXT_SCHEMA = "vibeweaver-run-context/1"
+RUN_CONTEXT_FIELDS = ("repo_id", "task_id", "run_id", "attempt_id", "wave_id",
+                      "session_id", "lease_epoch", "worktree_root",
+                      "artifact_root", "state_root", "base_sha", "spec_hash",
+                      "skill_version", "checker_digest")
+RUN_ID_RE = re.compile(r"^run-[0-9a-f]{32}$")
+ATTEMPT_ID_RE = re.compile(r"^attempt-[0-9a-f]{32}$")
+RUN_ID_TOKEN_RE = re.compile(r"\brun-[0-9a-f]{32}\b")
+ATTEMPT_ID_TOKEN_RE = re.compile(r"\battempt-[0-9a-f]{32}\b")
+# cited artifacts: process files (acceptance/verification_log) + every
+# evidence reference inside them (`tests/...` or run-scoped `evidence/...`)
+RUN_CITE_RE = re.compile(
+    r"(?:tests|evidence)/[^\s`'\"()<>]+\.(?:png|jpe?g|webm|wav|mp4|mp3|"
+    r"log|json|md|txt|yaml|yml)", re.I)
+RUN_BIN_EXT = (".png", ".jpg", ".jpeg", ".webm", ".wav", ".mp4", ".mp3")
+
+
+def load_run_context(path):
+    """Return (ctx, errors) for a RunContext JSON file (schema
+    vibeweaver-run-context/1). Any error is a named fail-closed finding: a
+    forged/incomplete context must never attest a run (§MA1)."""
+    try:
+        data = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        return None, [f"run attribution: {path} missing/unparseable ({e}) — "
+                      f"a valid RunContext is required with --run-root"]
+    if not isinstance(data, dict) or data.get("schema") != RUN_CONTEXT_SCHEMA:
+        return None, [f"run attribution: {path} schema must be "
+                      f"{RUN_CONTEXT_SCHEMA!r} (forged/legacy run context "
+                      f"rejected, §MA1)"]
+    errs = []
+    for f in RUN_CONTEXT_FIELDS:
+        if f not in data:
+            errs.append(f"run attribution: {path} missing RunContext field `{f}` (§MA1)")
+    if not RUN_ID_RE.match(str(data.get("run_id", ""))):
+        errs.append(f"run attribution: {path} run_id {data.get('run_id')!r} is not run-<32hex> (§MA1)")
+    if not ATTEMPT_ID_RE.match(str(data.get("attempt_id", ""))):
+        errs.append(f"run attribution: {path} attempt_id {data.get('attempt_id')!r} is not attempt-<32hex> (§MA1)")
+    if not isinstance(data.get("lease_epoch"), int) or data.get("lease_epoch", 0) < 1:
+        errs.append(f"run attribution: {path} lease_epoch must be an int >= 1 (§MA1)")
+    return (data if not errs else None), errs
+
+
+def _resolve_run_artifact(root, artifact_root, ref):
+    """Run-relative artifact resolution: `<artifact_root>/<ref>` first (then
+    `<artifact_root>/<ref minus tests/>`), falling back to the project root
+    (legacy layout). Returns the first EXISTING candidate or None."""
+    norm = ref[6:] if ref.startswith("tests/") else ref
+    cands = []
+    if artifact_root is not None:
+        cands += [artifact_root / ref, artifact_root / norm]
+    cands.append(root / ref)
+    for c in cands:
+        if c.is_file():
+            return c
+    return None
+
+
+def _under(path, base):
+    try:
+        return pathlib.Path(path).resolve().is_relative_to(pathlib.Path(base).resolve())
+    except (OSError, ValueError):
+        return False
+
+
+def run_attribution_checks(root: pathlib.Path, run_root, profile: str):
+    """Group 25 — W25 run attribution (PLAN Task 6; §MA3/§MA6).
+
+    With --run-root every cited artifact (acceptance.md, verification_log.md,
+    evidence files) must live under the RunContext artifact_root and every
+    cited run_id/attempt_id string must match the context — importing another
+    run's evidence is a named failure (cross-run evidence reuse).
+    --profile integration additionally requires <run-root>/final-result.json
+    (candidate_sha, final_commit_sha, final_tree_sha as 40-hex) with the
+    candidate/final SHAs reachable via `git cat-file -e <sha>^{commit|tree}`
+    in the repo root; a non-git root is a NAMED skip, never a silent pass."""
+    group("25")
+    if run_root is None:
+        check(False, "run attribution: --profile integration requires --run-root PATH "
+                     "(context.json and final-result.json live under the run root)")
+        return
+    ctx, errs = load_run_context(run_root / "context.json")
+    for e in errs:
+        check(False, e)
+    if ctx is None:
+        return
+    run_id = str(ctx.get("run_id", ""))
+    attempt_id = str(ctx.get("attempt_id", ""))
+    artifact_root = pathlib.Path(str(ctx.get("artifact_root", "")))
+    tests = root / "tests"
+    acc = read(tests / "acceptance.md")
+    vl = read(tests / "verification_log.md")
+    cites = ["tests/acceptance.md", "tests/verification_log.md"]
+    for ref in RUN_CITE_RE.findall(acc + "\n" + vl):
+        if ref not in cites:
+            cites.append(ref)
+    for ref in cites:
+        resolved = _resolve_run_artifact(root, artifact_root, ref)
+        if resolved is None:
+            # a missing artifact is already a named failure of groups 1-3/10/11
+            continue
+        if not _under(resolved, artifact_root):
+            check(False, f"run attribution: cited artifact {ref} lives outside the "
+                         f"run's artifact_root ({artifact_root}) — cross-run "
+                         f"evidence reuse (§MA3)")
+            continue
+        if resolved.suffix.lower() in RUN_BIN_EXT:
+            continue  # binary media carries no id strings (magic checked in 3/11)
+        text = read(resolved)
+        for tok in RUN_ID_TOKEN_RE.findall(text):
+            if tok != run_id:
+                check(False, f"run attribution: cited run id {tok} in {ref} does not "
+                             f"match the RunContext run_id {run_id} — cross-run "
+                             f"evidence reuse (§MA6)")
+        for tok in ATTEMPT_ID_TOKEN_RE.findall(text):
+            if tok != attempt_id:
+                check(False, f"run attribution: cited attempt id {tok} in {ref} does "
+                             f"not match the RunContext attempt_id {attempt_id} — "
+                             f"cross-attempt evidence reuse (§MA6)")
+    if profile == "integration":
+        fr = run_root / "final-result.json"
+        if not fr.is_file():
+            check(False, f"integration profile: {fr} missing — final-result.json "
+                         f"(keys candidate_sha, final_commit_sha, final_tree_sha) "
+                         f"is required at --profile integration")
+            return
+        try:
+            result = json.loads(fr.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            check(False, f"integration profile: final-result.json unparseable ({e})")
+            return
+        shas = {}
+        for key, kind in (("candidate_sha", "commit"), ("final_commit_sha", "commit"),
+                          ("final_tree_sha", "tree")):
+            val = result.get(key) if isinstance(result, dict) else None
+            if not isinstance(val, str) or not re.fullmatch(r"[0-9a-f]{40}", val):
+                check(False, f"integration profile: final-result.json missing a "
+                             f"40-hex `{key}`")
+            else:
+                shas[key] = (val, kind)
+        rc, _ = _git(root, "rev-parse", "--git-dir")
+        if rc != 0:
+            # tolerate a non-git root with a NAMED skip reason (never silent)
+            check(True, "integration profile: SHA reachability skipped (skip reason: "
+                        "repo root is not a git repository — git cat-file unavailable)")
+        else:
+            for key, (val, kind) in sorted(shas.items()):
+                r2, _ = _git(root, "cat-file", "-e", "%s^{%s}" % (val, kind))
+                check(r2 == 0, f"integration profile: {key} {val} is not a reachable "
+                               f"{kind} in the repo root (git cat-file -e "
+                               f"{val}^{{{kind}}}) — stale or forged SHA map "
+                               f"(§MA5 immutable candidate)")
+
+
 def main():
     global PASSES
     ap = argparse.ArgumentParser()
     ap.add_argument("--existing", action="store_true", help="Modify-Existing task: skip new-project §A5 design-doc + git checks")
     ap.add_argument("--backend-only", action="store_true", help="no UI: skip PAGE_DESIGN.html and project_build.sh checks")
     ap.add_argument("--root", default="", help="project root override (canonical checker run from the skill install)")
-    ap.add_argument("--profile", default="", help="project profile: service|backend-api|web-static|cli|library — skips structurally-N/A groups (overrides tests/project_profile.json)")
+    ap.add_argument("--profile", default="", help="project profile: service|backend-api|web-static|cli|library — skips structurally-N/A groups (overrides tests/project_profile.json); run profiles task|integration (W25) select the run gate instead")
+    ap.add_argument("--run-root", default="",
+                    help="W25 run root (contains context.json, and final-result.json "
+                         "for the integration profile): verify run attribution — cited "
+                         "artifacts must live under the RunContext artifact_root and "
+                         "cite this run's run_id/attempt_id")
     ap.add_argument("--class", dest="task_class", default="", choices=["DOC", "CONFIG", "CODE"],
                     help="COV-13 task class (§V11): DOC N/A's memory + service-lifecycle groups; CONFIG N/A's memory when the log carries `- memory: na (<why>)`. Default: auto-detect from the `- class: <X> — <basis>` first entry of the task block in tests/verification_log.md")
     ap.add_argument("--record-debt", action="store_true",
@@ -1524,6 +1689,15 @@ def main():
     ap.add_argument("--json", action="store_true",
                     help="D4 machine-readable result: print ONLY {ok, passes, fails:[{code,severity,detail}]} on stdout (diagnostics on stderr)")
     args = ap.parse_args()
+
+    # W25 run profiles: `--profile task|integration` select the RUN gate;
+    # every legacy project-profile value keeps its existing meaning. Default
+    # (`task`) is exactly the current behavior.
+    RUN_PROFILES = ("task", "integration")
+    run_profile = "task"
+    if args.profile in RUN_PROFILES:
+        run_profile = args.profile
+        args.profile = ""
 
     def info(msg=""):
         # --json keeps stdout PURE JSON; diagnostics move to stderr
@@ -2271,6 +2445,14 @@ def main():
     _code_ext = re.compile(r"\.(?:py|js|mjs|ts|tsx|jsx|go|rs|java|c|cc|cpp|h|hpp|rb|php|cs|sh)$", re.I)
     if len([p for p in _wave_paths if _code_ext.search(p)]) >= 3 and not re.search(r"(?mi)^\s*(?:[-*]\s*)?\**\s*approach-review\s*\**\s*:", vl):
         warn("Lane-L wave (>=3 code files) without a `- approach-review: approach-sound|pivot-needed` — independent look at the DIRECTION at the commitment point (M2)", "24")
+
+    # 25) W25 run attribution (PLAN Task 6) — runs ONLY with run-aware inputs
+    #     (--run-root / run profile); without them every legacy check above
+    #     is byte-identical to the single-agent behavior (§MA1 legacy rule).
+    if args.run_root or run_profile != "task":
+        run_attribution_checks(root,
+                               pathlib.Path(args.run_root).resolve() if args.run_root else None,
+                               run_profile)
 
     if GIT_TIMEOUT:
         warn("groups 14-16/21: a git call timed out — content gates ran "

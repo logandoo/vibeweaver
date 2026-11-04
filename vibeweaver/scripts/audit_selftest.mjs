@@ -8,7 +8,7 @@
 // informational (printed, not failed) — it exists to tune regexes.
 
 import { execFileSync } from "node:child_process"
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import { pathToFileURL } from "node:url"
 import path from "node:path"
@@ -4252,6 +4252,419 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   rec("T43 bounded read still returns content under the cap", okSmall === "hello-bounded-read",
     `got=${JSON.stringify(String(okSmall).slice(0, 24))}`)
   rmSync(big, { force: true })
+}
+
+// ===== W25 run-aware =====
+// RunContext binding · fenced RED-latch attribution · fail-closed persistence
+// · session→run root mapping · worktree state roots (PLAN_w25_multi_agent
+// Task 5; MULTI_AGENT.md §MA1/§MA4/§MA9). The W25 helper seams
+// (loadRunContext / atomicWriteUnique / stateScopeKey) hang off the server
+// function so the module export shape stays exactly { id, server, setup }.
+{
+  const GATE_MOD = await import(pathToFileURL(path.resolve(import.meta.dirname, "..", "vibeweaver-gate.js")))
+  const gateServer = GATE_MOD.default.server
+  const rid = (c) => "run-" + c.repeat(32)
+  const aid = (c) => "attempt-" + c.repeat(32)
+  const scopeOfIds = (runHex, attemptHex) => "run:" + rid(runHex) + "/attempt:" + aid(attemptHex)
+  const writeRunContext = (root, runHex, attemptHex, over) => {
+    const rc = Object.assign(
+      {
+        schema: "vibeweaver-run-context/1",
+        repo_id: "repo-w25",
+        task_id: "w25.task",
+        run_id: rid(runHex),
+        attempt_id: aid(attemptHex),
+        wave_id: "wave-" + "0".repeat(32),
+        session_id: "ses-rc",
+        lease_epoch: 1,
+        worktree_root: root,
+        artifact_root: path.join(root, ".vibeweaver", "artifacts"),
+        state_root: path.join(root, ".vibeweaver"),
+        base_sha: "0".repeat(40),
+        spec_hash: "1".repeat(64),
+        skill_version: "w25",
+        checker_digest: "2".repeat(64),
+      },
+      over || {}
+    )
+    write(root, ".vibeweaver/run_context.json", JSON.stringify(rc))
+    return rc
+  }
+  const gateAfterWrite = async (hooks, root, rel, sessionID) => {
+    const out = { output: "" }
+    try {
+      await hooks["tool.execute.after"]({ tool: "write", sessionID, args: { filePath: path.join(root, rel) } }, out)
+      return { block: null, notes: out.output || "" }
+    } catch (e) {
+      return { block: e.message, notes: out.output || "" }
+    }
+  }
+  const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms))
+  // Checker-pin isolation: this section installs tiny stub checkers, so the
+  // installed canonical pin must not preempt their execution.
+  const prevHome = process.env.VIBEWEAVER_HOME
+  const w25Home = path.join(TMP, "w25-empty-home")
+  rmSync(w25Home, { recursive: true, force: true })
+  mkdirSync(w25Home, { recursive: true })
+  process.env.VIBEWEAVER_HOME = w25Home
+
+  // ---- W25a multi-run isolation: two RunContexts, two roots, no leakage ----
+  try {
+    const W = path.join(TMP, "w25a-iso")
+    rmSync(W, { recursive: true, force: true })
+    for (const sub of ["a/src", "b/src", "a/tests", "b/tests"]) mkdirSync(path.join(W, sub), { recursive: true })
+    write(W, "a/tests/verification_log.md", "## Task: run-a\n- iter 1 PASS: x\n")
+    write(W, "a/tests/acceptance.md", "> cap=5  stall=3×\n1. a\n")
+    write(W, "b/tests/verification_log.md", "## Task: run-b\n- iter 1 PASS: y\n")
+    write(W, "b/tests/acceptance.md", "> cap=5  stall=3×\n1. b\n")
+    writeRunContext(W + "/a", "a", "1")
+    writeRunContext(W + "/b", "b", "2")
+    const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: W })
+    const emit = (sid, part) => plugin.event({ event: { type: "message.part.updated", properties: { sessionID: sid, part } } })
+    await emit("ses_w25a_a", { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } })
+    await emit("ses_w25a_b", { id: "k2", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } })
+    await plugin["tool.execute.before"]({ tool: "write", sessionID: "ses_w25a_a", args: { filePath: path.join(W, "a", "tests", "acceptance.md") } })
+    await plugin["tool.execute.before"]({ tool: "write", sessionID: "ses_w25a_a", args: { filePath: path.join(W, "a", "src", "x.js") } })
+    await plugin["tool.execute.before"]({ tool: "write", sessionID: "ses_w25a_b", args: { filePath: path.join(W, "b", "tests", "acceptance.md") } })
+    await plugin["tool.execute.before"]({ tool: "write", sessionID: "ses_w25a_b", args: { filePath: path.join(W, "b", "src", "y.js") } })
+    await emit("ses_w25a_a", { id: "t1", type: "text", text: "working on run a" })
+    await emit("ses_w25a_b", { id: "t2", type: "text", text: "working on run b" })
+    await plugin.event({ event: { type: "session.idle", properties: { sessionID: "ses_w25a_a" } } })
+    await plugin.event({ event: { type: "session.idle", properties: { sessionID: "ses_w25a_b" } } })
+    const st = JSON.parse(readFileSync(path.join(W, ".vibeweaver", "audit-state.json"), "utf8"))
+    const keyA = scopeOfIds("a", "1")
+    const keyB = scopeOfIds("b", "2")
+    const blockA = st.roots[keyA] || null
+    const blockB = st.roots[keyB] || null
+    rec("W25a multi-run isolation: each RunContext gets its own state block",
+      !!blockA && !!blockB, `run-keys=${Object.keys(st.roots).filter((k) => k.startsWith("run:")).join(" | ") || "(none)"}`)
+    rec("W25a no cross-run leakage between blocks",
+      !!blockA && !!blockB
+        && blockA.lastSession === "ses_w25a_a" && blockB.lastSession === "ses_w25a_b"
+        && !JSON.stringify(blockA).includes("ses_w25a_b") && !JSON.stringify(blockA).includes(rid("b"))
+        && !JSON.stringify(blockB).includes("ses_w25a_a") && !JSON.stringify(blockB).includes(rid("a")),
+      `A.lastSession=${blockA && blockA.lastSession} B.lastSession=${blockB && blockB.lastSession}`)
+    // gate side: per-root state carries the same run scope keys
+    const ghooks = await gateServer({ client: { app: { log: async () => {} } }, directory: W })
+    await gateAfterWrite(ghooks, W + "/a", "src/x.js", "ses_w25a_a")
+    await gateAfterWrite(ghooks, W + "/b", "src/y.js", "ses_w25a_b")
+    const stA = JSON.parse(readFileSync(path.join(W, "a", ".vibeweaver", "state.json"), "utf8"))
+    const stB = JSON.parse(readFileSync(path.join(W, "b", ".vibeweaver", "state.json"), "utf8"))
+    rec("W25a gate state blocks carry their own run scope key",
+      stA.scope === keyA && stB.scope === keyB, `a.scope=${stA.scope} b.scope=${stB.scope}`)
+  } catch (e) {
+    rec("W25a multi-run isolation: each RunContext gets its own state block", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25b in-run concurrent state writes: N=30 lose no updates ----
+  try {
+    const dir = path.join(TMP, "w25b-persist")
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(dir, { recursive: true })
+    const p = path.join(dir, "state.json")
+    const tasks = []
+    for (let i = 0; i < 30; i++) {
+      tasks.push(
+        (async () => {
+          await null // interleave at the event-loop boundary
+          let st = { count: 0, ids: [] }
+          try {
+            st = JSON.parse(readFileSync(p, "utf8"))
+          } catch {
+            /* first writer */
+          }
+          st.count += 1
+          st.ids.push(i)
+          VibeweaverAudit.atomicWriteUnique(p, JSON.stringify(st))
+        })()
+      )
+    }
+    await Promise.all(tasks)
+    const st = JSON.parse(readFileSync(p, "utf8"))
+    const tmps = readdirSync(dir).filter((f) => f.endsWith(".tmp"))
+    rec("W25b concurrent persists through the atomic path conserve every update (N=30)",
+      st.count === 30 && Array.isArray(st.ids) && st.ids.length === 30, `count=${st.count} ids=${(st.ids || []).length}`)
+    rec("W25b atomic writes leave no tmp residue and no torn state",
+      tmps.length === 0 && typeof st.count === "number", `tmp residue=${tmps.length}`)
+    // the plugin's own state persist path under interleaved observations
+    const root = newFixture("w25b-events")
+    write(root, "tests/verification_log.md", "## Task: b\n- iter 1 PASS: x\n")
+    const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+    const one = (part) => plugin.event({ event: { type: "message.part.updated", properties: { sessionID: "ses_w25b", part } } })
+    await one({ id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } })
+    await Promise.all(
+      Array.from({ length: 30 }, (_, i) =>
+        one({ id: "t" + i, type: "tool", tool: "bash", state: { status: "completed", input: { command: "step " + i }, output: "ok" } })
+      )
+    )
+    await plugin.event({ event: { type: "session.idle", properties: { sessionID: "ses_w25b" } } })
+    const st2 = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8"))
+    const tools = ((st2.sessions["ses_w25b"] || {}).tools || []).filter((t) => t && t.tool === "bash")
+    rec("W25b interleaved plugin observations lose no state updates", tools.length === 30, `bash tools recorded=${tools.length}`)
+  } catch (e) {
+    rec("W25b concurrent persists through the atomic path conserve every update (N=30)", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25c RED-latch attribution: fenced by run/attempt ----
+  try {
+    // c1: a latch owned by attempt A survives attempt B's new-task rewrite
+    const root1 = newFixture("w25c1-attr")
+    write(root1, "tests/verification_log.md", "placeholder — no iter entries\n")
+    writeRunContext(root1, "1", "a")
+    const plugin1 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root1 })
+    await latchRed(plugin1, "ses_w25c1", root1)
+    // the task is re-claimed under a DIFFERENT run: the same session starts a
+    // new task (acceptance rewrite) — that rewrite must NOT release the latch
+    writeRunContext(root1, "2", "b")
+    await sleepMs(20)
+    write(root1, "tests/acceptance.md", "wave2 criteria — new run\n")
+    await tryWrite(plugin1, root1, "tests/acceptance.md", "ses_w25c1")
+    const res1 = await tryWrite(plugin1, root1, "src/x.ts", "ses_w25c1")
+    const slot1 = JSON.parse(readFileSync(path.join(root1, ".vibeweaver", "audit-state.json"), "utf8")).roots[root1] || {}
+    rec("W25c latch owned by attempt A is NOT released by attempt B's new-task rewrite",
+      typeof res1 === "string" && /GATE-BLOCKED/.test(res1) && slot1.red && slot1.red.runID === rid("1"),
+      res1 === true ? "RELEASED — attribution fence lost" : `still latched runID=${slot1.red && slot1.red.runID}`)
+    // c2: a stale-attempt latch (same run, older attempt) does not block the newer attempt
+    const root2 = newFixture("w25c2-stale")
+    write(root2, "tests/verification_log.md", "placeholder — no iter entries\n")
+    writeRunContext(root2, "1", "a")
+    const plugin2 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root2 })
+    await latchRed(plugin2, "ses_w25c2", root2)
+    writeRunContext(root2, "1", "c") // same run, newer attempt takes over
+    const res2 = await tryWrite(plugin2, root2, "src/x.ts", "ses_w25c2_new")
+    const slot2 = JSON.parse(readFileSync(path.join(root2, ".vibeweaver", "audit-state.json"), "utf8")).roots[root2] || {}
+    const rel2 = (slot2.redReleases || []).filter((r) => r.reason === "stale-attempt")
+    rec("W25c stale-attempt latch does not block a newer attempt (journaled: stale-attempt)",
+      res2 === true && slot2.red == null && rel2.length >= 1,
+      res2 === true ? `released; journal=${rel2.length}` : "blocked: " + String(res2).slice(0, 60))
+    // c3: a legacy latch still releases under the old session rules
+    const root3 = newFixture("w25c3-legacy")
+    write(root3, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const plugin3 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root3 })
+    await latchRed(plugin3, "ses_w25c3", root3)
+    await sleepMs(20)
+    write(root3, "tests/acceptance.md", "wave2 criteria — legacy rules\n")
+    await tryWrite(plugin3, root3, "tests/acceptance.md", "ses_w25c3")
+    const res3 = await tryWrite(plugin3, root3, "src/x.ts", "ses_w25c3")
+    rec("W25c legacy latch still releases under the old session rules", res3 === true,
+      res3 === true ? "released (new-task)" : "blocked: " + String(res3).slice(0, 60))
+  } catch (e) {
+    rec("W25c latch owned by attempt A is NOT released by attempt B's new-task rewrite", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25d persistence failure fail-closed on the critical paths ----
+  try {
+    // audit: the RED latch write is critical — a failed persist must throw
+    const rootA = newFixture("w25d-audit")
+    write(rootA, "tests/verification_log.md", "placeholder — no iter entries\n")
+    mkdirSync(path.join(rootA, ".vibeweaver", "audit-state.json"), { recursive: true }) // state path unwritable (a directory)
+    const pluginA = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: rootA })
+    try {
+      await latchRed(pluginA, "ses_w25d", rootA) // its final audit already throws here
+    } catch {
+      /* the latch write's persist failure is the expected fail-closed throw */
+    }
+    // Re-drive the idle directly to observe the throw deterministically.
+    let threwA = ""
+    try {
+      await pluginA.event({ event: { type: "session.idle", properties: { sessionID: "ses_w25d" } } })
+    } catch (e) {
+      threwA = String(e.message || e)
+    }
+    rec("W25d audit RED-latch persist failure fails closed (GATE-CHECK-UNAVAILABLE, no silent latch)",
+      /GATE-CHECK-UNAVAILABLE \(persist failed/.test(threwA), threwA ? threwA.slice(0, 90) : "NO THROW — silent persist failure")
+  } catch (e) {
+    rec("W25d audit RED-latch persist failure fails closed (GATE-CHECK-UNAVAILABLE, no silent latch)", false, "threw: " + String(e.message || e))
+  }
+  try {
+    // gate: the --final enforcement record is critical
+    const rootG = path.join(TMP, "w25d-gate")
+    rmSync(rootG, { recursive: true, force: true })
+    mkdirSync(path.join(rootG, "tests"), { recursive: true })
+    mkdirSync(path.join(rootG, "src"), { recursive: true })
+    write(rootG, "tests/verification_log.md", "## Task: d\n- iter 1 PASS: x\n")
+    write(rootG, "tests/acceptance.md", "> cap=5  stall=3×\n1. d\n")
+    write(rootG, "tests/assert_artifacts.py", 'import json\nprint(json.dumps({"ok": True, "passes": 1, "fails": []}))\n')
+    mkdirSync(path.join(rootG, "tests", "gate_result.json"), { recursive: true }) // record path unwritable (a directory)
+    const ghooks = await gateServer({ client: { app: { log: async () => {} } }, directory: rootG })
+    const prevFinal = process.env.VIBEWEAVER_GATE_FINAL
+    process.env.VIBEWEAVER_GATE_FINAL = "1"
+    const r = await gateAfterWrite(ghooks, rootG, "src/x.js", "ses_w25d")
+    if (prevFinal === undefined) delete process.env.VIBEWEAVER_GATE_FINAL
+    else process.env.VIBEWEAVER_GATE_FINAL = prevFinal
+    rec("W25d gate --final enforcement record persist failure fails closed (GATE-CHECK-UNAVAILABLE, no silent pass)",
+      typeof r.block === "string" && /GATE-CHECK-UNAVAILABLE \(persist failed/.test(r.block),
+      r.block ? r.block.slice(0, 90) : "SILENT PASS — final claim survived a failed persist")
+  } catch (e) {
+    rec("W25d gate --final enforcement record persist failure fails closed (GATE-CHECK-UNAVAILABLE, no silent pass)", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25e legacy byte-compat: no run_context.json → pre-W25 behavior ----
+  try {
+    const root = newFixture("w25e-legacy")
+    write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+    const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+    await latchRed(plugin, "ses_w25e", root)
+    const st = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8"))
+    const red = (st.roots[root] || {}).red
+    rec("W25e legacy state JSON keys unchanged (sessions, roots only)",
+      Object.keys(st).sort().join(",") === "roots,sessions" && !!st.roots[root], `keys=${Object.keys(st).sort().join(",")}`)
+    rec("W25e legacy latch shape stays byte-identical ({sessionID, ts, bad})",
+      !!red && typeof red === "object" && Object.keys(red).sort().join(",") === "bad,sessionID,ts" && red.sessionID === "ses_w25e",
+      red ? `keys=${Object.keys(red).sort().join(",")}` : "no latch")
+    const res = await tryWrite(plugin, root, "src/x.ts", "ses_w25e")
+    rec("W25e legacy block message markers unchanged",
+      typeof res === "string" && res.startsWith("GATE-BLOCKED (vibeweaver-audit)"),
+      res === true ? "NOT BLOCKED" : String(res).slice(0, 60))
+  } catch (e) {
+    rec("W25e legacy state JSON keys unchanged (sessions, roots only)", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25f forged run_context rejected → null + warning + legacy scope ----
+  try {
+    const warns = []
+    const origWarn = console.warn
+    console.warn = (...a) => {
+      warns.push(a.join(" "))
+    }
+    let nulls = 0
+    try {
+      const base = path.join(TMP, "w25f-forged")
+      rmSync(base, { recursive: true, force: true })
+      const good = writeRunContext(base + "/f1", "1", "a")
+      const cases = {
+        "f2-missing-field": Object.assign({}, good, { spec_hash: undefined }),
+        "f3-wrong-schema": Object.assign({}, good, { schema: "vibeweaver-run-context/9" }),
+        "f4-bad-run-id": Object.assign({}, good, { run_id: "run-XYZ" }),
+        "f5-bad-attempt-id": Object.assign({}, good, { attempt_id: "attempt-NOPE" }),
+        "f6-lease-0": Object.assign({}, good, { lease_epoch: 0 }),
+      }
+      for (const [name, body] of Object.entries(cases)) {
+        mkdirSync(path.join(base, name, ".vibeweaver"), { recursive: true })
+        writeFileSync(path.join(base, name, ".vibeweaver", "run_context.json"), JSON.stringify(body))
+        if (VibeweaverAudit.loadRunContext(path.join(base, name)) === null) nulls++
+      }
+    } finally {
+      console.warn = origWarn
+    }
+    rec("W25f forged run_context rejected (missing field / schema / id format / lease_epoch)", nulls === 5, `null returns=${nulls}/5`)
+    rec("W25f rejected run_context surfaces a one-time RUN-CONTEXT WARNING",
+      warns.filter((w) => /RUN-CONTEXT WARNING/.test(w)).length >= 5, `warnings=${warns.filter((w) => /RUN-CONTEXT WARNING/.test(w)).length}`)
+    // behavioral fallback: a forged run_context session falls back to legacy scope
+    const root = newFixture("w25f-fallback")
+    write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+    write(root, ".vibeweaver/run_context.json", JSON.stringify({ schema: "vibeweaver-run-context/1" })) // forged: fields missing
+    const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+    await latchRed(plugin, "ses_w25f", root)
+    const st = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8"))
+    const red = (st.roots[root] || {}).red
+    rec("W25f forged run_context session falls back to the legacy scope",
+      !!red && Object.keys(red).sort().join(",") === "bad,sessionID,ts" && !Object.keys(st.roots).some((k) => k.startsWith("run:")),
+      `latch keys=${red ? Object.keys(red).sort().join(",") : "none"} state keys=${Object.keys(st.roots).join(" | ")}`)
+  } catch (e) {
+    rec("W25f forged run_context rejected (missing field / schema / id format / lease_epoch)", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25g legacy latch migration: no adoption, no resurrection ----
+  try {
+    const root = newFixture("w25g-migrate")
+    write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+    writeRunContext(root, "a", "1", { task_id: "task.other" })
+    // seed a LEGACY latch owned by a dead session (pre session-scoping shape)
+    write(root, ".vibeweaver/audit-state.json",
+      JSON.stringify({ sessions: {}, roots: { [root]: { red: { sessionID: "ses_w25g_old", ts: Date.now() - 1000, bad: 2 } } } }))
+    const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+    await tryWrite(plugin, root, "tests/acceptance.md", "ses_w25g_new") // run-aware session of ANOTHER task
+    const res = await tryWrite(plugin, root, "src/x.ts", "ses_w25g_new")
+    const st = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8"))
+    const slot = st.roots[root] || {}
+    rec("W25g legacy latch is not adopted nor released by a run-aware session (no resurrection)",
+      typeof res === "string" && /GATE-BLOCKED/.test(res)
+        && slot.red && Object.keys(slot.red).sort().join(",") === "bad,sessionID,ts" && slot.red.sessionID === "ses_w25g_old"
+        && (slot.redReleases || []).length === 0,
+      res === true ? "RELEASED — legacy latch resurrected by another task" : `latch kept keys=${slot.red ? Object.keys(slot.red).sort().join(",") : "none"}`)
+  } catch (e) {
+    rec("W25g legacy latch is not adopted nor released by a run-aware session (no resurrection)", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25h idle / compaction / resume follow the session→run mapping ----
+  try {
+    const W = path.join(TMP, "w25h-map")
+    rmSync(W, { recursive: true, force: true })
+    for (const sub of ["a/src", "b/src", "a/tests", "b/tests"]) mkdirSync(path.join(W, sub), { recursive: true })
+    write(W, "a/tests/verification_log.md", "## Task: a\n- iter 1 PASS: x\n")
+    write(W, "a/tests/acceptance.md", "> cap=5  stall=3×\n1. a\n")
+    write(W, "a/tests/working_note.md", "A-NOTE-ALPHA\n")
+    write(W, "b/tests/verification_log.md", "## Task: b\n- iter 1 PASS: y\n")
+    write(W, "b/tests/acceptance.md", "> cap=5  stall=3×\n1. b\n")
+    write(W, "b/tests/working_note.md", "B-NOTE-BETA\n")
+    writeRunContext(W + "/a", "a", "1")
+    writeRunContext(W + "/b", "b", "2")
+    // audit leg: one session touches BOTH roots (last-write distractor) — the
+    // idle has no file path and must resolve the MAPPED run root (a), not the
+    // last write's root (b) and not another session's root.
+    const p1 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: W })
+    await p1.event({ event: { type: "message.part.updated", properties: { sessionID: "ses_w25h", part: { id: "k1", type: "tool", tool: "skill", state: { status: "completed", input: { name: "vibeweaver" } } } } } })
+    await p1["tool.execute.before"]({ tool: "write", sessionID: "ses_w25h", args: { filePath: path.join(W, "a", "src", "x.js") } })
+    await p1["tool.execute.before"]({ tool: "write", sessionID: "ses_w25h_b", args: { filePath: path.join(W, "b", "src", "y.js") } }) // another session's root
+    await p1["tool.execute.before"]({ tool: "write", sessionID: "ses_w25h", args: { filePath: path.join(W, "b", "src", "z.js") } }) // last-write distractor
+    await p1.event({ event: { type: "message.part.updated", properties: { sessionID: "ses_w25h", part: { id: "t1", type: "text", text: "wip" } } } })
+    const p2 = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: W }) // fresh instance: in-memory guesses gone
+    await p2.event({ event: { type: "message.part.updated", properties: { sessionID: "ses_w25h", part: { id: "t2", type: "text", text: "wip2" } } } })
+    await p2.event({ event: { type: "session.idle", properties: { sessionID: "ses_w25h" } } })
+    rec("W25h audit idle resolves the session→run mapping root (not last-write, not another session's root)",
+      existsSync(path.join(W, "a", "tests", "gate_audit.md")) && !existsSync(path.join(W, "b", "tests", "gate_audit.md")) && !existsSync(path.join(W, "tests", "gate_audit.md")),
+      `a=${existsSync(path.join(W, "a", "tests", "gate_audit.md"))} b=${existsSync(path.join(W, "b", "tests", "gate_audit.md"))}`)
+    // gate leg: compaction + resume deliver from the mapped run root
+    const g1 = await gateServer({ client: { app: { log: async () => {} } }, directory: W })
+    await gateAfterWrite(g1, W + "/a", "src/x.js", "ses_w25hg")
+    await gateAfterWrite(g1, W + "/b", "src/y.js", "ses_w25hg") // last-write distractor
+    const g2 = await gateServer({ client: { app: { log: async () => {} } }, directory: W })
+    const out = { context: [] }
+    await g2["experimental.session.compacting"]({ sessionID: "ses_w25hg" }, out)
+    const bundle = (out.context || []).join("\n")
+    rec("W25h compaction follows the session→run mapping root",
+      bundle.includes("A-NOTE-ALPHA") && !bundle.includes("B-NOTE-BETA"), bundle.slice(0, 100))
+    await g2.event({ event: { type: "session.compacted", properties: { sessionID: "ses_w25hg" } } })
+    const sysOut = { system: [] }
+    await g2["experimental.chat.system.transform"]({ sessionID: "ses_w25hg" }, sysOut)
+    const resumeText = (sysOut.system || [])
+      .map((s) => (typeof s === "string" ? s : (s && typeof s.text === "string" ? s.text : JSON.stringify(s))))
+      .join("\n")
+    rec("W25h resume follows the session→run mapping root",
+      resumeText.includes("A-NOTE-ALPHA") && !resumeText.includes("B-NOTE-BETA"), resumeText.slice(0, 100))
+  } catch (e) {
+    rec("W25h audit idle resolves the session→run mapping root (not last-write, not another session's root)", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25i worktree git metadata: the worktree root owns .vibeweaver ----
+  try {
+    const base = path.join(TMP, "w25i-worktree")
+    rmSync(base, { recursive: true, force: true })
+    mkdirSync(path.join(base, "main"), { recursive: true })
+    execFileSync("git", ["init", "-q"], { cwd: path.join(base, "main") })
+    execFileSync("git", ["config", "user.email", "w25@test"], { cwd: path.join(base, "main") })
+    execFileSync("git", ["config", "user.name", "w25"], { cwd: path.join(base, "main") })
+    write(path.join(base, "main"), "f.txt", "baseline\n")
+    execFileSync("git", ["add", "-A"], { cwd: path.join(base, "main") })
+    execFileSync("git", ["commit", "-qm", "base"], { cwd: path.join(base, "main") })
+    // active umbrella above; the shared repo side has no markers of its own
+    write(base, "tests/verification_log.md", "## Task: umbrella\n- iter 1 PASS: x\n")
+    write(base, "tests/acceptance.md", "> cap=5  stall=3×\n1. umbrella\n")
+    execFileSync("git", ["worktree", "add", "-q", path.join(base, "wt")], { cwd: path.join(base, "main") })
+    const ghooks = await gateServer({ client: { app: { log: async () => {} } }, directory: path.join(base, "wt") })
+    const r = await gateAfterWrite(ghooks, path.join(base, "wt"), "src/x.js", "ses_w25i")
+    const wtState = existsSync(path.join(base, "wt", ".vibeweaver", "state.json"))
+    rec("W25i worktree root owns its .vibeweaver state (never the shared common dir)",
+      wtState && !existsSync(path.join(base, "main", ".vibeweaver", "state.json")) && !existsSync(path.join(base, ".vibeweaver", "state.json"))
+        && !(typeof r.block === "string" && /vibeweaver scope/.test(r.block)),
+      `wtState=${wtState} mainState=${existsSync(path.join(base, "main", ".vibeweaver", "state.json"))} block=${r.block ? r.block.slice(0, 60) : "none"}`)
+  } catch (e) {
+    rec("W25i worktree root owns its .vibeweaver state (never the shared common dir)", false, "threw: " + String(e.message || e))
+  }
+
+  if (prevHome === undefined) delete process.env.VIBEWEAVER_HOME
+  else process.env.VIBEWEAVER_HOME = prevHome
 }
 
 // ---------- summary ----------

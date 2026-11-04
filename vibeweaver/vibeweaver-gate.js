@@ -1,6 +1,6 @@
 import { execFile, execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
-import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { closeSync, existsSync, fsyncSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readlinkSync, readSync, realpathSync, renameSync, rmSync, statSync, unlinkSync, writeFileSync, writeSync } from "node:fs"
 import path from "node:path"
 
 // vibeweaver physical gate — https://opencode.ai
@@ -334,6 +334,246 @@ function safeRead(p, cap = READ_CAP) {
 // and is also covered by release/MANIFEST.json. Missing pin = one-release
 // warning (legacy projects); mismatch = fail closed. The override is for the
 // human host only and is forbidden in CI.
+// ---------- W25 run-aware helpers (MULTI_AGENT.md §MA1/§MA2/§MA9) ----------
+// Self-contained (no cross-imports): vibeweaver-audit.js carries its own copy.
+// The seams hang off the server function below so the module export shape
+// stays exactly { id, server, setup } (see the dual-compat contract).
+
+const RUN_CONTEXT_SCHEMA = "vibeweaver-run-context/1"
+const RUN_ID_RE = /^(run)-[0-9a-f]{32}$/
+const ATTEMPT_ID_RE = /^attempt-[0-9a-f]{32}$/
+const RUN_CONTEXT_WARNED = new Set()
+
+// One-time RUN-CONTEXT WARNING per bad file/reason — a missing file is plain
+// legacy and warns nothing (byte-identical legacy behavior).
+function runContextWarning(msg) {
+  try {
+    if (RUN_CONTEXT_WARNED.has(msg)) return
+    RUN_CONTEXT_WARNED.add(msg)
+    if (RUN_CONTEXT_WARNED.size > 64) RUN_CONTEXT_WARNED.clear()
+    console.warn("RUN-CONTEXT WARNING: " + msg)
+  } catch {
+    /* never crash on a warning */
+  }
+}
+
+// W25 RunContext detection (Hub "JS RunContext 探测"): read
+// <root>/.vibeweaver/run_context.json (VIBEWEAVER_RUN_CONTEXT overrides the
+// path when the default file is absent). A valid object requires schema
+// "vibeweaver-run-context/1" plus every Hub field (all strings except
+// lease_epoch: int >= 1) and canonical run/attempt id shapes. A BAD file
+// returns null and surfaces a one-time RUN-CONTEXT WARNING — never crashes.
+// A MISSING file returns null silently: that is the legacy single-agent path.
+function loadRunContext(root) {
+  try {
+    if (!root || typeof root !== "string") return null
+    let file = path.join(root, STATE_DIR, "run_context.json")
+    if (!existsSync(file)) {
+      const env = process.env.VIBEWEAVER_RUN_CONTEXT
+      if (!env || typeof env !== "string") return null // legacy: no run context
+      file = env
+    }
+    const raw = safeRead(file)
+    if (!raw) {
+      runContextWarning(`${file}: run context unreadable or empty — falling back to legacy scope`)
+      return null
+    }
+    let j = null
+    try {
+      j = JSON.parse(raw)
+    } catch {
+      j = null
+    }
+    if (!j || typeof j !== "object" || Array.isArray(j)) {
+      runContextWarning(`${file}: run context is not a JSON object — falling back to legacy scope`)
+      return null
+    }
+    if (j.schema !== RUN_CONTEXT_SCHEMA) {
+      runContextWarning(`${file}: schema ${JSON.stringify(j.schema)} != ${RUN_CONTEXT_SCHEMA} — falling back to legacy scope`)
+      return null
+    }
+    for (const f of ["repo_id", "task_id", "run_id", "attempt_id", "wave_id", "session_id", "worktree_root", "artifact_root", "state_root", "base_sha", "spec_hash", "skill_version", "checker_digest"]) {
+      if (typeof j[f] !== "string" || !j[f]) {
+        runContextWarning(`${file}: missing/empty field ${f} — falling back to legacy scope`)
+        return null
+      }
+    }
+    if (!Number.isInteger(j.lease_epoch) || j.lease_epoch < 1) {
+      runContextWarning(`${file}: lease_epoch must be an integer >= 1 — falling back to legacy scope`)
+      return null
+    }
+    if (!RUN_ID_RE.test(j.run_id)) {
+      runContextWarning(`${file}: run_id ${JSON.stringify(j.run_id)} is not run-<32hex> — falling back to legacy scope`)
+      return null
+    }
+    if (!ATTEMPT_ID_RE.test(j.attempt_id)) {
+      runContextWarning(`${file}: attempt_id ${JSON.stringify(j.attempt_id)} is not attempt-<32hex> — falling back to legacy scope`)
+      return null
+    }
+    return j
+  } catch (err) {
+    runContextWarning(`${root}: run context probe failed (${String((err && err.message) || err)}) — falling back to legacy scope`)
+    return null
+  }
+}
+
+// W25 atomic state write (Hub "JS 原子写"): unique tmp
+// (<p>.<pid>.<Date.now()>.<rand>.tmp) + fsync + rename. On ANY failure THROW —
+// the caller decides critical fail-closed vs. observation-only swallow. The
+// unique tmp name removes the fixed-<p>.tmp rename race between writers.
+function atomicWriteUnique(p, body) {
+  const tmp = p + "." + process.pid + "." + Date.now() + "." + Math.random().toString(36).slice(2) + ".tmp"
+  let fd = null
+  try {
+    fd = openSync(tmp, "w")
+    const buf = Buffer.from(body)
+    let off = 0
+    while (off < buf.length) off += writeSync(fd, buf, off, buf.length - off)
+    fsyncSync(fd)
+    closeSync(fd)
+    fd = null
+    renameSync(tmp, p)
+  } catch (err) {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* keep the original error */
+      }
+    }
+    try {
+      unlinkSync(tmp)
+    } catch {
+      /* best-effort tmp cleanup */
+    }
+    throw err
+  }
+}
+
+// W25 state scope key (Hub): with a RunContext the state block is keyed by run
+// and attempt identity ("run:<run_id>/attempt:<attempt_id>"); without one the
+// legacy key derivation (the root path) is unchanged.
+function stateScopeKey(root) {
+  const rc = loadRunContext(root)
+  return rc ? "run:" + rc.run_id + "/attempt:" + rc.attempt_id : root
+}
+
+// W25: observation-only state failures keep the historical swallow but set
+// this flag; the NEXT emitted message surfaces it (then it clears). The
+// CRITICAL paths (the --final enforcement record) throw GATE-CHECK-UNAVAILABLE
+// instead — see writeGateResult.
+let PERSIST_ERROR = null
+function takePersistError() {
+  if (!PERSIST_ERROR) return null
+  const msg = "[GATE-WARNING (vibeweaver)] persist-error: " + PERSIST_ERROR
+  PERSIST_ERROR = null
+  return msg
+}
+
+// W25 §MA9 worktree git metadata: a linked WORKTREE checkout has a `.git` FILE
+// pointer into its owning repo's .git/worktrees/<name> (or a git worktree
+// split: --git-dir != --git-common-dir). The WORKTREE root owns its
+// .vibeweaver state — never the shared common repository dir. Ordinary repos
+// (`.git` dir with git-dir == git-common-dir) and submodules (pointer into
+// .git/modules/) are NOT worktrees: their behavior is unchanged.
+function gitWorktreeSplit(dir) {
+  try {
+    const opts = { cwd: dir, encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"] }
+    const gd = execFileSync("git", ["rev-parse", "--git-dir"], opts).trim()
+    const gcd = execFileSync("git", ["rev-parse", "--git-common-dir"], opts).trim()
+    return Boolean(gd && gcd) && path.resolve(dir, gd) !== path.resolve(dir, gcd)
+  } catch {
+    return false
+  }
+}
+
+function worktreeTopLevel(start) {
+  if (!start) return null
+  for (let d = path.resolve(start); ; d = path.dirname(d)) {
+    let st = null
+    try {
+      st = lstatSync(path.join(d, ".git"))
+    } catch {
+      st = null
+    }
+    if (st) {
+      if (!st.isFile()) return null // ordinary repo boundary (`.git` dir)
+      const m = /^gitdir:\s*(.+)\s*$/.exec(safeRead(path.join(d, ".git")).trim())
+      if (m && /[\\/]\.git[\\/]worktrees[\\/]/.test(m[1])) return d // worktree pointer
+      return gitWorktreeSplit(d) ? d : null // submodules split false → unchanged
+    }
+    if (d === path.dirname(d)) break
+  }
+  return gitWorktreeSplit(path.resolve(start)) ? gitTopLevel(start) : null
+}
+
+// W25 session→run mapping (persisted in the plugin's own state file): the
+// idle/compaction/resume hooks carry no file path — they resolve their root
+// from sessionID → run/attempt/root recorded on the session's first
+// RunContext hook, instead of last-write guessing. An absent mapping keeps
+// the legacy SESSION_ROOT fallback unchanged.
+let SESSION_RUN_CACHE = { key: "", at: 0, val: null }
+
+function hostStatePath(directory) {
+  return path.join(directory, STATE_DIR, STATE_FILE)
+}
+
+function hostSessionRuns(directory) {
+  try {
+    const p = hostStatePath(directory)
+    const now = Date.now()
+    if (SESSION_RUN_CACHE.key === p && now - SESSION_RUN_CACHE.at < 1000) return SESSION_RUN_CACHE.val || {}
+    let val = {}
+    try {
+      const j = JSON.parse(safeRead(p) || "null")
+      if (j && typeof j.sessionRuns === "object" && j.sessionRuns) val = j.sessionRuns
+    } catch {
+      val = {}
+    }
+    SESSION_RUN_CACHE = { key: p, at: now, val }
+    return val
+  } catch {
+    return {}
+  }
+}
+
+function recordSessionRun(directory, sessionID, root, rc) {
+  if (!directory || !sessionID || !root || !rc) return
+  try {
+    const p = hostStatePath(directory)
+    let st = {}
+    try {
+      st = JSON.parse(safeRead(p) || "null")
+    } catch {
+      st = {}
+    }
+    if (!st || typeof st !== "object" || Array.isArray(st)) st = {}
+    if (!st.sessionRuns || typeof st.sessionRuns !== "object") st.sessionRuns = {}
+    const prev = st.sessionRuns[sessionID]
+    if (prev && prev.runID === rc.run_id) {
+      // same run: keep the first root, follow attempt takeover
+      if (prev.attemptID !== rc.attempt_id) {
+        prev.attemptID = rc.attempt_id
+        prev.at = Date.now()
+        if (!existsSync(path.join(directory, STATE_DIR))) mkdirSync(path.join(directory, STATE_DIR), { recursive: true })
+        atomicWriteUnique(p, JSON.stringify(st))
+        SESSION_RUN_CACHE = { key: "", at: 0, val: null }
+      }
+      return
+    }
+    if (prev) return // first-hook wins across runs (no last-write guessing)
+    st.sessionRuns[sessionID] = { root, runID: rc.run_id, attemptID: rc.attempt_id, at: Date.now() }
+    const keys = Object.keys(st.sessionRuns)
+    if (keys.length > 50) for (const k of keys.slice(0, keys.length - 50)) delete st.sessionRuns[k]
+    if (!existsSync(path.join(directory, STATE_DIR))) mkdirSync(path.join(directory, STATE_DIR), { recursive: true })
+    atomicWriteUnique(p, JSON.stringify(st))
+    SESSION_RUN_CACHE = { key: "", at: 0, val: null }
+  } catch (err) {
+    PERSIST_ERROR = "persist failed: " + String((err && err.message) || err)
+    /* mapping is best-effort: never break a write */
+  }
+}
+
 const CHECKER_DIGEST_FILE = "assert_artifacts.sha256"
 
 function sha256File(p) {
@@ -595,6 +835,12 @@ function findProjectRootForWrite(directory, filePath) {
   // shrink away an active umbrella's security teeth.
   if (fileGit && fileGit !== hostGit) {
     if (trustedNestedProject(fileGit)) return { root: fileGit, via: outsideHost ? "external-git" : "nested-git" }
+    // W25 §MA9: a linked WORKTREE checkout (`.git` file pointer into
+    // .git/worktrees/, or --git-dir != --git-common-dir) is a checkout of its
+    // owning repository, not an untrusted nested repo — the WORKTREE root
+    // owns its .vibeweaver state (never the shared common dir). Independent
+    // nested repos keep the untrusted-scope block below.
+    if (worktreeTopLevel(fileGit) === fileGit) return { root: fileGit, via: "worktree" }
     const why = `is in git repository ${fileGit} that is not a trusted vibeweaver project.`
     return scopeBlock(activeFallback || fileGit, path.relative(activeFallback || fileGit, resolveWritePath(abs)), why, fileGit)
   }
@@ -602,6 +848,9 @@ function findProjectRootForWrite(directory, filePath) {
   // The host itself is a nested repo inside a different active project.
   if (hostGit && activeAbove && activeAbove !== fileGit) {
     if (hostTrusted) return { root: host, via: "trusted-workspace-git" }
+    // W25 §MA9: a fresh WORKTREE root is its own project root for .vibeweaver
+    // state (never the shared common dir above it).
+    if (worktreeTopLevel(hostGit) === hostGit) return { root: hostGit, via: "worktree" }
     return scopeBlock(activeAbove, host,
       `is a nested git repo inside active project ${activeAbove} and is not a trusted vibeweaver project.`, host)
   }
@@ -633,6 +882,14 @@ function rememberSessionRoot(sessionID, root, host = null) {
 }
 
 function rootForSession(directory, sessionID) {
+  // W25: the persisted session→run mapping first — idle/compaction/resume
+  // hooks carry no file path and must follow the mapped run root (survives
+  // restarts, immune to last-write guessing). Absent mapping → unchanged.
+  if (sessionID && directory) {
+    const runs = hostSessionRuns(directory)
+    const mapped = runs && runs[sessionID]
+    if (mapped && typeof mapped.root === "string" && mapped.root) return mapped.root
+  }
   const rec = sessionID ? SESSION_ROOT.get(sessionID) : null
   if (rec && rec.host && directory && rec.host === canonicalPath(directory)) return rec.root
   // A session moved to another workspace must not reuse the old workspace's
@@ -724,11 +981,16 @@ function writeGateResult(root, flags, cls, blocking, warnings, kinds) {
       completion: split.completion,
       kinds: kinds || [],
     })
-    const tmp = p + ".tmp"
-    writeFileSync(tmp, body)
-    renameSync(tmp, p)
-  } catch {
-    /* evidence write must never break the gate */
+    atomicWriteUnique(p, body)
+  } catch (err) {
+    // W25: the --final enforcement record is CRITICAL — a failed persist must
+    // fail closed (GATE-CHECK-UNAVAILABLE), never silently claim a final pass
+    // (or lose the enforcement record). Mid-task records keep the historical
+    // swallow but flag persistError for the next emitted message.
+    if (process.env.VIBEWEAVER_GATE_FINAL === "1") {
+      throw new Error("GATE-CHECK-UNAVAILABLE (persist failed: " + String((err && err.message) || err) + ")")
+    }
+    PERSIST_ERROR = "persist failed: " + String((err && err.message) || err)
   }
 }
 
@@ -1077,11 +1339,13 @@ function stallObservation(root, file) {
       }
     }
     if (!existsSync(path.join(root, STATE_DIR))) mkdirSync(path.join(root, STATE_DIR), { recursive: true })
-    const tmp = p + ".tmp"
-    writeFileSync(tmp, JSON.stringify(st))
-    renameSync(tmp, p)
+    // W25: the persisted block carries its run scope key (legacy: unchanged keys)
+    const stallScope = stateScopeKey(root)
+    if (stallScope !== root) st.scope = stallScope
+    atomicWriteUnique(p, JSON.stringify(st))
     return msg
-  } catch {
+  } catch (err) {
+    PERSIST_ERROR = "persist failed: " + String((err && err.message) || err)
     return null
   }
 }
@@ -1120,7 +1384,9 @@ function blockMessage(root, result) {
 }
 
 function completionLatchKey(root, sessionID) {
-  return [root, sessionID || "(none)", taskKeyOf(root)].join("\n")
+  // W25: completion debt is scoped per run/attempt when a RunContext exists
+  // (legacy: the exact pre-W25 key).
+  return [stateScopeKey(root), sessionID || "(none)", taskKeyOf(root)].join("\n")
 }
 
 function clearCompletionLatch(root, sessionID) {
@@ -1343,10 +1609,9 @@ function recordCueFires(root, notes) {
       if (m) stats[m[1]] = (typeof stats[m[1]] === "number" ? stats[m[1]] : 0) + 1
     }
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-    const tmp = p + ".tmp"
-    writeFileSync(tmp, JSON.stringify(stats))
-    renameSync(tmp, p)
-  } catch {
+    atomicWriteUnique(p, JSON.stringify(stats))
+  } catch (err) {
+    PERSIST_ERROR = "persist failed: " + String((err && err.message) || err)
     /* never throws */
   }
 }
@@ -1856,13 +2121,12 @@ function snapshotWorkingNote(root) {
       return
     }
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-    const tmp = p + ".tmp"
-    writeFileSync(tmp, JSON.stringify({
+    atomicWriteUnique(p, JSON.stringify({
       rel, text: clipUtf8HeadTail(read.text, SNAPSHOT_MAX), truncated: read.truncated || utf8Len(read.text) > SNAPSHOT_MAX,
       t: Date.now(), taskKey: taskKeyOf(root), finalized: taskFinalized(root),
     }))
-    renameSync(tmp, p)
-  } catch {
+  } catch (err) {
+    PERSIST_ERROR = "persist failed: " + String((err && err.message) || err)
     /* snapshot is best-effort: delivery still works while the file lives */
   }
 }
@@ -2020,10 +2284,12 @@ function recordMemoryDelivery(root, kind) {
     md[kind] = (Number(md[kind]) || 0) + 1
     st.memoryDeliveries = md
     if (!existsSync(path.join(root, STATE_DIR))) mkdirSync(path.join(root, STATE_DIR), { recursive: true })
-    const tmp = p + ".tmp"
-    writeFileSync(tmp, JSON.stringify(st))
-    renameSync(tmp, p)
-  } catch {
+    // W25: the persisted block carries its run scope key (legacy: unchanged keys)
+    const memScope = stateScopeKey(root)
+    if (memScope !== root) st.scope = memScope
+    atomicWriteUnique(p, JSON.stringify(st))
+  } catch (err) {
+    PERSIST_ERROR = "persist failed: " + String((err && err.message) || err)
     /* telemetry must never break delivery */
   }
 }
@@ -2149,6 +2415,8 @@ function gateCheckWrite(directory, filePath, sessionID = null) {
     return Promise.resolve({ block: scope.block })
   }
   rememberSessionRoot(sessionID, root, directory)
+  // W25: first-hook session→run binding (no-op without a RunContext)
+  recordSessionRun(directory, sessionID, root, loadRunContext(root))
   // Cue delivery is hoisted ABOVE the gate: a RED gate (e.g. the task's
   // first write, empty log) is exactly when "read it before editing" must
   // arrive — delivery must never depend on the gate being green.
@@ -2205,6 +2473,10 @@ function gateCheckWrite(directory, filePath, sessionID = null) {
       })
       if (cues.length) msg += "\n" + cues.join("\n")
       if (stall) msg += "\n[GATE-WARNING (vibeweaver-stall)] " + stall
+      // W25: a swallowed observation-only persist failure is surfaced in the
+      // next emitted message (then cleared) — never silently dropped.
+      const peBlock = takePersistError()
+      if (peBlock) msg += "\n" + peBlock
       return { block: msg }
     }
     const notes = [...cues]
@@ -2218,6 +2490,8 @@ function gateCheckWrite(directory, filePath, sessionID = null) {
       clearCompletionLatch(root, sessionID)
     }
     if (stall) notes.push("[GATE-WARNING (vibeweaver-stall)] " + stall)
+    const peNote = takePersistError()
+    if (peNote) notes.push(peNote)
     return notes.length ? { notes } : null
   })
 }
@@ -2549,6 +2823,14 @@ async function setup(ctx) {
     }
   }
 }
+
+// W25 test seams (properties on the server function — the module export
+// shape stays exactly { id, server, setup }; loaders only read the default
+// object's keys and named exports, never function properties). The selftest
+// exercises the run-aware helpers through these; hosts never see them.
+server.loadRunContext = loadRunContext
+server.atomicWriteUnique = atomicWriteUnique
+server.stateScopeKey = stateScopeKey
 
 export default {
   id: "vibeweaver-gate",

@@ -435,3 +435,12 @@ SKIPS a group only when it is structurally impossible; it never weakens an
 applicable group. The script prints its profile interpretation (`profile: …
 — … N/A`) as part of the gate evidence; the completion table's
 `assert_artifacts.py: pass=N/fail=0` counts only executed assertions.
+
+### Multi-agent workflow routing (MULTI_AGENT.md §MA1/§MA4/§MA8)
+Concurrent runs route here when a RunContext is present. PAUSED packets and
+Class-E stops carry `run_id/attempt_id`; a user "continue" resumes ONLY the
+named run's recorded default (never a broadcast resume). C8 outer-loop claims
+are transactional (`ControlPlane.claim` + lease); failures quarantine, retries
+create new attempts. Takeover follows MULTI_AGENT.md §MA4 order (stop →
+isolate → revoke → confirm silent → preserve → claim). Cleanup only via
+`ControlPlane.can_clean` (§MA8). No RunContext → this section does not apply.

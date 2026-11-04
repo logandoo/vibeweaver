@@ -36,21 +36,25 @@ PAYLOAD_FILES = [
     "SKILL.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
     "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
+    "MULTI_AGENT.md",
     "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
     "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
     "scripts/mm_probe.py", "scripts/backlog_check.py", "scripts/scan_secrets.py",
     "scripts/ui_fidelity.py", "scripts/evidence_seal.py",
+    "scripts/run_control.py", "scripts/resource_allocator.py", "scripts/integrate.py",
     "vibeweaver-gate.js", "vibeweaver-audit.js", "install.sh", "install.bat",
 ]
 INSTALLED_DOCS = [
     "SKILL.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
     "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
+    "MULTI_AGENT.md",
 ]
 INSTALLED_SCRIPTS = [
     "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
     "scripts/mm_probe.py", "scripts/backlog_check.py", "scripts/scan_secrets.py",
     "scripts/ui_fidelity.py", "scripts/evidence_seal.py",
+    "scripts/run_control.py", "scripts/resource_allocator.py", "scripts/integrate.py",
 ]
 JS_PAYLOAD = [
     "vibeweaver-gate.js", "vibeweaver-audit.js", "scripts/vibeweaver-audit-core.js",

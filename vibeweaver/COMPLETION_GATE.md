@@ -535,3 +535,12 @@ Before declaring any task complete, explicitly list and confirm:
       offer ("say so and I'll …")
 
 **If any item is unchecked, return to fix it. Do NOT output "done".**
+
+### run/attempt/candidate/tree binding (MULTI_AGENT.md §MA5/§MA6)
+With a RunContext, the final gate binds `run_id/attempt_id/wave_id` and the
+delivered `candidate_sha/final_tree_sha` in the gate record; original-run
+evidence and integration evidence are SEPARATE bundles (§MA6) — integration
+never inherits the run's green verdicts. `assert_artifacts.py --run-root` /
+`--profile integration` enforce run attribution and candidate/final-tree
+reachability. §MA2 invariant two voids a gate whose tree no longer matches
+what was verified.

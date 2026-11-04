@@ -511,5 +511,185 @@ run("C6-commit-after", (r) => {
   return { text: TEXT }
 }, ["C6"])
 
+// ===== W25 run-aware mutations (multi-agent §18): forged run context ·
+// ===== stale-epoch write · cross-run evidence reuse · invalidation propagation
+const GATE_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-gate.js")
+const gateMod = await import(pathToFileURL(GATE_MODULE))
+const gateServer = (gateMod.default && gateMod.default.server) || gateMod.server
+const SCRIPTS_DIR = import.meta.dirname
+
+function w25rec(name, ok, detail) {
+  if (ok) { pass++; console.log(`PASS  ${name} — ${detail}`) }
+  else { fail++; console.log(`FAIL  ${name} — ${detail}`) }
+}
+
+function w25py(name, lines, args = []) {
+  const dir = path.join(TMP, name)
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(dir, { recursive: true })
+  const file = path.join(dir, "probe.py")
+  writeFileSync(file, lines.join("\n") + "\n")
+  try {
+    const out = execFileSync(resolvePython(), [file, SCRIPTS_DIR, dir, ...args], { encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "pipe"] })
+    return { out: out || "", err: "", rc: 0 }
+  } catch (e) {
+    return { out: String(e.stdout || ""), err: String(e.stderr || ""), rc: typeof e.status === "number" ? e.status : 1 }
+  }
+}
+
+// W25m1 — a forged RunContext must be REJECTED (legacy fallback), a valid one accepted.
+{
+  const dir = path.join(TMP, "w25m1")
+  rmSync(dir, { recursive: true, force: true })
+  mkdirSync(path.join(dir, ".vibeweaver"), { recursive: true })
+  const valid = {
+    schema: "vibeweaver-run-context/1",
+    repo_id: "repo-w25", task_id: "w25-m1",
+    run_id: "run-" + "a1".repeat(16), attempt_id: "attempt-" + "b2".repeat(16),
+    wave_id: "wave-" + "c3".repeat(16), session_id: "ses-w25m1", lease_epoch: 1,
+    worktree_root: dir, artifact_root: dir, state_root: path.join(dir, ".vibeweaver"),
+    base_sha: "d4".repeat(20), spec_hash: "e5".repeat(32),
+    skill_version: "w25", checker_digest: "f6".repeat(32),
+  }
+  const noSpec = { ...valid }
+  delete noSpec.spec_hash
+  const forged = [
+    ["schema-id", { ...valid, schema: "vibeweaver-run-context/9" }],
+    ["lease-zero", { ...valid, lease_epoch: 0 }],
+    ["attempt-format", { ...valid, attempt_id: "attempt-NOTHEX" }],
+    ["missing-field", noSpec],
+  ]
+  const file = path.join(dir, ".vibeweaver", "run_context.json")
+  let rejected = 0
+  for (const [label, obj] of forged) {
+    writeFileSync(file, JSON.stringify(obj))
+    if (gateServer.loadRunContext(dir) == null) rejected++
+  }
+  writeFileSync(file, JSON.stringify(valid))
+  const good = gateServer.loadRunContext(dir)
+  w25rec("W25m1 forged run context rejected (gate loadRunContext)",
+    rejected === forged.length && !!good && good.run_id === valid.run_id,
+    `rejected=${rejected}/${forged.length} valid-accepted=${!!good}`)
+}
+
+// W25m2 — a stale-epoch write must be rejected by the STORAGE side (StaleEpochError).
+{
+  const r = w25py("w25m2", [
+    "import os, sys",
+    "sys.path.insert(0, sys.argv[1])",
+    "from run_control import ControlPlane, StaleEpochError",
+    "root = sys.argv[2]",
+    "art = os.path.join(root, 'art'); state = os.path.join(root, 'state')",
+    "os.makedirs(art, exist_ok=True); os.makedirs(state, exist_ok=True)",
+    "cp = ControlPlane(os.path.join(root, 'cp.db'))",
+    "ctx = cp.claim('w25-m2', 'repo-w25', 'ses-w25m2', root, art, state, 'a' * 40, 'b' * 64, 'w25', 'c' * 64)",
+    "cp.expire(ctx.attempt_id); cp.isolate(ctx.attempt_id)",
+    "ctx2 = cp.takeover('w25-m2', 'repo-w25', 'ses-w25m2', root, art, state, 'a' * 40, 'b' * 64, 'w25', 'c' * 64, 'w25m2 supersede')",
+    "print('EPOCH2', ctx2.lease_epoch)",
+    "try:",
+    "    cp.event(ctx.attempt_id, 1, 'write', 'stale-epoch mutation')",
+    "    print('ACCEPTED')",
+    "except StaleEpochError:",
+    "    print('REJECTED')",
+  ])
+  w25rec("W25m2 stale-epoch write rejected (ControlPlane fencing)",
+    r.out.includes("REJECTED") && !r.out.includes("ACCEPTED") && r.out.includes("EPOCH2 2"),
+    `rc=${r.rc} out=${r.out.trim().split("\n").slice(-2).join(" / ")}`)
+}
+
+// W25m3 — cross-run evidence reuse must be flagged by run attribution (group 25).
+{
+  const base = path.join(TMP, "w25m3")
+  rmSync(base, { recursive: true, force: true })
+  const mkRun = (name, runHex, attHex, cite) => {
+    const d = path.join(base, name)
+    mkdirSync(path.join(d, "tests", "evidence"), { recursive: true })
+    mkdirSync(path.join(d, "run-root"), { recursive: true })
+    mkdirSync(path.join(d, "state"), { recursive: true })
+    const ctx = {
+      schema: "vibeweaver-run-context/1",
+      repo_id: "repo-w25", task_id: "w25-m3",
+      run_id: "run-" + runHex, attempt_id: "attempt-" + attHex,
+      wave_id: "wave-" + runHex, session_id: "ses-w25m3", lease_epoch: 1,
+      worktree_root: d, artifact_root: d, state_root: path.join(d, "state"),
+      base_sha: "a1".repeat(20), spec_hash: "b2".repeat(32),
+      skill_version: "w25", checker_digest: "c3".repeat(32),
+    }
+    writeFileSync(path.join(d, "run-root", "context.json"), JSON.stringify(ctx))
+    writeFileSync(path.join(d, "tests", "acceptance.md"), "> cap=5  stall=3×\n1. w25m3 probe\n")
+    writeFileSync(path.join(d, "tests", "verification_log.md"),
+      "## Task: w25m3\n- class: CODE — probe\n- iter 1 PASS: criterion #1 | evidence: " + cite + "\n")
+    writeFileSync(path.join(d, "tests", "evidence", "run.log"), "run log\n")
+    return d
+  }
+  const hexA = "a1".repeat(16)
+  const hexB = "b2".repeat(16)
+  const good = mkRun("good", hexA, hexA, `tests/evidence/run.log (run run-${hexA} attempt attempt-${hexA})`)
+  const bad = mkRun("bad", hexA, hexA, `tests/evidence/run.log (run run-${hexB} attempt attempt-${hexB})`)
+  const runAssert = (d) => {
+    try {
+      return execFileSync(resolvePython(), [path.join(SCRIPTS_DIR, "assert_artifacts.py"), "--root", d, "--existing", "--run-root", path.join(d, "run-root")], { encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "pipe"] })
+    } catch (e) {
+      return String(e.stdout || "") + String(e.stderr || "")
+    }
+  }
+  const goodOut = runAssert(good)
+  const badOut = runAssert(bad)
+  w25rec("W25m3 cross-run evidence reuse flagged (assert --run-root group 25)",
+    !goodOut.includes("run attribution") && badOut.includes("run attribution") && badOut.includes("run-" + hexB),
+    `good_clean=${!goodOut.includes("run attribution")} bad_flagged=${badOut.includes("run attribution")}`)
+}
+
+// W25m4 — after a target-branch change, the stale green must NOT be reusable:
+// publish is CAS-rejected, cleanup precheck blocks, re-gate on the stale candidate is refused.
+{
+  const r = w25py("w25m4", [
+    "import os, subprocess, sys",
+    "sys.path.insert(0, sys.argv[1])",
+    "from integrate import IntegrationQueue, TargetChangedError",
+    "root = sys.argv[2]",
+    "repo = os.path.join(root, 'repo')",
+    "os.makedirs(repo)",
+    "def git(*a, cwd=repo):",
+    "    return subprocess.run(['git', '-C', cwd] + list(a), check=True, capture_output=True, text=True).stdout.strip()",
+    "subprocess.run(['git', 'init', '-q', '-b', 'main', repo], check=True)",
+    "git('config', 'user.email', 'm@t'); git('config', 'user.name', 'm')",
+    "open(os.path.join(repo, 'f.txt'), 'w').write('base\\n')",
+    "git('add', '-A'); git('commit', '-qm', 'base')",
+    "base = git('rev-parse', 'HEAD')",
+    "git('checkout', '-qb', 'src')",
+    "open(os.path.join(repo, 'f.txt'), 'w').write('src\\n')",
+    "git('add', '-A'); git('commit', '-qm', 'src')",
+    "src = git('rev-parse', 'HEAD')",
+    "git('checkout', '-q', 'main')",
+    "iq = IntegrationQueue(os.path.join(root, 'iq.db'))",
+    "q = iq.enqueue(src, base, 'run-' + 'a1' * 16, 'attempt-' + 'b2' * 16, [], 's' * 64, 't' * 64)",
+    "cand = iq.build_candidate(repo, q, 'irun-' + 'c3' * 16, os.path.join(root, 'work'))",
+    "gate = iq.integration_gate(repo, q, cand['candidate_sha'], [['true']], ['rev-1'])",
+    "print('GATE_OK', gate['ok'])",
+    "open(os.path.join(repo, 'f.txt'), 'w').write('external\\n')",
+    "git('add', '-A'); git('commit', '-qm', 'external target move')",
+    "n = iq.invalidate_on_target_change(repo, 'refs/heads/main')",
+    "print('INVALIDATED', n)",
+    "try:",
+    "    iq.publish(repo, q, cand['candidate_sha'], base)",
+    "    print('PUBLISH_ACCEPTED')",
+    "except TargetChangedError:",
+    "    print('TARGET-CHANGED')",
+    "ok, reasons = iq.cleanup_precheck(q)",
+    "print('PRECHECK-BLOCKED' if not ok else 'PRECHECK-PASSED')",
+    "try:",
+    "    iq.integration_gate(repo, q, cand['candidate_sha'], [['true']], ['rev-2'])",
+    "    print('REUSE-ACCEPTED')",
+    "except Exception:",
+    "    print('REUSE-REJECTED')",
+  ])
+  w25rec("W25m4 stale green after target change not reusable (CAS + precheck + re-gate)",
+    r.out.includes("GATE_OK True") && r.out.includes("INVALIDATED 1") &&
+      r.out.includes("TARGET-CHANGED") && r.out.includes("PRECHECK-BLOCKED") &&
+      r.out.includes("REUSE-REJECTED") && !r.out.includes("PUBLISH_ACCEPTED"),
+    `out=${r.out.trim().split("\n").join(" / ")}`)
+}
+
 console.log(`\n=== MUTATION SWEEP: ${pass} passed, ${fail} failed ===`)
 process.exit(fail ? 1 : 0)
