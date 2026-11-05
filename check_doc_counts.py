@@ -244,7 +244,9 @@ def evaluate_proc(key, proc_text, returncode):
     """Test seam (review I2/M2): a suite binds only when it exited 0 AND its
     SUMMARY parsed — a red exit with a green-looking SUMMARY binds nothing."""
     if returncode != 0:
-        return None, f"{key}: suite exited {returncode} — claims cannot bind a red run"
+        tail = "\n".join((proc_text or "").strip().splitlines()[-12:])
+        return None, (f"{key}: suite exited {returncode} — claims cannot bind a red run"
+                      f"\n--- {key} output tail ---\n{tail}")
     value = parse_run(key, proc_text)
     if value is None:
         return None, f"{key}: run output unparseable — cannot bind claims"
