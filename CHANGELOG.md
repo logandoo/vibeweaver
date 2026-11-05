@@ -17,13 +17,13 @@
 - `scripts/integrate.py`:队列冻结 40-hex SHA(拒分支名)、target+前序 FIFO 构造 candidate、Integration Gate 结果绑定 candidate_sha+覆盖诚实(unverified 点名)、CAS 发布(TargetChangedError→失效重新入队)、queue↔final SHA 对账、stale/invalidated candidate 拒 re-gate(§20 #10),17/17。
 
 ### 插件与证据链
-- 双插件 run-aware:loadRunContext(伪造/缺字段/旧 schema 拒绝回退 legacy)、atomicWriteUnique(唯一 tmp+fsync+rename)、run/attempt 级 latch 归属(attempt A 不被 B 释放·stale attempt 不阻塞新 attempt)、关键路径持久化失败 fail-closed、session→run 映射覆盖 idle/compaction/resume、worktree git 元数据分离;audit_selftest 598/0(572 legacy+22 W25)。
+- 双插件 run-aware:loadRunContext(伪造/缺字段/旧 schema 拒绝回退 legacy)、atomicWriteUnique(唯一 tmp+fsync+rename)、run/attempt 级 latch 归属(attempt A 不被 B 释放·stale attempt 不阻塞新 attempt)、关键路径持久化失败 fail-closed、session→run 映射覆盖 idle/compaction/resume、worktree git 元数据分离;audit_selftest 601/0(572 legacy+22 W25)。
 - 四脚本 run-aware:assert_artifacts `--run-root`/`--profile integration`(group 25 归属+candidate/final tree 可达)、evidence_lock run/attempt/spec 入链(篡改即断)+`--verify-archive` 读回、evidence_seal 28 字段 manifest(旧格式兼容)、backlog claim 标记+lease 过期/outbox pending 阻塞;test_run_aware_scripts 19/19。
 - mutation_sweep 48/0(44 legacy+4 W25:伪造 run context、旧 epoch 写入、跨 run 证据复用、失效传播后旧绿复用,全部被检出)。
 
 ### 验证
-- 终树 fresh-run:audit_selftest 598/0 · mutation_sweep 48/0 · plugin compat 86/86 · mini gate 62/62 (macOS);模块 19/19 · 10/10 · 17/17 · 19/19;主仓矩阵(scope 69/failclosed 29/latch 7/graduated 24/assert groups 75/context 50/v2/cache/bootstrap/state bounds)见 tests/verification_log.md。
-- 发布套件:audit_selftest 598 / 0 · mutation_sweep 48 / 0 · plugin compat 86 / 86 · mini gate 62/62 (macOS)。
+- 终树 fresh-run:audit_selftest 601/0 · mutation_sweep 48/0 · plugin compat 86/86 · mini gate 62/62 (macOS);模块 19/19 · 10/10 · 17/17 · 19/19;主仓矩阵(scope 69/failclosed 29/latch 7/graduated 24/assert groups 75/context 50/v2/cache/bootstrap/state bounds)见 tests/verification_log.md。
+- 发布套件:audit_selftest 601 / 0 · mutation_sweep 48 / 0 · plugin compat 86 / 86 · mini gate 62/62 (macOS)。
 
 ## 2026-11-04 结构化 working note + 上下文恢复（W24）
 
