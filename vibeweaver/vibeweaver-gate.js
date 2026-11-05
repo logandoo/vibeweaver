@@ -494,7 +494,7 @@ function gitWorktreeSplit(dir) {
     const opts = { cwd: dir, encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"] }
     const gd = execFileSync("git", ["rev-parse", "--git-dir"], opts).trim()
     const gcd = execFileSync("git", ["rev-parse", "--git-common-dir"], opts).trim()
-    return Boolean(gd && gcd) && path.resolve(dir, gd) !== path.resolve(dir, gcd)
+    return Boolean(gd && gcd) && !samePath(path.resolve(dir, gd), path.resolve(dir, gcd))
   } catch {
     return false
   }
@@ -804,6 +804,19 @@ function canonicalPath(p) {
   }
 }
 
+// W25b Windows hardening: spelling-insensitive path equality (8.3 short vs
+// long via realpathSync, drive-letter case on win32). COMPARISONS ONLY —
+// key text and path building never normalize.
+function samePath(a, b) {
+  if (!a || !b) return false
+  try {
+    const x = canonicalPath(a), y = canonicalPath(b)
+    return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y
+  } catch {
+    return canonicalPath(a) === canonicalPath(b)
+  }
+}
+
 function isOutsideRel(rel) {
   return rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel)
 }
@@ -846,24 +859,24 @@ function findProjectRootForWrite(directory, filePath) {
   // A nested git repo owns scope only when it is actually set up (log +
   // checker). An empty marker / unpinned inline-only repo is not enough to
   // shrink away an active umbrella's security teeth.
-  if (fileGit && fileGit !== hostGit) {
+  if (fileGit && !samePath(fileGit, hostGit)) {
     if (trustedNestedProject(fileGit)) return { root: fileGit, via: outsideHost ? "external-git" : "nested-git" }
     // W25 §MA9: a linked WORKTREE checkout (`.git` file pointer into
     // .git/worktrees/, or --git-dir != --git-common-dir) is a checkout of its
     // owning repository, not an untrusted nested repo — the WORKTREE root
     // owns its .vibeweaver state (never the shared common dir). Independent
     // nested repos keep the untrusted-scope block below.
-    if (worktreeTopLevel(fileGit) === fileGit) return { root: fileGit, via: "worktree" }
+    if (samePath(worktreeTopLevel(fileGit), fileGit)) return { root: fileGit, via: "worktree" }
     const why = `is in git repository ${fileGit} that is not a trusted vibeweaver project.`
     return scopeBlock(activeFallback || fileGit, path.relative(activeFallback || fileGit, resolveWritePath(abs)), why, fileGit)
   }
 
   // The host itself is a nested repo inside a different active project.
-  if (hostGit && activeAbove && activeAbove !== fileGit) {
+  if (hostGit && activeAbove && !samePath(activeAbove, fileGit)) {
     if (hostTrusted) return { root: host, via: "trusted-workspace-git" }
     // W25 §MA9: a fresh WORKTREE root is its own project root for .vibeweaver
     // state (never the shared common dir above it).
-    if (worktreeTopLevel(hostGit) === hostGit) return { root: hostGit, via: "worktree" }
+    if (samePath(worktreeTopLevel(hostGit), hostGit)) return { root: hostGit, via: "worktree" }
     return scopeBlock(activeAbove, host,
       `is a nested git repo inside active project ${activeAbove} and is not a trusted vibeweaver project.`, host)
   }

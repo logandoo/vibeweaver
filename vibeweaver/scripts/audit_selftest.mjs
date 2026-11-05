@@ -4709,7 +4709,7 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
     rec("W25i worktree root owns its .vibeweaver state (never the shared common dir)",
       wtState && !existsSync(path.join(base, "main", ".vibeweaver", "state.json")) && !existsSync(path.join(base, ".vibeweaver", "state.json"))
         && !(typeof r.block === "string" && /vibeweaver scope/.test(r.block)),
-      `wtState=${wtState} mainState=${existsSync(path.join(base, "main", ".vibeweaver", "state.json"))} block=${r.block ? r.block.slice(0, 60) : "none"}`)
+      `wtState=${wtState} mainState=${existsSync(path.join(base, "main", ".vibeweaver", "state.json"))} baseState=${existsSync(path.join(base, ".vibeweaver", "state.json"))} via=${(r && r.via) || "?"} root=${(r && r.root) || "?"} block=${r.block ? r.block.slice(0, 60) : "none"}`)
   } catch (e) {
     rec("W25i worktree root owns its .vibeweaver state (never the shared common dir)", false, "threw: " + String(e.message || e))
   }

@@ -355,6 +355,19 @@ function auditCanonical(p) {
   return path.resolve(p)
 }
 
+// W25b Windows hardening: equality/containment of two path spellings must be
+// spelling-insensitive (8.3 short vs long via realpathSync, drive-letter case
+// on win32). COMPARISONS ONLY — key text and path building never normalize.
+function auditSamePath(a, b) {
+  if (!a || !b) return false
+  try {
+    const x = realpathSync(path.resolve(a)), y = realpathSync(path.resolve(b))
+    return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y
+  } catch {
+    return auditCanonical(a) === auditCanonical(b)
+  }
+}
+
 function auditReal(p) {
   try {
     return realpathSync(path.resolve(p))
@@ -450,7 +463,7 @@ function rememberAuditRoot(sessionID, root, host) {
 
 function auditRootForSession(directory, sessionID) {
   const rec = sessionID ? AUDIT_SESSION_ROOT.get(sessionID) : null
-  if (rec && rec.host === auditCanonical(directory)) return rec.root
+  if (rec && auditSamePath(rec.host, directory)) return rec.root
   return findProjectRoot([directory])
 }
 
@@ -2940,8 +2953,8 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   const stateRootKey = (root) => {
     if (!root) return null
     if (state.roots[root]) return root
-    const want = auditCanonical(root)
-    return Object.keys(state.roots).find((k) => auditCanonical(k) === want) || null
+    for (const k of Object.keys(state.roots)) if (auditSamePath(k, root)) return k
+    return null
   }
 
   const auditLatchMessage = (cur, latch) => cur === latch.sessionID
@@ -2966,11 +2979,11 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
     let sessionRoot = rootKey || root
     if (!rootKey) {
       const logicalHost = findProjectRoot([directory])
-      if (logicalHost && auditCanonical(logicalHost) === auditCanonical(root)) sessionRoot = logicalHost
+      if (logicalHost && auditSamePath(logicalHost, root)) sessionRoot = logicalHost
     }
     rememberAuditRoot(cur, sessionRoot, directory)
     recordSessionRun(cur, root, rc) // W25 first-hook session→run binding
-    if (!rootKey && auditCanonical(root) !== auditCanonical(directory)) {
+    if (!rootKey && !auditSamePath(root, directory)) {
       // Nested project state lives under its own .vibeweaver/. Read it read-
       // only for the pre-write deny; the global state file stays the owner of
       // the host workspace.
@@ -2978,7 +2991,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const nestedStatePath = path.join(root, STATE_DIR, STATE_FILE)
         const nestedState = JSON.parse(readFileSync(nestedStatePath, "utf8"))
         const keys = nestedState && nestedState.roots ? Object.keys(nestedState.roots) : []
-        const key = keys.find((k) => auditReal(k) === auditReal(root))
+        const key = keys.find((k) => auditSamePath(k, root))
         if (key) {
           const entry = nestedState.roots[key]
           const latch = readLatch(entry)
