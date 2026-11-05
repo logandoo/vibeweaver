@@ -590,11 +590,43 @@ function writePathFromArgs(args) {
   return seen[0]
 }
 
+// W25b Windows hardening: root-relative segments via FILE IDENTITY (dev/ino),
+// spelling-proof (8.3 short vs long, case, symlinked temp roots). The file
+// itself may not exist yet — ancestors do, and one of them stats equal to the
+// root when the file is inside it.
+function relUnderRoot(root, filePath) {
+  try {
+    const rs = statSync(root)
+    let d = path.resolve(filePath)
+    const tail = []
+    for (;;) {
+      tail.unshift(path.basename(d))
+      const parent = path.dirname(d)
+      if (parent === d || tail.length > 64) return null
+      d = parent
+      let st = null
+      try { st = statSync(d) } catch { st = null }
+      if (st && st.ino && st.ino === rs.ino && st.dev === rs.dev) {
+        tail.pop()
+        return tail.join(path.sep)
+      }
+    }
+  } catch {
+    return null
+  }
+}
+
 function isTestDirPath(root, filePath) {
   if (typeof filePath !== "string" || !filePath) return false
-  const normRoot = resolveWritePath(root)
-  const normFile = resolveWritePath(filePath)
-  const rel = normFile.startsWith(normRoot + path.sep) ? normFile.slice(normRoot.length + path.sep.length) : null
+  // W25b: spelling-proof containment first (stat identity) over the D3
+  // RESOLVED path (file symlinks resolve to their target — T37d/T37e); the
+  // resolved-path startsWith form remains as the lexical fallback.
+  let rel = relUnderRoot(root, resolveWritePath(filePath))
+  if (rel == null) {
+    const normRoot = resolveWritePath(root)
+    const normFile = resolveWritePath(filePath)
+    rel = normFile.startsWith(normRoot + path.sep) ? normFile.slice(normRoot.length + path.sep.length) : null
+  }
   if (rel == null) return false
   return rel.split(/[\\/]/).some((seg) => {
     // EXACT name match (W18 review r2): case-folding made `Tests/` a false
