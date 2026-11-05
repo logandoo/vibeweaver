@@ -244,7 +244,11 @@ def evaluate_proc(key, proc_text, returncode):
     """Test seam (review I2/M2): a suite binds only when it exited 0 AND its
     SUMMARY parsed — a red exit with a green-looking SUMMARY binds nothing."""
     if returncode != 0:
+        # ASCII-sanitize: suite output carries CJK/emoji fixture names and the
+        # Windows console (cp1252) cannot encode them — a crashed report would
+        # hide the very tail it exists to show.
         tail = "\n".join((proc_text or "").strip().splitlines()[-12:])
+        tail = tail.encode("ascii", "replace").decode("ascii")
         return None, (f"{key}: suite exited {returncode} — claims cannot bind a red run"
                       f"\n--- {key} output tail ---\n{tail}")
     value = parse_run(key, proc_text)
@@ -265,6 +269,10 @@ def run_suite(key):
 
 
 def main(argv=None, root=None, run=run_suite):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     argv = argv if argv is not None else sys.argv[1:]
     root = root or ROOT
     errors, runs = [], {}
