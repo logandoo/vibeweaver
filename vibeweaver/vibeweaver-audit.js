@@ -3021,7 +3021,8 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         const nestedStatePath = path.join(root, STATE_DIR, STATE_FILE)
         const nestedState = JSON.parse(readFileSync(nestedStatePath, "utf8"))
         const keys = nestedState && nestedState.roots ? Object.keys(nestedState.roots) : []
-        const key = keys.find((k) => auditSamePath(k, root))
+        const key = keys.find((k) => auditSamePath(k, root)
+          || auditCanonical(k).toLowerCase() === auditCanonical(root).toLowerCase())
         if (key) {
           const entry = nestedState.roots[key]
           const latch = readLatch(entry)

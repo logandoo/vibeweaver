@@ -1285,7 +1285,16 @@ function runAssertJson(root) {
     const probe = diag
       ? ` resolvedRoot=${diag.findProjectRootForFile(parent, path.join(dev, "src", "a.js"))} trusted=${diag.auditTrustedProject(dev)} devGitTop=${diag.auditGitTop(dev)} hostGitTop=${diag.auditGitTop(parent)} hostSpelled=${diag.auditHostSpelling(parent, diag.auditGitTop(dev))}`
       : " no-diag-seam"
-    d13diag = ` nestedKeys=${JSON.stringify(Object.keys(ns.roots || {}))} hostKeys=${JSON.stringify(Object.keys(hs.roots || {}))} dev=${dev} parent=${parent}` + probe
+    const probe2 = (() => {
+      try {
+        const d = (auditMod.default && auditMod.default.server && auditMod.default.server.__diag) || null
+        if (!d) return ""
+        const k0 = Object.keys(ns.roots || {})[0]
+        const rr = d.findProjectRootForFile(parent, path.join(dev, "src", "a.js"))
+        return ` sameVsKey=${d.auditSamePath(k0, rr)} k0=${k0} rr=${rr}`
+      } catch (e) { return " probe2-err " + String(e.message || e) }
+    })()
+    d13diag = ` nestedKeys=${JSON.stringify(Object.keys(ns.roots || {}))} hostKeys=${JSON.stringify(Object.keys(hs.roots || {}))} dev=${dev} parent=${parent}` + probe2 + probe
   } catch (e) {
     d13diag = " diag-error " + String((e && e.message) || e)
   }
