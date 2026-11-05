@@ -834,12 +834,23 @@ function canonicalPath(p) {
 // key text and path building never normalize.
 function samePath(a, b) {
   if (!a || !b) return false
+  if (a === b) return true
   try {
     const x = canonicalPath(a), y = canonicalPath(b)
-    return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y
+    if (process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y) return true
   } catch {
-    return canonicalPath(a) === canonicalPath(b)
+    /* fall through to file-identity compare */
   }
+  // File identity (dev/ino) is spelling-proof across 8.3 short/long names,
+  // case, and symlinked temp roots (Windows realpathSync does not always
+  // expand short names).
+  try {
+    const sa = statSync(a), sb = statSync(b)
+    if (sa.ino && sb.ino && sa.ino === sb.ino && sa.dev === sb.dev) return true
+  } catch {
+    /* fall through */
+  }
+  return canonicalPath(a) === canonicalPath(b)
 }
 
 function isOutsideRel(rel) {

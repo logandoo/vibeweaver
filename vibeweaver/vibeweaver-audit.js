@@ -360,12 +360,24 @@ function auditCanonical(p) {
 // on win32). COMPARISONS ONLY — key text and path building never normalize.
 function auditSamePath(a, b) {
   if (!a || !b) return false
+  if (a === b) return true
   try {
     const x = realpathSync(path.resolve(a)), y = realpathSync(path.resolve(b))
-    return process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y
+    if (process.platform === "win32" ? x.toLowerCase() === y.toLowerCase() : x === y) return true
   } catch {
-    return auditCanonical(a) === auditCanonical(b)
+    /* fall through to file-identity compare */
   }
+  // File identity (dev/ino) is spelling-proof: 8.3 short vs long, case, and
+  // symlinked temp roots all stat to the SAME object (Windows realpathSync
+  // does not always expand short names — observed in CI: RUNNER~1 vs
+  // runneradmin realpath-equal spellings compared unequal).
+  try {
+    const sa = statSync(a), sb = statSync(b)
+    if (sa.ino && sb.ino && sa.ino === sb.ino && sa.dev === sb.dev) return true
+  } catch {
+    /* fall through */
+  }
+  return auditCanonical(a) === auditCanonical(b)
 }
 
 function auditReal(p) {
