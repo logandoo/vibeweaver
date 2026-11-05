@@ -247,7 +247,11 @@ def evaluate_proc(key, proc_text, returncode):
         # ASCII-sanitize: suite output carries CJK/emoji fixture names and the
         # Windows console (cp1252) cannot encode them — a crashed report would
         # hide the very tail it exists to show.
-        tail = "\n".join((proc_text or "").strip().splitlines()[-12:])
+        lines = (proc_text or "").strip().splitlines()
+        fails = [l for l in lines if l.startswith("FAIL")]
+        summ = [l for l in lines if "SUMMARY" in l or "fixture checks" in l
+                or "MUTATION SWEEP" in l or "COMPAT HARNESS" in l or "=== " in l]
+        tail = "\n".join((fails + summ + lines[-40:]))
         tail = tail.encode("ascii", "replace").decode("ascii")
         return None, (f"{key}: suite exited {returncode} — claims cannot bind a red run"
                       f"\n--- {key} output tail ---\n{tail}")
