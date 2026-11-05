@@ -4717,11 +4717,11 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
   // ---- W25j (J3) cross-process state write serialization ----
   // The persist path (flush) is a read-modify-write across processes; a
   // cross-process mutex (lock dir `<state>.lock`) serializes writers so no
-  // torn interleaving can land. KNOWN GAP (documented): last-write-wins lost
-  // updates are NOT solved here — no merge algorithm. Simulated here: the
-  // lock is ALREADY HELD on the first call (a dead holder, mtime beyond the
-  // 5s steal threshold), then the persist path runs twice sequentially —
-  // both runs serialize inside the lock and neither errors.
+  // torn interleaving can land. (The mutex alone does not merge — the
+  // flush()'s three-way merge, J5, covers lost updates: W25k/W25k2.)
+  // Simulated here: the lock is ALREADY HELD on the first call (a dead holder,
+  // mtime beyond the 5s steal threshold), then the persist path runs twice
+  // sequentially — both runs serialize inside the lock and neither errors.
   try {
     const dir = path.join(TMP, "w25j-state-lock")
     rmSync(dir, { recursive: true, force: true })
@@ -4758,6 +4758,96 @@ const hasStopGuard = typeof stopEuphemism === "function" && typeof stopGuardDeci
       `writes=${st.writes} held=[${spans.map((s) => s.held).join(",")}] lockResidue=${existsSync(lockDir)}`)
   } catch (e) {
     rec("W25j state-write mutex serializes overlapping persists (held lock first) and neither errors", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25k (J5) cross-instance merge: no last-write-wins lost updates ----
+  // Two plugin instances (separate host sessions on the same workspace root)
+  // flush through the SAME state file. The flush must three-way merge with the
+  // on-disk state so BOTH instances' independent updates survive — a stale
+  // whole-object snapshot erases the other instance's session→run binding.
+  try {
+    const root = newFixture("w25k-merge")
+    write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+    writeRunContext(root, "1", "a")
+    const pA = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+    const pB = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+    // instance B's own change first (its session→run binding) — flushed to disk
+    await pB["tool.execute.before"]({ tool: "write", sessionID: "ses_w25k_b", args: { filePath: path.join(root, "src", "b.js") } })
+    // instance A holds a STALE in-memory snapshot (it loaded BEFORE B's flush)
+    // and now flushes its own binding
+    await pA["tool.execute.before"]({ tool: "write", sessionID: "ses_w25k_a", args: { filePath: path.join(root, "src", "a.js") } })
+    const st = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8"))
+    const runs = st.sessionRuns || {}
+    rec("W25k cross-instance merge: two instances' independent updates both survive a flush",
+      !!runs.ses_w25k_a && !!runs.ses_w25k_b && runs.ses_w25k_a.runID === rid("1") && runs.ses_w25k_b.runID === rid("1"),
+      `bindings=${Object.keys(runs).join(",") || "(none)"}`)
+  } catch (e) {
+    rec("W25k cross-instance merge: two instances' independent updates both survive a flush", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25k2 (J5) latch ts monotonicity — no resurrection over a release ----
+  // A's RED-latch persist fails (state path unwritable): the latch stays
+  // IN-MEMORY with its older ts. A release marker from another instance lands
+  // on disk with a NEWER ts. A's next flush must NOT resurrect the older
+  // latch over the newer release; the redReleases journal must survive.
+  try {
+    const root = newFixture("w25k2-latch-ts")
+    write(root, "tests/verification_log.md", "placeholder — no iter entries\n")
+    mkdirSync(path.join(root, ".vibeweaver", "audit-state.json"), { recursive: true }) // state path unwritable
+    const plugin = await VibeweaverAudit({ client: { app: { log: async () => {} } }, directory: root })
+    try {
+      await latchRed(plugin, "ses_w25k2", root) // the latch persist fails closed — latch stays unflushed in memory
+    } catch {
+      /* the unflushed in-memory latch is the fixture under test */
+    }
+    rmSync(path.join(root, ".vibeweaver", "audit-state.json"), { recursive: true, force: true }) // persistence works again
+    await sleepMs(20)
+    // instance B's release marker lands on disk — NEWER than A's latch ts
+    write(root, ".vibeweaver/audit-state.json", JSON.stringify({
+      sessions: {},
+      roots: {
+        [root]: {
+          red: null,
+          redReleases: [{ ts: Date.now(), from: "ses_w25k2", bad: 2, reason: "stale-attempt", via: "write", by: "ses_w25k2_b" }],
+        },
+      },
+    }))
+    // A's next flush (an unrelated observation idle) must merge — not resurrect
+    await plugin.event({ event: { type: "session.idle", properties: { sessionID: "ses_w25k2_flush" } } })
+    const slot = JSON.parse(readFileSync(path.join(root, ".vibeweaver", "audit-state.json"), "utf8")).roots[root] || {}
+    const rel = Array.isArray(slot.redReleases) ? slot.redReleases : []
+    rec("W25k2 latch ts monotonicity: an older in-memory latch does not resurrect over a newer disk release",
+      slot.red == null && rel.some((r) => r && r.by === "ses_w25k2_b"),
+      slot.red ? `RESURRECTED ts=${slot.red.ts} releases=${rel.length}` : `release kept; releases=${rel.length}`)
+  } catch (e) {
+    rec("W25k2 latch ts monotonicity: an older in-memory latch does not resurrect over a newer disk release", false, "threw: " + String(e.message || e))
+  }
+
+  // ---- W25j6 (J6) fail-closed is NOT conditional on the agent env ----
+  // VIBEWEAVER_GATE_FINAL is AGENT-CONTROLLED: it may only ADD hardening
+  // (completion debt becomes blocking), never gate the fail-closed behavior on
+  // the enforcement-record critical path. With the env UNSET a failed record
+  // persist must still fail closed — never a silent pass.
+  try {
+    const rootG = path.join(TMP, "w25j6-gate")
+    rmSync(rootG, { recursive: true, force: true })
+    mkdirSync(path.join(rootG, "tests"), { recursive: true })
+    mkdirSync(path.join(rootG, "src"), { recursive: true })
+    write(rootG, "tests/verification_log.md", "## Task: j6\n- iter 1 PASS: x\n")
+    write(rootG, "tests/acceptance.md", "> cap=5  stall=3×\n1. j6\n")
+    write(rootG, "tests/assert_artifacts.py", 'import json\nprint(json.dumps({"ok": True, "passes": 1, "fails": []}))\n')
+    mkdirSync(path.join(rootG, "tests", "gate_result.json"), { recursive: true }) // record path unwritable (a directory)
+    const ghooks6 = await gateServer({ client: { app: { log: async () => {} } }, directory: rootG })
+    const prevFinal6 = process.env.VIBEWEAVER_GATE_FINAL
+    delete process.env.VIBEWEAVER_GATE_FINAL // the agent-controlled hardening switch is OFF
+    const r6 = await gateAfterWrite(ghooks6, rootG, "src/x.js", "ses_w25j6")
+    if (prevFinal6 === undefined) delete process.env.VIBEWEAVER_GATE_FINAL
+    else process.env.VIBEWEAVER_GATE_FINAL = prevFinal6
+    rec("W25j6 enforcement-record persist failure fails closed with VIBEWEAVER_GATE_FINAL UNSET (env never gates fail-closed)",
+      typeof r6.block === "string" && /GATE-CHECK-UNAVAILABLE \(persist failed/.test(r6.block),
+      r6.block ? r6.block.slice(0, 90) : "SILENT PASS — fail-closed was conditional on the agent env")
+  } catch (e) {
+    rec("W25j6 enforcement-record persist failure fails closed with VIBEWEAVER_GATE_FINAL UNSET (env never gates fail-closed)", false, "threw: " + String(e.message || e))
   }
 
   if (prevHome === undefined) delete process.env.VIBEWEAVER_HOME

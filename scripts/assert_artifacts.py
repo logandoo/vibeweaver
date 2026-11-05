@@ -1596,19 +1596,31 @@ def run_attribution_checks(root: pathlib.Path, run_root, profile: str):
         check(False, e)
     if ctx is None:
         return
+    # H11: relative RunContext roots resolve against the RUN-ROOT directory
+    # (the dir holding context.json) — never CWD — before the J2 containment
+    # bound below is applied to the resolved absolute paths.
+    run_root_dir = pathlib.Path(run_root).resolve()
+
+    def _run_rooted(field):
+        p = pathlib.Path(str(ctx.get(field, "")))
+        if not p.is_absolute():
+            p = run_root_dir / p
+        return p.resolve()
+
+    run_roots = {f: _run_rooted(f)
+                 for f in ("worktree_root", "artifact_root", "state_root")}
     # J2 (W25 review): path-bound validation — worktree_root/artifact_root/
     # state_root must be the run root itself or under it (_under). A context
     # pointing elsewhere claims ANOTHER run's evidence: fail the group closed
     # with the named finding before any citation is attested.
-    escapes = [f for f in ("worktree_root", "artifact_root", "state_root")
-               if not _under(pathlib.Path(str(ctx.get(f, ""))), root)]
+    escapes = [f for f, p in run_roots.items() if not _under(p, root)]
     if escapes:
         check(False, "run attribution: context path escapes run root (%s not under %s) — "
                      "cross-run evidence reuse (§MA1)" % (", ".join(escapes), root))
         return
     run_id = str(ctx.get("run_id", ""))
     attempt_id = str(ctx.get("attempt_id", ""))
-    artifact_root = pathlib.Path(str(ctx.get("artifact_root", "")))
+    artifact_root = run_roots["artifact_root"]
     tests = root / "tests"
     acc = read(tests / "acceptance.md")
     vl = read(tests / "verification_log.md")

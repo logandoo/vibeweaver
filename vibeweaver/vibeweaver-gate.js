@@ -996,14 +996,15 @@ function writeGateResult(root, flags, cls, blocking, warnings, kinds) {
     })
     atomicWriteUnique(p, body)
   } catch (err) {
-    // W25: the --final enforcement record is CRITICAL — a failed persist must
-    // fail closed (GATE-CHECK-UNAVAILABLE), never silently claim a final pass
-    // (or lose the enforcement record). Mid-task records keep the historical
-    // swallow but flag persistError for the next emitted message.
-    if (process.env.VIBEWEAVER_GATE_FINAL === "1") {
-      throw new Error("GATE-CHECK-UNAVAILABLE (persist failed: " + String((err && err.message) || err) + ")")
-    }
-    PERSIST_ERROR = "persist failed: " + String((err && err.message) || err)
+    // W25: the enforcement record is CRITICAL — a failed persist must fail
+    // closed (GATE-CHECK-UNAVAILABLE), never silently claim a final pass (or
+    // lose the enforcement record). J6: this is NOT conditional on the
+    // agent-controlled VIBEWEAVER_GATE_FINAL env — that switch may only ADD
+    // hardening (completion debt becomes blocking), never gate the fail-closed
+    // behavior itself (an agent could otherwise silence the critical path by
+    // unsetting it). Observation-only paths keep the historical swallow and
+    // flag persistError for the next emitted message (see takePersistError).
+    throw new Error("GATE-CHECK-UNAVAILABLE (persist failed: " + String((err && err.message) || err) + ")")
   }
 }
 

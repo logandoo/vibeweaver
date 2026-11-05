@@ -273,9 +273,11 @@ def main():
     manifest = {"version": 1, "files": files, "code_fingerprint": code_fingerprint(root)}
     # W25 Hub Evidence Manifest: every field present, missing values default
     # to null (old manifests without them still verify — --check below only
-    # compares files/code_fingerprint).
+    # compares files/code_fingerprint). `skill_version` is ADDITIVE: the
+    # 28-field Hub list keeps its names.
     for _f in HUB_MANIFEST_FIELDS:
         manifest[_f] = None
+    manifest["skill_version"] = None
     if run:
         manifest["repo_id"] = run.get("repo_id")
         manifest["task_id"] = run.get("task_id")
@@ -284,8 +286,13 @@ def main():
         manifest["wave_id"] = run.get("wave_id")
         manifest["spec_hash"] = run.get("spec_hash")
         manifest["base_sha"] = run.get("base_sha")
-        # verifier versions pinned at evidence time (§MA6 immutability)
-        manifest["skill_digest"] = run.get("skill_version")
+        # verifier versions pinned at evidence time (§MA6 immutability):
+        # skill_digest is a REAL digest of the version string ('sha256:'
+        # prefix), and the raw value lives in the additive `skill_version`
+        # field — it never silently carries the raw string.
+        manifest["skill_version"] = run.get("skill_version")
+        manifest["skill_digest"] = "sha256:" + hashlib.sha256(
+            str(run.get("skill_version")).encode("utf-8")).hexdigest()
         manifest["checker_digest"] = run.get("checker_digest")
         manifest["archive_locations"] = [str(run.get("artifact_root") or ""),
                                          str(run.get("state_root") or "")]

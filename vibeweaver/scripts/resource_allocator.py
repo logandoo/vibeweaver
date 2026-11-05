@@ -59,6 +59,25 @@ KILL_GRACE = 0.5  # seconds between SIGTERM and SIGKILL on reclaim
 
 ATTEMPT_RE = re.compile(r"^attempt-([0-9a-f]{32})$")
 NAME_SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
+# H7 (R17): secret-shaped names are refused — a credential VALUE has nowhere
+# to go, and a token-shaped NAME is a credential leak by another route.
+CRED_NAME_MAX = 64
+_HEX_TOKEN_RE = re.compile(r"[0-9a-fA-F]{32,}")
+_B64ISH_RE = re.compile(r"[A-Za-z0-9+/=]{20,}")
+_ALNUM_RE = re.compile(r"[A-Za-z0-9]+")
+_SEP_CHARS = "._-"
+
+
+def _credential_name_is_secret_shaped(name) -> bool:
+    """True when a credential-ref NAME looks like credential material:
+    obvious key/token patterns (hex >= 32, base64ish >= 20) or a high-entropy
+    token shape (length >= 20, NO separator chars (._-), mixed [A-Za-z0-9])."""
+    if _HEX_TOKEN_RE.fullmatch(name):
+        return True
+    if _B64ISH_RE.fullmatch(name):
+        return True
+    return (len(name) >= 20 and not any(c in name for c in _SEP_CHARS)
+            and _ALNUM_RE.fullmatch(name) is not None)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS allocations (
@@ -231,6 +250,10 @@ class ResourceAllocator:
 
     def allocate_port(self, attempt_id: str, lease_epoch: int) -> int:
         self._check_epoch(attempt_id, lease_epoch)
+        # H8 (port TOCTOU): candidate pick + bind test + DB reserve all run in
+        # this ONE BEGIN IMMEDIATE transaction — a port that fails to bind is
+        # never reserved (the socket binds with SO_REUSEADDR off, verifies,
+        # closes, and only then the row is inserted).
         with _Txn(self._db) as db:
             row = db.execute(
                 "SELECT value FROM allocations WHERE attempt_id=? AND kind='port' AND state='held'",
@@ -318,6 +341,17 @@ class ResourceAllocator:
 
     def allocate_credential_ref(self, attempt_id: str, lease_epoch: int, name: str) -> str:
         # Deliberately accepts ONLY a name — a secret VALUE has nowhere to go.
+        # H7 (R17): the name itself must not be credential material (a
+        # token-shaped name is a secret leak by another route) and is capped.
+        if not isinstance(name, str) or len(name) > CRED_NAME_MAX:
+            raise ValueError(
+                f"credential ref name must be a str of at most {CRED_NAME_MAX}"
+                f" chars (got {len(name) if isinstance(name, str) else type(name).__name__})")
+        if _credential_name_is_secret_shaped(name):
+            raise ValueError(
+                "credential ref name looks like credential material (secret-"
+                "shaped token) — pass a NAME (e.g. 'github-token'), never a "
+                "credential VALUE or token-shaped string")
         self._check_epoch(attempt_id, lease_epoch)
         attempt8 = self._attempt8(attempt_id)
         sanitized = NAME_SAFE_RE.sub("-", name).strip("-") or "name"
@@ -531,9 +565,11 @@ class ResourceAllocator:
 
 
 def _bindable(port):
-    """True when 127.0.0.1:port really binds right now."""
+    """True when 127.0.0.1:port really binds right now (SO_REUSEADDR off —
+    an occupied/TIME_WAIT port must never look bindable)."""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 0)
         s.bind(("127.0.0.1", port))
         return True
     except OSError:

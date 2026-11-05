@@ -168,6 +168,105 @@ function boundState(input) {
   return st
 }
 
+// J5 (W25 hardening) — cross-instance lost updates: flush() used to persist
+// the WHOLE in-memory state object, so a second plugin instance (separate host
+// process/session on the same workspace root) overwrote the first's RED latch /
+// session→run bindings / releases with its own stale snapshot (last-write-wins
+// lost updates — the withStateLock mutex only removes torn interleavings). The
+// fix is a THREE-WAY MERGE at flush time against the state as last read from
+// disk (stateBase): per key at every object level — ours deep-equals base (we
+// did not change it) → the disk value (their change) wins; else ours (our
+// change) wins. Keys present only on disk (absent from base AND ours) are
+// taken from disk. Arrays and scalars follow the same rule.
+function deepCopyState(v) {
+  if (v === null || typeof v !== "object") return v
+  if (Array.isArray(v)) return v.map(deepCopyState)
+  const out = {}
+  for (const k of Object.keys(v)) out[k] = deepCopyState(v[k])
+  return out
+}
+function stateDeepEqual(a, b) {
+  if (a === b) return true
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  if (Array.isArray(a)) {
+    if (a.length !== b.length) return false
+    for (let i = 0; i < a.length; i++) if (!stateDeepEqual(a[i], b[i])) return false
+    return true
+  }
+  const ak = Object.keys(a)
+  const bk = Object.keys(b)
+  if (ak.length !== bk.length) return false
+  for (const k of ak) {
+    if (!Object.prototype.hasOwnProperty.call(b, k) || !stateDeepEqual(a[k], b[k])) return false
+  }
+  return true
+}
+// J5 newer-wins refinement for the RED-latch family ({red, redReleases} of a
+// roots entry): a latch object carries its ts; a RELEASE marker lives in the
+// redReleases journal (releaseStale semantics preserved). When both sides
+// changed the family, keep the claim with the larger ts — a release marker
+// newer than our in-memory latch wins (do NOT resurrect a released latch with
+// an older ts); two latches keep the newer one. An unchanged side defers to
+// the changed one (the plain three-way rule — the green self-clear stays ours).
+function redLatchTs(v) {
+  return v && typeof v === "object" && Number.isFinite(v.ts) ? v.ts : null
+}
+function newestReleaseTs(releases) {
+  if (!Array.isArray(releases)) return 0
+  let ts = 0
+  for (const r of releases) if (r && Number.isFinite(r.ts) && r.ts > ts) ts = r.ts
+  return ts
+}
+function mergeRedLatchValue(baseE, oursE, diskE) {
+  const baseV = baseE ? baseE.red : undefined
+  const oursV = oursE ? oursE.red : undefined
+  const diskV = diskE ? diskE.red : undefined
+  const oursChanged = !stateDeepEqual(oursV, baseV) || !stateDeepEqual(oursE && oursE.redReleases, baseE && baseE.redReleases)
+  const diskChanged = !stateDeepEqual(diskV, baseV) || !stateDeepEqual(diskE && diskE.redReleases, baseE && baseE.redReleases)
+  if (!oursChanged) return deepCopyState(diskV) // family untouched by us — their change wins
+  if (!diskChanged) return deepCopyState(oursV) // family untouched by them — our change wins (green self-clear included)
+  // both sides changed the family: newer-wins between latch and release claims
+  const oTs = redLatchTs(oursV)
+  const dTs = redLatchTs(diskV)
+  if (oTs !== null && dTs !== null) return oTs >= dTs ? deepCopyState(oursV) : deepCopyState(diskV) // two latches: larger ts
+  if (oTs !== null) {
+    // our in-memory latch vs a release on disk — the release marker wins
+    // unless our latch is STRICTLY newer (ties keep the release)
+    return newestReleaseTs(diskE && diskE.redReleases) >= oTs ? deepCopyState(diskV) : deepCopyState(oursV)
+  }
+  if (dTs !== null) {
+    // mirror: our release vs a latch on disk — our marker wins unless the
+    // latch is strictly newer (ties keep the release)
+    return newestReleaseTs(oursE && oursE.redReleases) >= dTs ? deepCopyState(oursV) : deepCopyState(diskV)
+  }
+  return deepCopyState(oursV) // both released/cleared — our change stands
+}
+function mergeStateThreeWay(base, ours, disk) {
+  if (stateDeepEqual(ours, base)) return deepCopyState(disk)
+  if (stateDeepEqual(disk, base)) return deepCopyState(ours)
+  const obj = (v) => Boolean(v) && typeof v === "object" && !Array.isArray(v)
+  if (obj(ours) && obj(disk)) {
+    const b = obj(base) ? base : {}
+    const out = {}
+    // ours' key order first (single-instance byte-compat), then base-only and
+    // disk-only keys — every key in the union of base/ours/disk is merged.
+    for (const k of new Set([...Object.keys(ours), ...Object.keys(b), ...Object.keys(disk)])) {
+      if (k === "red") {
+        // RED-latch family: the merge needs the sibling redReleases of each
+        // side, so decide from the entry level instead of the bare value.
+        const rv = mergeRedLatchValue(b, ours, disk)
+        if (rv !== undefined) out[k] = rv
+        continue
+      }
+      const v = mergeStateThreeWay(b[k], ours[k], disk[k])
+      if (v !== undefined) out[k] = v
+    }
+    return out
+  }
+  return deepCopyState(ours) // arrays + scalars: our change wins
+}
+
 // Bounded input-size estimate for tool arguments (SIGTRAP hardening round 3,
 // 2026-10-17): `canonicalJson(inp)` deep-copies and stringifies the FULL
 // argument object — a multi-MB `write`/`ssh_sftp_write` content re-observed
@@ -606,9 +705,9 @@ function atomicWriteUnique(p, body) {
 // mkdirSync (atomic create); EEXIST = retry up to ~20× with 25ms sleeps; a
 // lock whose mtime is older than 5s is a dead holder and gets stolen; the
 // lock is ALWAYS released in finally. Same-process re-entry is a no-op (the
-// caller already holds it). KNOWN GAP (documented, not solved here):
-// last-write-wins lost updates across processes — no merge algorithm; this
-// mutex only removes torn interleavings.
+// caller already holds it). The mutex alone only removes torn interleavings —
+// last-write-wins lost updates are solved by the flush() three-way merge (J5),
+// not here.
 const STATE_LOCK_HELD = new Set()
 const stateLockSleep = (ms) => {
   try {
@@ -1109,6 +1208,10 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
   } catch {
     state = { sessions: {}, roots: {} }
   }
+  // J5: the state as last READ from disk — the three-way merge at flush time
+  // diffs our in-memory changes against this snapshot so another instance's
+  // concurrent writes are never lost (refreshed after every successful flush).
+  let stateBase = deepCopyState(state)
 
   // D1 (2026-10-15): state persistence is scoped to vibeweaver work — a
   // project with no tests/verification_log.md AND no skill-activated session
@@ -1127,9 +1230,23 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
       if (!persistable()) return true
       if (!existsSync(path.join(directory, STATE_DIR))) mkdirSync(path.join(directory, STATE_DIR), { recursive: true })
       // J3: cross-process mutex around the read-modify-write (lock dir
-      // <state>.lock; released in finally). KNOWN GAP: last-write-wins lost
-      // updates across processes are not solved — only torn interleavings.
+      // <state>.lock; released in finally). J5: the mutex removes torn
+      // interleavings; the three-way merge below removes last-write-wins lost
+      // updates — another instance's concurrent keys survive our flush.
       return withStateLock(statePath, () => {
+        // J5: re-read the on-disk state (it may hold another instance's
+        // writes since our last read) and merge per key against stateBase.
+        let disk = null
+        try {
+          const rawDisk = safeRead(statePath)
+          if (rawDisk) {
+            const parsed = JSON.parse(rawDisk)
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) disk = parsed
+          }
+        } catch {
+          disk = null // unreadable/corrupt disk state: fall back to our snapshot
+        }
+        if (disk) state = mergeStateThreeWay(stateBase, state, disk)
         // prune: keep only the most recent sessions so the state file stays bounded
         const ids = Object.keys(state.sessions)
         if (ids.length > 20) {
@@ -1140,6 +1257,7 @@ function createAuditMachine({ directory, core, log, onDegenerate, onStopPrompt, 
         // bytes reach disk. A secret that never lands needs no rotation.
         state = boundState(state)
         atomicWriteUnique(statePath, JSON.stringify(state))
+        stateBase = deepCopyState(state) // the merged state is the new read baseline
         return true
       })
     } catch (err) {

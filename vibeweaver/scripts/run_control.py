@@ -53,8 +53,11 @@ ALL_STATES = MAIN_STATES + BYPASS_STATES
 TERMINAL_STATES = {"merged", "published", "cleaned", "aborted"}
 
 # VALID_TRANSITIONS: the main path in order, plus paused<->running,
-# running->blocked, blocked->running, any->expired (used by expire()),
-# any->quarantined, running->stopping->aborted. Defined explicitly here.
+# running->blocked, blocked->running, any non-terminal ->expired (used by
+# expire()) and ->quarantined, running->stopping->aborted. Terminal states
+# (merged/published/cleaned/aborted) never lead to expired/quarantined —
+# they only self-transition (plus the main-path progression merged->published
+# ->cleaned). Defined explicitly here.
 VALID_TRANSITIONS: dict = {}
 for _a, _b in zip(MAIN_STATES, MAIN_STATES[1:]):
     VALID_TRANSITIONS.setdefault(_a, set()).add(_b)
@@ -63,7 +66,10 @@ for _a, _b in (("running", "paused"), ("paused", "running"),
                ("running", "stopping"), ("stopping", "aborted")):
     VALID_TRANSITIONS.setdefault(_a, set()).add(_b)
 for _s in ALL_STATES:
-    VALID_TRANSITIONS.setdefault(_s, set()).update({"expired", "quarantined"})
+    if _s not in TERMINAL_STATES:
+        VALID_TRANSITIONS.setdefault(_s, set()).update({"expired", "quarantined"})
+for _s in TERMINAL_STATES:
+    VALID_TRANSITIONS.setdefault(_s, set()).add(_s)
 
 
 class StaleEpochError(RuntimeError):
@@ -365,6 +371,13 @@ class ControlPlane:
         expire()d AND isolate()d — a LIVE lease is never force-superseded
         (expiry is not stop); otherwise LeaseConflict. Met preconditions are
         then superseded (same order as takeover(): supersede BEFORE insert).
+
+        Persistence order (fail-closed, no phantom identity): the DB
+        transaction COMMITS first, then `<state_root>/run_context.json` is
+        written atomically. A crash before COMMIT can never persist a context
+        for an attempt that does not exist; if the file write fails after the
+        commit, the attempt is immediately force-expired (compensation) and
+        the error propagates — the claim never succeeds silently.
         """
         if TASK_ID_RE.match(task_id) is None:
             raise ContextValidationError(f"bad task_id format: {task_id!r}")
@@ -406,12 +419,23 @@ class ControlPlane:
             self._event(cur, ctx.attempt_id, epoch,
                         "claim-takeover" if takeover else "claim",
                         f"task={task_id} run={run_id}", now)
-            # Fail-closed persistence: a broken state_root aborts the claim.
-            _atomic_write_json(Path(state_root) / "run_context.json",
-                               json.loads(ctx.to_json()))
             return ctx
 
-        return self._write(_tx)
+        ctx = self._write(_tx)
+        # Post-commit persistence + compensation: the transaction is durable
+        # BEFORE any context file exists (a crash in between leaves only a
+        # DB-visible attempt, never a context without an attempt); a failed
+        # file write force-expires the attempt so no phantom identity lives.
+        try:
+            _atomic_write_json(Path(state_root) / "run_context.json",
+                               json.loads(ctx.to_json()))
+        except BaseException:
+            try:
+                self.expire(ctx.attempt_id)
+            except BaseException:
+                pass  # the writer failure is the primary error (fail-closed)
+            raise
+        return ctx
 
     def takeover(self, task_id, repo_id, session_id, worktree_root, artifact_root,
                  state_root, base_sha, spec_hash, skill_version, checker_digest,
@@ -462,11 +486,22 @@ class ControlPlane:
             self._event(cur, ctx.attempt_id, epoch,
                         "takeover", f"reason={reason} new_attempt={ctx.attempt_id}", now)
             self._refresh_run_state(cur, run_id)
-            _atomic_write_json(Path(state_root) / "run_context.json",
-                               json.loads(ctx.to_json()))
             return ctx
 
-        return self._write(_tx)
+        ctx = self._write(_tx)
+        # Same post-commit persistence + compensation as claim(): never leave
+        # a run_context.json for an attempt that is not durable, and never a
+        # live attempt without its context (phantom identity, H4 class).
+        try:
+            _atomic_write_json(Path(state_root) / "run_context.json",
+                               json.loads(ctx.to_json()))
+        except BaseException:
+            try:
+                self.expire(ctx.attempt_id)
+            except BaseException:
+                pass  # the writer failure is the primary error (fail-closed)
+            raise
+        return ctx
 
     def isolate(self, attempt_id) -> None:
         """Mark an attempt isolated (a can_clean + takeover precondition)."""
@@ -475,10 +510,21 @@ class ControlPlane:
             cur.execute("UPDATE attempts SET isolated=1 WHERE attempt_id=?", (attempt_id,))
         self._write(_tx)
 
-    def expire(self, attempt_id) -> None:
-        """Mark the lease expired (scheduling stops) and the attempt 'expired'."""
+    def expire(self, attempt_id, *, lease_epoch=None) -> None:
+        """Mark the lease expired (scheduling stops) and the attempt 'expired'.
+
+        REFUSES terminal attempts (merged/published/cleaned/aborted) with
+        InvalidTransition — finished work is never force-expired. Optional
+        (attempt_id, lease_epoch) fence the write like the other writers
+        (stale epoch -> StaleEpochError)."""
         def _tx(cur):
             row = self._attempt_row(cur, attempt_id)
+            if lease_epoch is not None:
+                self._assert_epoch(cur, attempt_id, lease_epoch)
+            if row["state"] in TERMINAL_STATES:
+                raise InvalidTransition(
+                    f"expire() refused: attempt {attempt_id} is terminal"
+                    f" (state={row['state']})")
             now = time.time()
             cur.execute("UPDATE attempts SET lease_expired=1, state='expired'"
                         " WHERE attempt_id=?", (attempt_id,))
@@ -488,12 +534,15 @@ class ControlPlane:
         self._write(_tx)
 
     def heartbeat(self, attempt_id, lease_epoch) -> bool:
-        """Renew the lease TTL. False only for an unknown attempt.
+        """Renew the lease TTL. False for an unknown attempt or when no lease
+        row belongs to this attempt.
 
         A stale lease_epoch raises StaleEpochError. Heartbeat only extends the
         lease TTL timestamp; it never clears the `expired` flag, so a lease the
         supervisor explicitly expire()d does NOT come back to life — renewal
-        never resurrects that decision.
+        never resurrects that decision. The UPDATE is scoped to the caller's
+        OWN (task_id, attempt_id) lease row: a heartbeat can never extend a
+        lease that belongs to a different attempt of the same task.
         """
         def _tx(cur):
             row = cur.execute("SELECT task_id FROM attempts WHERE attempt_id=?",
@@ -502,9 +551,10 @@ class ControlPlane:
                 return False
             self._assert_epoch(cur, attempt_id, lease_epoch)
             now = time.time()
-            cur.execute("UPDATE leases SET expires_at=?, updated=? WHERE task_id=?",
-                        (now + LEASE_TTL_SECONDS, now, row["task_id"]))
-            return True
+            cur.execute("UPDATE leases SET expires_at=?, updated=?"
+                        " WHERE task_id=? AND attempt_id=?",
+                        (now + LEASE_TTL_SECONDS, now, row["task_id"], attempt_id))
+            return cur.rowcount > 0
         return self._write(_tx)
 
     # -- state machine -----------------------------------------------------
@@ -579,15 +629,25 @@ class ControlPlane:
                 "bad": json.loads(row["bad_json"])}
 
     def latch_release(self, attempt_id, lease_epoch, key) -> bool:
-        """Release a latch. Only the owning attempt+epoch — or a NEWER epoch of
-        the same task — may release; another task's attempt gets False."""
+        """Release a latch. The lookup is scoped to the OWNING attempt/run:
+        the caller's own latch by key first, then the newest unreleased latch
+        of the caller's TASK. Only the owning attempt+epoch — or a NEWER epoch
+        of the same task — may release; another task's latch is never touched
+        (a key collision across tasks releases nothing)."""
         def _tx(cur):
-            latch = cur.execute("SELECT * FROM latches WHERE key=? AND released=0"
-                                " ORDER BY ts DESC, id DESC LIMIT 1", (key,)).fetchone()
-            if latch is None:
-                return False
             self._assert_epoch(cur, attempt_id, lease_epoch)
             caller = self._attempt_row(cur, attempt_id)
+            latch = cur.execute(
+                "SELECT * FROM latches WHERE key=? AND attempt_id=? AND released=0"
+                " ORDER BY ts DESC, id DESC LIMIT 1", (key, attempt_id)).fetchone()
+            if latch is None:
+                latch = cur.execute(
+                    "SELECT l.* FROM latches l JOIN attempts a ON a.attempt_id=l.attempt_id"
+                    " WHERE l.key=? AND l.released=0 AND a.task_id=?"
+                    " ORDER BY l.ts DESC, l.id DESC LIMIT 1",
+                    (key, caller["task_id"])).fetchone()
+            if latch is None:
+                return False
             if latch["attempt_id"] == attempt_id and latch["lease_epoch"] == lease_epoch:
                 cur.execute("UPDATE latches SET released=1 WHERE id=?", (latch["id"],))
                 return True
@@ -642,27 +702,48 @@ class ControlPlane:
 
     def reconcile(self, git_refs: dict = None) -> list:
         """Return discrepancy records {"kind", "detail"}:
-        'outbox-pending'      — merged/published runs whose outbox entries pend;
+        'outbox-pending'      — pending outbox records that must not pend:
+                                attributed to a merged/published run
+                                (publication incomplete) or unattributed (no
+                                run_id in the payload) — every such record is
+                                reported regardless of run state;
         'ref-mismatch'        — runs whose recorded final ref != git_refs[run_id];
         'expired-not-isolated'— attempts marked expired but never isolated.
+
+        Single pass over the pending outbox rows grouped by run_id (no
+        per-run rescans).
         """
         cur = self._conn.cursor()
-        now = time.time()
         recs = []
-        done_runs = cur.execute("SELECT run_id, state FROM runs"
-                                " WHERE state IN ('merged','published')").fetchall()
-        for run in done_runs:
-            pend = cur.execute("SELECT id, idempotency_key FROM outbox"
-                               " WHERE status='pending'").fetchall()
-            hits = [p for p in pend
-                    if json.loads(cur.execute(
-                        "SELECT payload_json FROM outbox WHERE id=?", (p["id"],)
-                    ).fetchone()["payload_json"]).get("run_id") == run["run_id"]]
-            if hits:
-                keys = ", ".join(p["idempotency_key"] for p in hits)
-                recs.append({"kind": "outbox-pending",
-                             "detail": f"run {run['run_id']} state={run['state']}"
-                                       f" still has pending outbox: {keys}"})
+        run_states = {r["run_id"]: r["state"]
+                      for r in cur.execute("SELECT run_id, state FROM runs")}
+        by_run = {}
+        unattributed = []
+        for p in cur.execute("SELECT id, record_type, payload_json, idempotency_key"
+                             " FROM outbox WHERE status='pending' ORDER BY id"):
+            try:
+                payload = json.loads(p["payload_json"])
+            except ValueError:
+                payload = {}
+            rid = payload.get("run_id") if isinstance(payload, dict) else None
+            if rid:
+                by_run.setdefault(rid, []).append(p)
+            else:
+                unattributed.append(p)
+        for rid, rows in by_run.items():
+            state = run_states.get(rid)
+            if state in ("merged", "published"):
+                for p in rows:
+                    recs.append({"kind": "outbox-pending",
+                                 "detail": f"run {rid} state={state}"
+                                           f" still has pending outbox:"
+                                           f" {p['idempotency_key']}"})
+        for p in unattributed:
+            recs.append({"kind": "outbox-pending",
+                         "detail": f"unattributed pending outbox:"
+                                   f" {p['idempotency_key']} (no run_id in the"
+                                   f" payload — publication cannot be"
+                                   f" attributed)"})
         if git_refs:
             for run_id, sha in git_refs.items():
                 run = cur.execute("SELECT run_id, final_ref FROM runs WHERE run_id=?",
@@ -680,7 +761,6 @@ class ControlPlane:
             recs.append({"kind": "expired-not-isolated",
                          "detail": f"attempt {a['attempt_id']} state={a['state']}"
                                    f" is marked expired but not isolated"})
-        _ = now
         return recs
 
     def record_final_ref(self, run_id, sha, *, attempt_id=None, lease_epoch=None) -> None:

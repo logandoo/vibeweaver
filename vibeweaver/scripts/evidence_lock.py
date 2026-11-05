@@ -240,18 +240,39 @@ def _media_magic_ok(data, ext):
     return ok, "" if ok else "magic mismatch (%s)" % ext
 
 
+def _under_root(path, base):
+    """True when path (resolved) is contained under base (resolved)."""
+    try:
+        p = pathlib.Path(path).resolve()
+        b = pathlib.Path(base).resolve()
+    except (OSError, ValueError):
+        return False
+    return p == b or b in p.parents
+
+
 def _resolve_media(root, artifact_root, rel):
     """Run-relative media resolution: `<artifact_root>/<ref>` first, then
     `<artifact_root>/<ref minus tests/>`, falling back to the project root
-    (legacy). Returns the first EXISTING candidate or None."""
+    (legacy). Returns (path, escaped): path is the first EXISTING contained
+    candidate or None; escaped flags a ref whose resolved path LEAVES its
+    allowed root (a `..` walk into another run's evidence) — such a ref is
+    never resolved to a file, it fails closed (H9)."""
+    bases = []
     if artifact_root is not None:
         norm = rel[6:] if rel.startswith("tests/") else rel
-        for c in (pathlib.Path(artifact_root) / rel,
-                  pathlib.Path(artifact_root) / norm):
-            if c.is_file():
-                return c
-    p = pathlib.Path(root) / rel
-    return p if p.is_file() else None
+        bases.append((pathlib.Path(artifact_root), rel))
+        bases.append((pathlib.Path(artifact_root), norm))
+    bases.append((pathlib.Path(root), rel))
+    escaped = False
+    found = None
+    for base, ref in bases:
+        c = base / ref
+        if not _under_root(c, base):
+            escaped = True
+            continue
+        if found is None and c.is_file():
+            found = c
+    return (None, True) if escaped else (found, False)
 
 
 def check_media(root, text, artifact_root=None):
@@ -266,7 +287,10 @@ def check_media(root, text, artifact_root=None):
         if rel in seen:
             continue
         seen.add(rel)
-        p = _resolve_media(root, artifact_root, rel)
+        p, escaped = _resolve_media(root, artifact_root, rel)
+        if escaped:
+            errors.append("media path escapes: %s" % rel)
+            continue
         if p is None:
             errors.append("cited media missing: %s" % rel)
             continue
@@ -522,7 +546,10 @@ def verify_archive(root, run=None):
         if rel in seen:
             continue
         seen.add(rel)
-        mp = _resolve_media(root, artifact_root, rel)
+        mp, escaped = _resolve_media(root, artifact_root, rel)
+        if escaped:
+            errors.append("archive read-back: media path escapes: %s" % rel)
+            continue
         if mp is None:
             errors.append("archive read-back: cited media missing: %s" % rel)
             continue

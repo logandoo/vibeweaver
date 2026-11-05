@@ -21,6 +21,7 @@ bound to that item's id. A claim marker additionally requires:
       {subject, status}; pending -> the item cannot claim passes).
 
 Usage: python3 backlog_check.py [project-root] [--leases PATH] [--outbox PATH]
+       [--control-db PATH]
 Exit 0 = clean (or no backlog.json — the check is inert outside C8).
 Exit 1 = violations, named on stdout.
 """
@@ -28,6 +29,7 @@ import argparse
 import json
 import pathlib
 import re
+import sqlite3
 import sys
 import time
 
@@ -61,6 +63,54 @@ def _load_json_map(path, what):
         return None, f"FAIL {path}: unreadable {what} JSON — {e}"
 
 
+def _load_run_control():
+    """Defensive sibling import of scripts/run_control.py (the control plane
+    owning the attempts/leases schema). Absence never crashes the gate — the
+    claim probe below degrades to read-only SQL over the same schema."""
+    here = pathlib.Path(__file__).resolve().parent
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    try:
+        import run_control  # noqa: F401 — sibling control-plane module
+        return run_control
+    except Exception:  # noqa: BLE001 — fail-soft import, fail-closed checks
+        return None
+
+
+def _control_plane_claim_reasons(db_path, claim):
+    """Named failure reasons when a claim marker does not correspond to a
+    REAL run_control attempt (the `attempts`/`leases` tables): the attempt
+    must exist, carry the marker's task, and record lease_epoch >= the
+    marker's epoch (a claim cannot assert an epoch the plane never granted)."""
+    if not pathlib.Path(db_path).is_file():
+        return [f"control db {db_path} missing/unreadable — cannot verify the "
+                f"claim (fail-closed)"]
+    try:
+        con = sqlite3.connect(str(db_path))
+        try:
+            row = con.execute(
+                "SELECT task_id, lease_epoch FROM attempts WHERE attempt_id=?",
+                (claim["attempt"],)).fetchone()
+        finally:
+            con.close()
+    except sqlite3.Error as e:
+        return [f"control db {db_path} unreadable ({e}) — cannot verify the "
+                f"claim (fail-closed)"]
+    if row is None:
+        return [f"claim attempt not registered in control plane (attempt="
+                f"{claim['attempt']} has no attempts row in {db_path})"]
+    if row[0] != claim["task"]:
+        return [f"claim attempt not registered in control plane (attempt="
+                f"{claim['attempt']} is registered for task {row[0]!r}; the "
+                f"marker claims task {claim['task']!r})"]
+    if int(row[1]) < int(claim["epoch"]):
+        return [f"claim epoch below lease epoch (marker epoch={claim['epoch']} "
+                f"exceeds the recorded lease_epoch={row[1]} for attempt="
+                f"{claim['attempt']} — a claim cannot assert an epoch the "
+                f"control plane never granted)"]
+    return []
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="C8 outer-loop ledger gate")
     ap.add_argument("root", nargs="?", default=".", help="project root (default: cwd)")
@@ -70,6 +120,12 @@ def main() -> int:
     ap.add_argument("--outbox", default="",
                     help="JSON list of {subject, status} outbox records "
                          "(pending entries block passes:true)")
+    ap.add_argument("--control-db", default="",
+                    help="W25: run_control.py control-plane SQLite DB — when "
+                         "given, every claim marker must correspond to a REAL "
+                         "registered attempt (task matches, recorded "
+                         "lease_epoch >= marker epoch); legacy text-pattern "
+                         "mode stays when absent")
     args = ap.parse_args()
     root = pathlib.Path(args.root).resolve()
     backlog = root / "tests" / "backlog.json"
@@ -167,6 +223,15 @@ def main() -> int:
                     f"(C3e / COV-1)")
                 continue
             for m in markers:
+                if args.control_db:
+                    # H10: a claim marker must bind to REAL control-plane
+                    # state — a fabricated claim (unknown attempt, foreign
+                    # task, or an epoch the plane never granted) fails the
+                    # item with a named reason. run_control is imported
+                    # defensively (sys.path sibling) before the probe.
+                    _load_run_control()
+                    for reason in _control_plane_claim_reasons(args.control_db, m):
+                        fails.append(f"{pid}: {reason}")
                 if leases is not None:
                     exp = leases.get(m["attempt"])
                     if exp is None:
