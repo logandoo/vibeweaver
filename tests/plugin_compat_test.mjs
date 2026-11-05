@@ -1276,9 +1276,18 @@ function runAssertJson(root) {
   } catch (e) {
     blocked = e
   }
+  let d13diag = ""
+  try {
+    const ns = JSON.parse(readFileSync(path.join(dev, ".vibeweaver", "audit-state.json"), "utf8"))
+    const hsPath = path.join(parent, ".vibeweaver", "audit-state.json")
+    const hs = existsSync(hsPath) ? JSON.parse(readFileSync(hsPath, "utf8")) : {}
+    d13diag = ` nestedKeys=${JSON.stringify(Object.keys(ns.roots || {}))} hostKeys=${JSON.stringify(Object.keys(hs.roots || {}))} dev=${dev} parent=${parent}`
+  } catch (e) {
+    d13diag = " diag-error " + String((e && e.message) || e)
+  }
   rec("D13-audit-v1: nested dev RED latch is consulted, not the umbrella root",
     !!blocked && /GATE-BLOCKED \(vibeweaver-audit\)/.test(String(blocked.message || "")),
-    blocked ? "blocked by dev latch" : "UNEXPECTEDLY clean")
+    blocked ? "blocked by dev latch" : "UNEXPECTEDLY clean" + d13diag)
   let accBlocked = null
   try {
     await hooks["tool.execute.before"]({ tool: "write", sessionID: "s-scope", callID: "sc2" }, { args: { path: path.join(dev, "tests", "acceptance.md"), content: "new task" } })
