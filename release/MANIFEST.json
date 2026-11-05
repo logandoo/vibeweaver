@@ -1,5 +1,5 @@
 {
-  "commit": "df67e7cfb678b6168d04d922d681a76e80485888",
+  "commit": "8b48b772f0c5bd4e552b503754886564a90fbdae",
   "files": [
     {
       "bytes": 44419,
@@ -97,9 +97,9 @@
       "sha256": "3af8820dade3b5988d1742b6a33cdf0e7ddb24ee43b5bebc144e45142f5c0a5b"
     },
     {
-      "bytes": 335611,
+      "bytes": 335737,
       "path": "vibeweaver/scripts/audit_selftest.mjs",
-      "sha256": "c6f2eb7d6d83519f4d1df8084d9b988e10ab937415d15ff2994de3ddb2bc0741"
+      "sha256": "0a8e63c16f95536f20735d302056d2a833bf08ae9af0152d9ed318f9eae25b1d"
     },
     {
       "bytes": 13257,
@@ -242,14 +242,14 @@
       "sha256": "3eb0bfd9d0df2e3efe38a92922a797b61d7111267216b218c45c29c08d4d1d0f"
     },
     {
-      "bytes": 172299,
+      "bytes": 172764,
       "path": "vibeweaver/vibeweaver-audit.js",
-      "sha256": "ad03312f8ebba47829be3527c8d1b541bc497a798d184e68b182b47ea9e6fe96"
+      "sha256": "850f619a0139fc14efb1bdece2658fc0075bcc9632dd5db9a6778094236ff324"
     },
     {
-      "bytes": 125456,
+      "bytes": 125965,
       "path": "vibeweaver/vibeweaver-gate.js",
-      "sha256": "ece11964c21e63affbf13e151af7d622dfec18a978542abdc9aaae001cc6c0e0"
+      "sha256": "46bca020469625518cff4fe76730ef33e443af7efc8be0b5a2141aa9997c3959"
     }
   ],
   "schema_version": 1,
