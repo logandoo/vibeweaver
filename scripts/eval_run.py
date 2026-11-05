@@ -182,7 +182,7 @@ ARM_INJECT = ("full_forced", "mini_forced")
 
 def skill_source_dir(arm):
     if arm == "core":
-        return ROOT / "profiles" / "core"
+        return ROOT / "vibeweaver" / "profiles" / "core"
     if arm in ("full_forced", "full_deployed"):
         p = pathlib.Path.home() / ".config" / "opencode" / "skills" / "vibeweaver"
         return p if p.is_dir() else ROOT

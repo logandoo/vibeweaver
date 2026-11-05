@@ -1,5 +1,5 @@
 {
-  "commit": "43655415ca609fe36e1fe28e82a67d4b23704c26",
+  "commit": "df67e7cfb678b6168d04d922d681a76e80485888",
   "files": [
     {
       "bytes": 44419,
@@ -17,19 +17,19 @@
       "sha256": "50a21fd64484aaa14f762f95160ca8b4aede4fd4f7a8c7ef7b4df0808b225a6f"
     },
     {
-      "bytes": 37295,
+      "bytes": 37836,
       "path": "vibeweaver/COMPLETION_GATE.md",
-      "sha256": "edcc153fc0e3da71eafa06f464016a5d01c026c345e234fb602b0f1d6025eb62"
+      "sha256": "f7532fea6b226c0623ece742c21b4522adc2d8a26afade2294feb7992bc495f3"
     },
     {
-      "bytes": 16311,
+      "bytes": 17227,
       "path": "vibeweaver/ENGINEERING_STD.md",
-      "sha256": "93baab0b85e364151c188b1e7f86776b11a91fc2ec672b83a06e59fe8e1b8859"
+      "sha256": "f19b90c51c2a6388d58ac5f5832e54a7267e833ec968b5f5d18e259f3de9cfa8"
     },
     {
-      "bytes": 31965,
+      "bytes": 32699,
       "path": "vibeweaver/MEMORY_RULES.md",
-      "sha256": "cc80ca4ab2874a89c18e827a97448a54a9cff361223b02e28c15ef14dd82fd94"
+      "sha256": "aa1d86d29d261f148d66dc3be54c63ddd9abac1f15718d72511d58cc8c22379b"
     },
     {
       "bytes": 11207,
@@ -37,19 +37,24 @@
       "sha256": "f4ea7f0fb63eac03573c137f52d730661560dc47bdf6a6c396d420b4dc573631"
     },
     {
+      "bytes": 16447,
+      "path": "vibeweaver/MULTI_AGENT.md",
+      "sha256": "b8f12018d37aceb0f3c40d83e2c159b125e4af62ec4bfaafef60705650ff37bb"
+    },
+    {
       "bytes": 32773,
       "path": "vibeweaver/REFERENCE.md",
       "sha256": "a56e33a3e250934d67603830d64f067e33633974cf3a0feb6c3f0f080b4999e9"
     },
     {
-      "bytes": 48943,
+      "bytes": 48972,
       "path": "vibeweaver/SKILL.md",
-      "sha256": "cb74fdd9c89b6846ce90c01e9dfd449d6ef7df6e9edd8a2fe87a66ec09b212e9"
+      "sha256": "b9ea8c05e21372c0eb99f3fa7a1831ef9df2c1dfbdd126b999c1c8d711d65cb6"
     },
     {
-      "bytes": 45000,
+      "bytes": 44462,
       "path": "vibeweaver/TESTING_PROTOCOLS.md",
-      "sha256": "0d47bbc1f68cd6295d5da51515a7dcf43f70cb6d37aa9feb6cb172a64ebc905e"
+      "sha256": "70c1745b681cfe6d5447768cdb35a609201c2665879abcadb2d619bc9dabe4f8"
     },
     {
       "bytes": 44941,
@@ -57,9 +62,9 @@
       "sha256": "75da75dcfad39f19bb00376807ac3a5fc766f602b6ea2d3f3487a70ea99d8786"
     },
     {
-      "bytes": 23866,
+      "bytes": 24479,
       "path": "vibeweaver/WORKFLOWS_EXTENDED.md",
-      "sha256": "720eec73e0a782ede0d99d1341ceb74a9e5b842e51e43674687702d4a944e267"
+      "sha256": "de4c0d39b0ef7630f1c6773c7b312e591728cf39a00024cca0207bbda3dc273c"
     },
     {
       "bytes": 46,
@@ -87,19 +92,19 @@
       "sha256": "76ca7518b3466ad613863e4c8140ae21ecddd0974aa5a9b108291f191003a84d"
     },
     {
-      "bytes": 116199,
+      "bytes": 126914,
       "path": "vibeweaver/scripts/assert_artifacts.py",
-      "sha256": "46af9c20e55c2469f55cecb061372203640a744864e3ac6deec7edd0344d97fe"
+      "sha256": "3af8820dade3b5988d1742b6a33cdf0e7ddb24ee43b5bebc144e45142f5c0a5b"
     },
     {
-      "bytes": 297002,
+      "bytes": 335611,
       "path": "vibeweaver/scripts/audit_selftest.mjs",
-      "sha256": "9e635c23429259747909cece39d58d2de8e34ce5f6fca1ed22202e76f1fbc5b6"
+      "sha256": "c6f2eb7d6d83519f4d1df8084d9b988e10ab937415d15ff2994de3ddb2bc0741"
     },
     {
-      "bytes": 4050,
+      "bytes": 13257,
       "path": "vibeweaver/scripts/backlog_check.py",
-      "sha256": "53f653a768403e94c836696859a6fdf96083cc5417ebc240c3914203a8f2f411"
+      "sha256": "6b594c26b314e6d577be027b56e5019febdb67a36a55226f033d0fb878d5e4be"
     },
     {
       "bytes": 3079,
@@ -107,9 +112,9 @@
       "sha256": "a202c2b1c39806a6230a20542821fde3ad842b2eb6d32c3d446bfce57d90f970"
     },
     {
-      "bytes": 5499,
+      "bytes": 6095,
       "path": "vibeweaver/scripts/contract_lint.py",
-      "sha256": "de525fa14bb4260b843d3b5d181aa560fe0580f3d80828bee2ef39845ebb4059"
+      "sha256": "9a6ad604c4e25ba731f53c08105d354e8b21779531fa9756d87e347124eb32b9"
     },
     {
       "bytes": 11198,
@@ -132,14 +137,14 @@
       "sha256": "bbaa7cd54a974cb3ad9ee3a46e4380a3a94884193bc34af2e5a0e228efeab593"
     },
     {
-      "bytes": 15611,
+      "bytes": 31654,
       "path": "vibeweaver/scripts/evidence_lock.py",
-      "sha256": "aeab32516db3c7249ce604aad736e864ba6c7f4a22a3a2149ec1d4e4ca0cc589"
+      "sha256": "88eb1ec6fd4154a1837769265e12d0c6d94698a8e0a0fc42ca80a761e84a0eb0"
     },
     {
-      "bytes": 12632,
+      "bytes": 19036,
       "path": "vibeweaver/scripts/evidence_seal.py",
-      "sha256": "c1a3de0065218d31a8cfde698d0a06be069adfdf7ae0bdb1fae21d8033b52ab3"
+      "sha256": "a86538587d714dfeffd84c5fbf070d710328fb980c899ed17d8d5bc458780031"
     },
     {
       "bytes": 6297,
@@ -147,9 +152,14 @@
       "sha256": "588a3083e1b33bd305e1e9a27a3d4858f6a67fd253bafc997a7240ebcd54d83b"
     },
     {
-      "bytes": 10878,
+      "bytes": 10896,
       "path": "vibeweaver/scripts/install.py",
-      "sha256": "9357ab223174b67d2c16e1cb56d4053f086b07bff273ca661fab3f06ee0decb6"
+      "sha256": "744b8303fa44847109ce21d93194a1fc9b6320078ea625695431e53a42b9d3de"
+    },
+    {
+      "bytes": 31835,
+      "path": "vibeweaver/scripts/integrate.py",
+      "sha256": "48a9332d365385f278358a86a622ebe9083ce227dce3ed0dd264bcfae2ee7ab4"
     },
     {
       "bytes": 4287,
@@ -157,9 +167,9 @@
       "sha256": "a8b51a4fe2447811d52a98989757f547fd2ac2a7662f937d6898b516771f9ece"
     },
     {
-      "bytes": 5879,
+      "bytes": 6332,
       "path": "vibeweaver/scripts/make_release_manifest.py",
-      "sha256": "366f8f61be6f92ddc8d238c5cbc66354b9cfaa010645346ef3253ed9ea9eb8ed"
+      "sha256": "9872243891ae4841323eceb495a83400570f0189cdc56156d86ec27c5972aa8e"
     },
     {
       "bytes": 1290,
@@ -172,9 +182,9 @@
       "sha256": "c06939a52d59a61beceda7b14a13235fcd1e5e1ed591148961fddb9d73882e58"
     },
     {
-      "bytes": 27435,
+      "bytes": 36764,
       "path": "vibeweaver/scripts/mutation_sweep.mjs",
-      "sha256": "64be81e8d915cace91ef9290a3f407a2dd2cbbead45b807676a5a5c3903312b1"
+      "sha256": "ee88097e6951b36f743f7f70c6752f0822ed846d5d8818fb8531ee73d92a6205"
     },
     {
       "bytes": 4183,
@@ -190,6 +200,16 @@
       "bytes": 1435,
       "path": "vibeweaver/scripts/repair_checker.sh",
       "sha256": "048913b4db3f6f5546b64eb12d0cd19a2dc0f4540ca2bf96bc5119f7401ea585"
+    },
+    {
+      "bytes": 28145,
+      "path": "vibeweaver/scripts/resource_allocator.py",
+      "sha256": "536d78a79b36127a3b40fee6dac4f790ad5eaaeca56b0425fde61ba468ae2c71"
+    },
+    {
+      "bytes": 49464,
+      "path": "vibeweaver/scripts/run_control.py",
+      "sha256": "28a561bb28cdee97b0aeff8b6d751500128a016a4251e7bd0dc9ef14eed4110b"
     },
     {
       "bytes": 15065,
@@ -222,16 +242,16 @@
       "sha256": "3eb0bfd9d0df2e3efe38a92922a797b61d7111267216b218c45c29c08d4d1d0f"
     },
     {
-      "bytes": 146524,
+      "bytes": 172299,
       "path": "vibeweaver/vibeweaver-audit.js",
-      "sha256": "f1a2e021cfc27b8108378b75da8dc2eb18ce9d40b436761e21a2d16c84efd04e"
+      "sha256": "ad03312f8ebba47829be3527c8d1b541bc497a798d184e68b182b47ea9e6fe96"
     },
     {
-      "bytes": 111868,
+      "bytes": 125456,
       "path": "vibeweaver/vibeweaver-gate.js",
-      "sha256": "5b3e3106e5f1c455d4b9d2c5cfc4c26c1c85f1dd8d1541d3fb153c5860f0776f"
+      "sha256": "ece11964c21e63affbf13e151af7d622dfec18a978542abdc9aaae001cc6c0e0"
     }
   ],
   "schema_version": 1,
-  "tag": "w24-dev"
+  "tag": "w25-dev"
 }
