@@ -467,12 +467,12 @@ function findProjectRootForFile(directory, filePath) {
   const outside = auditOutside(host, abs)
   const activeHere = existsSync(path.join(host, "tests", "verification_log.md")) ? host : null
   const activeAbove = path.dirname(host) !== host ? findProjectRoot([path.dirname(host)]) : null
-  if (fileGit && fileGit !== hostGit) {
+  if (fileGit && !auditSamePath(fileGit, hostGit)) {
     if (auditTrustedProject(fileGit)) return fileGit
     return activeHere || activeAbove || fileGit
   }
   if (activeHere) return host
-  if (hostGit && activeAbove && activeAbove !== fileGit) return activeAbove
+  if (hostGit && activeAbove && !auditSamePath(activeAbove, fileGit)) return activeAbove
   if (activeAbove) return activeAbove
   if (outside) return null
   for (let d = path.dirname(abs); ; d = path.dirname(d)) {
@@ -3418,6 +3418,15 @@ async function setup(ctx) {
 // object's keys and named exports, never function properties). The selftest
 // exercises the run-aware helpers through these; hosts never see them.
 server.loadRunContext = loadRunContext
+// W25b diagnostic seam (CI portability triage): resolution internals, read-only.
+server.__diag = {
+  findProjectRootForFile,
+  auditTrustedProject,
+  auditGitTop,
+  auditHostSpelling,
+  auditSamePath,
+  findProjectRoot,
+}
 server.atomicWriteUnique = atomicWriteUnique
 server.stateScopeKey = stateScopeKey
 server.withStateLock = withStateLock

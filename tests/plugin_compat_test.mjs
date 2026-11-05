@@ -1281,7 +1281,11 @@ function runAssertJson(root) {
     const ns = JSON.parse(readFileSync(path.join(dev, ".vibeweaver", "audit-state.json"), "utf8"))
     const hsPath = path.join(parent, ".vibeweaver", "audit-state.json")
     const hs = existsSync(hsPath) ? JSON.parse(readFileSync(hsPath, "utf8")) : {}
-    d13diag = ` nestedKeys=${JSON.stringify(Object.keys(ns.roots || {}))} hostKeys=${JSON.stringify(Object.keys(hs.roots || {}))} dev=${dev} parent=${parent}`
+    const diag = (auditMod.default && auditMod.default.server && auditMod.default.server.__diag) || null
+    const probe = diag
+      ? ` resolvedRoot=${diag.findProjectRootForFile(parent, path.join(dev, "src", "a.js"))} trusted=${diag.auditTrustedProject(dev)} devGitTop=${diag.auditGitTop(dev)} hostGitTop=${diag.auditGitTop(parent)} hostSpelled=${diag.auditHostSpelling(parent, diag.auditGitTop(dev))}`
+      : " no-diag-seam"
+    d13diag = ` nestedKeys=${JSON.stringify(Object.keys(ns.roots || {}))} hostKeys=${JSON.stringify(Object.keys(hs.roots || {}))} dev=${dev} parent=${parent}` + probe
   } catch (e) {
     d13diag = " diag-error " + String((e && e.message) || e)
   }

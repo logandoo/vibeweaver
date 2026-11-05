@@ -1,5 +1,5 @@
 {
-  "commit": "c699118bec7539fb2cf116fdcf13f0e64bd30df8",
+  "commit": "77556da21e76841214ca82b2ca64f014dce1e652",
   "files": [
     {
       "bytes": 44419,
@@ -242,9 +242,9 @@
       "sha256": "3eb0bfd9d0df2e3efe38a92922a797b61d7111267216b218c45c29c08d4d1d0f"
     },
     {
-      "bytes": 174048,
+      "bytes": 174297,
       "path": "vibeweaver/vibeweaver-audit.js",
-      "sha256": "bd805f161ed1a677cc7da93db2848eee3402f72d765675fc635367b565fc0c2b"
+      "sha256": "f62ae871fc6325e7db509f1714288756348ca8ca159e7d3de5c94d138dfedf27"
     },
     {
       "bytes": 127328,
