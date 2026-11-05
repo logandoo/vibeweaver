@@ -1010,6 +1010,97 @@
    "n": null,
    "seeds": null,
    "ci": null
+  },
+  {
+   "id": "C-302",
+   "token": "601/0",
+   "claim": "audit_selftest 601 fixture checks pass / 0 failures (572 legacy + W25 run-aware)",
+   "command": "node vibeweaver/scripts/audit_selftest.mjs",
+   "expected_regex": "fixture checks: 601, failures: 0",
+   "platform": "macOS/Linux/Windows (node)",
+   "evidence": "CHANGELOG.md 2026-11-05 W25b",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-303",
+   "token": "48/0",
+   "claim": "mutation_sweep 48 mutation checks caught / 0 failures (44 legacy + 4 W25)",
+   "command": "node vibeweaver/scripts/mutation_sweep.mjs",
+   "expected_regex": "MUTATION SWEEP: 48 passed, 0 failed",
+   "platform": "macOS/Linux/Windows (node)",
+   "evidence": "CHANGELOG.md 2026-11-05 W25b",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-304",
+   "token": "61/61",
+   "claim": "vibeweaver-dsh final assertion run 61 checks pass (new checker group set)",
+   "command": "cd ../vibeweaver-dsh && python3 tests/assert_artifacts.py --existing --final",
+   "expected_regex": "all 61 checks pass",
+   "platform": "macOS (dsh tree)",
+   "evidence": "CHANGELOG.md 2026-11-05 W25b",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-305",
+   "token": "193/193",
+   "claim": "vibeweaver-dsh unit suite 193 tests pass (192 + W25 token pin)",
+   "command": "cd ../vibeweaver-dsh && node --test tests/unit/*.test.js",
+   "expected_regex": "pass 193",
+   "platform": "macOS (dsh tree, node)",
+   "evidence": "CHANGELOG.md 2026-11-05 W25b",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-306",
+   "token": "32/32",
+   "claim": "run_control control-plane suite 32 tests pass (dev tree)",
+   "command": "cd ../vibeweaver && python3 tests/test_run_control.py",
+   "expected_regex": "32/32 pass",
+   "platform": "macOS (dev tree)",
+   "evidence": "CHANGELOG.md 2026-11-05 W25b",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-307",
+   "token": "30/30",
+   "claim": "integrate candidate-queue suite 30 tests pass (dev tree)",
+   "command": "cd ../vibeweaver && python3 tests/test_integrate.py",
+   "expected_regex": "30/30 pass",
+   "platform": "macOS (dev tree)",
+   "evidence": "CHANGELOG.md 2026-11-05 W25b",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-308",
+   "token": "12/12",
+   "claim": "backlog_check suite 12 tests pass (dev tree, incl --control-db cases)",
+   "command": "cd ../vibeweaver && python3 tests/test_backlog_check.py",
+   "expected_regex": "12/12 pass",
+   "platform": "macOS (dev tree)",
+   "evidence": "CHANGELOG.md 2026-11-05 W25b",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
   }
  ]
 }
