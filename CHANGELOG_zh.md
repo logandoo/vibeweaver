@@ -2,6 +2,16 @@
 
 设计演变史，新的在前。条目从 README 原样迁移；项目当前状态见 [README_zh.md](README_zh.md)。
 
+## 2026-11-05：多 Agent 并发的构造性支持（设计条目）
+
+多 Agent 并发不是「多开几个 worktree」就能成立的——过程文件、审计状态、证据链、集成提交全都互相踩。vibeweaver 的答案是一套身份与围栏体系（完整协议 `MULTI_AGENT.md` §MA1–§MA9）：
+
+- **RunContext 身份**：控制器下发 `task/run/attempt/wave/lease_epoch`（绝不自声明，伪造与越界路径一律拒绝回退 legacy）；acceptance/log/latch/state 按 run 落 artifact root，session→run 映射覆盖 idle/compaction/resume，不猜 last-write。
+- **三条不变量**：①被评审/测试/归档/推送=同一 candidate 树；②rebase/冲突解决/验证器更新/目标变化=旧绿作废；③租约过期≠已停——共享写携带 `attempt_id+lease_epoch`，存储端拒旧 epoch。
+- **双层验收**：Task Gate（既有单 Agent 全契约）+ Integration Gate（冻结 SHA 入队、candidate 树上实跑测试、expected-old-SHA CAS 发布、queue↔final SHA 对账）。
+- **事务化控制面**：SQLite 原子 claim/lease/状态机/outbox 幂等发布/reconcile/can_clean 七前置；资源按 attempt 命名空间分配回收（含配额与 quarantine）。
+- **兼容底线**：无 RunContext 时逐字节 legacy；并发永不放松任何硬门。
+
 ## 2026-10-28：功能面饱和的边界实测 — 毒测试咬合条件与并发夹具确定性化
 
 三条设计教训（完整数据见 `docs/EVAL_G3_PILOT_REPORT.md` §11）：

@@ -81,6 +81,8 @@ coding agent 在真实项目上的老毛病：删掉文件、重构没人让它�
 - **文档交付物有渲染门**：交付的 `report.docx`、`.xlsx`、`.pptx` 按文档工具界公认的方式验证——渲染成页、跑版式 QA、给页图评级，任何任务类别下都是 `NO RENDER, NO DONE`。写作委托给专门 skill（README 散文用 readme-weaver，写作用 docx/xlsx/pptx-manipulation，验证用 office-docx，兜底 office-mcp）；工具链缺失只降级为带旗标的 `render: N/A (<缺失工具>)` 加 `UNVERIFIED-layout` 标记，绝不悄悄算完成。宏与嵌入脚本在交付时点由具名检查揪出，揪出即升类。
 - **覆盖完整开发流程，不止一个环节**：新项目脚手架（先出设计文档 FLOW / PAGE / DATABASE / BACKEND）、配置管理、验收清单、按任务类型路由（构建 / 审计 / 部署 / 运维 / CLI 与库 / backlog 外层循环 / 可行性 spike）、8 列完工表格，以及两个执行层插件。
 
+- **多 Agent 并发，构造上成立**：多个 agent 可以同时在一个项目里干活而不互踩证据——每个任务在控制器下发的 `RunContext`（绝不自声明）下运行，acceptance/log/latch/state 各落自己的 artifact root，所有共享写携带 `attempt_id + lease_epoch` 围栏（旧 epoch 由存储端直接拒绝），集成入队冻结 SHA 而不是分支名。三条不变量守底线：被评审、被测试、被归档、被推送的是同一个 candidate 树/提交；rebase、冲突解决、验证器更新、目标分支变化一律使旧绿作废；租约过期≠旧 agent 已停。没有 RunContext 时单 Agent 行为逐字节不变——并发永不放松任何一道门。完整协议：`MULTI_AGENT.md`。
+
 ## 安装
 
 ```bash
@@ -364,7 +366,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 
 | 文件                                                  | 用途                                                                                                               |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `SKILL.md`                                          | 绑定操作契约 + 路由器（765 行，约 47.8KB，有体积守卫）                                                                               |
+| `SKILL.md`                                          | 绑定操作契约 + 路由器（767 行，约 48.9KB，有体积守卫）                                                                               |
 | `COMPLETION_GATE.md`                                | 完成输出规格 · 构件门禁 · §AUDIT 审计协议 · 预输出清单                                                                              |
 | `CODING_PRINCIPLES.md`                              | 4 条铁律（Think Before Coding · Simplicity First · Surgical Changes · Goal-Driven Execution）+ Fowler 12 项 smell 评审基线 |
 | `ENGINEERING_STD.md`                                | 工程标准细则                                                                                                           |
@@ -373,7 +375,9 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `WORKFLOWS_EXTENDED.md`                             | §M 双模式 + Class-E 清单 + ADR/PAUSED 格式 · C4 审计 / C5 部署 / C6 运维 / C7 非 Web / S1 spike · 项目画像参照                       |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`           | 项目记忆子系统                                                                                                          |
 | `VERIFICATION_UPGRADES.md`                          | §V1 FCV · §V2 测试完整性 · §V3 覆盖诚实 · §V4 对抗评审 · §V5 车道 · §V11 任务分类 + doc-skill 委托与 DOC-asset render 门                        |
-| `scripts/assert_artifacts.py`                       | 规范断言脚本，项目复制进 `tests/` 使用（21 组：产物存在性、证据完整性、诊断/声明 lint、secret scan、test-change guard、risk-tier、DOC-asset 渲染门 + exec-check、任务分类一致性、working-note 生命周期、仓库卫生预算） |
+| `MULTI_AGENT.md`                                            | 多 Agent 协议（R11 懒加载伴档）：RunContext 身份 · 三条不变量 · Task/Integration 双 Gate · lease/fencing · 不可变候选 · 证据链 · outbox 发布 · 信任分级 |
+| `scripts/run_control.py` / `scripts/resource_allocator.py` / `scripts/integrate.py` | 多 Agent 控制面（SQLite：原子 claim、lease+存储端 fencing、状态机、session→run 映射、RED latch 归属、outbox+对账、can_clean）· per-attempt 资源命名空间（端口/进程组/临时目录/DB 名/浏览器 profile/凭据引用/配额/quarantine）· 不可变候选集成（冻结 SHA 队列、candidate 树上实跑 gate、CAS 发布、SHA 对账） |
+| `scripts/assert_artifacts.py`                       | 规范断言脚本，项目复制进 `tests/` 使用（25 组：产物存在性、证据完整性、诊断/声明 lint、secret scan、test-change guard、risk-tier、DOC-asset 渲染门 + exec-check、任务分类一致性、working-note 生命周期、仓库卫生预算） |
 | `scripts/mm_probe.py`                               | 行为化多模态自探针 + comparative 子探针（COV-5 验证器选择）                                                                                           |
 | `scripts/ui_fidelity.py`                            | 拷贝保真测量（§A4.1.2）：像素 diff（pixelmatch v5.3.0 移植）+ 聚类、DOM 盒子 Δ/重叠/遮挡判定 + 图像参考区域提取——纯 stdlib                            |
 | `scripts/scan_secrets.py`                           | 独立的 secret 扫描（断言第 14 组）——扫变更波 diff 上的凭据样字符串                                                                      |

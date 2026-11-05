@@ -241,6 +241,18 @@ checkable.
   backlog outer-loop / feasibility spike), an 8-column completion table, and two
   enforcement plugins.
 
+- **Multi-agent concurrency, by construction.** Several agents can work one
+  project at once without stomping each other's evidence: each task runs under a
+  controller-issued `RunContext` (never self-declared) with its own artifact
+  root for acceptance/log/latch/state, every shared write is fenced by
+  `attempt_id + lease_epoch` (stale epochs are rejected storage-side), and
+  integration queues freeze SHAs instead of branch names. Three invariants hold
+  the line: what is reviewed, tested, archived and pushed is the same candidate
+  tree/commit; a rebase, conflict resolution, verifier update or target change
+  voids every old green; a lease expiring never means the old agent stopped.
+  Without a RunContext the legacy single-agent behavior is byte-identical —
+  and concurrency never relaxes a gate. Full protocol: `MULTI_AGENT.md`.
+
 ## Install
 
 ```bash
@@ -886,7 +898,7 @@ welcome.
 
 | File                                                        | Purpose                                                                                                                                                                        |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SKILL.md`                                                  | The binding operational contract + router (765 lines, ~47.8 KB, size-guarded)                                                                                                |
+| `SKILL.md`                                                  | The binding operational contract + router (767 lines, ~48.9 KB, size-guarded)                                                                                                |
 | `COMPLETION_GATE.md`                                        | Completion output spec · artifact gates · §AUDIT audit protocol · pre-output checklist                                                                                         |
 | `CODING_PRINCIPLES.md`                                      | The 4 iron rules (Think Before Coding · Simplicity First · Surgical Changes · Goal-Driven Execution) + Fowler's 12-smell reviewer baseline                                     |
 | `ENGINEERING_STD.md`                                        | Detailed engineering standards                                                                                                                                                 |
@@ -895,7 +907,9 @@ welcome.
 | `WORKFLOWS_EXTENDED.md`                                     | §M dual modes + Class-E list + ADR/PAUSED formats · C4 audit / C5 deploy / C6 ops / C7 non-web / S1 spike · profile reference                                                  |
 | `MEMORY_RULES.md` / `MEMORY_TEMPLATES.md`                   | Project memory subsystem                                                                                                                                                       |
 | `VERIFICATION_UPGRADES.md`                                  | §V1 FCV · §V2 test integrity · §V3 coverage honesty · §V4 adversarial review · §V5 lanes · §V11 task class + doc-skill delegation and the DOC-asset render gate               |
-| `scripts/assert_artifacts.py`                               | The canonical assertion script projects copy into `tests/` (21 groups: artifact presence, evidence integrity, diagnosis/claim lint, secret scan, test-change guard, risk-tier, DOC-asset render + exec-check, task-class coherence, working-note lifecycle, repo-hygiene budget) |
+| `MULTI_AGENT.md`                                            | Multi-agent protocol (R11, lazy companion): RunContext identity · three invariants · Task/Integration dual gates · lease/fencing · immutable candidates · evidence chain · outbox publication · trust tiers |
+| `scripts/run_control.py` / `scripts/resource_allocator.py` / `scripts/integrate.py` | Multi-agent control plane (SQLite: atomic claim, lease + storage-side fencing, state machine, session→run map, RED-latch ownership, outbox + reconciliation, can_clean) · per-attempt resource namespaces (ports, process groups, temp dirs, DB names, browser profiles, credential refs, quotas, quarantine) · immutable-candidate integration (frozen-SHA queue, gate runs on the candidate tree, CAS publish, SHA reconciliation) |
+| `scripts/assert_artifacts.py`                               | The canonical assertion script projects copy into `tests/` (25 groups: artifact presence, evidence integrity, diagnosis/claim lint, secret scan, test-change guard, risk-tier, DOC-asset render + exec-check, task-class coherence, working-note lifecycle, repo-hygiene budget) |
 | `scripts/mm_probe.py`                                       | Behavioral self-multimodality probe + comparative sub-probe (verifier selection, COV-5)                                                                                                                |
 | `scripts/ui_fidelity.py`                                    | Design-copy fidelity measurement (§A4.1.2): pixel diff (pixelmatch v5.3.0 port) + clusters, DOM box Δ/overlap/occlusion verdicts + reference-image region extraction — stdlib only                                  |
 | `scripts/scan_secrets.py`                                   | Standalone secret scan for the completion checklist (assert group 14) — credential-looking strings on the change-wave diff                                                      |
