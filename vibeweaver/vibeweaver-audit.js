@@ -391,10 +391,35 @@ function auditGitTop(dir) {
     const out = execFileSync("git", ["rev-parse", "--show-toplevel"], {
       cwd: dir, encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"],
     }).trim()
-    return out ? path.resolve(out) : null
+    if (out) return path.resolve(out)
   } catch {
-    return null
+    /* fall through to the pure-FS probe below */
   }
+  // W25b Windows hardening: when the subprocess probe fails or is unavailable
+  // (platform/path spelling), the `.git` dir / worktree-pointer layout answers
+  // the same question without leaving the filesystem.
+  try {
+    for (let d = path.resolve(dir); ; d = path.dirname(d)) {
+      let st = null
+      try { st = lstatSync(path.join(d, ".git")) } catch { st = null }
+      if (st) {
+        if (!st.isFile()) return d
+        const m = /^gitdir:\s*(.+)\s*$/.exec(safeRead(path.join(d, ".git")).trim())
+        if (m) {
+          const gd = path.resolve(d, m[1])
+          const w = gd.indexOf(`${path.sep}.git${path.sep}worktrees${path.sep}`) >= 0
+            ? gd.split(`${path.sep}.git${path.sep}worktrees${path.sep}`)[0]
+            : gd.replace(/[\\/]\.git$/, "")
+          return w || d
+        }
+        return d
+      }
+      if (d === path.dirname(d)) break
+    }
+  } catch {
+    /* never throw */
+  }
+  return null
 }
 
 // git rev-parse returns the realpath (`/private/var/...`); keep the host's
@@ -403,8 +428,13 @@ function auditHostSpelling(host, target) {
   if (!target) return target
   try {
     const realHost = realpathSync(path.resolve(host))
-    if (target === realHost || target.startsWith(realHost + path.sep)) {
-      return path.join(path.resolve(host), path.relative(realHost, target))
+    const realT = (() => { try { return realpathSync(target) } catch { return target } })()
+    const eq = (a, b) => process.platform === "win32"
+      ? a.toLowerCase() === b.toLowerCase() : a === b
+    const starts = (a, b) => process.platform === "win32"
+      ? a.toLowerCase().startsWith(b.toLowerCase()) : a.startsWith(b)
+    if (eq(realT, realHost) || starts(realT, realHost + path.sep)) {
+      return path.join(path.resolve(host), path.relative(realHost, realT))
     }
   } catch {
     /* host may not exist */

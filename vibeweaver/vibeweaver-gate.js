@@ -780,10 +780,35 @@ function gitTopLevel(start) {
       timeout: 5000,
       stdio: ["ignore", "pipe", "pipe"],
     }).trim()
-    return out ? path.resolve(out) : null
+    if (out) return path.resolve(out)
   } catch {
-    return null
+    /* fall through to the pure-FS probe below */
   }
+  // W25b Windows hardening: when the subprocess probe fails or is unavailable,
+  // the `.git` dir / worktree-pointer layout answers the same question without
+  // leaving the filesystem (spelling-stable across platforms).
+  try {
+    for (let d = path.resolve(start); ; d = path.dirname(d)) {
+      let st = null
+      try { st = lstatSync(path.join(d, ".git")) } catch { st = null }
+      if (st) {
+        if (!st.isFile()) return d
+        const m = /^gitdir:\s*(.+)\s*$/.exec(safeRead(path.join(d, ".git")).trim())
+        if (m) {
+          const gd = path.resolve(d, m[1])
+          const w = gd.indexOf(`${path.sep}.git${path.sep}worktrees${path.sep}`) >= 0
+            ? gd.split(`${path.sep}.git${path.sep}worktrees${path.sep}`)[0]
+            : gd.replace(/[\\/]\.git$/, "")
+          return w || d
+        }
+        return d
+      }
+      if (d === path.dirname(d)) break
+    }
+  } catch {
+    /* never throw */
+  }
+  return null
 }
 
 function nearestExistingDir(start) {
@@ -859,6 +884,13 @@ function findProjectRootForWrite(directory, filePath) {
   // A nested git repo owns scope only when it is actually set up (log +
   // checker). An empty marker / unpinned inline-only repo is not enough to
   // shrink away an active umbrella's security teeth.
+  // W25b: the pure-FS worktree detection (`.git` FILE pointers) is
+  // authoritative for linked worktrees and platform-robust — prefer it before
+  // the subprocess-derived identity branches (Windows probe/spelling variance).
+  {
+    const wtTop = worktreeTopLevel(nearestExistingDir(fileDir))
+    if (wtTop && !samePath(wtTop, activeAbove)) return { root: wtTop, via: "worktree" }
+  }
   if (fileGit && !samePath(fileGit, hostGit)) {
     if (trustedNestedProject(fileGit)) return { root: fileGit, via: outsideHost ? "external-git" : "nested-git" }
     // W25 §MA9: a linked WORKTREE checkout (`.git` file pointer into

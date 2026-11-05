@@ -1,5 +1,5 @@
 {
-  "commit": "8b48b772f0c5bd4e552b503754886564a90fbdae",
+  "commit": "23868f72c554ebb40382da011675bd68a09ee43e",
   "files": [
     {
       "bytes": 44419,
@@ -242,14 +242,14 @@
       "sha256": "3eb0bfd9d0df2e3efe38a92922a797b61d7111267216b218c45c29c08d4d1d0f"
     },
     {
-      "bytes": 172764,
+      "bytes": 174048,
       "path": "vibeweaver/vibeweaver-audit.js",
-      "sha256": "850f619a0139fc14efb1bdece2658fc0075bcc9632dd5db9a6778094236ff324"
+      "sha256": "bd805f161ed1a677cc7da93db2848eee3402f72d765675fc635367b565fc0c2b"
     },
     {
-      "bytes": 125965,
+      "bytes": 127328,
       "path": "vibeweaver/vibeweaver-gate.js",
-      "sha256": "46bca020469625518cff4fe76730ef33e443af7efc8be0b5a2141aa9997c3959"
+      "sha256": "066ee35033a932e0378bd963f106380f1000b7a34ef9493d4cb55d22eb1dce15"
     }
   ],
   "schema_version": 1,
