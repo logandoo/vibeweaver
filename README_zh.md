@@ -393,7 +393,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 本仓库用 skill 要求别人项目的方式检查自己：
 
 ```bash
-python3 verify_skill.py                     # 包完整性：payload、链接、标记、语法
+python3 verify_skill.py                     # 包完整性：payload、链接、标记、语法、体积/token 上限
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
 node vibeweaver/scripts/audit_selftest.mjs  # 601 项 fixture 检查（无校准数据时 T6 SKIP）
 node vibeweaver/scripts/mutation_sweep.mjs  # 48 项变异，每项都必须被抓到
