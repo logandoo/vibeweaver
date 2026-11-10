@@ -11,7 +11,7 @@
 - 控制面/资源/集成三模块补硬：terminal 态拒 `expire()` + 转换表对齐（D-W25-6 保留 merged→published→cleaned 主路径）· reconcile 盲区闭合（未归因 pending 一律上报）· heartbeat/latch_release 按 attempt 归属限定 · claim+takeover 的 run_context.json 改事务后写 + expire 补偿（幻影身份双路径清偿）· credential name 熵守卫（hex/base64/无分隔 token 形状拒绝）· 端口预留事务内 bind + SO_REUSEADDR off · backlog `--control-db` 对账 run_control leases · evidence_lock 媒体 `..` 越界 named-escape · assert group 25 相对根按 run-root 解析 · evidence_seal `skill_digest` 语义化（sha256 前缀 + `skill_version` 字段）。
 - 插件侧根治跨实例 lost-update：flush 时锁内三方合并（base/ours/disk 逐键 + RED latch newer-wins 不复活，W25k/W25k2 钉）；fail-closed 不再受 agent 可控 `VIBEWEAVER_GATE_FINAL` 门控（W25j6 钉）。SKILL.md 净增归零（48,931B ≤ 波前 48,943）。
 - 验证：TDD RED 16+3→GREEN；FCV-W25b PASS（11 命令 + 4 修复点位源码实证）；fix-round-3 scoped re-review **READY**（13/13 ADDRESSED、零新破坏）；终树 harness 601/0·48/0·86/86·75/75，模块 run_control 32/32 · integrate 30/30 · resource_allocator 15/15 · run_aware_scripts 24/24 · backlog_check 12/12，scan clean。
-- 发布套件：audit_selftest 601 / 0 · mutation_sweep 48 / 0 · plugin compat 86 / 86 · mini gate 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows)。
+- 发布套件：audit_selftest 601 / 0 · mutation_sweep 48 / 0 · plugin compat 92 / 92 · mini gate 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows)。
 - dsh 发行版同步（logandoo/vibeweaver-dsh d6d3c8d）：契约卡多 Agent 行（净增压缩，全组合 <8000B）+ checker/脚本面 W25b 同步；unit 193/193 · final 61/61。
 
 ## 2026-11-05 多 Agent 并发改造（W25,§18 全量）

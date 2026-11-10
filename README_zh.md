@@ -243,7 +243,7 @@ cp ~/.config/opencode/skills/vibeweaver/vibeweaver-audit.js ~/.config/opencode/p
 
 **`vibeweaver-gate`：stop hook。**
 
-- 它挂在 opencode 的 `tool.execute.after` 钩子上，拦截每一次 `write`/`edit`。如果项目处于 vibeweaver 激活态（有 `tests/verification_log.md`），插件就运行项目的 `tests/assert_artifacts.py`（四种 flag 组合全试一遍）。
+- 它挂在 opencode 的 `tool.execute.after` 钩子上，拦截每一次 `write`/`edit`。如果项目处于 vibeweaver 激活态（有 `tests/verification_log.md`，或有 `.vibeweaver/project.json`——会话加载 vibeweaver skill 后由 gate 自行写入），插件就运行项目的 `tests/assert_artifacts.py`（四种 flag 组合全试一遍）。
 - 如果验证证据缺失或造假（日志里没有迭代记录、`acceptance.md` 首行没有 `> cap=5  stall=3×`、被引用的截图/媒体文件不存在或零字节），插件会**向工具调用结果里抛一个 `GATE-BLOCKED` 错误**。agent 走不动了，它自己的工具调用会报错返回。这就是 stop hook 的全部意义：它会阻止模型自顾自完工。
 - 结构性缺失（`memory/`、设计文档、README）只追加 `GATE-WARNING`，不阻塞。
 - 还有个 `session.idle` 兜底：会话在证据还欠着的时候就安静下来，插件会往 opencode 日志写一条 `warn`。
@@ -397,7 +397,7 @@ python3 verify_skill.py                     # 包完整性：payload、链接、
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
 node vibeweaver/scripts/audit_selftest.mjs  # 601 项 fixture 检查（无校准数据时 T6 SKIP）
 node vibeweaver/scripts/mutation_sweep.mjs  # 48 项变异，每项都必须被抓到
-node tests/plugin_compat_test.mjs           # 86/86 双 loader 兼容（无豁免）
+node tests/plugin_compat_test.mjs           # 92/92 双 loader 兼容（无豁免）
 node tests/mini_gate_test.mjs               # 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows) mini checker gate：v1/v2 write + idle + 安装器
 ```
 

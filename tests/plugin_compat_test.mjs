@@ -15,7 +15,7 @@
 // Exit 0 only when every check passes.
 
 import { execFileSync } from "node:child_process"
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import { pathToFileURL } from "node:url"
 import path from "node:path"
@@ -1344,6 +1344,153 @@ function runAssertJson(root) {
   rec("D13b-audit-v1: active nested workspace uses its own RED latch",
     !!blocked && /GATE-BLOCKED \(vibeweaver-audit\)/.test(String(blocked.message || "")),
     blocked ? "blocked by host latch" : "UNEXPECTEDLY clean")
+}
+
+// PR 5a — self-activation: loading the vibeweaver skill writes
+// .vibeweaver/project.json in the host project (activation no longer depends
+// on the policed agent creating tests/verification_log.md). Never without a
+// skill load, never above/outside the host, never into a nested repo of an
+// active project, never in child sessions, and a failed write never throws.
+{
+  const freshHost = (name) => {
+    const root = path.join(TMP, name)
+    rmrf(root)
+    mkdirSync(path.join(root, "src"), { recursive: true })
+    return root
+  }
+  const markerOf = (root) => path.join(root, ".vibeweaver", "project.json")
+  const v1For = async (root, logs) => (await loadAsV1(gateMod, {
+    client: { app: { log: async (e) => logs.push(e && e.body) } }, directory: root,
+  }, "vibeweaver-gate")).hooks[0]
+
+  // SA1 — skill loaded → marker written, note surfaced, gate now armed.
+  {
+    const root = freshHost("sa-loaded")
+    const logs = []
+    const h = await v1For(root, logs)
+    const out = { output: "<skill content>" }
+    let threw = null
+    try {
+      await h["tool.execute.after"]({ tool: "skill", sessionID: "s-sa1", callID: "sa1", args: { name: "vibeweaver" } }, out)
+    } catch (e) {
+      threw = e
+    }
+    let body = null
+    try { body = JSON.parse(readFileSync(markerOf(root), "utf8")) } catch { body = null }
+    const w = { output: "ok" }
+    await h["tool.execute.after"]({ tool: "write", sessionID: "s-sa1", callID: "sa1w", args: { path: path.join(root, "src", "a.js"), content: "x" } }, w)
+    rec("SA1-gate-v1: vibeweaver skill load writes .vibeweaver/project.json and arms the gate",
+      !threw && !!body && body.schema === 1 && body.activated_by === "vibeweaver-gate" && typeof body.ts === "string"
+        && out.output.startsWith("<skill content>") && /project activated/.test(out.output)
+        && logs.some((l) => l && /self-activation: wrote/.test(String(l.message)))
+        && /GATE-INACTIVE: marker present \(written by the gate/.test(w.output),
+      threw ? String(threw.message) : `body=${JSON.stringify(body)} write=${w.output.slice(0, 80)}`)
+  }
+
+  // SA2 — skill NOT loaded (other skill, the mini kit — it has its own gate —
+  // and an ordinary write) → no marker.
+  {
+    const root = freshHost("sa-not-loaded")
+    const h = await v1For(root, [])
+    const o1 = { output: "<other skill>" }
+    await h["tool.execute.after"]({ tool: "skill", sessionID: "s-sa2", callID: "sa2", args: { name: "some-other-skill" } }, o1)
+    const oMini = { output: "<mini skill>" }
+    await h["tool.execute.after"]({ tool: "skill", sessionID: "s-sa2", callID: "sa2m", args: { name: "vibeweaver-mini" } }, oMini)
+    const o2 = { output: "ok" }
+    await h["tool.execute.after"]({ tool: "write", sessionID: "s-sa2", callID: "sa2w", args: { path: path.join(root, "src", "a.js"), content: "x" } }, o2)
+    rec("SA2-gate-v1: no vibeweaver skill load → no marker, outputs untouched",
+      !existsSync(path.join(root, ".vibeweaver")) && o1.output === "<other skill>" && oMini.output === "<mini skill>" && o2.output === "ok",
+      `vibeweaver-dir=${existsSync(path.join(root, ".vibeweaver"))} o1=${o1.output} o2=${o2.output}`)
+  }
+
+  // SA3 — nested repo inside an ACTIVE project (W23) and $HOME → no marker.
+  {
+    const parent = redProject("sa-umbrella")
+    const dev = path.join(parent, "dev")
+    mkdirSync(path.join(dev, "src"), { recursive: true })
+    execFileSync("git", ["init", "-q"], { cwd: dev })
+    const h = await v1For(dev, [])
+    await h["tool.execute.after"]({ tool: "skill", sessionID: "s-sa3", callID: "sa3", args: { name: "vibeweaver" } }, { output: "" })
+    const homeHost = freshHost("sa-home")
+    const savedHome = process.env.HOME
+    const savedProfile = process.env.USERPROFILE
+    process.env.HOME = homeHost
+    process.env.USERPROFILE = homeHost
+    try {
+      const hh = await v1For(homeHost, [])
+      await hh["tool.execute.after"]({ tool: "skill", sessionID: "s-sa3h", callID: "sa3h", args: { name: "vibeweaver" } }, { output: "" })
+    } finally {
+      if (savedHome === undefined) delete process.env.HOME
+      else process.env.HOME = savedHome
+      if (savedProfile === undefined) delete process.env.USERPROFILE
+      else process.env.USERPROFILE = savedProfile
+    }
+    rec("SA3-gate-v1: nested repo of an active project and $HOME are never self-activated",
+      !existsSync(markerOf(dev)) && !existsSync(markerOf(parent)) && !existsSync(markerOf(homeHost)),
+      `dev=${existsSync(markerOf(dev))} umbrella=${existsSync(markerOf(parent))} home=${existsSync(markerOf(homeHost))}`)
+  }
+
+  // SA4 — .vibeweaver symlinked OUTSIDE the root → refused, nothing written there.
+  {
+    const root = freshHost("sa-escape")
+    const outside = freshHost("sa-escape-target")
+    symlinkSync(outside, path.join(root, ".vibeweaver"), process.platform === "win32" ? "junction" : "dir")
+    const logs = []
+    const h = await v1For(root, logs)
+    const out = { output: "<skill content>" }
+    let threw = null
+    try {
+      await h["tool.execute.after"]({ tool: "skill", sessionID: "s-sa4", callID: "sa4", args: { name: "vibeweaver-core" } }, out)
+    } catch (e) {
+      threw = e
+    }
+    rec("SA4-gate-v1: marker path resolving outside the root is refused (no write, warn logged)",
+      !threw && !existsSync(path.join(outside, "project.json")) && out.output === "<skill content>"
+        && logs.some((l) => l && l.level === "warn" && /self-activation skipped: refused/.test(String(l.message))),
+      threw ? String(threw.message) : `outside=${existsSync(path.join(outside, "project.json"))} logs=${JSON.stringify(logs).slice(0, 120)}`)
+  }
+
+  // SA5 — the write fails (.vibeweaver is a FILE) → no throw, result intact.
+  {
+    const root = freshHost("sa-write-fails")
+    writeFileSync(path.join(root, ".vibeweaver"), "not a dir\n")
+    const logs = []
+    const h = await v1For(root, logs)
+    const out = { output: "<skill content>" }
+    let threw = null
+    try {
+      await h["tool.execute.after"]({ tool: "skill", sessionID: "s-sa5", callID: "sa5", args: { name: "vibeweaver" } }, out)
+    } catch (e) {
+      threw = e
+    }
+    rec("SA5-gate-v1: a failed marker write never throws into the tool result",
+      !threw && out.output === "<skill content>"
+        && logs.some((l) => l && l.level === "warn" && /self-activation skipped/.test(String(l.message))),
+      threw ? String(threw.message) : `out=${out.output} logs=${JSON.stringify(logs).slice(0, 120)}`)
+  }
+
+  // SA6 — v2: execute.after skill + session.skill.activated; child sessions skip.
+  if (gateV2def) {
+    const rootA = freshHost("sa-v2-tool")
+    const a = makeV2Ctx(rootA)
+    const disposeA = await gateV2def.value.setup(a.ctx)
+    const ev = { tool: "skill", sessionID: "s-sa6", agent: "a", messageID: "m1", id: "sa6", input: { name: "vibeweaver" }, status: "completed", result: { content: "<skill content>" } }
+    await a.toolHooks.after[0](ev)
+    const rootB = freshHost("sa-v2-event")
+    const b = makeV2Ctx(rootB)
+    const disposeB = await gateV2def.value.setup(b.ctx)
+    b.bus.emit({ type: "session.skill.activated", data: { sessionID: "s-sa6b", name: "vibeweaver" } })
+    const rootC = freshHost("sa-v2-child")
+    const c = makeV2Ctx(rootC)
+    const disposeC = await gateV2def.value.setup(c.ctx)
+    c.bus.emit({ type: "session.skill.activated", data: { sessionID: "s-sa6c", parentID: "s-parent", name: "vibeweaver" } })
+    await sleep(50)
+    for (const d of [disposeA, disposeB, disposeC]) if (typeof d === "function") d()
+    rec("SA6-gate-v2: skill tool + session.skill.activated self-activate; child session does not",
+      existsSync(markerOf(rootA)) && /project activated/.test(String(ev.result.content))
+        && existsSync(markerOf(rootB)) && !existsSync(markerOf(rootC)),
+      `tool=${existsSync(markerOf(rootA))} event=${existsSync(markerOf(rootB))} child=${existsSync(markerOf(rootC))}`)
+  }
 }
 
 console.log(`\n=== COMPAT HARNESS: ${count - failures}/${count} passed, ${failures} failed ===`)

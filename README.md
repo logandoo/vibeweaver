@@ -564,8 +564,10 @@ enforce the evidence rules mechanically, at the tool level.
 **`vibeweaver-gate`: the stop hook.**
 
 - It hooks opencode's `tool.execute.after` for every `write`/`edit`. If the project
-  is vibeweaver-active (it has a `tests/verification_log.md`), the plugin runs the
-  project's `tests/assert_artifacts.py` (trying all four flag combos).
+  is vibeweaver-active (it has a `tests/verification_log.md` or a
+  `.vibeweaver/project.json`, which the gate writes itself once a session loads
+  the vibeweaver skill), the plugin runs the project's `tests/assert_artifacts.py`
+  (trying all four flag combos).
 - If verification evidence is missing or falsified (no iteration entries in the
   log, no `> cap=5  stall=3×` first line in `acceptance.md`, cited screenshots or
   media missing or zero bytes), the plugin **throws a `GATE-BLOCKED` error into the
@@ -927,7 +929,7 @@ python3 verify_skill.py                     # package integrity: payload, links,
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
 node vibeweaver/scripts/audit_selftest.mjs  # 601 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 48 mutations, each must be caught
-node tests/plugin_compat_test.mjs           # 86/86 dual loader compat (no quarantine)
+node tests/plugin_compat_test.mjs           # 92/92 dual loader compat (no quarantine)
 node tests/mini_gate_test.mjs               # 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows) mini checker gate: v1/v2 write + idle + installers
 ```
 
