@@ -45,6 +45,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "scripts"))
 import gate_events   # noqa: E402  (same-dir module: the plugin-interception ledger)
+import eval_tokens   # noqa: E402  (same-dir module: step_finish token sums)
 
 
 class ProcessGroupTimeout(TimeoutError):
@@ -626,7 +627,7 @@ def main(argv=None):
         (out / "cost.json").write_text(json.dumps({
             "wall_seconds": agent.get("seconds"), "model": args.model,
             "arm": getattr(args, "arm", "bare"), "seed": getattr(args, "seed", 0),
-            "skill_fingerprint": arm_fp, "tokens": agent.get("tokens"),
+            "skill_fingerprint": arm_fp, "tokens": eval_tokens.summarize_tokens(agent.get("stdout", "")),
             "setup_files_seeded": seeded,
             "gate_events": gate_events.summarize({"agent": agent})}, indent=2), encoding="utf-8")
         (out / "verdict.json").write_text(json.dumps({"scenario": sc["id"], "verdict": verdict, "hidden_test": test, "agent_exit": agent["exit"], "isolation_violations": iso["violations"]}, indent=2), encoding="utf-8")

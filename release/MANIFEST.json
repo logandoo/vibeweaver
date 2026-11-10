@@ -1,5 +1,5 @@
 {
-  "commit": "de6e9b6f0e30934bad24f5113deaf02afdcbbe32",
+  "commit": "dac7bb27797a4971eb670990e8595d5bd85d9291",
   "files": [
     {
       "bytes": 44419,
@@ -132,9 +132,14 @@
       "sha256": "caf199ac82401970f953b788f0ad0500663ff498db0980f153168c120049fd1b"
     },
     {
-      "bytes": 29065,
+      "bytes": 29176,
       "path": "vibeweaver/scripts/eval_run.py",
-      "sha256": "bbaa7cd54a974cb3ad9ee3a46e4380a3a94884193bc34af2e5a0e228efeab593"
+      "sha256": "8b1de79bbcc224210e161855eb95ed232824681c8caa8e6d2030a371db7f3d17"
+    },
+    {
+      "bytes": 3113,
+      "path": "vibeweaver/scripts/eval_tokens.py",
+      "sha256": "dc0d6eb71832e1e51e658fe7144d33ea317e0d4eb32daa0f9ae655d01e708b08"
     },
     {
       "bytes": 31654,
