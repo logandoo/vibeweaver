@@ -16,8 +16,12 @@ Checks:
   8. install.sh / install.bat install the full file set
    9. payload JS syntax — both plugins + 3 helper scripts (node --check,
       when node is available)
+  10. mini package files + installers + gate syntax
+  11. size/token budget — the caps scripts/contract_lint.py owns (SKILL.md
+      < 49 KB, companions <= 45 KB, always-resident contract <= 90k tokens,
+      lazy companions <= 20k, core <= 4k, mini <= 2k), reused, not restated
 """
-import pathlib, re, shutil, subprocess, sys, tempfile
+import importlib.util, pathlib, re, shutil, subprocess, sys, tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent
 PAYLOAD = ROOT / "vibeweaver"
@@ -262,6 +266,27 @@ def main():
             if r.returncode != 0:
                 fail("mini gate syntax check failed:\n" + (r.stderr or r.stdout)[:400])
 
+    # 11) size/token budget. The caps live in ONE place — the payload's
+    #     scripts/contract_lint.py (scripts/token_budget.py prints the same
+    #     full/core/mini numbers for perf_budget.py). verify_skill only wires
+    #     them into the package-integrity entry point so growth past a cap
+    #     fails here too, on every OS, before the slower suites run.
+    sys.dont_write_bytecode = True
+    budget = None
+    for name in ("contract_lint", "token_budget"):
+        spec = importlib.util.spec_from_file_location("vw_" + name, PAYLOAD / "scripts" / (name + ".py"))
+        mod = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(mod)
+        except (OSError, SyntaxError) as e:
+            fail("scripts/%s.py unloadable: %s" % (name, e))
+            continue
+        if name == "contract_lint":
+            for e in mod.lint(ROOT)[0]:
+                fail("contract lint / size budget: " + e)
+        else:
+            budget = {n: (tok, cap) for n, tok, cap, found in mod.measure(ROOT) if found}
+
     if WARNS:
         for w in WARNS:
             print("[verify_skill] WARN: " + w)
@@ -270,7 +295,9 @@ def main():
             print("[verify_skill] FAIL: " + f)
         print("verify_skill.py: %d failure(s)" % len(FAILS))
         return 1
-    print("verify_skill.py: package coherent (%d lines in SKILL.md, %d checks OK)" % (len(lines), 10))
+    full = budget.get("full") if budget else None
+    print("verify_skill.py: package coherent (%d lines in SKILL.md, %d checks OK%s)"
+          % (len(lines), 11, "; full contract %d of %d tokens" % full if full else ""))
     return 0
 
 

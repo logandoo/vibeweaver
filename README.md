@@ -923,7 +923,7 @@ welcome.
 ## Testing
 
 ```bash
-python3 verify_skill.py                     # package integrity: payload, links, markers, syntax
+python3 verify_skill.py                     # package integrity: payload, links, markers, syntax, size/token caps
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
 node vibeweaver/scripts/audit_selftest.mjs  # 601 fixture checks (T6 skips without calibration data)
 node vibeweaver/scripts/mutation_sweep.mjs  # 48 mutations, each must be caught
