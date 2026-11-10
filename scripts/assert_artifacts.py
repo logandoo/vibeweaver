@@ -593,6 +593,81 @@ def code_fingerprint(root):
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()
 
 
+# --- group 1b: oracle record (SKILL.md "Trusted oracle" — only project /
+# external tests certify). tests/oracle_run.json is MACHINE-written by
+# scripts/run_oracle.py; --final WARNs (never fails) when it is missing,
+# stale or red. SHARED CONTRACT with run_oracle.py: identical exclude list
+# and tree derivation (temporary index + object dir; real ones untouched).
+ORACLE_RECORD = "tests/oracle_run.json"
+ORACLE_TREE_EXCLUDE = (
+    ":(exclude).vibeweaver", ":(exclude)memory",
+    ":(exclude)tests/oracle_run.json", ":(exclude)tests/gate_result.json",
+    ":(exclude)tests/.evidence.lock", ":(exclude)tests/evidence_manifest.json",
+    ":(exclude)tests/test_baseline.json", ":(exclude)tests/verification_log.md",
+    ":(exclude)tests/acceptance.md", ":(exclude)tests/working_note.md",
+    ":(exclude)tests/review_package.md",
+    ":(exclude,glob)tests/*.log", ":(exclude,glob)tests/*.png",
+    ":(exclude,glob)tests/*.webm", ":(exclude,glob)tests/*.wav",
+    ":(exclude,glob)tests/*.mp4", ":(exclude,glob)tests/*.mp3",
+    ":(exclude,glob)**/__pycache__/**", ":(exclude,glob)**/.pytest_cache/**",
+)
+
+
+def oracle_tree_sha(root):
+    """git tree sha of the working tree under `root` (index-free), or None."""
+    import tempfile
+
+    def _g(*args, env=None):
+        try:
+            r = subprocess.run(["git", "-C", str(root), *args], capture_output=True,
+                               encoding="utf-8", errors="replace", timeout=60, env=env)
+            return r.returncode, r.stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            return -1, ""
+    rc, inside = _g("rev-parse", "--is-inside-work-tree")
+    if rc != 0 or inside != "true":
+        return None
+    _, prefix = _g("rev-parse", "--show-prefix")
+    rc, objects = _g("rev-parse", "--git-path", "objects")
+    if rc != 0 or not objects:
+        return None
+    objects = os.path.abspath(os.path.join(str(root), objects))
+    with tempfile.TemporaryDirectory(prefix="vw-oracle-") as td:
+        env = dict(os.environ, GIT_INDEX_FILE=os.path.join(td, "index"),
+                   GIT_OBJECT_DIRECTORY=os.path.join(td, "objects"),
+                   GIT_ALTERNATE_OBJECT_DIRECTORIES=objects)
+        os.mkdir(os.path.join(td, "objects"))
+        rc, _ = _g("add", "-A", "--", ".", *ORACLE_TREE_EXCLUDE, env=env)
+        if rc != 0:
+            return None
+        rc, tree = _g("write-tree", *(["--prefix=" + prefix] if prefix else []), env=env)
+        return tree if rc == 0 and tree else None
+
+
+def oracle_record_warnings(root):
+    """Group 1b findings (WARN-only): missing / unreadable / stale / red."""
+    hint = "run `python3 <skill>/scripts/run_oracle.py --root .` (tier-1 oracle; advisory)"
+    p = root / ORACLE_RECORD
+    if not p.is_file():
+        return [f"oracle record: {ORACLE_RECORD} missing — no machine-written test run backs "
+                f"the `- iter N PASS` claim; {hint}"]
+    try:
+        rec = json.loads(p.read_text(encoding="utf-8"))
+        if not isinstance(rec, dict) or rec.get("schema") != 1:
+            raise ValueError("schema")
+    except (OSError, ValueError, UnicodeDecodeError):
+        return [f"oracle record: {ORACLE_RECORD} unreadable or not schema 1; {hint}"]
+    out = []
+    cur = oracle_tree_sha(root)
+    if rec.get("tree_sha") != cur:
+        out.append(f"oracle record: STALE — recorded tree {str(rec.get('tree_sha'))[:12]} != current "
+                   f"tree {str(cur)[:12]} (the tree changed after the recorded test run); {hint}")
+    if rec.get("exit_code") != 0:
+        out.append(f"oracle record: RED — `{rec.get('cmd')}` exited {rec.get('exit_code')} "
+                   f"(the project's own tests did not pass); fix the code, then {hint}")
+    return out
+
+
 def risk_tier(root):
     """Group 16 — risk-tier: diffs/untracked files touching risk-tier code
     paths require tests/review_package.md on disk."""
@@ -2041,6 +2116,15 @@ def main():
     check(vl and len(vl.strip()) > 0, "tests/verification_log.md missing or empty (COV-1)")
     check(bool(re.search(r"^- iter \d+ (PASS|FAIL)\b", vl, re.M)),
           "verification_log.md has no `- iter N PASS/FAIL:` entries (A4.1 Step 4)")
+
+    # 1b) oracle record (--final, WARN-only) — group 1's `- iter N PASS` is
+    #     agent-written; tests/oracle_run.json is the machine-written run of
+    #     the project's own tests (scripts/run_oracle.py). Missing / stale /
+    #     red → WARN; never a failure, never counted in PASSES.
+    group("1b")
+    if args.final:
+        for _w in oracle_record_warnings(root):
+            warn(_w, "1b")
 
     # 2) acceptance.md — exists, first line cap/stall stop-condition (COV-7)
     group("2")

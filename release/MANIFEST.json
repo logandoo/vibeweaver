@@ -1,5 +1,5 @@
 {
-  "commit": "de6e9b6f0e30934bad24f5113deaf02afdcbbe32",
+  "commit": "dac7bb27797a4971eb670990e8595d5bd85d9291",
   "files": [
     {
       "bytes": 44419,
@@ -17,9 +17,9 @@
       "sha256": "50a21fd64484aaa14f762f95160ca8b4aede4fd4f7a8c7ef7b4df0808b225a6f"
     },
     {
-      "bytes": 37836,
+      "bytes": 38105,
       "path": "vibeweaver/COMPLETION_GATE.md",
-      "sha256": "f7532fea6b226c0623ece742c21b4522adc2d8a26afade2294feb7992bc495f3"
+      "sha256": "ec712ee1abef05f4c97cc3d80ce0aa50d8bbd9700bbe910d9bf775d21cd81b26"
     },
     {
       "bytes": 17227,
@@ -92,9 +92,9 @@
       "sha256": "76ca7518b3466ad613863e4c8140ae21ecddd0974aa5a9b108291f191003a84d"
     },
     {
-      "bytes": 126914,
+      "bytes": 131046,
       "path": "vibeweaver/scripts/assert_artifacts.py",
-      "sha256": "3af8820dade3b5988d1742b6a33cdf0e7ddb24ee43b5bebc144e45142f5c0a5b"
+      "sha256": "d58aba0939efd6c0cad1146d08b7f6b1840c4d575d9af3639f78c87b3ae9f66f"
     },
     {
       "bytes": 335737,
@@ -210,6 +210,11 @@
       "bytes": 49464,
       "path": "vibeweaver/scripts/run_control.py",
       "sha256": "28a561bb28cdee97b0aeff8b6d751500128a016a4251e7bd0dc9ef14eed4110b"
+    },
+    {
+      "bytes": 10282,
+      "path": "vibeweaver/scripts/run_oracle.py",
+      "sha256": "5fbde552e434c2c1278bfe4a61cb44c75720f463dfa328adfe9f9a502c32f0a9"
     },
     {
       "bytes": 15065,

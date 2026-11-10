@@ -182,6 +182,7 @@ python3 tests/assert_artifacts.py [--existing] [--backend-only] --final   # --fi
 | # | Assertion | Evidence when FAIL |
 |---|---|---|
 | 1 | `tests/verification_log.md` exists with ≥1 `- iter N PASS/FAIL:` entry | COV-1 / A4.1 Step 4 |
+| 1b | **oracle record (`--final`, WARN only)** — `tests/oracle_run.json`, written by `scripts/run_oracle.py` (runs the project's own tests), is present, its `tree_sha` matches the current tree, and `exit_code` is 0; else WARN, never FAIL | SKILL.md Trusted oracle |
 | 2 | `tests/acceptance.md` exists, first line `> cap=5  stall=3×` | COV-7 / A4.1 Step 1 |
 | 3 | every `tests/*.png` cited in those two files exists and >0 bytes | A4.4 |
 | 4 | `memory/MEMORY.md` exists, has ≥1 topic-file link, and ≥1 topic `.md` besides MEMORY.md exists | A7.9 / A7.10 |

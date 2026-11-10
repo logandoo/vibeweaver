@@ -42,6 +42,7 @@ PAYLOAD_FILES = [
     "scripts/mm_probe.py", "scripts/backlog_check.py", "scripts/scan_secrets.py",
     "scripts/ui_fidelity.py", "scripts/evidence_seal.py",
     "scripts/run_control.py", "scripts/resource_allocator.py", "scripts/integrate.py",
+    "scripts/run_oracle.py",
     "vibeweaver-gate.js", "vibeweaver-audit.js", "install.sh", "install.bat",
 ]
 INSTALLED_DOCS = [
