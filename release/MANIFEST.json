@@ -1,5 +1,5 @@
 {
-  "commit": "de6e9b6f0e30934bad24f5113deaf02afdcbbe32",
+  "commit": "dac7bb27797a4971eb670990e8595d5bd85d9291",
   "files": [
     {
       "bytes": 44419,
@@ -247,9 +247,9 @@
       "sha256": "3520279e0f62e7a1518a8be153170a92d3c90defe0f60990031e785af0dc6152"
     },
     {
-      "bytes": 127759,
+      "bytes": 134072,
       "path": "vibeweaver/vibeweaver-gate.js",
-      "sha256": "ac71078354cc7256785a17deccbe904408c00c4a85b4f4cd54b08b826eb6a0fb"
+      "sha256": "873405d66fcfc8c7f7460b48a295203ac5998d8905c2362e863be7f0a6ff37ae"
     }
   ],
   "schema_version": 1,

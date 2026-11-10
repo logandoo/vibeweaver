@@ -6,8 +6,9 @@ import path from "node:path"
 // vibeweaver physical gate — https://opencode.ai
 // Enforces the vibeweaver skill's evidence rules mechanically:
 // after every write/edit, if the project is vibeweaver-active
-// (has tests/verification_log.md), run the project's
-// tests/assert_artifacts.py and block the tool result with a
+// (has tests/verification_log.md or .vibeweaver/project.json — the gate
+// writes the latter itself when the session loads the vibeweaver skill),
+// run the project's tests/assert_artifacts.py and block the tool result with a
 // GATE-BLOCKED error while verification evidence is missing or
 // falsified. Also runs a stateful stall observer: same file edited
 // 3x with no new "iter N PASS" entry between -> GATE-WARNING pointing
@@ -966,6 +967,85 @@ function rootForSession(directory, sessionID) {
   return findProjectRoot([directory])
 }
 
+// PR 5a — self-activation. Activation used to be opt-in by the agent being
+// policed: only an agent-created tests/verification_log.md (or a
+// .vibeweaver/project.json nothing ever wrote) armed the gate, so a model
+// that loaded the skill and then ignored it was never gated. When the session
+// loads the vibeweaver skill (the signal the audit plugin uses for C17: a
+// `skill` tool call / session.skill.activated with a vibeweaver* name), the
+// gate writes the marker itself. The gate only tests the marker's EXISTENCE
+// (findProjectRoot / projectMarkerAt); the body is provenance only.
+// Fail-safe: host directory only (never an ancestor), never when a project is
+// already active at/above the host (W23: a marker must not re-scope an active
+// umbrella or a nested repo inside it), never at $HOME or the filesystem root
+// (the ancestor walk would arm every project below), never in child sessions,
+// never throws — a failed write is logged and the tool result is untouched.
+const SELF_ACTIVATION_TRIED = new Set()
+
+// The audit's C17 name test (vibeweaver*), minus the mini kit: vibeweaver-mini
+// ships its own vibeweaver-mini-gate.js and is explicitly NOT guarded by this
+// gate (README "Mini ships a separate, smaller plugin").
+function isVibeweaverSkillName(name) {
+  return typeof name === "string" && name.startsWith("vibeweaver") && !name.startsWith("vibeweaver-mini")
+}
+
+function isVibeweaverSkillCall(tool, args) {
+  return tool === "skill" && !!args && typeof args === "object" && isVibeweaverSkillName(args.name)
+}
+
+function selfActivate(directory, sessionID, input = null) {
+  try {
+    if (process.env.VIBEWEAVER_GATE === "off") return null
+    if (isChildSession(input)) return null
+    if (!directory || typeof directory !== "string") return null
+    const host = canonicalPath(directory)
+    const key = `${host}|${sessionID || "(session)"}`
+    if (SELF_ACTIVATION_TRIED.has(key)) return null
+    SELF_ACTIVATION_TRIED.add(key)
+    capBounded(SELF_ACTIVATION_TRIED)
+    try {
+      if (!statSync(host).isDirectory()) return null
+    } catch {
+      return null
+    }
+    if (findProjectRoot([host])) return null // already active here or above
+    if (path.dirname(host) === host) return null
+    const home = process.env.HOME || process.env.USERPROFILE || ""
+    if (home && !isOutside(host, home)) return null // $HOME or an ancestor of it
+    const marker = path.join(host, STATE_DIR, "project.json")
+    const expected = `${STATE_DIR}/project.json`
+    // D3-resolved containment: a symlinked .vibeweaver (or a dangling
+    // project.json link) that resolves anywhere else is refused.
+    if (relativeUnderRoot(host, marker) !== expected) {
+      return { error: `refused: ${marker} does not resolve under ${host}` }
+    }
+    mkdirSync(path.dirname(marker), { recursive: true })
+    if (relativeUnderRoot(host, marker) !== expected) {
+      return { error: `refused: ${marker} does not resolve under ${host}` }
+    }
+    const body = JSON.stringify({ schema: 1, activated_by: "vibeweaver-gate", ts: new Date().toISOString() }) + "\n"
+    atomicWriteUnique(marker, body)
+    return { written: marker, root: host }
+  } catch (err) {
+    return { error: String((err && err.message) || err) }
+  }
+}
+
+function selfActivationNote(r) {
+  return r && r.written
+    ? `[vibeweaver-gate] skill loaded — project activated: wrote ${r.written} (the physical gate now checks writes in ${r.root}).`
+    : null
+}
+
+async function logSelfActivation(appLike, r) {
+  if (!r || (!r.written && !r.error)) return
+  await logToHost(appLike, {
+    service: "vibeweaver-gate",
+    level: r.error ? "warn" : "info",
+    message: r.error ? `self-activation skipped: ${r.error}` : `self-activation: wrote ${r.written}`,
+  })
+}
+
 // D4 (2026-10-15, PLAN §2 D4): fail-closed — "the check could not run" is
 // itself a BLOCK, never a pass (METR Hawk: fail loudly / deny by default).
 // The old keyword classifier (BLOCKING_HINTS) let hint-free failures through;
@@ -1296,7 +1376,17 @@ async function checkGate(root, force = false) {
     const key = root + "|inactive"
     if (!LENIENT_NOTED.has(key)) {
       LENIENT_NOTED.add(key)
-      return { blocking: [], warnings: ["GATE-INACTIVE: marker present but tests/verification_log.md is missing — the gate cannot attribute a task class; create the log or remove the marker"] }
+      // PR 5a: a gate-written marker records that the skill WAS loaded here —
+      // "remove the marker" would be an invitation to opt back out.
+      let selfMarked = false
+      try {
+        selfMarked = JSON.parse(safeRead(path.join(root, STATE_DIR, "project.json")) || "null").activated_by === "vibeweaver-gate"
+      } catch {
+        selfMarked = false
+      }
+      return { blocking: [], warnings: [selfMarked
+        ? "GATE-INACTIVE: marker present (written by the gate when the vibeweaver skill was loaded) but tests/verification_log.md is missing — the gate cannot attribute a task class; create the log"
+        : "GATE-INACTIVE: marker present but tests/verification_log.md is missing — the gate cannot attribute a task class; create the log or remove the marker"] }
     }
     return null
   }
@@ -2677,6 +2767,20 @@ async function server({ client, directory }) {
       if (risk) throw new Error(risk)
     },
     "tool.execute.after": async (input, output) => {
+      if (input && isVibeweaverSkillCall(input.tool, input.args || (output && output.args))) {
+        // PR 5a: the skill was loaded in this session — self-activate.
+        try {
+          const act = selfActivate(directory, input.sessionID, input)
+          await logSelfActivation(client && client.app, act)
+          const note = selfActivationNote(act)
+          if (note && output && typeof output === "object") {
+            output.output = (typeof output.output === "string" && output.output ? output.output + "\n" : "") + note
+          }
+        } catch {
+          /* activation is best-effort; never break the skill tool result */
+        }
+        return
+      }
       if (input.tool === "bash" || input.tool === "shell") {
         // Host without a pre-hook: the guard cannot stop execution, but it
         // must not disappear silently — surface a post-hoc GATE-WARNING.
@@ -2750,6 +2854,13 @@ async function server({ client, directory }) {
         }
         return
       }
+      if (event && event.type === "session.skill.activated") {
+        const payload = (event.data || event.properties) || {}
+        if (isVibeweaverSkillName(payload.name)) {
+          await logSelfActivation(client && client.app, selfActivate(directory, payload.sessionID, payload))
+        }
+        return
+      }
       if (!event || event.type !== "session.idle") return
       const payload = (event.data || event.properties) || {}
       const r = await gateIdleCheck(directory, payload.sessionID)
@@ -2789,6 +2900,18 @@ async function setup(ctx) {
   }
   const registrations = []
   const registration = await ctx.tool.hook("execute.after", async (event) => {
+    if (event && event.status === "completed" && isVibeweaverSkillCall(event.tool, event.input)) {
+      // PR 5a: the skill was loaded in this session — self-activate.
+      try {
+        const act = selfActivate(directory, event.sessionID, event)
+        await logSelfActivation(null, act)
+        const note = selfActivationNote(act)
+        if (note) appendNotesToV2Result(event, [note])
+      } catch {
+        /* activation is best-effort; never break the skill tool result */
+      }
+      return
+    }
     if (!event || !GATED_TOOLS.has(event.tool)) return
     // v1 parity: tool.execute.after fires only for successful executions.
     if (event.status !== "completed") return
@@ -2855,6 +2978,13 @@ async function setup(ctx) {
               capBounded(SESSION_MEM.pendingResume)
               clearCompletionLatchForSession(sid2)
             }
+          }
+          if (event && event.type === "session.skill.activated") {
+            const payloadSkill = (event.data || event.properties) || {}
+            if (isVibeweaverSkillName(payloadSkill.name)) {
+              await logSelfActivation(null, selfActivate(directory, payloadSkill.sessionID, payloadSkill))
+            }
+            continue
           }
           if (!v2EventIsIdle(event)) continue
           const payloadIdle = (event.data || event.properties) || {}
