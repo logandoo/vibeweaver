@@ -48,7 +48,13 @@ import gate_events   # noqa: E402  (same-dir module: the plugin-interception led
 
 
 class ProcessGroupTimeout(TimeoutError):
-    """The agent's process group exceeded its budget (the whole group is killed)."""
+    """The agent's process group exceeded its budget (the whole group is killed).
+
+    Carries the partial stdout/stderr collected after the kill: a timed-out
+    run's event stream (transcript, step_finish tokens, gate events) is
+    evidence too, and used to be discarded here."""
+    stdout = ""
+    stderr = ""
 
 
 def run_process_group(cmd, cwd, env, timeout):
@@ -69,8 +75,10 @@ def run_process_group(cmd, cwd, env, timeout):
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
         except OSError:
             proc.kill()   # belt: direct child already gone
-        proc.communicate()
-        raise ProcessGroupTimeout("process group of %r killed after %ss" % (cmd[0], timeout))
+        out, err = proc.communicate()
+        e = ProcessGroupTimeout("process group of %r killed after %ss" % (cmd[0], timeout))
+        e.stdout, e.stderr = out or "", err or ""
+        raise e
     return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
 
 
@@ -539,8 +547,16 @@ def run_agent(name, work, home, model, agent_kind):
     cmd = ["opencode", "run", "--standalone", "-m", model, "--format", "json",
            "--auto", str(work), prompt]
     t0 = time.time()
-    r = run_process_group(cmd, cwd=work, env=env,
-                          timeout=scenario(name)["timeout_seconds"])
+    try:
+        r = run_process_group(cmd, cwd=work, env=env,
+                              timeout=scenario(name)["timeout_seconds"])
+    except ProcessGroupTimeout as e:
+        # keep the partial stream: the worktree is still graded (behavioral
+        # verdict) and the transcript/tokens/gate events stay measurable
+        return {"exit": -1, "timed_out": True, "stdout": e.stdout,
+                "stderr": (str(e) + "\n" + (e.stderr or ""))[-20000:],
+                "cmd": " ".join(cmd), "seconds": time.time() - t0,
+                "cwd": str(work), "home": str(home)}
     # gate-event measurement needs the FULL event stream: the old 20k tail cut
     # every early GATE-BLOCKED message (v2 smoke 2026-10-25: agent demonstrably
     # ran the checker and built memory/, yet the parsed stream showed 0 events
@@ -581,46 +597,33 @@ def main(argv=None):
         try:
             agent = run_agent(args.scenario, work, home, args.model, args.agent)
         except Exception as e:
-            agent = {"exit": -1, "stdout": "", "stderr": str(e), "cmd": "opencode"}
+            agent = {"exit": -1, "stdout": "", "stderr": str(e), "cmd": "opencode",
+                     "crashed": True}
         iso = containment_check(tmp, work, out, artifacts, hidden_name,
                                 before_repo, repo_fingerprint(ROOT))
-        # hidden test is NOT copied into work; run it from the lab (grading time)
-        test = {"exit": None, "output": ""}
+        # Dual record (EVAL_G3_PILOT_REPORT 测量发现): process verdict and
+        # behavioral verdict are kept apart. `verdict` keeps its historical
+        # semantics (agent exit != 0 -> fail / indeterminate) so no published
+        # number moves; `behavioral_verdict` grades the delivered worktree
+        # with the hidden test even when the agent exited non-zero or timed out.
+        if agent.get("crashed") or is_setup_failure(agent):
+            process_verdict = "setup_failure"   # nothing trustworthy to grade
+        elif agent.get("timed_out"):
+            process_verdict = "timed_out"
+        elif agent["exit"] != 0:
+            process_verdict = "agent_failed"
+        else:
+            process_verdict = "ok"
+        test, behavioral = {"exit": None, "output": "agent could not run"}, "indeterminate"
+        if process_verdict != "setup_failure":
+            test, behavioral = grade_hidden(sc, work)
         if agent["exit"] != 0:
             verdict = "indeterminate" if (agent["exit"] == -1 or is_setup_failure(agent)) else "fail"
-            test["output"] = "agent failed/could not run"
         else:
-            tp = lab_root() / sc["hidden_test"]
-            try:
-                r = subprocess.run([sys.executable, str(tp), str(work)],
-                                   capture_output=True, text=True, timeout=60)
-                test = {"exit": r.returncode, "output": (r.stdout + r.stderr)[-8000:]}
-                # 评审 A CRITICAL：被测模块在评分进程内被 `exec_module`，exit code
-                # 可被 `os._exit(0)` 之类一行伪造。pass 因此还需要两条独立证据：
-                #   ① 完成标记必须是 stdout 的最后一个非空行（隐藏测试在全部断言
-                #      之后才打印；提前杀进程必然缺失）；
-                #   ② 评分前扫描产物源码里的进程逃逸钩子（`os._exit` / `sys.exit =`
-                #      等），命中即判 fail。
-                # 残余（已命名）：同进程执行无法彻底防伪，彻底防伪需要 OS 沙箱
-                # （与 memory/fix_eval_answer_leak_w6 的 W8 残余同类）。
-                outs = [l for l in (r.stdout or "").splitlines() if l.strip()]
-                marker_ok = bool(outs) and outs[-1].startswith("PASS:")
-                escape = find_grading_escape(work, sc.get("artifacts") or [])
-                test["completion_marker"] = outs[-1] if marker_ok else None
-                test["grading_escape"] = escape
-                if escape:
-                    verdict = "fail"          # 反作弊：伪造/逃逸钩子永不计 pass
-                elif r.returncode not in (0, 1):
-                    verdict = "indeterminate"  # 评分器自身崩溃/异常退出
-                elif marker_ok and r.returncode == 0:
-                    verdict = "pass"
-                else:
-                    verdict = "fail"          # 未证明行为（含标记缺失）≠ pass
-            except Exception as e:                   # capture failure is never pass
-                test = {"exit": None, "output": "hidden-test capture failure: %s" % e}
-                verdict = "indeterminate"
+            verdict = behavioral
         if iso["violations"]:
             verdict = "indeterminate"  # fail-closed: a contaminated measurement is never pass
+            behavioral = "indeterminate"
         (out / "isolation.json").write_text(json.dumps(iso, indent=2), encoding="utf-8")
         (out / "trajectory.json").write_text(json.dumps({"scenario": sc["id"], "agent": agent, "worktree": str(work)}, indent=2), encoding="utf-8")
         (out / "cost.json").write_text(json.dumps({
@@ -629,11 +632,47 @@ def main(argv=None):
             "skill_fingerprint": arm_fp, "tokens": agent.get("tokens"),
             "setup_files_seeded": seeded,
             "gate_events": gate_events.summarize({"agent": agent})}, indent=2), encoding="utf-8")
-        (out / "verdict.json").write_text(json.dumps({"scenario": sc["id"], "verdict": verdict, "hidden_test": test, "agent_exit": agent["exit"], "isolation_violations": iso["violations"]}, indent=2), encoding="utf-8")
-        print(f"EVAL {sc['id']}: {verdict} -> {out}")
+        (out / "verdict.json").write_text(json.dumps({"scenario": sc["id"], "verdict": verdict, "behavioral_verdict": behavioral, "process_verdict": process_verdict, "hidden_test": test, "agent_exit": agent["exit"], "isolation_violations": iso["violations"]}, indent=2), encoding="utf-8")
+        print(f"EVAL {sc['id']}: {verdict} (behavioral={behavioral}, process={process_verdict}) -> {out}")
         return 0 if verdict == "pass" else 1
     finally:
         shutil.rmtree(tmp, ignore_errors=True)      # ALWAYS: seeded auth material
+
+
+def grade_hidden(sc, work):
+    """Run the scenario's hidden test against `work`; return (test, verdict).
+
+    Hidden test is NOT copied into work; it runs from the lab (grading time)."""
+    tp = lab_root() / sc["hidden_test"]
+    try:
+        r = subprocess.run([sys.executable, str(tp), str(work)],
+                           capture_output=True, text=True, timeout=60)
+        test = {"exit": r.returncode, "output": (r.stdout + r.stderr)[-8000:]}
+        # 评审 A CRITICAL：被测模块在评分进程内被 `exec_module`，exit code
+        # 可被 `os._exit(0)` 之类一行伪造。pass 因此还需要两条独立证据：
+        #   ① 完成标记必须是 stdout 的最后一个非空行（隐藏测试在全部断言
+        #      之后才打印；提前杀进程必然缺失）；
+        #   ② 评分前扫描产物源码里的进程逃逸钩子（`os._exit` / `sys.exit =`
+        #      等），命中即判 fail。
+        # 残余（已命名）：同进程执行无法彻底防伪，彻底防伪需要 OS 沙箱
+        # （与 memory/fix_eval_answer_leak_w6 的 W8 残余同类）。
+        outs = [l for l in (r.stdout or "").splitlines() if l.strip()]
+        marker_ok = bool(outs) and outs[-1].startswith("PASS:")
+        escape = find_grading_escape(work, sc.get("artifacts") or [])
+        test["completion_marker"] = outs[-1] if marker_ok else None
+        test["grading_escape"] = escape
+        if escape:
+            verdict = "fail"          # 反作弊：伪造/逃逸钩子永不计 pass
+        elif r.returncode not in (0, 1):
+            verdict = "indeterminate"  # 评分器自身崩溃/异常退出
+        elif marker_ok and r.returncode == 0:
+            verdict = "pass"
+        else:
+            verdict = "fail"          # 未证明行为（含标记缺失）≠ pass
+    except Exception as e:                   # capture failure is never pass
+        test = {"exit": None, "output": "hidden-test capture failure: %s" % e}
+        verdict = "indeterminate"
+    return test, verdict
 
 
 if __name__ == "__main__":
