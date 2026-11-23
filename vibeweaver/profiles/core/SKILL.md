@@ -94,7 +94,7 @@ violation; `GATE-CHECK-UNAVAILABLE` = checker failed. All mean write landed.
 | modes / ADRs / extended workflows | `WORKFLOWS_EXTENDED.md` |
 | task classes / lanes / FCV | `VERIFICATION_UPGRADES.md` |
 | project memory rules | `MEMORY_RULES.md` |
-| script/config templates | `APPENDIX.md` |
+| script/config templates | `SCRIPT_TEMPLATES.md` (§A2) · `APPENDIX.md` (§A3) |
 
 ## Bootstrap
 

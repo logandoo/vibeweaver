@@ -41,6 +41,9 @@ PAYLOAD_FILES = [
     "scripts/audit_selftest.mjs", "scripts/mutation_sweep.mjs",
     "scripts/mm_probe.py", "scripts/backlog_check.py", "scripts/scan_secrets.py",
     "scripts/ui_fidelity.py", "scripts/evidence_seal.py",
+    "scripts/source_budget.py", "scripts/source_ratchet.py",
+    "scripts/artifact_budget.py", "scripts/repo_budget.py", "scripts/git_trust.py",
+    "scripts/make_review_package.sh",
     "scripts/run_control.py", "scripts/resource_allocator.py", "scripts/integrate.py",
     "vibeweaver-gate.js", "vibeweaver-audit.js", "install.sh", "install.bat",
 ]

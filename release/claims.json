@@ -1101,6 +1101,58 @@
    "n": null,
    "seeds": null,
    "ci": null
+  },
+  {
+   "id": "C-304",
+   "token": "602/0",
+   "claim": "audit_selftest 602 fixture checks pass / 0 failures (F19 + source ratchet/artifact/repo budget + trusted git)",
+   "command": "node vibeweaver/scripts/audit_selftest.mjs",
+   "expected_regex": "fixture checks: 602, failures: 0",
+   "platform": "macOS/Linux/Windows (node)",
+   "evidence": "CHANGELOG.md 2026-11-23",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-305",
+   "token": "50/0",
+   "claim": "mutation_sweep 50 mutation checks caught / 0 failures (44 legacy + 4 W25 + 2 F19)",
+   "command": "node vibeweaver/scripts/mutation_sweep.mjs",
+   "expected_regex": "MUTATION SWEEP: 50 passed, 0 failed",
+   "platform": "macOS/Linux/Windows (node)",
+   "evidence": "CHANGELOG.md 2026-11-23",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-306",
+   "token": "85/85",
+   "claim": "assert groups 85/85 pass (F19 S71-S80 + trusted git fixture)",
+   "command": "python3 tests/test_assert_groups.py",
+   "expected_regex": "85/85 pass",
+   "platform": "macOS/Linux/Windows (python)",
+   "evidence": "CHANGELOG.md 2026-11-23",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
+  },
+  {
+   "id": "C-307",
+   "token": "56/56",
+   "claim": "release manifest 56/56 payload files verified",
+   "command": "python3 scripts/verify_release.py",
+   "expected_regex": "MANIFEST OK 56/56",
+   "platform": "macOS/Linux/Windows (python)",
+   "evidence": "CHANGELOG.md 2026-11-23",
+   "generation": "executed suite count",
+   "n": null,
+   "seeds": null,
+   "ci": null
   }
  ]
 }

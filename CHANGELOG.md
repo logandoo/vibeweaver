@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-11-23：F19 封条修复 + 巨文件治理（source ratchet / artifact / repo budget）
+
+- **F19**：`tests/gate_result.json` 与 `.vibeweaver/**` 移出 evidence seal/freshness，只记录 informational digest；legacy machine entries 兼容；CODE/CONFIG PASS 必须有真实、存在、非空证据；S71–S80 + F19a/F19b 回归。
+- **Source ratchet**：`source_ratchet.py` 冻结存量超 hard 文件（只缩不涨）、新文件硬帽、source/tests 分组 ceiling、`budget`/`tighten`/`rekey`/`prune`；`grant` 只调长期预算（append-only、reason/expiry、agent 禁止）；`check --final` tracked+clean、adoption auto-base、shallow fail-closed。
+- **Artifact budget**：`artifact_budget.py` 对 review package/log/trajectory/media 设 per-file+total cap；超 cap review package 自动 index + 仓库外全文 + sha256；历史 review-like alias 用 `reclassify` 迁移（review 6.28MB→8.83MB，append-only migration）。
+- **Repo budget**：`repo_budget.py` 冻结 live-tree total/top-N；cumulative reachable blob 不作为 ratchet；machine state 排除。
+- **Trusted Git**：预算工具、source_budget、canonical checker 使用绝对 git + 清空 `GIT_*`；checker 自包含并保持 2,591 行 frozen limit。
+- **验证**：audit_selftest 602/0 · mutation_sweep 50/0 · plugin compat 86/86 · assert groups 85/85 · mini gate 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows) · unittest 223 · manifest 56/56；build 602/0 · 50/0 · 86/86 · 85/85。
+- **边界**：hostile root 替换 git binary、未提交 ignored artifacts 不在 tamper-evident/committed-evidence 边界内；初始 caps/slack 需按目标项目校准。
+
 ## 2026-11-05 W25b：deferred 全量清偿（hardening 轮）
 
 - 控制面/资源/集成三模块补硬：terminal 态拒 `expire()` + 转换表对齐（D-W25-6 保留 merged→published→cleaned 主路径）· reconcile 盲区闭合（未归因 pending 一律上报）· heartbeat/latch_release 按 attempt 归属限定 · claim+takeover 的 run_context.json 改事务后写 + expire 补偿（幻影身份双路径清偿）· credential name 熵守卫（hex/base64/无分隔 token 形状拒绝）· 端口预留事务内 bind + SO_REUSEADDR off · backlog `--control-db` 对账 run_control leases · evidence_lock 媒体 `..` 越界 named-escape · assert group 25 相对根按 run-root 解析 · evidence_seal `skill_digest` 语义化（sha256 前缀 + `skill_version` 字段）。

@@ -328,6 +328,12 @@ it was edited.
   | `current` | seal matches the tree | silent |
 
   A C3 finding enforces at `--final` (completion = the sealing moment).
+  **Machine-state exception (F19):** `tests/gate_result.json` and
+  `.vibeweaver/**` are harness-written state, never evidence. They are excluded
+  from the hashed `files` set; the manifest may record an informational
+  `machine_state_digest_at_seal`, and C3 ignores machine entries in legacy
+  manifests. A forged green gate result cannot replace tampered/missing sealed
+  evidence.
   `stale` is graded (W19): advisory during execution (code changes mid-wave
   are normal work), enforced at `--final`. `tamper`/`missing`/`partial` block
   always (real violations). The bootstrap window (no green PASS yet) keeps
@@ -510,6 +516,11 @@ Before declaring any task complete, explicitly list and confirm:
       detected stack; no tracked vendor/cache path; untracked non-ignored
       ≤2,000; `.git` ≤1 GiB; largest blob ≤40 MiB at `--final`; gate line
       carries `repo-hygiene: pass (…)` (or `na (no git repo)`)
+- [ ] ★ **(When baselines exist) Source/artifact/repo ratchets** —
+      `source_ratchet.py check --final`, `artifact_budget.py check --final`
+      and `repo_budget.py check --final` exit 0; normal headroom requires no
+      grant; a review package over cap is a committed index + external archive;
+      `source_ratchet.py check --base <adoption>` shows no base policy/file/ceiling raise (grants are additive)
 - [ ] Artifact chain linked (§A4.4.3) — acceptance.md names its source, log
       entries cite criterion #s, review_package records its diff range, fix
       memory carries commit hashes

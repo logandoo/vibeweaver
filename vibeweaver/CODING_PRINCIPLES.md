@@ -51,6 +51,28 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+## Necessity Ladder (Lean Review)
+
+Before adding code, stop at the first rung that fully works:
+
+1. Does it need to exist? Name what you skipped; no speculative features/options.
+2. Already in this codebase? Reuse the existing helper/pattern.
+3. Stdlib or a platform/native feature? Use it; a house component beats a
+   native widget.
+4. An installed dependency? Use it; never add a dependency for a few lines.
+5. Can it be one clear line? One line.
+6. Otherwise: the minimum complete change, including callers and tests.
+
+Lean is about the solution, never about reading or safety: trust-boundary
+validation, data-loss handling, security, accessibility and tests are never cut.
+Delete/reuse/merge before adding; split by responsibility seam, **never by line
+count**, and never into helpers that exist only to shorten a function. A
+deliberate deferral gets `shortcut: <ceiling>, <upgrade trigger>` so it cannot
+silently become permanent. Size budgets are signals for a responsibility review,
+not commands to split.
+
+---
+
 ## Reviewer Smell Baseline (per-diff checklist)
 
 Consumed by §A4.9 independent reviews (TESTING_PROTOCOLS.md) and by

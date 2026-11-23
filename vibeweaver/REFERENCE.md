@@ -418,7 +418,9 @@ below — they are the full authoritative text.
 3.   Design review & feasibility assessment (loop until pass)
 4.   BACKEND_DESIGN.html
 4.5  A5.1 Design Gate B — spec self-review, then ONE batched user confirmation
-5.   config.toml (before implementation — code reads from it)
+5.   config.toml (before implementation — code reads from it). New projects may
+     opt into `[source_budget] mode="enforce"`; the build template always runs
+     the installed checker, defaulting to shadow when no policy exists.
 6.   Backend implementation
 7.   Frontend implementation
 8.   Scripts: project_build.sh / start.sh / stop.sh / restart.sh (linux + windows)
@@ -509,7 +511,10 @@ won't know whether you broke it or it was already broken.
 
 #### Step 6: Test Your Changes ★
 - Write tests covering your modifications.
-- Build + start via scripts (COV-2), then test.
+- Build + start via scripts (COV-2), then test. Generated build scripts run
+  Source File Budget first; read `.vibeweaver/source_budget_report.json` when it
+  exists. Shadow findings require the responsibility review below but do not
+  block; enforce hard findings block only at final, operational errors always block.
 - Acceptance criteria gate: write `tests/acceptance.md` (first line
   `> cap=5  stall=3×`; confirm with user if vague — A4.1 Step 1).
 - **Backend-only change** → §A4.7: pick httpx/requests (installed first, else
@@ -583,7 +588,11 @@ assuming the executor has zero project context. Per task block:
 **Task right-sizing:** fold setup, config, scaffolding, and docs into the
 task whose deliverable needs them; split only where a reviewer could
 meaningfully reject one task while approving its neighbor. Each task ends
-with an independently testable deliverable.
+with an independently testable deliverable. A small task/file count is not a
+small code unit: record Source File Budget status with the deliverable. A size
+finding requires a responsibility review, never an automatic split; extraction
+needs a second structural/change signal and its own behavior-tested C2 refactor.
+See ENGINEERING_STD.md §A9.5 for policy and the v1 trust boundary.
 
 **Consistency Hub (broadcast — write once, read many):** before Step 1, add a
 `## Consistency Hub` table to the plan — one row for every shared entity:

@@ -253,6 +253,26 @@ checkable.
   Without a RunContext the legacy single-agent behavior is byte-identical —
   and concurrency never relaxes a gate. Full protocol: `MULTI_AGENT.md`.
 
+## Giant-file governance (source ratchet / artifact / repo budget)
+
+Giant files are handled as five layers, not one threshold:
+
+- **Source prevention**: `.gitignore` covers dependencies/caches/build output; generated review packages, logs and trajectories are not committed without a cap.
+- **Per-file**: `source_budget.py` measures tracked/staged/untracked source; `source_ratchet.py` freezes existing over-`hard_lines` files (shrink-only), hard-caps new files, keeps separate source/tests group ceilings, prints `budget` headroom, `tighten`s only downward, and supports `rekey`/`prune`. Normal work inside the headroom needs **zero approval**; `grant` is a rare, append-only, reason/expiry budget-level human decision.
+- **Generated artifacts**: `artifact_budget.py` caps review packages, logs, eval trajectories and media; an over-cap review package becomes a small committed index plus an external full archive with sha256. Historical review-like Markdown is migrated once with `reclassify --by --reason`, recorded in append-only `tests/artifact_migrations.jsonl`.
+- **Repository**: `repo_budget.py` freezes the live-tree total and reports top-N; history remains covered by group 21's max-blob/.git/untracked/wave checks. Cumulative reachable-blob bytes are not used as a ratchet because every commit grows them.
+- **Repair**: history contamination follows the A10.1 Class-E runbook (user approval, bundle backup, filter-repo, commit-map remap); the debt baseline is never raised.
+
+The three ratchets run in builds only when the project has the corresponding `tests/*_baseline.json`. `check --final` requires tracked+clean baselines/grants, auto-anchors to the first-baseline commit, and fails closed on shallow clones/probe errors. Budget tools and the canonical checker use a standard absolute `git` with `GIT_*` scrubbed (PATH/GIT_DIR wrappers are ignored; a hostile root replacing the git binary is outside the tamper-evident boundary).
+
+```bash
+python3 scripts/source_budget.py --root . --final --format json --output .vibeweaver/source_budget_report.json
+python3 scripts/source_ratchet.py --root . budget
+python3 scripts/source_ratchet.py --root . check --final
+python3 scripts/artifact_budget.py --root . check --final
+python3 scripts/repo_budget.py --root . check --final
+```
+
 ## Install
 
 ```bash
@@ -917,7 +937,7 @@ welcome.
 | `vibeweaver-gate.js`                                        | The stop-hook plugin (opencode) + mechanized stall observer                                                                                                                    |
 | `vibeweaver-audit.js`                                       | Three-tier mechanical auditor (Tier 0/1/2), session-scoped RED latch, journaled auto-release, stale-latch healing                                                              |
 | `scripts/vibeweaver-audit-core.js`                          | Pure triage core (headless-testable)                                                                                                                                           |
-| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 601 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm, T36–T39 self-lock/lock-escape/scope/source-hygiene suites) / 48 mutation checks, including the latch-release regressions                                                      |
+| `scripts/audit_selftest.mjs` / `scripts/mutation_sweep.mjs` | 602 fixture checks (T24 loop-guard, T25 task-class, T26 final-run, T27 stop-guard, T29–T33 latch-release, T34–T35 tool-storm, T36–T39 self-lock/lock-escape/scope/source-hygiene suites) / 50 mutation checks, including the latch-release regressions                                                      |
 | `install.sh` / `install.bat`                                | Installers (skill files + both plugins)                                                                                                                                        |
 
 ## Testing
@@ -925,10 +945,11 @@ welcome.
 ```bash
 python3 verify_skill.py                     # package integrity: payload, links, markers, syntax
 python3 -m unittest discover -s tests -v    # skill self-tests + checker regression tests
-node vibeweaver/scripts/audit_selftest.mjs  # 601 fixture checks (T6 skips without calibration data)
-node vibeweaver/scripts/mutation_sweep.mjs  # 48 mutations, each must be caught
+node vibeweaver/scripts/audit_selftest.mjs  # 602 fixture checks (T6 skips without calibration data)
+node vibeweaver/scripts/mutation_sweep.mjs  # 50 mutations, each must be caught
 node tests/plugin_compat_test.mjs           # 86/86 dual loader compat (no quarantine)
 node tests/mini_gate_test.mjs               # 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows) mini checker gate: v1/v2 write + idle + installers
+python3 tests/test_assert_groups.py         # 85/85 assert-group fixtures (F19 + trusted git)
 ```
 
 CI runs the Python checks and the node harnesses on Ubuntu / macOS / Windows

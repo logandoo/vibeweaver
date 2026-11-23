@@ -1060,9 +1060,11 @@ function assertGreenProject(name) {
   for (const d of ["tests", "memory", "script/linux"]) mkdirSync(path.join(root, d), { recursive: true })
   writeFileSync(path.join(root, ".gitignore"), ".DS_Store\n__pycache__/\n.venv/\nnode_modules/\n.pnpm-store/\n.env\n")
   writeFileSync(path.join(root, "tests", "acceptance.md"), "> cap=5  stall=3×\n\n# Acceptance\n1. ok\n")
+  writeFileSync(path.join(root, "tests", "project_profile.json"), JSON.stringify({ profile: "library" }))
+  writeFileSync(path.join(root, "tests", "run.log"), "fixture evidence\n")
   writeFileSync(
     path.join(root, "tests", "verification_log.md"),
-    "## Task: fixture | 2026-10-21\n- class: CODE\n- profile: full\n- Baseline verified GREEN\n- iter 1 PASS: all criteria (evidence: scaffold, 1/1)\n- working-note: created → distilled → deleted\n"
+    "## Task: fixture | 2026-10-21\n- class: CODE\n- profile: full\n- Baseline verified GREEN\n- iter 1 PASS: all criteria (evidence: tests/run.log, 1/1)\n- working-note: created → distilled → deleted\n"
   )
   writeFileSync(path.join(root, "memory", "MEMORY.md"), "# Project Memory Index\n- [T](topic.md)\n")
   writeFileSync(path.join(root, "memory", "topic.md"), "# t\n")

@@ -15,6 +15,9 @@ Design rules (blind-spot dispositions):
     `- test-change: <path> — <reason>` line in tests/verification_log.md.
     Deleting the baseline is NOT a silent rebuild path (BL-13): this script
     recreates it only through the same licensing.
+  * Machine state (`tests/gate_result.json`, `.vibeweaver/**`) is NEVER sealed:
+    the harness rewrites it by design. The manifest records only an
+    informational digest, and readers ignore machine entries in legacy seals.
 
 Usage:
   python3 scripts/evidence_seal.py            # seal (run from the project root)
@@ -34,6 +37,7 @@ import hashlib
 import json
 import os
 import pathlib
+import posixpath
 import re
 import subprocess
 import sys
@@ -74,6 +78,74 @@ FINGERPRINT_EXT = {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".go", ".rs",
 TEST_BASENAMES = {"conftest.py", "pytest.ini", "tox.ini", "setup.cfg",
                   "jest.config.js", "jest.config.ts", "vitest.config.ts",
                   "vitest.config.js"}
+# Machine state is written by the harness itself (gate/cache/audit). It is
+# forensic context, never evidence: hashing it creates an unsatisfiable seal.
+# SHARED CONTRACT: identical predicate in scripts/assert_artifacts.py.
+MACHINE_STATE_FILES = {"tests/gate_result.json"}
+MACHINE_STATE_PREFIXES = (".vibeweaver/",)
+
+
+def has_symlink_component(root, rel):
+    current = root
+    for part in pathlib.PurePosixPath(rel).parts:
+        current = current / part
+        try:
+            if current.is_symlink():
+                return True
+        except OSError:
+            return True
+    return False
+
+
+def normalize_rel(rel):
+    rel = rel.replace("\\", "/")
+    while rel.startswith("./"):
+        rel = rel[2:]
+    norm = posixpath.normpath(rel)
+    if re.match(r"^[A-Za-z]:", norm) or norm.startswith("//"):
+        return None
+    if norm in ("", ".", "..") or norm.startswith("../") or norm.startswith("/"):
+        return None
+    return norm
+
+
+def is_machine_state(rel):
+    norm = normalize_rel(rel)
+    if norm is None:
+        return False
+    key = norm.casefold()
+    return key in MACHINE_STATE_FILES or any(key.startswith(p) for p in MACHINE_STATE_PREFIXES)
+
+
+def machine_state_digest(root):
+    """Informational digest of harness state at seal time; never compared by C3.
+
+    Symlinks and unreadable files are skipped: this digest must never read
+    outside the project or make sealing fail.
+    """
+    candidates = []
+    gate = root / "tests" / "gate_result.json"
+    try:
+        if not gate.is_symlink() and gate.is_file():
+            candidates.append(gate)
+    except OSError:
+        pass
+    harness = root / ".vibeweaver"
+    try:
+        if not harness.is_symlink() and harness.is_dir():
+            candidates.extend(sorted(p for p in harness.rglob("*") if p.is_file() and not p.is_symlink()))
+    except OSError:
+        candidates = [c for c in candidates if c != gate]
+    digest = hashlib.sha256()
+    count = 0
+    for path in candidates:
+        try:
+            rel = path.relative_to(root).as_posix()
+            digest.update(rel.encode("utf-8") + b"\0" + path.read_bytes() + b"\0")
+            count += 1
+        except OSError:
+            continue
+    return digest.hexdigest() if count else None
 
 
 def _unquote_git(p: str) -> str:
@@ -139,11 +211,13 @@ def wave_code_files(root):
     _, out = _git(root, "ls-files", "--others", "--exclude-standard")
     paths.update(_unquote_git(l.strip()) for l in out.splitlines() if l.strip())
     return sorted(
-        p for r in paths for p in [_unquote_git(r)]
-        if os.path.splitext(p)[1].lower() in FINGERPRINT_EXT
+        p for r in paths for p in [normalize_rel(_unquote_git(r)) or ""]
+        if p
+        and os.path.splitext(p)[1].lower() in FINGERPRINT_EXT
         and "assert_artifacts.py" not in p
         and "evidence_seal.py" not in p
         and not p.startswith("tests/")
+        and not is_machine_state(p)
     )
 
 
@@ -240,6 +314,9 @@ def main():
     tests = root / "tests"
     log = (tests / "verification_log.md").read_text(errors="replace") if (tests / "verification_log.md").exists() else ""
     acc = (tests / "acceptance.md").read_text(errors="replace") if (tests / "acceptance.md").exists() else ""
+    _cur_block = re.split(r"(?m)^(?=## )", log)[-1] if log else ""
+    _code_pass = bool(re.search(r"^- class:\s*(?:CODE|CONFIG)\b", _cur_block, re.M)
+                      and re.search(r"^- iter \d+ PASS\b", _cur_block, re.M))
 
     # regex groups capture the path AFTER `tests/` — keys are always
     # repo-relative `tests/...` (assert group 15b resolves them from root)
@@ -263,14 +340,39 @@ def main():
     SELF_REFS = {"tests/verification_log.md", "tests/acceptance.md",
                  "tests/evidence_manifest.json", "tests/test_baseline.json",
                  "tests/debt_baseline.json", "tests/working_note.md"}
-    cited = [c for c in cited if c not in SELF_REFS]
+    normalized = set()
+    for _c in cited:
+        _n = normalize_rel(_c)
+        if _n is None:
+            print(f"evidence_seal.py: REFUSED — unsafe evidence path {_c!r} escapes the project root")
+            return 1
+        normalized.add(_n)
+    machine_cited = sorted(c for c in normalized if is_machine_state(c))
+    for _n in sorted(normalized):
+        if has_symlink_component(root, _n):
+            print(f"evidence_seal.py: REFUSED — symlink evidence path is not allowed: {_n}")
+            return 1
+    cited = sorted(c for c in normalized if c not in SELF_REFS and not is_machine_state(c))
     files = {}
     for rel in cited:
         p = root / rel
         if p.is_file() and p.stat().st_size > 0:
             files[rel] = {"sha256": sha256_file(p), "size": p.stat().st_size}
+    if normalized and not files:
+        if machine_cited:
+            print("evidence_seal.py: REFUSED — machine state is not evidence; "
+                  "cite at least one real artifact (gate_result.json/.vibeweaver are harness output)")
+        else:
+            print("evidence_seal.py: REFUSED — no real, existing, non-empty evidence artifacts remain; "
+                  "ghost/empty/self-referential citations cannot create an empty seal")
+        return 1
+    if _code_pass and not files:
+        print("evidence_seal.py: REFUSED — no real, existing, non-empty evidence artifact for a CODE PASS; "
+              "cite at least one sealed artifact")
+        return 1
 
-    manifest = {"version": 1, "files": files, "code_fingerprint": code_fingerprint(root)}
+    manifest = {"version": 1, "files": files, "code_fingerprint": code_fingerprint(root),
+                "machine_state_digest_at_seal": machine_state_digest(root)}
     # W25 Hub Evidence Manifest: every field present, missing values default
     # to null (old manifests without them still verify — --check below only
     # compares files/code_fingerprint). `skill_version` is ADDITIVE: the
@@ -366,7 +468,19 @@ def main():
         except Exception:
             print("evidence_seal.py: manifest unreadable")
             return 1
-        ok = man.get("code_fingerprint") == manifest["code_fingerprint"] and man.get("files") == files
+        _filtered_sealed = {}
+        _unsafe = []
+        for _rel, _meta in (man.get("files") or {}).items():
+            _norm = normalize_rel(_rel)
+            if _norm is None:
+                _unsafe.append(_rel)
+                continue
+            if is_machine_state(_norm):
+                continue
+            _filtered_sealed[_norm] = _meta
+        ok = man.get("code_fingerprint") == manifest["code_fingerprint"] and _filtered_sealed == files and not _unsafe
+        if _unsafe:
+            print("evidence_seal.py: unsafe sealed path(s): " + ", ".join(sorted(_unsafe)))
         print("evidence_seal.py: " + ("seal VERIFIED" if ok else "seal STALE or TAMPERED — re-run tests + re-seal"))
         return 0 if ok else 1
 

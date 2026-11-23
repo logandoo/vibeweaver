@@ -34,6 +34,7 @@ TOP_LEVEL_FILES = {
     "ENGINEERING_STD.md",
     "REFERENCE.md",
     "APPENDIX.md",
+    "SCRIPT_TEMPLATES.md",
     "MEMORY_TEMPLATES.md",
     "MEMORY_RULES.md",
     "TESTING_PROTOCOLS.md",

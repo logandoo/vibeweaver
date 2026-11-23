@@ -18,7 +18,7 @@ task|integration` selects the run gate (integration additionally requires
 (COV-13 / §V11, or the log's `- class:` basis line) N/A's the memory (4)
 and service-lifecycle (5) groups for the classes whose path card has no
 such risk."""
-import argparse, hashlib, json, os, pathlib, re, shutil, subprocess, sys
+import argparse, hashlib, json, os, pathlib, posixpath, re, shutil, subprocess, sys
 
 # Deterministic output encoding (2026-10-17 windows/CI): the locale encoding
 # is cp1252/ascii on non-UTF-8 systems while every evidence string here is
@@ -43,6 +43,46 @@ GIT_SIZE_WARN_KIB = 200 * 1024
 GIT_SIZE_FAIL_KIB = 1024 * 1024
 BLOB_WARN = 10 * 1024 * 1024
 BLOB_FAIL = 40 * 1024 * 1024
+# Machine state (gate output/cache) is harness-authored and overwritten after
+# checks. It is forensic context, never sealed evidence. SHARED CONTRACT with
+# scripts/evidence_seal.py (identical predicate).
+MACHINE_STATE_FILES = {"tests/gate_result.json"}
+MACHINE_STATE_PREFIXES = (".vibeweaver/",)
+
+CITE_CHAR = r"[^\s`\"'<>()\[\]{},;:!?|*]"
+
+def cited_media(text, extensions):
+    pattern = r"tests/(" + CITE_CHAR + r"+?\.(?:" + "|".join(extensions) + r"))(?!" + CITE_CHAR + r")"
+    return re.findall(pattern, text, re.I)
+
+def has_symlink_component(root, rel):
+    current = root
+    for part in pathlib.PurePosixPath(rel).parts:
+        current = current / part
+        try:
+            if current.is_symlink():
+                return True
+        except OSError:
+            return True
+    return False
+
+def normalize_rel(rel):
+    rel = rel.replace("\\", "/")
+    while rel.startswith("./"):
+        rel = rel[2:]
+    norm = posixpath.normpath(rel)
+    if re.match(r"^[A-Za-z]:", norm) or norm.startswith("//"):
+        return None
+    if norm in ("", ".", "..") or norm.startswith("../") or norm.startswith("/"):
+        return None
+    return norm
+
+def is_machine_state(rel):
+    norm = normalize_rel(rel)
+    if norm is None:
+        return False
+    key = norm.casefold()
+    return key in MACHINE_STATE_FILES or any(key.startswith(p) for p in MACHINE_STATE_PREFIXES)
 VENDOR_RE = re.compile(
     r"(^|/)(?:node_modules|\.pnpm-store|\.venv|venv|site-packages|"
     r"__pycache__|\.next|\.nuxt|coverage|ms-playwright|playwright-report|"
@@ -54,11 +94,9 @@ NODE_MANIFESTS = ("package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml",
 PY_MANIFESTS = ("requirements.txt", "pyproject.toml", "Pipfile",
                 "poetry.lock", "setup.py")
 
-
 def group(code: str):
     global CUR_GROUP
     CUR_GROUP = code
-
 
 def warn(msg: str, code: str = ""):
     WARN_LINES.append({"code": code or CUR_GROUP, "detail": msg})
@@ -147,19 +185,30 @@ TEST_DIR = re.compile(r"(^|/)(?:tests?|__tests__|spec)/")
 RISK_PATH = re.compile(r"(?i)(^|/)(?:auth|security|payments?|billing|crypto|"
                        r"migrations?|permissions?|acl)(?:/|\.|_|$)")
 
+def _trusted_git_bin():
+    for _c in ("/usr/bin/git", "/opt/homebrew/bin/git", "/usr/local/bin/git"):
+        if os.path.isfile(_c):
+            return _c
+    return shutil.which("git")
+
+_GIT_BIN = _trusted_git_bin()
+
+def _git_env():
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 def _git(root, *args):
     global GIT_TIMEOUT
     try:
-        r = subprocess.run(["git", "-C", str(root), *args],
+        if not _GIT_BIN:
+            return -1, ""
+        r = subprocess.run([_GIT_BIN, "-C", str(root), *args], env=_git_env(),
                            capture_output=True, encoding="utf-8", errors="replace", timeout=20)
         return r.returncode, r.stdout
-    except FileNotFoundError:
+    except (FileNotFoundError, RuntimeError):
         return -1, ""
     except subprocess.TimeoutExpired:
         GIT_TIMEOUT = True
         return -2, ""
-
 
 def _unquote_git(p: str) -> str:
     """Decode git's C-quoted path ("a\\tb" / octal UTF-8 escapes) to the
@@ -188,7 +237,6 @@ def _unquote_git(p: str) -> str:
         out.extend(ch.encode("utf-8"))
         i += 1
     return out.decode("utf-8", "replace")
-
 
 def _wave_paths(root, base):
     """(paths, deleted) for the change wave — cheap preflight before
@@ -234,7 +282,6 @@ def _wave_paths(root, base):
         if rc == 0:
             _absorb(out, net_only=True)
     return paths, deleted
-
 
 def wave_diff_text(root):
     """Change-wave diff: PER-COMMIT patches of newest `backup: before changes`
@@ -586,7 +633,9 @@ def code_fingerprint(root):
     parts = []
     for rel in sorted(_unquote_git(r) for r in paths):
         ext = os.path.splitext(rel)[1].lower()
-        if ext not in FINGERPRINT_EXT or rel.startswith("tests/") or "assert_artifacts.py" in rel or "evidence_seal.py" in rel:
+        if (ext not in FINGERPRINT_EXT or rel.startswith("tests/")
+                or "assert_artifacts.py" in rel or "evidence_seal.py" in rel
+                or is_machine_state(rel)):
             continue
         fp = root / rel
         parts.append(f"{rel}:{hashlib.sha256(fp.read_bytes()).hexdigest() if fp.is_file() else 'gone'}")
@@ -1275,7 +1324,7 @@ def evidence_lock_check(root: pathlib.Path, final: bool):
 
 PAYLOAD_MD = (
     "SKILL.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md",
-    "ENGINEERING_STD.md", "REFERENCE.md", "APPENDIX.md",
+    "ENGINEERING_STD.md", "REFERENCE.md", "APPENDIX.md", "SCRIPT_TEMPLATES.md",
     "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
     "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md", "MULTI_AGENT.md",
 )
@@ -1952,7 +2001,7 @@ def main():
         # co-citation); N/A only for rows citing NO images. Mainline C2/BL-14
         # on top: real media magic + IHDR >= 320x200 for render PNGs.
         _pngs = []
-        for f in re.findall(r"tests/([\w./-]*[\w-]+\.(?:png|webm))", _l, re.I):
+        for f in cited_media(_l, ("png", "webm")):
             if os.path.basename(f).lower().startswith("probe_vision."):
                 continue
             _norm = os.path.normpath(f)
@@ -2050,7 +2099,10 @@ def main():
     # 3) screenshots cited in the log files must exist >0 bytes (A4.4)
     #    C2 (P1): + magic bytes — a 1-byte file named *.png is not evidence
     group("3")
-    for png in re.findall(r"tests/(\S+\.png)", vl + "\n" + acc, re.I):
+    # Strict char class (same convention as the media-manifest site above):
+    # \S+ is over-greedy — a backtick-joined citation like `a.png`/`b.png`, or a
+    # log line *quoting* the regex itself, captures as one bogus path.
+    for png in cited_media(vl + "\n" + acc, ("png",)):
         p = tests / png
         if not (p.exists() and p.stat().st_size > 0):
             check(False, f"screenshot claimed but missing/empty: tests/{png} (A4.4)")
@@ -2163,9 +2215,7 @@ def main():
     group("6")
     if not existing:
         try:
-            r = subprocess.run(["git", "-C", str(root), "log", "--oneline"],
-                               capture_output=True, encoding="utf-8", errors="replace", timeout=20)
-            rc, out = r.returncode, r.stdout
+            rc, out = _git(root, "log", "--oneline")
         except (FileNotFoundError, subprocess.TimeoutExpired):
             rc, out = -1, ""
         n_commits = len([l for l in out.splitlines() if l.strip()]) if rc == 0 else 0
@@ -2214,7 +2264,7 @@ def main():
 
     # 10) A4.7b — workflow traces cited in the log must exist >0 bytes (A4.7b)
     group("10")
-    for wf in re.findall(r"tests/workflows/(\S+?\.trace\.log)", vl):
+    for wf in re.findall(r"tests/workflows/([^\s\\]+?\.trace\.log)", vl):
         p = tests / "workflows" / wf
         check(p.exists() and p.stat().st_size > 0,
               f"workflow trace claimed but missing/empty: tests/workflows/{wf} (A4.7b)")
@@ -2222,7 +2272,7 @@ def main():
     # 11) A4.1 — video/audio evidence cited in the log must exist >0 bytes (A4.1 Step 2/3)
     #     C2 (P1): + magic bytes per kind (webm/wav/mp4/mp3)
     group("11")
-    for m in re.findall(r"tests/(\S+\.(?:webm|wav|mp4|mp3))", vl, re.I):
+    for m in cited_media(vl, ("webm", "wav", "mp4", "mp3")):
         p = tests / m
         if not (p.exists() and p.stat().st_size > 0):
             check(False, f"media evidence claimed but missing/empty: tests/{m} (A4.1)")
@@ -2310,6 +2360,37 @@ def main():
             warn(msg + " — advisory until the first green `- iter N PASS` "
                        "(seal obligation starts after the first green test run)", "15b")
 
+    # Machine state is not evidence. If the current block's evidence lines cite
+    # ONLY gate harness output (e.g. gate_result.json), this is never a green
+    # seal — a forged green file cannot substitute for a real artifact.
+    _self_evidence = {"tests/verification_log.md", "tests/acceptance.md",
+                      "tests/evidence_manifest.json", "tests/test_baseline.json",
+                      "tests/debt_baseline.json", "tests/working_note.md"}
+    _evidence_paths = set()
+    for _line in cur_block.splitlines():
+        for _cite in cited_media(_line, ("log", "json", "md", "png", "webm", "wav", "mp4", "mp3")):
+            _norm = normalize_rel("tests/" + _cite)
+            if _norm is not None:
+                _evidence_paths.add(_norm)
+    _real_evidence = set()
+    for p in _evidence_paths:
+        if p.casefold() in _self_evidence or is_machine_state(p):
+            continue
+        fp = root / p
+        try:
+            if fp.is_file() and not fp.is_symlink() and fp.stat().st_size > 0:
+                _real_evidence.add(p)
+        except OSError:
+            pass
+    _has_code_pass = bool(cls in ("CODE", "CONFIG") and re.search(r"^- iter \d+ PASS\b", cur_block, re.M))
+    if _has_code_pass and not _real_evidence:
+        if any(is_machine_state(p) for p in _evidence_paths):
+            _seal_finding("machine state is not evidence — cite a real sealed artifact "
+                          "instead of tests/gate_result.json or .vibeweaver harness output (C3/F19)")
+        else:
+            _seal_finding("no real, existing, non-empty evidence artifact for a CODE/CONFIG PASS — "
+                          "ghost/empty/no/self-referential citations cannot satisfy C3 evidence (F19)")
+
     if _man_p.exists() or _bl_p.exists():
         if _man_p.exists():
             try:
@@ -2317,13 +2398,24 @@ def main():
             except Exception:
                 _man = {}
             for _rel, _meta in sorted((_man.get("files") or {}).items()):
-                _fp = root / _rel
+                _norm = normalize_rel(_rel)
+                if _norm is None:
+                    _seal_finding(f"sealed evidence unsafe path: {_rel} (C3) - path escapes the project root")
+                    continue
+                if is_machine_state(_norm):
+                    # F19: gate_result/cache is rewritten by the checker itself;
+                    # old manifests may still list it. It is not evidence.
+                    continue
+                _fp = root / _norm
+                if has_symlink_component(root, _norm):
+                    _seal_finding(f"sealed evidence symlink is not allowed: {_norm} (C3)")
+                    continue
                 if not _fp.is_file():
-                    _seal_finding(f"sealed evidence missing: {_rel} (evidence_manifest) - evidence deleted after seal (C3)")
+                    _seal_finding(f"sealed evidence missing: {_norm} (evidence_manifest) - evidence deleted after seal (C3)")
                     continue
                 _cur = hashlib.sha256(_fp.read_bytes()).hexdigest()
                 if _cur != (_meta or {}).get("sha256"):
-                    _seal_finding(f"sealed evidence {_rel} hash mismatch (C3 tamper) - the file changed after "
+                    _seal_finding(f"sealed evidence {_norm} hash mismatch (C3 tamper) - the file changed after "
                                   f"scripts/evidence_seal.py sealed it; re-run the covering tests and re-seal")
             if code_fingerprint(root) != _man.get("code_fingerprint"):
                 # W19: freshness is a COMPLETION condition — code changing mid-wave
@@ -2344,7 +2436,7 @@ def main():
     if args.final and not _man_p.exists():
         # unconditional: --final IS the sealing moment (missing != success)
         # — the bootstrap exemption never reaches completion.
-        _cited_media = re.findall(r"tests/(\S+\.(?:png|webm|wav|mp4|mp3))", vl, re.I)
+        _cited_media = cited_media(vl, ("png", "webm", "wav", "mp4", "mp3"))
         if _cited_media:
             check(False, f"cited media evidence is not sealed (C3) - run `python3 scripts/evidence_seal.py` "
                          f"(writes tests/evidence_manifest.json; {len(set(_cited_media))} file(s) cited)")

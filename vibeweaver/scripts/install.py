@@ -20,14 +20,14 @@ SOURCE = pathlib.Path(__file__).resolve().parent.parent
 SKILL_NAME = "vibeweaver"
 TOP_FILES = [
     "SKILL.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md",
-    "ENGINEERING_STD.md", "REFERENCE.md", "APPENDIX.md",
+    "ENGINEERING_STD.md", "REFERENCE.md", "APPENDIX.md", "SCRIPT_TEMPLATES.md",
     "MEMORY_TEMPLATES.md", "MEMORY_RULES.md", "TESTING_PROTOCOLS.md",
     "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md", "MULTI_AGENT.md", "bootstrap.md",
     "install.sh", "install.bat",
 ]
 CORE_COMPANIONS = [
     "TESTING_PROTOCOLS.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "VERIFICATION_UPGRADES.md",
-    "MEMORY_RULES.md", "WORKFLOWS_EXTENDED.md", "APPENDIX.md",
+    "MEMORY_RULES.md", "WORKFLOWS_EXTENDED.md", "APPENDIX.md", "SCRIPT_TEMPLATES.md",
 ]
 PLUGINS = ["vibeweaver-gate.js", "vibeweaver-audit.js"]
 SCRIPT_EXCLUDE = {"install.py", "__pycache__"}

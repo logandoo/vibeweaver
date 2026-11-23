@@ -132,6 +132,91 @@ them, STOP and reassess before continuing.
 | **Optimistic Path**    | Only handling the happy path; ignoring bad input, network failure, missing data | Add explicit error handling and test the failure cases |
 | **Runaway Refactor**   | One change cascades into touching many unrelated files   | Pause, restore baseline, make the smallest surgical change that works |
 
+## §A9.5 Source File Budget (P0/P1)
+
+Every generated-project build runs `scripts/source_budget.py --final` before the
+frontend build and writes `.vibeweaver/source_budget_report.json`. The checker
+is Python 3.9+ stdlib-only and measures raw `bytes.splitlines()` plus raw and
+CRLF/CR-normalized bytes. Git discovery includes tracked, staged and
+untracked/non-ignored source; dependency/cache directories and binary files are
+explicitly classified, and symlinks (including parent components) are never
+followed. Nested Git worktrees/submodules are rejected instead of being silently
+partial-scanned. Filesystem fallback occurs only after Git confirms the root is
+not a repository; Git failures and walk permission errors remain exit 2.
+
+```toml
+[source_budget]
+mode = "shadow"       # "enforce" opts into final hard failures
+warn_lines = 1000
+hard_lines = 2000
+```
+
+Defaults are shadow/1000/2000; they are calibration starting points, not a
+cross-language standard. `enforce` requires Git and fails every final when any
+in-scope file is above `hard_lines`, not only when the file is first created.
+Without `--final`, enforce still warns but exits 0. Shadow reports all budget
+findings with exit 0, but configuration/discovery/I/O errors always exit 2.
+
+**v1 trust boundary:** there is no baseline recorder, generated-code exemption,
+waiver, or custom exclude interface. Unknown policy keys and any approval flags
+fail closed. Repositories that need legacy grandfathering or generated-code
+exceptions MUST remain shadow until an external protected approval channel is
+implemented; an agent must not invent that trust by editing a JSON file.
+
+A size finding triggers the C3/A4.9 responsibility questions; it never commands
+mechanical splitting. Keep a cohesive large file when justified. When a second
+signal supports extraction (Divergent Change, complexity, fan-out or change
+hotspot), open a separate C2 refactor: baseline GREEN, characterization tests,
+small API-compatible moves and full regression evidence.
+
+CLI: `python3 scripts/source_budget.py --root . --final --format json --output
+.vibeweaver/source_budget_report.json`. `--output` always writes the complete
+JSON document regardless of stdout format. Text `--top N` limits display only;
+JSON is always complete and deterministic, with no timestamps.
+
+### §A9.5b Source Ratchet, Artifact Budget, Repo Budget (P0/P1)
+
+`source_budget.py` remains the measurement/report tool. Three opt-in ratchets
+consume the same tree and are enabled only when their committed baseline exists:
+
+- `scripts/source_ratchet.py` — `init | budget | check | tighten | grant | rekey`.
+  Existing files over `hard_lines` are frozen at adoption (shrink-only); new
+  files are hard-capped; `source` and `tests` have separate group ceilings.
+  Normal work inside the headroom needs **no approval**. `grant` raises a
+  standing group budget only, is append-only, carries `by/reason/expires`, and
+  is human-only; agents must run `tighten` (only lowers) instead.
+- `scripts/artifact_budget.py` — caps review packages, logs, eval trajectories
+  and media. Existing over-cap artifacts are frozen; a review package over the
+  cap becomes a small committed index plus an ignored/external full archive
+  with sha256. No grant is needed for this path.
+- `scripts/repo_budget.py` — freezes the **live tree total** (tracked +
+  untracked non-ignored, machine state excluded) and reports top-N. Cumulative
+  reachable blob bytes are not used as a ratchet because every new commit would
+  grow them; history bloat remains covered by group 21's max-blob and `.git`
+  checks.
+
+Builds call these checks after `source_budget.py --final` only when the
+corresponding `tests/*_baseline.json` exists, so projects that have not adopted
+them are unaffected. `source_ratchet.py check --base REF` rejects any raised
+base policy, per-file freeze, or group ceiling; grants are additive and raise the
+effective ceiling, never the committed base. Pin `REF` to the adoption commit
+(a strict ancestor; `HEAD` and pre-adoption refs are rejected). Without
+protected CI/CODEOWNERS this is tamper-evident, not tamper-proof; do not claim
+otherwise. A normal task should require zero grants.
+
+**Trusted Git and review aliases.** The budget tools and the canonical checker
+resolve a standard absolute `git` and strip `GIT_DIR`/`GIT_WORK_TREE`/`GIT_CONFIG*`
+from the child environment; a failed depth probe fails closed, and a shallow
+clone is refused. This is tamper-evident hygiene for the declared trust model —
+a hostile root that replaces the git binary is out of scope. Historical
+review-like Markdown that predates the alias classifier is handled by a
+one-time `artifact_budget.py reclassify --by <human> --reason <why>` migration:
+it freezes newly over-cap files and appends `tests/artifact_migrations.jsonl`;
+`check --base` allows only a migration whose recorded before/after ceiling
+matches. No silent ceiling raise.
+
+---
+
 ## §A10. Git Version Control
 
 - Every major change gets a descriptive commit

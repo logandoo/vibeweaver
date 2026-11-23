@@ -7,6 +7,8 @@ canonical script by subprocess.
 Secret literals are SPLIT in source ("AKIA" + "0"*16) so this file's own
 added lines never trip group 14's scan of the dev repo's wave diff.
 """
+import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -43,13 +45,16 @@ class Fx:
             p.write_text("#!/bin/sh\nexit 0\n")
             p.chmod(0o755)
         (d / "tests").mkdir()
+        (d / "scripts").mkdir()
+        shutil.copy(REPO / "vibeweaver" / "scripts" / "git_trust.py", d / "scripts" / "git_trust.py")
         (d / ".gitignore").write_text(
             ".DS_Store\n__pycache__/\n*.pyc\n.venv/\nvenv/\nnode_modules/\n"
             ".pnpm-store/\ndist/\nbuild/\n.env\n")
         shutil.copy(CANON, d / "tests" / "assert_artifacts.py")
         (d / "tests" / "acceptance.md").write_text("> cap=5  stall=3×\n1. ok\n")
+        (d / "tests" / "run.log").write_text("fixture evidence\n")
         (d / "tests" / "verification_log.md").write_text(
-            "# vl\n- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n"
+            "# vl\n- iter 1 PASS: smoke (evidence: tests/run.log -> all 1/1 checks)\n"
             "- Baseline verified GREEN\n")
         self.sh("git", "init", "-q")
         self.sh("git", "config", "user.email", "fx@example.invalid")
@@ -371,7 +376,7 @@ def main():
     (fx.d / "app" / "calc.py").write_text("def add(a, b):\n    return a - b\n")
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: honest\n- class: CODE — logic change per §V11.2\n"
-        "- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n- Baseline verified GREEN\n")
+        "- iter 1 PASS: smoke (evidence: tests/run.log, all 1/1 checks)\n- Baseline verified GREEN\n")
     r = fx.assert_run()
     ok16b = r.returncode == 0
     rec("S16 C1 derived-class cross-check: a+b→a-b under class:DOC FAILS; honest class:CODE passes",
@@ -416,7 +421,7 @@ def main():
         ok18a and ok18b and ok18c, f"empty={ok18a} broken={ok18b} crlf={ok18c}")
 
     # S19 — C3 tamper: sealed evidence that changes afterwards FAILS
-    SEAL = REPO / "scripts" / "evidence_seal.py"
+    SEAL = REPO / "vibeweaver" / "scripts" / "evidence_seal.py"
     fx = Fx()
     png = b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + (640).to_bytes(4, "big") + (400).to_bytes(4, "big") + b"\x08\x06\x00\x00\x00" + b"\x00" * 32
     (fx.d / "tests" / "shot.png").write_bytes(png)
@@ -439,10 +444,12 @@ def main():
     run([sys.executable, str(SEAL)], fx.d)
     (fx.d / "app").mkdir()
     (fx.d / "app" / "late.py").write_text("x = 2\n")  # code lands after the seal
-    r = fx.assert_run()
-    ok20 = r.returncode == 1 and "STALE" in r.stdout
-    rec("S20 C3 freshness: code change after seal FAILS (先造证据后改代码)",
-        ok20, "stale" if ok20 else (r.stdout[-120:]).replace("\n", " "))
+    r = fx.assert_run()  # W19: execution = advisory (exit 0) but STALE still surfaced
+    ok20_exec = r.returncode == 0 and "STALE" in (r.stdout + r.stderr)
+    r_fin = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
+    ok20_fin = r_fin.returncode == 1 and "STALE" in (r_fin.stdout + r_fin.stderr)
+    rec("S20 C3 freshness: execution advisory(exit0+WARN) / --final enforced(exit1)",
+        ok20_exec and ok20_fin, f"exec_rc={r.returncode} final_rc={r_fin.returncode}")
 
     # S21 — C3b: skip markers need reasons; sealed baseline blocks silent weakenings
     fx = Fx()
@@ -628,7 +635,7 @@ def main():
     fx = Fx()
     shutil.rmtree(fx.d / ".git")
     fx.write("config.py", "DB_PASSWORD=" + "supersecretvalue123456" + "\n")
-    r = fx.assert_run()
+    r = fx.assert_run()  # non-git source credential is a REAL violation (W19 review I#2)
     ok35 = r.returncode == 1 and "secret scan" in r.stdout
     rec("S35 non-git group 14 fallback catches a source credential",
         ok35, (r.stdout.strip().splitlines() or ["no output"])[0][:120])
@@ -771,8 +778,11 @@ def main():
     (fx.d / "app" / "a.py").write_text("x = 2\n")
     r = fx.assert_run()
     out47 = r.stdout + r.stderr
-    ok47 = r.returncode == 1 and "  - sealed evidence is STALE" in out47
-    rec("S47 G1 seal-live stale seal → FAIL, message contains STALE", ok47,
+    r_fin = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
+    # W19: STALE is advisory during execution (WARN), enforced (BLOCK) at --final.
+    ok47 = (r.returncode == 0 and "STALE" in out47
+            and r_fin.returncode == 1 and "  - sealed evidence is STALE" in (r_fin.stdout + r_fin.stderr))
+    rec("S47 G1 seal-live stale: execution WARN(exit0) / --final BLOCK(exit1, STALE wording)", ok47,
         f"rc={r.returncode} msg={('sealed evidence is STALE' in out47)}")
 
     # S48 — no-seal + cited media at completion still FAILS (missing !=
@@ -850,11 +860,14 @@ def main():
     (fx.d / "app" / "a.py").write_text("x = 2\n")
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: colonless-pass\n- Baseline verified GREEN\n"
-        "- iter 1 PASS — smoke run (evidence: scaffold, 1/1)\n")
+        "- iter 1 PASS — smoke run (evidence: tests/run.log, 1/1)\n")
     r = fx.assert_run()
     out52 = r.stdout + r.stderr
-    ok52 = r.returncode == 1 and "  - sealed evidence is STALE" in out52
-    rec("S52 G1 colon-less `- iter 1 PASS` still arms the seal obligation", ok52,
+    r_fin = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
+    # W19: colon-less PASS arms the obligation; STALE is advisory now, BLOCK at --final.
+    ok52 = (r.returncode == 0 and "STALE" in out52
+            and r_fin.returncode == 1 and "  - sealed evidence is STALE" in (r_fin.stdout + r_fin.stderr))
+    rec("S52 G1 colon-less `- iter 1 PASS` arms seal: execution WARN / --final BLOCK", ok52,
         f"rc={r.returncode} failline={('  - sealed evidence is STALE' in out52)}")
 
     # ---- W18 batch 2/3: ratchet · claim-lint · wave-base · deletions · hint ----
@@ -1056,7 +1069,7 @@ def main():
     fx = Fx()
     (fx.d / "tests" / "w18").mkdir()
     (fx.d / "tests" / "w18" / "run.log").write_text("ok\n")
-    r_rec = run(["bash", str(REPO / "scripts" / "record_evidence.sh"),
+    r_rec = run(["bash", str(REPO / "vibeweaver" / "scripts" / "record_evidence.sh"),
                  "--note", "final harness run", "--hash", "tests/w18/run.log"], fx.d)
     log_txt = (fx.d / "tests" / "verification_log.md").read_text()
     r = fx.assert_run()
@@ -1157,6 +1170,224 @@ def main():
     ok70 = r.returncode == 1 and ("RAISED" in out70 or "history" in out70)
     rec("S70 G3 55 churn commits cannot evict the adoption anchor (first rev pinned)", ok70,
         f"rc={r.returncode} caught={('RAISED' in out70 or 'history' in out70)}")
+
+    # S71/S72 — F19: machine state is NEVER sealed evidence.
+    # S71: gate_result cited by a cli/library log is excluded from the manifest,
+    #      its rewrite does not trigger C3, and the seal carries only a
+    #      non-authoritative machine-state digest.
+    # S72: a legacy manifest that still lists gate_result remains verifiable;
+    #      removing the REAL sealed run.log still FAILs even if gate_result
+    #      claims success.
+    import json as _j3
+    fx = Fx()
+    fx.write("tests/project_profile.json", _j3.dumps({"profile": "library"}))
+    fx.write("tests/run.log", "real evidence\n")
+    fx.write("tests/gate_result.json", '{"ok": false, "blocking": ["machine"]}\n')
+    fx.write("tests/verification_log.md",
+             "## Task: f19 | 2026-11-23\n- class: CODE — fixture\n"
+             "- Baseline verified GREEN\n"
+             "- iter 1 PASS: evidence tests/run.log tests/gate_result.json\n")
+    fx.commit("f19 fixture")
+    r_seal = run([sys.executable, str(SEAL)], fx.d)
+    man = _j3.loads((fx.d / "tests" / "evidence_manifest.json").read_text())
+    ok71a = (r_seal.returncode == 0
+             and "tests/run.log" in man.get("files", {})
+             and "tests/gate_result.json" not in man.get("files", {})
+             and bool(man.get("machine_state_digest_at_seal")))
+    fx.write("tests/gate_result.json", '{"ok": true, "blocking": []}\n')
+    r_chk = run([sys.executable, str(SEAL), "--check"], fx.d)
+    r_assert = fx.assert_run()
+    out71 = r_assert.stdout + r_assert.stderr
+    ok71b = r_chk.returncode == 0 and r_assert.returncode == 0 and "tests/gate_result.json" not in out71
+    rec("S71 F19 machine state excluded from seal; rewrite is not C3",
+        ok71a and ok71b, f"omitted={ok71a} check0={r_chk.returncode == 0} assert0={r_assert.returncode == 0} noC3={('tests/gate_result.json' not in out71)}")
+
+    # Legacy compatibility: add the old machine entry back and drop the new
+    # informational field; seal --check filters it and still verifies.
+    legacy = dict(man)
+    legacy["files"] = dict(man.get("files", {}))
+    legacy["files"]["tests/gate_result.json"] = {"sha256": "0" * 64, "size": 1}
+    legacy.pop("machine_state_digest_at_seal", None)
+    (fx.d / "tests" / "evidence_manifest.json").write_text(_j3.dumps(legacy))
+    r_legacy = run([sys.executable, str(SEAL), "--check"], fx.d)
+    r_legacy_assert = fx.assert_run()
+    out_legacy = r_legacy_assert.stdout + r_legacy_assert.stderr
+    ok72a = r_legacy.returncode == 0 and r_legacy_assert.returncode == 0 and "tests/gate_result.json" not in out_legacy
+    (fx.d / "tests" / "run.log").unlink()
+    fx.write("tests/gate_result.json", '{"ok": true, "blocking": []}\n')
+    r_missing = fx.assert_run()
+    out72 = r_missing.stdout + r_missing.stderr
+    ok72b = r_missing.returncode == 1 and "sealed evidence missing: tests/run.log" in out72
+    rec("S72 F19 legacy machine entry ignored; forged green cannot mask missing real evidence",
+        ok72a and ok72b, f"legacy={ok72a} realTeeth={ok72b}")
+
+    # S73 — aliases normalize to machine state, and .vibeweaver is outside the
+    # freshness fingerprint. A state write after sealing must not turn STALE.
+    fx = Fx()
+    fx.write("tests/project_profile.json", _j3.dumps({"profile": "library"}))
+    fx.write("tests/run.log", "real evidence\n")
+    fx.write("tests/gate_result.json", '{"ok": false}\n')
+    fx.write("tests/verification_log.md",
+             "## Task: f19-alias | 2026-11-23\n- class: CODE — fixture\n"
+             "- Baseline verified GREEN\n"
+             "- iter 1 PASS: evidence tests/run.log tests/../tests/gate_result.json "
+             "tests/GATE_RESULT.json\n")
+    fx.commit("f19 alias fixture")
+    r_seal = run([sys.executable, str(SEAL)], fx.d)
+    man = _j3.loads((fx.d / "tests" / "evidence_manifest.json").read_text())
+    keys = {k.casefold() for k in man.get("files", {})}
+    aliases_absent = not any(k.endswith("gate_result.json") for k in keys)
+    fx.write(".vibeweaver/state.json", '{"machine": 1}\n')
+    r_chk = run([sys.executable, str(SEAL), "--check"], fx.d)
+    r_assert = fx.assert_run()
+    out73 = r_assert.stdout + r_assert.stderr
+    ok73a = r_seal.returncode == 0 and aliases_absent and r_chk.returncode == 0
+    ok73b = r_assert.returncode == 0 and "STALE" not in out73
+    (fx.d / ".vibeweaver" / "state.json").chmod(0)
+    try:
+        r_unreadable = run([sys.executable, str(SEAL)], fx.d)
+        ok73c = r_unreadable.returncode == 0
+    finally:
+        (fx.d / ".vibeweaver" / "state.json").chmod(0o600)
+    ok73d = True
+    ok73e = True
+    if os.name != "nt":
+        alias = fx.d / "tests" / "alias.log"
+        os.symlink(fx.d / "tests" / "gate_result.json", alias)
+        fx.append_log("- iter 2 PASS: evidence tests/alias.log")
+        r_symlink = run([sys.executable, str(SEAL)], fx.d)
+        out_symlink = (r_symlink.stdout + r_symlink.stderr).lower()
+        ok73d = r_symlink.returncode == 1 and "symlink evidence" in out_symlink
+        alias.unlink()
+        external = fx.d.parent / (fx.d.name + "-external")
+        external.mkdir()
+        (external / "x.log").write_text("outside\n")
+        os.symlink(external, fx.d / "tests" / "sub")
+        fx.append_log("- iter 3 PASS: evidence tests/sub/x.log")
+        r_parent = run([sys.executable, str(SEAL)], fx.d)
+        ok73e = r_parent.returncode == 1 and "symlink evidence" in (r_parent.stdout + r_parent.stderr).lower()
+        (fx.d / "tests" / "sub").unlink()
+    rec("S73 F19 aliases filtered and .vibeweaver excluded from freshness",
+        ok73a and ok73b and ok73c and ok73d and ok73e,
+        f"aliases={aliases_absent} check0={r_chk.returncode == 0} assert0={r_assert.returncode == 0} "
+        f"unreadableSeal={ok73c} symlinkRejected={ok73d} parentSymlink={ok73e}")
+
+    # S74 — a PASS citing only machine state cannot create a zero-evidence seal,
+    # and the checker names machine state rather than trusting a forged green.
+    fx = Fx()
+    fx.write("tests/project_profile.json", _j3.dumps({"profile": "library"}))
+    fx.write("tests/gate_result.json", '{"ok": true, "blocking": []}\n')
+    fx.write("tests/verification_log.md",
+             "## Task: f19-machine-only | 2026-11-23\n- class: CODE — fixture\n"
+             "- Baseline verified GREEN\n"
+             "- iter 1 PASS: evidence tests/gate_result.json\n")
+    fx.commit("f19 machine-only fixture")
+    r_seal = run([sys.executable, str(SEAL)], fx.d)
+    r_final = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--class", "CODE", "--final"], fx.d)
+    out74 = (r_seal.stdout + r_seal.stderr + r_final.stdout + r_final.stderr).lower()
+    ok74 = r_seal.returncode == 1 and "machine state is not evidence" in out74 and r_final.returncode == 1
+    rec("S74 F19 machine-only evidence cannot create a green seal",
+        ok74, f"seal_rc={r_seal.returncode} final_rc={r_final.returncode} named={('machine state is not evidence' in out74)}")
+
+    # S75 — citation classes that still resolve to zero real artifacts must
+    # refuse a seal and fail the checker (ghost companion / self-ref only).
+    variants = [
+        ("ghost", "tests/gate_result.json tests/ghost.log", "machine state is not evidence"),
+        ("self-only", "tests/verification_log.md", "no real, existing, non-empty evidence"),
+    ]
+    ok75 = True
+    for label, refs, message in variants:
+        fx = Fx()
+        fx.write("tests/project_profile.json", _j3.dumps({"profile": "library"}))
+        fx.write("tests/gate_result.json", '{"ok": true, "blocking": []}\n')
+        fx.write("tests/verification_log.md",
+                 f"## Task: f19-{label} | 2026-11-23\n- class: CODE — fixture\n"
+                 f"- Baseline verified GREEN\n- iter 1 PASS: evidence {refs}\n")
+        fx.commit(label)
+        r_seal = run([sys.executable, str(SEAL)], fx.d)
+        r_final = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--class", "CODE", "--final"], fx.d)
+        out = (r_seal.stdout + r_seal.stderr + r_final.stdout + r_final.stderr).lower()
+        this_ok = r_seal.returncode == 1 and r_final.returncode == 1 and message in out
+        ok75 = ok75 and this_ok
+    rec("S75 F19 ghost/self-only citations cannot create a zero-evidence seal", ok75,
+        f"ghostAndSelfRef={ok75}")
+
+    # S76 — machine citation beside a REAL valid media artifact is not a false
+    # positive: the media is sealed, the checker stays green.
+    png2 = b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + (640).to_bytes(4, "big") + (400).to_bytes(4, "big") + b"\x08\x06\x00\x00\x00" + b"\x00" * 32
+    fx = Fx()
+    fx.write("tests/project_profile.json", _j3.dumps({"profile": "library"}))
+    (fx.d / "tests" / "shot+1.png").write_bytes(png2)
+    fx.write("tests/gate_result.json", '{"ok": true}\n')
+    fx.write("tests/verification_log.md",
+             "## Task: f19-real-media | 2026-11-23\n- class: CODE — fixture\n"
+             "- Baseline verified GREEN\n- iter 1 PASS: evidence tests/shot+1.png tests/gate_result.json\n")
+    fx.commit("f19 real media")
+    r_seal = run([sys.executable, str(SEAL)], fx.d)
+    r_assert = fx.assert_run()
+    out76 = r_assert.stdout + r_assert.stderr
+    ok76a = r_seal.returncode == 0 and "tests/shot+1.png" in _j3.loads((fx.d / "tests" / "evidence_manifest.json").read_text()).get("files", {})
+    ok76b = r_assert.returncode == 0 and "machine state is not evidence" not in out76
+    rec("S76 F19 real media citation keeps evidence teeth and no false machine-only error",
+        ok76a and ok76b, f"sealedMedia={ok76a} checker={ok76b}")
+
+    # S77 — valid media filename characters (+/@/%) are still checked.
+    fx = Fx()
+    fx.append_log("- iter 2 PASS: evidence tests/shot+1.png")
+    r = fx.assert_run()
+    out77 = r.stdout + r.stderr
+    ok77 = r.returncode == 1 and "screenshot claimed but missing/empty: tests/shot+1.png" in out77
+    rec("S77 F19 media citation charset keeps +/@/%-style filenames checked", ok77,
+        f"rc={r.returncode} claimed={('screenshot claimed' in out77)}")
+
+    # S78 — greedy path capture: a fabricated child under a real PNG must be
+    # checked as the FULL path, not truncated to its real prefix.
+    png3 = b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + (640).to_bytes(4, "big") + (400).to_bytes(4, "big") + b"\x08\x06\x00\x00\x00" + b"\x00" * 32
+    fx = Fx()
+    (fx.d / "tests" / "real.png").write_bytes(png3)
+    fx.append_log("- iter 2 PASS: evidence tests/real.png/fake.png")
+    r = fx.assert_run()
+    out78 = r.stdout + r.stderr
+    ok78 = r.returncode == 1 and "screenshot claimed but missing/empty: tests/real.png/fake.png" in out78
+    rec("S78 F19 fabricated child under real media is not truncated", ok78,
+        f"rc={r.returncode} fullPath={('tests/real.png/fake.png' in out78)}")
+
+    # S79 — regex-quoting in prose must not be parsed as a cited file.
+    fx = Fx()
+    fx.append_log("style note: tests/([\\w./-]*[\\w-]+\\.png) is the documented matcher")
+    fx.append_log("glob note: tests/*.png is a documented pattern")
+    r = fx.assert_run()
+    out79 = r.stdout + r.stderr
+    ok79 = "screenshot claimed" not in out79
+    rec("S79 F19 regex-quoted path is not a media citation", ok79,
+        f"falsePositive={('screenshot claimed' in out79)}")
+
+    # S80/S81 — CODE PASS with no citation, or with only a word-less machine
+    # citation, cannot complete with an empty/untrusted evidence set.
+    variants2 = [
+        ("no-citation", "CODE", "- iter 1 PASS: all done", "no real, existing, non-empty evidence"),
+        ("wordless-machine", "CODE", "- iter 1 PASS: tests/gate_result.json", "machine state is not evidence"),
+        ("empty-file", "CODE", "- iter 1 PASS: evidence tests/empty.log", "no real, existing, non-empty evidence"),
+        ("config-no-citation", "CONFIG", "- iter 1 PASS: all done", "no real, existing, non-empty evidence"),
+    ]
+    ok80 = True
+    for label, task_cls, iter_line, message in variants2:
+        fx = Fx()
+        fx.write("tests/project_profile.json", _j3.dumps({"profile": "library"}))
+        fx.write("tests/gate_result.json", '{"ok": true}\n')
+        if label == "empty-file":
+            fx.write("tests/empty.log", "")
+        fx.write("tests/verification_log.md",
+                 f"## Task: f19-{label} | 2026-11-23\n- class: {task_cls} — fixture\n"
+                 f"- Baseline verified GREEN\n{iter_line}\n")
+        fx.commit(label)
+        r_seal = run([sys.executable, str(SEAL)], fx.d)
+        r_final = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--class", task_cls, "--final"], fx.d)
+        out = (r_seal.stdout + r_seal.stderr + r_final.stdout + r_final.stderr).lower()
+        this_ok = r_seal.returncode == 1 and r_final.returncode == 1 and message in out
+        ok80 = ok80 and this_ok
+    rec("S80 F19 no-citation/word-less/empty/CONFIG CODE-class completions cannot pass empty evidence", ok80,
+        f"allVariants={ok80}")
 
     fails = [n for n, ok, _ in RESULTS if not ok]
     print(f"\n=== {len(RESULTS) - len(fails)}/{len(RESULTS)} pass" +

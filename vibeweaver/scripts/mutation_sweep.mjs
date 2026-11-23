@@ -269,9 +269,10 @@ run("C18-doc-class-code-write", () => ({
     "- class: CONFIG — config.toml only",
     "- Baseline verified GREEN — script/linux/project_build.sh exit 0 (COV-9: CONFIG runs the baseline, §V11.3)",
     memLine,
-    "- iter 1 PASS: criterion #1 (evidence: config parses)",
+    "- iter 1 PASS: criterion #1 (evidence: tests/run.log, config parses)",
   ].join("\n")
   writeFileSync(path.join(root, "tests/acceptance.md"), "> cap=5  stall=3×\n1. Config key updated\n")
+  writeFileSync(path.join(root, "tests/run.log"), "config smoke passed\n")
   const assertSrc = path.resolve(import.meta.dirname, "assert_artifacts.py")
   if (existsSync(assertSrc)) writeFileSync(path.join(root, "tests/assert_artifacts.py"), readFileSync(assertSrc, "utf8"))
   for (const s of ["start.sh", "stop.sh", "restart.sh", "project_build.sh"]) {
@@ -517,6 +518,10 @@ const GATE_MODULE = path.resolve(import.meta.dirname, "..", "vibeweaver-gate.js"
 const gateMod = await import(pathToFileURL(GATE_MODULE))
 const gateServer = (gateMod.default && gateMod.default.server) || gateMod.server
 const SCRIPTS_DIR = import.meta.dirname
+const PAYLOAD_ROOT = path.resolve(SCRIPTS_DIR, "..")
+const TESTS_ROOT = existsSync(path.join(PAYLOAD_ROOT, "tests")) ? PAYLOAD_ROOT : path.resolve(PAYLOAD_ROOT, "..")
+process.env.VIBEWEAVER_REPO_ROOT = TESTS_ROOT
+process.env.VIBEWEAVER_PAYLOAD = PAYLOAD_ROOT
 
 function w25rec(name, ok, detail) {
   if (ok) { pass++; console.log(`PASS  ${name} — ${detail}`) }
@@ -694,6 +699,64 @@ function w25py(name, lines, args = []) {
       r.out.includes("REUSE-REJECTED") && !r.out.includes("PUBLISH_ACCEPTED") &&
       !r.out.includes("PUBLISH-REF-MOVED"),
     `out=${r.out.trim().split("\n").join(" / ")}`)
+}
+
+// F19a/F19b — machine state is not evidence. The gate writes gate_result.json
+// after every check; it must never be hashed by the evidence seal. A forged
+// green gate_result must not replace the real sealed evidence's tamper teeth.
+{
+  const a = w25py("f19a", [
+    "import json, os, subprocess, sys",
+    "repo = os.environ['VIBEWEAVER_REPO_ROOT']",
+    "sys.path.insert(0, os.path.join(repo, 'tests'))",
+    "import test_assert_groups as t",
+    "fx = t.Fx()",
+    "fx.write('tests/project_profile.json', json.dumps({'profile': 'library'}))",
+    "fx.write('tests/run.log', 'real evidence\\n')",
+    "fx.write('tests/gate_result.json', '{\"ok\": false}\\n')",
+    "fx.write('tests/verification_log.md', '## Task: f19\\n- class: CODE — fixture\\n- Baseline verified GREEN\\n- iter 1 PASS: evidence tests/run.log tests/gate_result.json\\n')",
+    "fx.commit('f19a')",
+    "seal = os.path.join(os.environ['VIBEWEAVER_PAYLOAD'], 'scripts', 'evidence_seal.py')",
+    "def run(*args):",
+    "    return subprocess.run([sys.executable, seal, *args], cwd=fx.d, capture_output=True, text=True)",
+    "sr = run()",
+    "man = json.loads((fx.d / 'tests' / 'evidence_manifest.json').read_text())",
+    "fx.write('tests/gate_result.json', '{\"ok\": true}\\n')",
+    "cr = run('--check')",
+    "ar = fx.assert_run()",
+    "out = ar.stdout + ar.stderr",
+    "print(json.dumps({'seal': sr.returncode, 'omitted': 'tests/gate_result.json' not in man.get('files', {}), 'digest': bool(man.get('machine_state_digest_at_seal')), 'check': cr.returncode, 'assert_rc': ar.returncode, 'no_c3': 'tests/gate_result.json' not in out}))",
+  ])
+  let ja = {}
+  try { ja = JSON.parse(a.out.trim().split("\n").pop()) } catch { /* fail below */ }
+  w25rec("F19a machine-state rewrite is outside the evidence seal",
+    ja.seal === 0 && ja.omitted === true && ja.digest === true && ja.check === 0 && ja.assert_rc === 0 && ja.no_c3 === true,
+    `out=${a.out.trim()} err=${a.err.trim()}`)
+
+  const b = w25py("f19b", [
+    "import json, os, subprocess, sys",
+    "repo = os.environ['VIBEWEAVER_REPO_ROOT']",
+    "sys.path.insert(0, os.path.join(repo, 'tests'))",
+    "import test_assert_groups as t",
+    "fx = t.Fx()",
+    "fx.write('tests/project_profile.json', json.dumps({'profile': 'library'}))",
+    "fx.write('tests/run.log', 'real evidence\\n')",
+    "fx.write('tests/gate_result.json', '{\"ok\": false}\\n')",
+    "fx.write('tests/verification_log.md', '## Task: f19\\n- class: CODE — fixture\\n- Baseline verified GREEN\\n- iter 1 PASS: evidence tests/run.log tests/gate_result.json\\n')",
+    "fx.commit('f19b')",
+    "seal = os.path.join(os.environ['VIBEWEAVER_PAYLOAD'], 'scripts', 'evidence_seal.py')",
+    "sr = subprocess.run([sys.executable, seal], cwd=fx.d, capture_output=True, text=True)",
+    "(fx.d / 'tests' / 'run.log').unlink()",
+    "fx.write('tests/gate_result.json', '{\"ok\": true, \"blocking\": []}\\n')",
+    "ar = fx.assert_run()",
+    "out = ar.stdout + ar.stderr",
+    "print(json.dumps({'seal': sr.returncode, 'missing_real': 'sealed evidence missing: tests/run.log' in out, 'assert_rc': ar.returncode, 'forged_machine_not_c3': 'tests/gate_result.json hash mismatch' not in out and 'C3 tamper' not in out}))",
+  ])
+  let jb = {}
+  try { jb = JSON.parse(b.out.trim().split("\n").pop()) } catch { /* fail below */ }
+  w25rec("F19b forged green machine state cannot mask missing sealed evidence",
+    jb.seal === 0 && jb.missing_real === true && jb.assert_rc === 1 && jb.forged_machine_not_c3 === true,
+    `out=${b.out.trim()} err=${b.err.trim()}`)
 }
 
 console.log(`\n=== MUTATION SWEEP: ${pass} passed, ${fail} failed ===`)

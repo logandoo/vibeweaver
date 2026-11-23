@@ -635,3 +635,8 @@ bash script/linux/project_build.sh (or test runner) — run-once baseline
 - iter 1 PASS: criterion #74 | diagnosis: 题池终定 6 题双侧验证完成——comp 3（bare 0/9 vs full_deployed 9/9）+ redfirst 族 3（bare 0/9 vs full_deployed 8/9 有效，ttl/s2 AC# 形状修复后复判 pass，rf/s2 真违规=acceptance 顶行缺 banner）；D-W2ISO-9 三次复发全修复（单复数/×x/FAIL[C]/AC#）；废弃 run（teethfull 旧尺子）大 blob 从历史移除，棘轮绿 | changed: 3×hidden + _comp_evidence.py + selfcheck.py（语义变体修复）· tests/eval/g3/teethfull2/（9 runs 证据）· memory | 证据 teethfull2 判定表 + selfcheck 18/18 + assert --final 35/35
 - iter 2 PASS: criterion #74 | diagnosis: 题池定稿 6 题双侧验证完成 + 显著性扩样方案（6×5×2=60 runs≈15.5h 或 6×3×2=36 runs≈9h）写入 memory；D-W2ISO-9 三次复发教训固化（红队夹具钉住语义变体）| changed: memory/project_w2_eval_lab.md | 证据 teethfull2 判定表 + bare 0/18 vs full_deployed 17/18
 - working-note: na (收口波无新任务探索，纯数据汇总与方案文档；working_note 已在前序迭代蒸馏)
+- test-change: tests/plugin_compat_test.mjs — synced from dev for F19 / trusted-git release
+- test-change: tests/test_assert_groups.py — synced from dev for F19 / trusted-git release
+- test-change: tests/test_compatibility_matrix.py — release-tree sync
+- test-change: tests/test_headless_contracts.py — release-tree sync
+- test-change: tests/test_perf_budget.py — release-tree sync

@@ -22,14 +22,14 @@ description: |
 contract (covenants, gates, loop discipline) + router; the companions hold the
 full procedural text and are read IN FULL at their Read Contract triggers.
 
-**Size budget:** this file < 49 KB (selftest T11 asserts it) · every companion
+**Size budget:** this file < 49 KB (T11) · every companion
 ≤ 45 KB. New rules enter as a compact line here + full text in a companion.
 
-**Truncation self-heal:** if this file looks truncated (Reference Files section
-missing), Read it to the end before acting.
+**Truncation self-heal:** if this file looks truncated (Reference Files
+missing), Read to the end before acting.
 
 **Weak-model bootstrap:** [bootstrap.md](bootstrap.md) — the 1 KB pointer
-injected at session start (PLAN W0 Task 4).
+injected at session start.
 
 ## §1 OPERATING COVENANT — read first, never violate ★ NON-NEGOTIABLE
 
@@ -93,7 +93,7 @@ ONCE → test cases FROM the doc → test→fix→test until ALL pass.
 `iteration cap = 5 per sub-problem` and `stall = same criterion fails 3×
 consecutive iterations`. On cap/stall: STOP retrying that direction,
 record the failed attempt in `memory/` as ❌, try a genuinely different
-direction (or fresh-brain retry / escalate to user). root-stall (no net progress ≥3 iters) also counts; on any stall record `- deadend-research:` + `- assumption-falsify:` (group 23) before the next direction. "context exhausted" is never a stop — legal stops: §V12. The string
+direction (or fresh-brain retry / escalate). root-stall (no net progress ≥3 iters) also counts; on any stall record `- deadend-research:` + `- assumption-falsify:` (group 23) before the next direction. "context exhausted" is never a stop — legal stops: §V12. The string
 `cap=5  stall=3×` MUST appear as the top-line of every `tests/acceptance.md`
 you write.
 
@@ -168,7 +168,7 @@ AUTHORITATIVE); office assets take the §V11.9 render gate. Escalate UP on
 scope growth or evidence, NEVER down. Declare with Mode/Lane and in the gate
 line; misreporting is a violation.
 
-**Multi-agent (compact; full: MULTI_AGENT.md R11):** controller-issued
+**Multi-agent (full: MULTI_AGENT.md R11):** controller-issued
 RunContext (`.vibeweaver/run_context.json`, never self-declared) → per-run
 artifact root for acceptance/log/latch/state · shared writes fenced by
 `attempt_id+lease_epoch` · integration queues frozen SHAs. Invariants: ① same
@@ -182,7 +182,7 @@ concurrency NEVER relaxes a gate.
 summary; gate line only per profile — COV-0):`
 
 - `tests/acceptance.md` — first line **verbatim** `> cap=5  stall=3×`, one
-  numbered criterion per line (user-owned stop condition).
+  numbered criterion per line (user-owned).
 - `tests/verification_log.md` — ≥1 per-iteration entry (format: §A4.1 Step 4);
   first entry of the task block carries `- class: <DOC|CONFIG|CODE> — <basis>`.
 - `tests/working_note.md` — Lane M/L or any 2nd-iteration task: live task
@@ -342,9 +342,9 @@ the packet. Full contract: R9.
 ## Read Contract — MANDATORY companion reads
 
 Reading the named companion at its trigger is a **workflow step**, not
-optional discovery. "I already know this protocol" is not a valid skip (the
-files may have been updated; skipping is how the §1 weak-model failure mode
-happens). Use the Read tool, start→end.
+optional discovery. "I already know this protocol" is not a valid skip (files
+may have been updated; skipping is how §1's weak-model failure mode happens).
+Use the Read tool, start→end.
 
 | # | Trigger (when) | Read IN FULL |
 |---|----------------|--------------|
@@ -354,7 +354,7 @@ happens). Use the Read tool, start→end.
 | R3 | New-project workflow | [REFERENCE.md](REFERENCE.md) → Part C: C1 |
 | R4 | Large task: ≥3 files or multi-step inter-dependencies | [REFERENCE.md](REFERENCE.md) → Part C: C3 |
 | R5 | §A5 table requires design docs | [REFERENCE.md](REFERENCE.md) → §A5.1 |
-| R6 | Writing capture/API/websocket code, config, scripts, plan files | [APPENDIX.md](APPENDIX.md) — §A2/§A3/§A4.5/§A4.7.x + C3 plan template as needed |
+| R6 | Writing capture/API/websocket code, config, scripts, plan files | [SCRIPT_TEMPLATES.md](SCRIPT_TEMPLATES.md) §A2 · [APPENDIX.md](APPENDIX.md) §A3/§A4.5/§A4.7.x + C3 as needed |
 | R7 | Memory operations beyond §3.2 (writing, gating, consolidating, migrating) | [MEMORY_RULES.md](MEMORY_RULES.md) · [MEMORY_TEMPLATES.md](MEMORY_TEMPLATES.md) |
 | R8 | Engineering-standards questions (deps, communication, failure modes, git, stack) | [ENGINEERING_STD.md](ENGINEERING_STD.md) · [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) |
 | R9 | GUIDED mode chosen · a PAUSED packet issued or resumed · a Class-I stop (I1–I6 ADR path) · task routed to C4–C8/S1 | [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — §M modes/PAUSED · C4 audit · C5 deploy · C6 ops · C7 non-web · C8 outer-loop · S1 spike |
@@ -382,17 +382,17 @@ When the project has scripts in `script/` for build / start / stop /
 restart — you MUST use them; NEVER bypass them with raw commands like
 `npm run build`, `fastapi run`, `vite`, `uvicorn` (canonical text of COV-2).
 Commands: `bash script/linux/project_build.sh|start.sh|stop.sh|restart.sh`
-(Windows: `script\windows\*.bat`; project build = `project_build.sh`).
+(Windows: `script\windows\*.bat`; build = `project_build.bat`).
 
-Missing → CREATE them first (APPENDIX.md §A2 templates); broken → FIX them,
+Missing → CREATE them first (SCRIPT_TEMPLATES.md); broken → FIX them,
 then use them. Never paper over a broken script with a raw command.
 
 **⚠ HOST-SAFETY (never violate):** stop/restart scripts MUST use the
 `.pid`-file + `kill $(cat .pid)` pattern from APPENDIX.md §A2 — NEVER
 `pkill -f "uvicorn ..."` / `pkill -f "python ..."` or any pattern-kill.
-On shared hosts that pattern kills UNRELATED services owned by other
+On shared hosts that pattern kills UNRELATED services of other
 sessions. Kill only the PID your start.sh recorded (COV-2 compliance
-includes writing safe stop scripts).
+includes writing safe stop scripts). Windows stop: only `taskkill /PID`.
 
 ### A3. Configuration Management
 - All config MUST be read from the project's config file (typically `config.toml`).
@@ -431,7 +431,7 @@ UI/runtime-affecting change. Full protocol: §A4.1 in TESTING_PROTOCOLS.md.
 2. **Step 1 — acceptance criteria gate (BEFORE acting; user-owned).** One
    criterion = one yes/no sentence → `tests/acceptance.md`, first line verbatim
    `> cap=5  stall=3×`. Vague → STOP/ask (GUIDED) or conservative ADR (AUTO).
-   Once set: immutable — no add/drop/relax without the user (or an AUTO ADR).
+   Once set: immutable — no add/drop/relax without the user (or AUTO ADR).
 3. **Step 2 — act + capture** per the announced verifier mode; evidence to
    `tests/`.
 4. **Step 3 — observe:** the verifier answers ONE question — does this
@@ -738,13 +738,13 @@ All companions link one level deep from this file; reading them at a Read
 Contract trigger is **MANDATORY** (in full, via the Read tool); do not
 pre-load beyond the active branch. Every file ≤ 45 KB (one Read, un-truncated).
 
-- [TESTING_PROTOCOLS.md](TESTING_PROTOCOLS.md) — **R1.** §A4.1 full loop
-  protocol · §A4.6 debugging · §A4.7/§A4.7b/§A4.8/§A4.9 canonical · §A4.10
+- [TESTING_PROTOCOLS.md](TESTING_PROTOCOLS.md) — **R1.** §A4.1
+  loop protocol · §A4.6 debugging · §A4.7/§A4.7b/§A4.8/§A4.9 · §A4.10
   stall escape · §A4.11 PAUSED/resume.
 - [COMPLETION_GATE.md](COMPLETION_GATE.md) — **R1b.** §A4.4 (self-audit ·
   Gate Function · gate-line semantics + E2E ladder · 8-column spec) ·
   §A4.4.1 (assertion table) · §A4.4.2 (physical gate) · AUDIT_PLUGIN.md §AUDIT · §PRE-OUTPUT.
-- [REFERENCE.md](REFERENCE.md) — **R2/R3/R4/R5.** Full Part B/C workflow
+- [REFERENCE.md](REFERENCE.md) — **R2/R3/R4/R5.** Part B/C workflow
   steps · §A5.1 gate mechanics · checklists · anti-patterns.
 - [WORKFLOWS_EXTENDED.md](WORKFLOWS_EXTENDED.md) — **R9.** §M modes
   (AUTO/GUIDED) + Class-E + ADR/PAUSED formats · C4 audit · C5 deploy · C6 ops
@@ -753,12 +753,13 @@ pre-load beyond the active branch. Every file ≤ 45 KB (one Read, un-truncated)
   §V2 test integrity · §V3 coverage · §V4 adversarial · §V5 lanes · §V6 revert
   · §V7 matrix · §V8 A/B runbook · §V9 budget/ship order · §V10 action triage
   · §V11 task class + doc render gate.
-- [MULTI_AGENT.md](MULTI_AGENT.md) — **R11.** Multi-agent: RunContext · three
+- [MULTI_AGENT.md](MULTI_AGENT.md) — **R11.** RunContext · three
   invariants · dual gates · lease/fencing · immutable candidate · evidence
   chain · outbox · trust tiers.
 - [ENGINEERING_STD.md](ENGINEERING_STD.md) — §A6/§A8–§A10 full text ·
   [CODING_PRINCIPLES.md](CODING_PRINCIPLES.md) 4 iron rules.
-- [APPENDIX.md](APPENDIX.md) — executable templates under §A2/§A3/§A4.x.
+- [APPENDIX.md](APPENDIX.md) — executable templates under §A3/§A4.x.
+- [SCRIPT_TEMPLATES.md](SCRIPT_TEMPLATES.md) — **R6.** §A2 build/start/stop/restart templates.
 - [MEMORY_RULES.md](MEMORY_RULES.md) §A7.1–§A7.16 ·
   [MEMORY_TEMPLATES.md](MEMORY_TEMPLATES.md) templates.
 - `scripts/assert_artifacts.py` — canonical artifact-assertion script; copy

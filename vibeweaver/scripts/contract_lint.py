@@ -8,9 +8,10 @@ before a release. Checks:
   * precedence is explicit: COV-0 > line-176 pointer > COV-9
   * banned placeholders outside quotes/code fences
   * size caps: SKILL < 49 KB; companions <= 45 KB; bootstrap <= 2 KB
-  * lazy companions (MULTI_AGENT.md, R11 — loaded at trigger only) get the
-    same placeholder scan + 45 KB cap but a SEPARATE token budget (lazy cap
-    20000 tokens) instead of entering the always-resident 90000-token count
+  * lazy companions (MULTI_AGENT.md, R11 / SCRIPT_TEMPLATES.md, R6 — loaded at
+    trigger only) get the same placeholder scan + 45 KB cap but a SEPARATE
+    token budget (shared lazy cap 20000 tokens) instead of entering the
+    always-resident 90000-token count
   * profiles/core presence is a warning until Task 9 lands
 """
 import argparse
@@ -25,7 +26,7 @@ COMPANIONS = (
     "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
     "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
 )
-LAZY_COMPANIONS = ("MULTI_AGENT.md",)
+LAZY_COMPANIONS = ("MULTI_AGENT.md", "SCRIPT_TEMPLATES.md")
 LAZY_TOKEN_CAP = 20000
 BANNED = (
     "TBD", "handle edge cases", "similar to Task N", "appropriate validation",

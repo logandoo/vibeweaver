@@ -83,6 +83,26 @@ coding agent 在真实项目上的老毛病：删掉文件、重构没人让它�
 
 - **多 Agent 并发，构造上成立**：多个 agent 可以同时在一个项目里干活而不互踩证据——每个任务在控制器下发的 `RunContext`（绝不自声明）下运行，acceptance/log/latch/state 各落自己的 artifact root，所有共享写携带 `attempt_id + lease_epoch` 围栏（旧 epoch 由存储端直接拒绝），集成入队冻结 SHA 而不是分支名。三条不变量守底线：被评审、被测试、被归档、被推送的是同一个 candidate 树/提交；rebase、冲突解决、验证器更新、目标分支变化一律使旧绿作废；租约过期≠旧 agent 已停。没有 RunContext 时单 Agent 行为逐字节不变——并发永不放松任何一道门。完整协议：`MULTI_AGENT.md`。
 
+## 巨文件治理（source ratchet / artifact / repo budget）
+
+巨文件不是单一“最大 40 MiB”规则，而是五层防线：
+
+- **源头**：`.gitignore` 覆盖依赖/缓存/构建产物；review package、日志、trajectory 不无限入库。
+- **单文件**：`source_budget.py` 测量 tracked/staged/untracked 源码；`source_ratchet.py` 冻结存量超 `hard_lines` 文件（只缩不涨）、新文件硬帽、source/tests 分组 ceiling、`budget` headroom、`tighten` 只降、`rekey`/`prune`。正常 headroom 内**零审批**；`grant` 只调长期预算，append-only、带 reason/expiry，agent 禁止执行。
+- **生成物**：`artifact_budget.py` 对 review package/log/trajectory/media 设 per-file + total cap；超 cap 的 review package 自动生成小 index + 仓库外全文 + sha256；历史 review-like `.md` 用 `reclassify --by --reason` 一次性迁移，记录 append-only `tests/artifact_migrations.jsonl`。
+- **仓库**：`repo_budget.py` 冻结 live-tree total 并报告 top-N；历史侧仍由 group 21 的 max blob/.git/untracked/wave 检查覆盖。cumulative reachable blob 因每次提交自然增长，不作为 ratchet。
+- **修复**：历史污染走 A10.1 Class-E（用户批准 + bundle 备份 + filter-repo + commit-map remap）；不抬高 `tests/debt_baseline.json`。
+
+三个 ratchet 只在项目存在对应 `tests/*_baseline.json` 时随 build 启用；`check --final` 要求 baseline/grants tracked+clean，adoption auto-base 锚定 first-baseline commit，shallow clone/probe failure fail-closed。预算工具与 canonical checker 使用标准绝对 `git` 并清理 `GIT_*`（PATH/GIT_DIR wrapper 无效；hostile root 替换 git binary 不在 tamper-evident 边界内）。
+
+```bash
+python3 scripts/source_budget.py --root . --final --format json --output .vibeweaver/source_budget_report.json
+python3 scripts/source_ratchet.py --root . budget
+python3 scripts/source_ratchet.py --root . check --final
+python3 scripts/artifact_budget.py --root . check --final
+python3 scripts/repo_budget.py --root . check --final
+```
+
 ## 安装
 
 ```bash
@@ -385,7 +405,7 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 | `vibeweaver-gate.js`                                | stop hook 插件（opencode）+ 机械化停滞观测                                                                                  |
 | `vibeweaver-audit.js`                               | 三层机械审计器（Tier 0/1/2），会话级 RED 锁存、带留痕的自动释放、陈旧锁存自愈                                                                   |
 | `scripts/vibeweaver-audit-core.js`                  | 纯裁决核心（可无头测试）                                                                                                     |
-| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 601 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放、T34–T35 工具风暴、T36–T39 自锁/锁存逃生/作用域/来源卫生套件）/ 48 项变异检查，含锁存释放回归                                                    |
+| `scripts/audit_selftest.mjs` / `mutation_sweep.mjs` | 602 项 fixture 检查（T24 loop-guard、T25 任务分类、T26 final-run、T27 stop-guard、T29–T33 锁存释放、T34–T35 工具风暴、T36–T39 自锁/锁存逃生/作用域/来源卫生套件）/ 50 项变异检查，含锁存释放回归                                                    |
 | `install.sh` / `install.bat`                        | 安装脚本（skill 文件 + 两个插件）                                                                                            |
 
 ## 测试
@@ -395,10 +415,11 @@ vibeweaver 与技术栈无关，从不假设语言、框架或数据库：
 ```bash
 python3 verify_skill.py                     # 包完整性：payload、链接、标记、语法
 python3 -m unittest discover -s tests -v    # 技能自测 + checker 回归测试
-node vibeweaver/scripts/audit_selftest.mjs  # 601 项 fixture 检查（无校准数据时 T6 SKIP）
-node vibeweaver/scripts/mutation_sweep.mjs  # 48 项变异，每项都必须被抓到
+node vibeweaver/scripts/audit_selftest.mjs  # 602 项 fixture 检查（无校准数据时 T6 SKIP）
+node vibeweaver/scripts/mutation_sweep.mjs  # 50 项变异，每项都必须被抓到
 node tests/plugin_compat_test.mjs           # 86/86 双 loader 兼容（无豁免）
 node tests/mini_gate_test.mjs               # 62/62 (macOS) · 60/60 (Linux) · 55/55 (Windows) mini checker gate：v1/v2 write + idle + 安装器
+python3 tests/test_assert_groups.py         # 85/85 assert-group fixtures（F19 + trusted git）
 ```
 
 CI 在 Ubuntu / macOS / Windows 上跑这些（`.github/workflows/verify.yml`）。
