@@ -34,7 +34,7 @@ MARKERS = [
 ]
 PAYLOAD_FILES = [
     "SKILL.md", "COMPLETION_GATE.md", "AUDIT_PLUGIN.md", "CODING_PRINCIPLES.md", "ENGINEERING_STD.md",
-    "REFERENCE.md", "APPENDIX.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
+    "REFERENCE.md", "APPENDIX.md", "SCRIPT_TEMPLATES.md", "MEMORY_TEMPLATES.md", "MEMORY_RULES.md",
     "TESTING_PROTOCOLS.md", "WORKFLOWS_EXTENDED.md", "VERIFICATION_UPGRADES.md",
     "MULTI_AGENT.md",
     "scripts/assert_artifacts.py", "scripts/vibeweaver-audit-core.js",
