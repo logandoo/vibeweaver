@@ -725,7 +725,8 @@ function w25py(name, lines, args = []) {
     "cr = run('--check')",
     "ar = fx.assert_run()",
     "out = ar.stdout + ar.stderr",
-    "print(json.dumps({'seal': sr.returncode, 'omitted': 'tests/gate_result.json' not in man.get('files', {}), 'digest': bool(man.get('machine_state_digest_at_seal')), 'check': cr.returncode, 'assert_rc': ar.returncode, 'no_c3': 'tests/gate_result.json' not in out}))",
+    "sys.stderr.write(out[-2000:])",
+    "print(json.dumps({'seal': sr.returncode, 'omitted': 'tests/gate_result.json' not in man.get('files', {}), 'digest': bool(man.get('machine_state_digest_at_seal')), 'check': cr.returncode, 'assert_rc': ar.returncode, 'no_c3': 'tests/gate_result.json' not in out, 'diag': [l for l in out.splitlines() if l.strip()][-8:]}))",
   ])
   let ja = {}
   try { ja = JSON.parse(a.out.trim().split("\n").pop()) } catch { /* fail below */ }
