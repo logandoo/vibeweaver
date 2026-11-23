@@ -41,8 +41,26 @@ HEAD_SHA="${POSITIONAL[1]:?usage: make_review_package.sh <BASE> <HEAD> [outfile]
 OUT="${POSITIONAL[2]:-tests/review_package.md}"
 cd "$(dirname "$0")/.."
 mkdir -p "$(dirname "$OUT")"
-TMP="$(mktemp "${TMPDIR:-/tmp}/review_package.XXXXXX")"
+
+# The indexer is a native Python process, so the temp file must live at a path
+# that native Python can open. A `mktemp` under Git Bash's /tmp is a POSIX path
+# that native Windows Python cannot resolve (2026-11-23 Windows CI). Keep the
+# temp beside the output (repo-relative) and hide it from the package's own
+# `git status` section below.
+TMP="$(dirname "$OUT")/.review_package.$$.tmp"
 trap 'rm -f "$TMP"' EXIT
+
+# Interpreter: POSIX ships python3, Windows ships python. PYTHON overrides so
+# callers (tests, CI) can pin the exact interpreter that runs the suite.
+PY="${PYTHON:-}"
+if [ -z "$PY" ]; then
+  if command -v python3 >/dev/null 2>&1; then PY=python3
+  elif command -v python >/dev/null 2>&1; then PY=python
+  else
+    echo "make_review_package.sh: no python interpreter found (set PYTHON=...)" >&2
+    exit 2
+  fi
+fi
 {
   echo "# Review Package — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo
@@ -62,14 +80,14 @@ trap 'rm -f "$TMP"' EXIT
   git diff -U10 "${BASE}..${HEAD_SHA}"
   echo
   echo "## Uncommitted / untracked (if any)"
-  git status --porcelain || true
+  git status --porcelain | grep -vF "$TMP" || true
 } > "$TMP"
 SIZE="$(wc -c < "$TMP" | tr -d ' ')"
 if [ "$SIZE" -le "$MAX_BYTES" ]; then
   mv "$TMP" "$OUT"
   echo "review package written: $OUT ($(wc -l < "$OUT") lines, $SIZE bytes)"
 else
-  python3 scripts/artifact_budget.py --root . review-index \
+  "$PY" scripts/artifact_budget.py --root . review-index \
     --input "$TMP" --index "$OUT" \
     --archive-dir .vibeweaver/artifacts/review --max-bytes "$MAX_BYTES"
   echo "review package indexed: $OUT (full $SIZE bytes archived under .vibeweaver/artifacts/review)"

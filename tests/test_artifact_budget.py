@@ -15,6 +15,36 @@ SCRIPT = PAYLOAD / "scripts" / "artifact_budget.py"
 BASELINE = "tests/artifact_baseline.json"
 
 
+def bash_exe():
+    """Resolve a WORKING bash. On Windows `bash` first resolves to the
+    System32 WSL stub, which exits non-zero with EMPTY stderr (2026-11-23
+    Windows CI: rc=1, stderr=""). Probe candidates and fall back to the Git
+    for Windows paths; VIBEWEAVER_BASH overrides. None = no usable bash."""
+    cands = []
+    override = os.environ.get("VIBEWEAVER_BASH")
+    if override:
+        cands.append(override)
+    found = shutil.which("bash")
+    if found:
+        cands.append(found)
+    if os.name == "nt":
+        cands += [
+            r"C:\Program Files\Git\bin\bash.exe",
+            r"C:\Program Files\Git\usr\bin\bash.exe",
+            r"C:\Program Files (x86)\Git\bin\bash.exe",
+        ]
+    for cand in cands:
+        if not cand or not os.path.isfile(cand):
+            continue
+        try:
+            if subprocess.run([cand, "-c", "exit 0"], capture_output=True,
+                              timeout=10).returncode == 0:
+                return cand
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+    return None
+
+
 def git(repo, *args):
     result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
     if result.returncode:
@@ -291,10 +321,17 @@ class ArtifactFixture(unittest.TestCase):
         shutil.copy(PAYLOAD / "scripts" / "artifact_budget.py", scripts / "artifact_budget.py")
         shutil.copy(PAYLOAD / "scripts" / "git_trust.py", scripts / "git_trust.py")
         shutil.copy(PAYLOAD / "scripts" / "make_review_package.sh", scripts / "make_review_package.sh")
+        bash = bash_exe()
+        if not bash:
+            self.skipTest("no working bash (Git Bash) available")
+        # PYTHON pins the interpreter that runs the suite: Windows ships
+        # `python`, not `python3`, and Git Bash's /tmp is not a path native
+        # Python can open. The script takes a repo-relative temp file.
+        env = dict(os.environ, PYTHON=sys.executable)
         result = subprocess.run(
-            ["bash", str(scripts / "make_review_package.sh"), base, head,
+            [bash, (scripts / "make_review_package.sh").as_posix(), base, head,
              "tests/review_package.md", "--max-bytes", "2000"],
-            cwd=self.repo, capture_output=True, text=True,
+            cwd=self.repo, capture_output=True, text=True, env=env,
         )
         self.assertEqual(0, result.returncode, result.stderr)
         index = (self.repo / "tests" / "review_package.md").read_text(encoding="utf-8")
