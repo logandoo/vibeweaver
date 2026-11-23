@@ -641,3 +641,4 @@ bash script/linux/project_build.sh (or test runner) — run-once baseline
 - test-change: tests/test_headless_contracts.py — release-tree sync
 - test-change: tests/test_perf_budget.py — release-tree sync
 - test-change: tests/test_artifact_budget.py — Windows CI fix: real bash resolver + PYTHON pin for the review-package fixture
+- test-change: tests/test_assert_groups.py — Windows CI fix: fixture writes/reads UTF-8 explicitly (cp1252 locale made the log read empty)
