@@ -37,25 +37,25 @@ class Fx:
         self.d = pathlib.Path(tempfile.mkdtemp(prefix="vwfx-"))
         d = self.d
         (d / "memory").mkdir(parents=True)
-        (d / "memory" / "MEMORY.md").write_text("# Index\n- [T](topic.md)\n")
-        (d / "memory" / "topic.md").write_text("# t\n")
+        (d / "memory" / "MEMORY.md").write_text("# Index\n- [T](topic.md)\n", encoding="utf-8")
+        (d / "memory" / "topic.md").write_text("# t\n", encoding="utf-8")
         (d / "script" / "linux").mkdir(parents=True)
         for s in ["start.sh", "stop.sh", "restart.sh", "project_build.sh"]:
             p = d / "script" / "linux" / s
-            p.write_text("#!/bin/sh\nexit 0\n")
+            p.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
             p.chmod(0o755)
         (d / "tests").mkdir()
         (d / "scripts").mkdir()
         shutil.copy(REPO / "vibeweaver" / "scripts" / "git_trust.py", d / "scripts" / "git_trust.py")
         (d / ".gitignore").write_text(
             ".DS_Store\n__pycache__/\n*.pyc\n.venv/\nvenv/\nnode_modules/\n"
-            ".pnpm-store/\ndist/\nbuild/\n.env\n")
+            ".pnpm-store/\ndist/\nbuild/\n.env\n", encoding="utf-8")
         shutil.copy(CANON, d / "tests" / "assert_artifacts.py")
-        (d / "tests" / "acceptance.md").write_text("> cap=5  stall=3×\n1. ok\n")
-        (d / "tests" / "run.log").write_text("fixture evidence\n")
+        (d / "tests" / "acceptance.md").write_text("> cap=5  stall=3×\n1. ok\n", encoding="utf-8")
+        (d / "tests" / "run.log").write_text("fixture evidence\n", encoding="utf-8")
         (d / "tests" / "verification_log.md").write_text(
             "# vl\n- iter 1 PASS: smoke (evidence: tests/run.log -> all 1/1 checks)\n"
-            "- Baseline verified GREEN\n")
+            "- Baseline verified GREEN\n", encoding="utf-8")
         self.sh("git", "init", "-q")
         self.sh("git", "config", "user.email", "fx@example.invalid")
         self.sh("git", "config", "user.name", "fx")
@@ -68,10 +68,10 @@ class Fx:
     def write(self, rel, content):
         p = self.d / rel
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content)
+        p.write_text(content, encoding="utf-8")
 
     def append_log(self, line):
-        with open(self.d / "tests" / "verification_log.md", "a") as f:
+        with open(self.d / "tests" / "verification_log.md", "a", encoding="utf-8") as f:
             f.write(line + "\n")
 
     def commit(self, msg):
@@ -284,8 +284,8 @@ def main():
     # the anchor must survive on a clean tree (--allow-empty) so the
     # wave-scope diff (groups 14/15/17a) keeps its boundary.
     fx = Fx()
-    (fx.d / ".env").write_text("AWS_ACCESS_KEY_ID=" + "AKIA" + "0" * 16 + "\n")
-    (fx.d / "notes.txt").write_text("user scratch — never the agent's to commit\n")
+    (fx.d / ".env").write_text("AWS_ACCESS_KEY_ID=" + "AKIA" + "0" * 16 + "\n", encoding="utf-8")
+    (fx.d / "notes.txt").write_text("user scratch — never the agent's to commit\n", encoding="utf-8")
     run(["git", "add", "-u"], fx.d)  # the new COV-9 staging step (tracked-only)
     r_commit = run(["git", "commit", "--allow-empty", "-m", "backup: before changes"], fx.d)
     tracked = run(["git", "ls-files", ".env", "notes.txt"], fx.d).stdout.strip()
@@ -304,7 +304,7 @@ def main():
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: wave1 (old)\n- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n"
         "- Baseline verified GREEN\n"
-        "\n## Task: wave2 (current)\n- iter 1 PASS: x (evidence: log tests/x.log -> 1/1)\n")
+        "\n## Task: wave2 (current)\n- iter 1 PASS: x (evidence: log tests/x.log -> 1/1)\n", encoding="utf-8")
     r = fx.assert_run()
     ok14a = r.returncode == 1 and "COV-9" in r.stdout
     # (C1 supersedes the explicit-class rule: an unlabeled DOCS-only wave
@@ -313,34 +313,34 @@ def main():
     fx = Fx()
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: unlabeled doc\n- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n"
-        "- COV-9 skipped — reason: documentation-only change\n")
+        "- COV-9 skipped — reason: documentation-only change\n", encoding="utf-8")
     r = fx.assert_run()
     ok14b = r.returncode == 0
     fx = Fx()
     fx.write("app/hidden.py", "x = 1\n")
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: unlabeled code\n- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n"
-        "- COV-9 skipped — reason: documentation-only change\n")
+        "- COV-9 skipped — reason: documentation-only change\n", encoding="utf-8")
     r = fx.assert_run()
     ok14b2 = r.returncode == 1 and "COV-9" in r.stdout
     fx = Fx()
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: doc labeled\n- class: DOC — docs-only wave\n"
         "- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n"
-        "- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)\n")
+        "- COV-9 skipped — reason: documentation-only change (no runtime to baseline-test)\n", encoding="utf-8")
     r = fx.assert_run()
     ok14c = r.returncode == 0
     # Review B6 token: "Baseline has N pre-existing failures" + disposition
     fx = Fx()
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: red baseline\n- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n"
-        "- Baseline has 2 pre-existing failures → logged to tests/b.log; proceed quarantined by scope (AUTO)\n")
+        "- Baseline has 2 pre-existing failures → logged to tests/b.log; proceed quarantined by scope (AUTO)\n", encoding="utf-8")
     r = fx.assert_run()
     ok14d = r.returncode == 0
     fx = Fx()
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: red baseline no disposition\n- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n"
-        "- Baseline has 2 pre-existing failures\n")
+        "- Baseline has 2 pre-existing failures\n", encoding="utf-8")
     r = fx.assert_run()
     ok14e = r.returncode == 1
     rec("S14 COV-9 per-block: old-block never licenses; CODE-unlabeled skip fails (C1-derived); DOC skip passes",
@@ -350,7 +350,7 @@ def main():
     # S15 — Review A4/re-review R3: group-14 detail must NEVER echo matched
     # content (the gate routes details into tool results / session logs).
     fx = Fx()
-    (fx.d / "cred.txt").write_text("K = \"" + "AKIA" + "0" * 16 + "\"\n")
+    (fx.d / "cred.txt").write_text("K = \"" + "AKIA" + "0" * 16 + "\"\n", encoding="utf-8")
     r = fx.assert_run()
     secret_body = "AKIA" + "0" * 16
     ok15 = (r.returncode == 1 and "secret scan" in r.stdout
@@ -362,21 +362,21 @@ def main():
     # change labeled `class: DOC` must FAIL (the plan's own acceptance case).
     fx = Fx()
     (fx.d / "app").mkdir()
-    (fx.d / "app" / "calc.py").write_text("def add(a, b):\n    return a + b\n")
+    (fx.d / "app" / "calc.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
     fx.sh("git", "add", "-A")
     fx.sh("git", "commit", "-qm", "backup: before changes")  # anchor BEFORE the change
-    (fx.d / "app" / "calc.py").write_text("def add(a, b):\n    return a - b\n")
+    (fx.d / "app" / "calc.py").write_text("def add(a, b):\n    return a - b\n", encoding="utf-8")
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: mislabeled\n- class: DOC — docs-only wave\n"
-        "- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n- Baseline verified GREEN\n")
+        "- iter 1 PASS: smoke (evidence: scaffold, all 1/1 checks)\n- Baseline verified GREEN\n", encoding="utf-8")
     r = fx.assert_run()
     ok16a = r.returncode == 1 and "class mismatch" in r.stdout
     fx = Fx()
     (fx.d / "app").mkdir()
-    (fx.d / "app" / "calc.py").write_text("def add(a, b):\n    return a - b\n")
+    (fx.d / "app" / "calc.py").write_text("def add(a, b):\n    return a - b\n", encoding="utf-8")
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: honest\n- class: CODE — logic change per §V11.2\n"
-        "- iter 1 PASS: smoke (evidence: tests/run.log, all 1/1 checks)\n- Baseline verified GREEN\n")
+        "- iter 1 PASS: smoke (evidence: tests/run.log, all 1/1 checks)\n- Baseline verified GREEN\n", encoding="utf-8")
     r = fx.assert_run()
     ok16b = r.returncode == 0
     rec("S16 C1 derived-class cross-check: a+b→a-b under class:DOC FAILS; honest class:CODE passes",
@@ -387,7 +387,7 @@ def main():
     (fx.d / "tests" / "fake.png").write_bytes(b"X")
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: fake png\n- iter 1 PASS: shot (evidence: tests/fake.png -> 1/1)\n"
-        "- Baseline verified GREEN\n")
+        "- Baseline verified GREEN\n", encoding="utf-8")
     r = fx.assert_run()
     ok17a = r.returncode == 1 and "magic" in r.stdout
     fx = Fx()
@@ -395,7 +395,7 @@ def main():
         b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + (640).to_bytes(4, "big") + (400).to_bytes(4, "big") + b"\x08\x06\x00\x00\x00" + b"\x00" * 32)
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: real png\n- iter 1 PASS: shot (evidence: tests/real.png -> 1/1)\n"
-        "- Baseline verified GREEN\n")
+        "- Baseline verified GREEN\n", encoding="utf-8")
     r = fx.assert_run()
     ok17b = r.returncode == 0
     rec("S17 C2 media magic: 1-byte fake PNG FAILS; magic-clean PNG passes",
@@ -426,7 +426,7 @@ def main():
     png = b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + (640).to_bytes(4, "big") + (400).to_bytes(4, "big") + b"\x08\x06\x00\x00\x00" + b"\x00" * 32
     (fx.d / "tests" / "shot.png").write_bytes(png)
     (fx.d / "tests" / "verification_log.md").write_text(
-        "## Task: sealed\n- iter 1 PASS: shot (evidence: tests/shot.png -> 1/1)\n- Baseline verified GREEN\n")
+        "## Task: sealed\n- iter 1 PASS: shot (evidence: tests/shot.png -> 1/1)\n- Baseline verified GREEN\n", encoding="utf-8")
     r_seal = run([sys.executable, str(SEAL)], fx.d)
     r = fx.assert_run()
     ok19a = r_seal.returncode == 0 and r.returncode == 0
@@ -440,10 +440,10 @@ def main():
     fx = Fx()
     (fx.d / "tests" / "shot.png").write_bytes(png)
     (fx.d / "tests" / "verification_log.md").write_text(
-        "## Task: stale\n- iter 1 PASS: shot (evidence: tests/shot.png -> 1/1)\n- Baseline verified GREEN\n")
+        "## Task: stale\n- iter 1 PASS: shot (evidence: tests/shot.png -> 1/1)\n- Baseline verified GREEN\n", encoding="utf-8")
     run([sys.executable, str(SEAL)], fx.d)
     (fx.d / "app").mkdir()
-    (fx.d / "app" / "late.py").write_text("x = 2\n")  # code lands after the seal
+    (fx.d / "app" / "late.py").write_text("x = 2\n", encoding="utf-8")  # code lands after the seal
     r = fx.assert_run()  # W19: execution = advisory (exit 0) but STALE still surfaced
     ok20_exec = r.returncode == 0 and "STALE" in (r.stdout + r.stderr)
     r_fin = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
@@ -482,7 +482,7 @@ def main():
     # ... in a NEW task block with NO reason (an old block's reason must not
     # license a later wave's weakening — review R-I2)
     fx.write("tests/verification_log.md",
-             fx.d.joinpath("tests/verification_log.md").read_text()
+             fx.d.joinpath("tests/verification_log.md").read_text(encoding="utf-8")
              + "\n## Task: later wave\n- iter 2 PASS: x (evidence: tests/acceptance.md, 1/1)\n")
     r_seal2 = run([sys.executable, str(SEAL)], fx.d)
     ok22 = r_seal2.returncode == 1 and "silent rebuild" in r_seal2.stdout
@@ -530,9 +530,9 @@ def main():
     # S26 — a global excludesFile is not repo protection: the gate must
     # require the match to come from a COMMITTED .gitignore.
     fx = Fx()
-    (fx.d / ".gitignore").write_text("")
+    (fx.d / ".gitignore").write_text("", encoding="utf-8")
     globdir = pathlib.Path(tempfile.mkdtemp(prefix="vwglob-"))
-    (globdir / ".gitignore").write_text("node_modules/\n")
+    (globdir / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
     fx.sh("git", "config", "core.excludesFile", str(globdir / ".gitignore"))
     fx.write("package.json", "{}\n")
     fx.commit("empty local ignore + global .gitignore")
@@ -544,7 +544,7 @@ def main():
     # S27 — monorepo: frontend/package.json is covered by the root
     # .gitignore; the probe must use the manifest directory, not root only.
     fx = Fx()
-    (fx.d / ".gitignore").write_text(".DS_Store\n__pycache__/\n.venv/\n.env\n")
+    (fx.d / ".gitignore").write_text(".DS_Store\n__pycache__/\n.venv/\n.env\n", encoding="utf-8")
     fx.write("frontend/.gitignore", "node_modules/\n")
     fx.write("frontend/package.json", "{}\n")
     fx.write("frontend/src/app.ts", "export const x = 1\n")
@@ -559,8 +559,8 @@ def main():
     fx = Fx()
     (fx.d / ".gitignore").unlink()
     fx.commit("remove tracked ignore")
-    (fx.d / ".gitignore").write_text("node_modules/\n")
-    (fx.d / "package.json").write_text("{}\n")
+    (fx.d / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
+    (fx.d / "package.json").write_text("{}\n", encoding="utf-8")
     r = fx.assert_run()
     ok28 = r.returncode == 1 and "repo-hygiene" in r.stdout and ("untracked" in r.stdout or "not committed" in r.stdout)
     rec("S28 repo-hygiene: untracked .gitignore FAILS (must be committed)",
@@ -580,7 +580,7 @@ def main():
     # S30 — an ignored `.env` is still scanned by group 14 (prevention is not
     # a blindfold); the 45k-file incident must not turn into a secret leak.
     fx = Fx()
-    (fx.d / ".env").write_text("AWS_ACCESS_KEY_ID=" + "AKIA" + "0" * 16 + "\n")
+    (fx.d / ".env").write_text("AWS_ACCESS_KEY_ID=" + "AKIA" + "0" * 16 + "\n", encoding="utf-8")
     r = fx.assert_run()
     ok30 = r.returncode == 1 and "secret scan" in r.stdout and ".env" in r.stdout
     rec("S30 group 14 scans an ignored .env (not just untracked files)",
@@ -591,7 +591,7 @@ def main():
     fx = Fx()
     (fx.d / ".env").write_text(
         "DB_PASSWORD=" + "supersecretvalue123456" + "\n"
-        "OPENAI_API_KEY=" + "abcdefghijklmnopqrstuvwx" + "\n")
+        "OPENAI_API_KEY=" + "abcdefghijklmnopqrstuvwx" + "\n", encoding="utf-8")
     r = fx.assert_run()
     ok31 = r.returncode == 1 and "secret scan" in r.stdout
     rec("S31 group 14 generic rule catches prefixed credential names",
@@ -612,7 +612,7 @@ def main():
     fx = Fx()
     fx.sh("git", "rm", "-q", ".gitignore")
     fx.commit("remove tracked ignore")
-    (fx.d / ".gitignore").write_text("node_modules/\n.venv/\n")
+    (fx.d / ".gitignore").write_text("node_modules/\n.venv/\n", encoding="utf-8")
     fx.write("package.json", "{}\n")
     fx.sh("git", "add", ".gitignore", "package.json")
     r = fx.assert_run()
@@ -623,7 +623,7 @@ def main():
     # S34 — path-level approval licenses an ignored local secret file
     # (no inline marker on every .env line / PEM header required).
     fx = Fx()
-    (fx.d / ".env").write_text("DB_PASSWORD=" + "supersecretvalue123456" + "\n")
+    (fx.d / ".env").write_text("DB_PASSWORD=" + "supersecretvalue123456" + "\n", encoding="utf-8")
     fx.append_log("- secret-approved: .env — local development config (ignored, never committed)")
     r = fx.assert_run()
     ok34 = r.returncode == 0
@@ -642,7 +642,7 @@ def main():
 
     # S36 — an uncommitted pattern edit is not repo protection.
     fx = Fx()
-    (fx.d / ".gitignore").write_text(".venv/\n")  # drops node_modules/, uncommitted
+    (fx.d / ".gitignore").write_text(".venv/\n", encoding="utf-8")  # drops node_modules/, uncommitted
     fx.write("package.json", "{}\n")
     r = fx.assert_run()
     ok36 = r.returncode == 1 and "repo-hygiene" in r.stdout and "node_modules" in r.stdout
@@ -678,7 +678,7 @@ def main():
     # S39 — W9 P0-2: a dotted prefixed key (SENDGRID_API_KEY=SG.…) is NOT a
     # reference expression; the stricter reference predicate must keep it.
     fx = Fx()
-    (fx.d / ".env").write_text("SENDGRID_API_KEY=SG." + "abcdefghijklmnopqrstuvwx" + "\n")
+    (fx.d / ".env").write_text("SENDGRID_API_KEY=SG." + "abcdefghijklmnopqrstuvwx" + "\n", encoding="utf-8")
     r = fx.assert_run()
     ok39 = r.returncode == 1 and "secret scan" in r.stdout
     rec("S39 group 14: dotted prefixed key (SG.…) still fails",
@@ -752,14 +752,14 @@ def main():
     # current task block, a stale seal is WARN, never FAIL.
     fx = Fx()
     (fx.d / "app").mkdir()
-    (fx.d / "app" / "a.py").write_text("x = 1\n")
+    (fx.d / "app" / "a.py").write_text("x = 1\n", encoding="utf-8")
     fx.commit("code")
     run([sys.executable, str(SEAL)], fx.d)
-    (fx.d / "app" / "a.py").write_text("x = 2\n")  # code changes after the seal
+    (fx.d / "app" / "a.py").write_text("x = 2\n", encoding="utf-8")  # code changes after the seal
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: w18-bootstrap\n- Baseline verified GREEN\n"
         "- iter 1 FAIL: criterion #1 | diagnosis: the validator ran before state hydration | changed: app/a.py\n"
-        "- working-note: created (fixture)\n")
+        "- working-note: created (fixture)\n", encoding="utf-8")
     r = fx.assert_run()
     out46 = r.stdout + r.stderr
     stale_fail46 = "  - sealed evidence is STALE" in out46
@@ -772,10 +772,10 @@ def main():
     # touch code → seal → change code → BLOCK, 文案含 STALE).
     fx = Fx()
     (fx.d / "app").mkdir()
-    (fx.d / "app" / "a.py").write_text("x = 1\n")
+    (fx.d / "app" / "a.py").write_text("x = 1\n", encoding="utf-8")
     fx.commit("code")
     run([sys.executable, str(SEAL)], fx.d)
-    (fx.d / "app" / "a.py").write_text("x = 2\n")
+    (fx.d / "app" / "a.py").write_text("x = 2\n", encoding="utf-8")
     r = fx.assert_run()
     out47 = r.stdout + r.stderr
     r_fin = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
@@ -791,7 +791,7 @@ def main():
     fx = Fx()
     (fx.d / "tests" / "shot.png").write_bytes(png)
     (fx.d / "tests" / "verification_log.md").write_text(
-        "## Task: noseal-media\n- iter 1 PASS: shot (evidence: tests/shot.png -> 1/1)\n- Baseline verified GREEN\n")
+        "## Task: noseal-media\n- iter 1 PASS: shot (evidence: tests/shot.png -> 1/1)\n- Baseline verified GREEN\n", encoding="utf-8")
     r = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
     out48 = r.stdout + r.stderr
     ok48 = r.returncode == 1 and "not sealed" in out48
@@ -804,7 +804,7 @@ def main():
     # baseline proves a seal once existed (C3 tamper, not bootstrap).
     fx = Fx()
     (fx.d / "app").mkdir()
-    (fx.d / "app" / "a.py").write_text("x = 1\n")
+    (fx.d / "app" / "a.py").write_text("x = 1\n", encoding="utf-8")
     fx.commit("code")
     run([sys.executable, str(SEAL)], fx.d)
     (fx.d / "tests" / "evidence_manifest.json").unlink()
@@ -825,7 +825,7 @@ def main():
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: noseal-media-nogreen\n- Baseline verified GREEN\n"
         "- iter 1 FAIL: criterion #1 | diagnosis: the media capture step never completed | changed: tests/shot.png\n"
-        "- working-note: created (fixture)\n")
+        "- working-note: created (fixture)\n", encoding="utf-8")
     r = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
     out50 = r.stdout + r.stderr
     ok50 = r.returncode == 1 and "  - cited media evidence is not sealed" in out50
@@ -836,14 +836,14 @@ def main():
     # either (review r2 probe A: `--final` always enforces).
     fx = Fx()
     (fx.d / "app").mkdir()
-    (fx.d / "app" / "a.py").write_text("x = 1\n")
+    (fx.d / "app" / "a.py").write_text("x = 1\n", encoding="utf-8")
     fx.commit("code")
     run([sys.executable, str(SEAL)], fx.d)
-    (fx.d / "app" / "a.py").write_text("x = 2\n")
+    (fx.d / "app" / "a.py").write_text("x = 2\n", encoding="utf-8")
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: stale-final-nogreen\n- Baseline verified GREEN\n"
         "- iter 1 FAIL: criterion #1 | diagnosis: the freshness check never completed | changed: app/a.py\n"
-        "- working-note: created (fixture)\n")
+        "- working-note: created (fixture)\n", encoding="utf-8")
     r = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
     out51 = r.stdout + r.stderr
     ok51 = r.returncode == 1 and "  - sealed evidence is STALE" in out51
@@ -854,13 +854,13 @@ def main():
     # line must bring the seal obligation live (review r2 probe B).
     fx = Fx()
     (fx.d / "app").mkdir()
-    (fx.d / "app" / "a.py").write_text("x = 1\n")
+    (fx.d / "app" / "a.py").write_text("x = 1\n", encoding="utf-8")
     fx.commit("code")
     run([sys.executable, str(SEAL)], fx.d)
-    (fx.d / "app" / "a.py").write_text("x = 2\n")
+    (fx.d / "app" / "a.py").write_text("x = 2\n", encoding="utf-8")
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: colonless-pass\n- Baseline verified GREEN\n"
-        "- iter 1 PASS — smoke run (evidence: tests/run.log, 1/1)\n")
+        "- iter 1 PASS — smoke run (evidence: tests/run.log, 1/1)\n", encoding="utf-8")
     r = fx.assert_run()
     out52 = r.stdout + r.stderr
     r_fin = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
@@ -900,10 +900,10 @@ def main():
     import json as _json
     bl_p = fx.d / "tests" / "debt_baseline.json"
     if bl_p.exists():
-        bl = _json.loads(bl_p.read_text())
+        bl = _json.loads(bl_p.read_text(encoding="utf-8"))
         for k in bl:
             bl[k]["recorded"] = 1024
-        bl_p.write_text(_json.dumps(bl))
+        bl_p.write_text(_json.dumps(bl), encoding="utf-8")
         r = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
         out55 = r.stdout + r.stderr
         ok55 = r.returncode == 1 and "GREW beyond" in out55
@@ -1019,9 +1019,9 @@ def main():
     # S62 — T2: the _ignored failure carries the git-add -f hint (W12 guessed
     # 18 times; nested .gitignore files swallowed by ignore rules).
     fx = Fx()
-    (fx.d / ".gitignore").write_text(".DS_Store\n__pycache__/\n*.pyc\n.venv/\nvenv/\ndist/\nbuild/\n.env\n")
+    (fx.d / ".gitignore").write_text(".DS_Store\n__pycache__/\n*.pyc\n.venv/\nvenv/\ndist/\nbuild/\n.env\n", encoding="utf-8")
     (fx.d / "frontend").mkdir()
-    (fx.d / "frontend" / "package.json").write_text("{}\n")
+    (fx.d / "frontend" / "package.json").write_text("{}\n", encoding="utf-8")
     fx.commit("frontend manifest, no node_modules rule")
     r = fx.assert_run()
     out62 = r.stdout + r.stderr
@@ -1046,19 +1046,19 @@ def main():
     # evidence (tests/**/*.log|json|md), and tampering invalidates it.
     import json as _j2
     fx = Fx()
-    (fx.d / "tests" / "project_profile.json").write_text(_j2.dumps({"profile": "library"}))
+    (fx.d / "tests" / "project_profile.json").write_text(_j2.dumps({"profile": "library"}), encoding="utf-8")
     (fx.d / "tests" / "w18").mkdir()
-    (fx.d / "tests" / "w18" / "run.log").write_text("step1 ok\nstep2 ok\n")
+    (fx.d / "tests" / "w18" / "run.log").write_text("step1 ok\nstep2 ok\n", encoding="utf-8")
     (fx.d / "tests" / "verification_log.md").write_text(
         "## Task: g5-seal\n- Baseline verified GREEN\n"
         "- iter 1 PASS: CLI run (evidence: tests/w18/run.log, 2/2)\n"
-        "- working-note: created (fixture)\n")
+        "- working-note: created (fixture)\n", encoding="utf-8")
     r_seal = run([sys.executable, str(SEAL)], fx.d)
-    man = _j2.loads((fx.d / "tests" / "evidence_manifest.json").read_text())
+    man = _j2.loads((fx.d / "tests" / "evidence_manifest.json").read_text(encoding="utf-8"))
     ok64a = r_seal.returncode == 0 and "tests/w18/run.log" in man.get("files", {})
     r_chk = run([sys.executable, str(SEAL), "--check"], fx.d)
     ok64b = r_chk.returncode == 0
-    (fx.d / "tests" / "w18" / "run.log").write_text("step1 ok\nstep2 TAMPERED\n")
+    (fx.d / "tests" / "w18" / "run.log").write_text("step1 ok\nstep2 TAMPERED\n", encoding="utf-8")
     r_chk2 = run([sys.executable, str(SEAL), "--check"], fx.d)
     ok64c = r_chk2.returncode == 1
     rec("S64 G5 cli/library seal binds tests/*.log; tamper fails --check", ok64a and ok64b and ok64c,
@@ -1068,10 +1068,10 @@ def main():
     # and the log stays clean under the hand-typed-sha lint.
     fx = Fx()
     (fx.d / "tests" / "w18").mkdir()
-    (fx.d / "tests" / "w18" / "run.log").write_text("ok\n")
+    (fx.d / "tests" / "w18" / "run.log").write_text("ok\n", encoding="utf-8")
     r_rec = run(["bash", str(REPO / "vibeweaver" / "scripts" / "record_evidence.sh"),
                  "--note", "final harness run", "--hash", "tests/w18/run.log"], fx.d)
-    log_txt = (fx.d / "tests" / "verification_log.md").read_text()
+    log_txt = (fx.d / "tests" / "verification_log.md").read_text(encoding="utf-8")
     r = fx.assert_run()
     out65 = r.stdout + r.stderr
     ok65 = (r_rec.returncode == 0 and "- record:" in log_txt and "sha256=" in log_txt
@@ -1087,10 +1087,10 @@ def main():
     run(["git", "commit", "-q", "--allow-empty", "-m", "backup: before changes"], fx.d)
     run([sys.executable, "tests/assert_artifacts.py", "--record-debt"], fx.d)
     fx.commit("record debt")
-    bl = _json.loads((fx.d / "tests" / "debt_baseline.json").read_text())
+    bl = _json.loads((fx.d / "tests" / "debt_baseline.json").read_text(encoding="utf-8"))
     for k in bl:
         bl[k]["recorded"] = 10 * 1024 * 1024 * 1024
-    (fx.d / "tests" / "debt_baseline.json").write_text(_json.dumps(bl))
+    (fx.d / "tests" / "debt_baseline.json").write_text(_json.dumps(bl), encoding="utf-8")
     r = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
     out66 = r.stdout + r.stderr
     ok66 = r.returncode == 1 and "RAISED above its committed value" in out66
@@ -1106,10 +1106,10 @@ def main():
     run(["git", "commit", "-q", "--allow-empty", "-m", "backup: before changes"], fx.d)
     run([sys.executable, "tests/assert_artifacts.py", "--record-debt"], fx.d)
     fx.commit("record debt")
-    bl = _json.loads((fx.d / "tests" / "debt_baseline.json").read_text())
+    bl = _json.loads((fx.d / "tests" / "debt_baseline.json").read_text(encoding="utf-8"))
     for k in bl:
         bl[k]["recorded"] = 80 * 1024 * 1024
-    (fx.d / "tests" / "debt_baseline.json").write_text(_json.dumps(bl))
+    (fx.d / "tests" / "debt_baseline.json").write_text(_json.dumps(bl), encoding="utf-8")
     fx.commit("raise the baseline (the laundering move)")
     r = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
     out67 = r.stdout + r.stderr
@@ -1154,16 +1154,16 @@ def main():
     run(["git", "commit", "-q", "--allow-empty", "-m", "backup: before changes"], fx.d)
     run([sys.executable, "tests/assert_artifacts.py", "--record-debt"], fx.d)
     fx.commit("record debt")
-    bl = _json.loads((fx.d / "tests" / "debt_baseline.json").read_text())
+    bl = _json.loads((fx.d / "tests" / "debt_baseline.json").read_text(encoding="utf-8"))
     for k in bl:
         bl[k]["recorded"] = 80 * 1024 * 1024
-    (fx.d / "tests" / "debt_baseline.json").write_text(_json.dumps(bl))
+    (fx.d / "tests" / "debt_baseline.json").write_text(_json.dumps(bl), encoding="utf-8")
     fx.commit("raise the baseline")
     for i in range(55):
-        bl = _json.loads((fx.d / "tests" / "debt_baseline.json").read_text())
+        bl = _json.loads((fx.d / "tests" / "debt_baseline.json").read_text(encoding="utf-8"))
         for k in bl:
             bl[k]["reason"] = f"churn {i}"
-        (fx.d / "tests" / "debt_baseline.json").write_text(_json.dumps(bl))
+        (fx.d / "tests" / "debt_baseline.json").write_text(_json.dumps(bl), encoding="utf-8")
         fx.commit(f"churn {i}")
     r = run([sys.executable, "tests/assert_artifacts.py", "--existing", "--final"], fx.d)
     out70 = r.stdout + r.stderr
@@ -1189,7 +1189,7 @@ def main():
              "- iter 1 PASS: evidence tests/run.log tests/gate_result.json\n")
     fx.commit("f19 fixture")
     r_seal = run([sys.executable, str(SEAL)], fx.d)
-    man = _j3.loads((fx.d / "tests" / "evidence_manifest.json").read_text())
+    man = _j3.loads((fx.d / "tests" / "evidence_manifest.json").read_text(encoding="utf-8"))
     ok71a = (r_seal.returncode == 0
              and "tests/run.log" in man.get("files", {})
              and "tests/gate_result.json" not in man.get("files", {})
@@ -1208,7 +1208,7 @@ def main():
     legacy["files"] = dict(man.get("files", {}))
     legacy["files"]["tests/gate_result.json"] = {"sha256": "0" * 64, "size": 1}
     legacy.pop("machine_state_digest_at_seal", None)
-    (fx.d / "tests" / "evidence_manifest.json").write_text(_j3.dumps(legacy))
+    (fx.d / "tests" / "evidence_manifest.json").write_text(_j3.dumps(legacy), encoding="utf-8")
     r_legacy = run([sys.executable, str(SEAL), "--check"], fx.d)
     r_legacy_assert = fx.assert_run()
     out_legacy = r_legacy_assert.stdout + r_legacy_assert.stderr
@@ -1234,7 +1234,7 @@ def main():
              "tests/GATE_RESULT.json\n")
     fx.commit("f19 alias fixture")
     r_seal = run([sys.executable, str(SEAL)], fx.d)
-    man = _j3.loads((fx.d / "tests" / "evidence_manifest.json").read_text())
+    man = _j3.loads((fx.d / "tests" / "evidence_manifest.json").read_text(encoding="utf-8"))
     keys = {k.casefold() for k in man.get("files", {})}
     aliases_absent = not any(k.endswith("gate_result.json") for k in keys)
     fx.write(".vibeweaver/state.json", '{"machine": 1}\n')
@@ -1261,7 +1261,7 @@ def main():
         alias.unlink()
         external = fx.d.parent / (fx.d.name + "-external")
         external.mkdir()
-        (external / "x.log").write_text("outside\n")
+        (external / "x.log").write_text("outside\n", encoding="utf-8")
         os.symlink(external, fx.d / "tests" / "sub")
         fx.append_log("- iter 3 PASS: evidence tests/sub/x.log")
         r_parent = run([sys.executable, str(SEAL)], fx.d)
@@ -1326,7 +1326,7 @@ def main():
     r_seal = run([sys.executable, str(SEAL)], fx.d)
     r_assert = fx.assert_run()
     out76 = r_assert.stdout + r_assert.stderr
-    ok76a = r_seal.returncode == 0 and "tests/shot+1.png" in _j3.loads((fx.d / "tests" / "evidence_manifest.json").read_text()).get("files", {})
+    ok76a = r_seal.returncode == 0 and "tests/shot+1.png" in _j3.loads((fx.d / "tests" / "evidence_manifest.json").read_text(encoding="utf-8")).get("files", {})
     ok76b = r_assert.returncode == 0 and "machine state is not evidence" not in out76
     rec("S76 F19 real media citation keeps evidence teeth and no false machine-only error",
         ok76a and ok76b, f"sealedMedia={ok76a} checker={ok76b}")
