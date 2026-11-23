@@ -1,5 +1,5 @@
 {
-  "commit": "ec17375ae27dd057d5e8b0c4e1be6a5810f60f3a",
+  "commit": "e493852b3150e35339757a316fc5da7b95d25f3e",
   "files": [
     {
       "bytes": 42226,
@@ -187,9 +187,9 @@
       "sha256": "dd9385296ea6c0f67e87c68dbfea78aafbfd52a413b251294d6b70239881b284"
     },
     {
-      "bytes": 2854,
+      "bytes": 3620,
       "path": "vibeweaver/scripts/make_review_package.sh",
-      "sha256": "b311fd3a2a0b439f1837ecb7c7bd623a881d8988e6ffc875ccc22faea806dfd1"
+      "sha256": "1abe14c6a34136b15e1ececafb2da4366d4bccc8cd74e456830362e8e1fef74f"
     },
     {
       "bytes": 27021,
