@@ -6,7 +6,7 @@
  "base_sha": null,
  "candidate_sha": null,
  "checker_digest": null,
- "code_fingerprint": "ca86f83ddb1197030438a41b7a9ff8e9b034b0812220268b536156afeaf996a9",
+ "code_fingerprint": "31fd5b211504bafc38c27bddf0282ed02ae129229ec6046d3ec44ed20c49c5ed",
  "config_digest": null,
  "dep_lock_digest": null,
  "env_digest": null,

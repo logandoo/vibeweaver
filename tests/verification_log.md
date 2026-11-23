@@ -640,3 +640,4 @@ bash script/linux/project_build.sh (or test runner) — run-once baseline
 - test-change: tests/test_compatibility_matrix.py — release-tree sync
 - test-change: tests/test_headless_contracts.py — release-tree sync
 - test-change: tests/test_perf_budget.py — release-tree sync
+- test-change: tests/test_artifact_budget.py — Windows CI fix: real bash resolver + PYTHON pin for the review-package fixture
